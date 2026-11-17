@@ -234,6 +234,21 @@ impl InvoiceActions {
         }
     }
 
+    /// Validates the selected tender before recording it.
+    pub fn payment_error(
+        &self,
+        invoice: &Invoice,
+        company: &CompanyProfile,
+    ) -> Option<&'static str> {
+        match self.method {
+            1 if parse_money(&self.cash).cents() < invoice.total_gross().cents() => {
+                Some("invoices_payment_error_cash")
+            }
+            2 if !company.card_payment_enabled => Some("invoices_payment_error_card"),
+            _ => None,
+        }
+    }
+
     /// Change of the cash dialog.
     pub fn change(&self, total: Money) -> Money {
         payment::change_due(total, parse_money(&self.cash))
@@ -723,14 +738,18 @@ pub fn dialogs(
                         )
                         .activated
                         {
-                            let payment = actions.payment(invoice, company, now);
-                            match store.record_invoice_payment(&payment) {
-                                Ok(()) => {
-                                    status = Some(InvoiceStatus::Paid);
-                                    close = true;
-                                }
-                                Err(error) => {
-                                    actions.notice = Some(error.to_string());
+                            if let Some(error) = actions.payment_error(invoice, company) {
+                                actions.notice = Some(texts.get(error).to_string());
+                            } else {
+                                let payment = actions.payment(invoice, company, now);
+                                match store.record_invoice_payment(&payment) {
+                                    Ok(()) => {
+                                        status = Some(InvoiceStatus::Paid);
+                                        close = true;
+                                    }
+                                    Err(error) => {
+                                        actions.notice = Some(error.to_string());
+                                    }
                                 }
                             }
                         }
@@ -952,6 +971,7 @@ mod tests {
             due_at: 1_760_000_000_000 - 10 * dunning::DAY_MS,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -1026,6 +1046,32 @@ mod tests {
             .payment(&invoice, &company, now)
             .reference
             .contains("AUTH-"));
+    }
+
+    #[test]
+    fn payment_validation_blocks_underpaid_cash_and_unconfigured_card() {
+        let invoice = invoice();
+        let mut company = company();
+        let mut actions = InvoiceActions {
+            method: 1,
+            cash: "99.99".to_string(),
+            ..InvoiceActions::default()
+        };
+        assert_eq!(
+            actions.payment_error(&invoice, &company),
+            Some("invoices_payment_error_cash")
+        );
+        actions.cash = invoice.total_gross().to_decimal_string();
+        assert_eq!(actions.payment_error(&invoice, &company), None);
+
+        actions.method = 2;
+        company.card_payment_enabled = false;
+        assert_eq!(
+            actions.payment_error(&invoice, &company),
+            Some("invoices_payment_error_card")
+        );
+        company.card_payment_enabled = true;
+        assert_eq!(actions.payment_error(&invoice, &company), None);
     }
 
     #[test]

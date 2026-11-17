@@ -10,7 +10,7 @@ use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
 use crate::store::products;
 
-const COLUMNS: &str = "id, number, contact_id, status, issued_at, due_at, currency_symbol, note";
+const COLUMNS: &str = "id, number, contact_id, status, issued_at, due_at, currency_symbol, note, tax_total_override_cents";
 
 /// Inserts an invoice and all of its positions atomically.
 pub fn insert(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
@@ -45,8 +45,8 @@ pub(crate) fn insert_rows(conn: &Connection, invoice: &Invoice) -> CoreResult<()
     invoice.validate().map_err(CoreError::Validation)?;
 
     conn.execute(
-        "INSERT INTO invoices (id, number, contact_id, status, issued_at, due_at, currency_symbol, note)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO invoices (id, number, contact_id, status, issued_at, due_at, currency_symbol, note, tax_total_override_cents)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             invoice.id.to_string(),
             invoice.number,
@@ -56,6 +56,7 @@ pub(crate) fn insert_rows(conn: &Connection, invoice: &Invoice) -> CoreResult<()
             invoice.due_at,
             invoice.currency_symbol,
             invoice.note,
+            invoice.tax_total_override_cents,
         ],
     )?;
 
@@ -90,7 +91,7 @@ pub fn update(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
     let transaction = conn.unchecked_transaction()?;
     let changed = transaction.execute(
         "UPDATE invoices SET number = ?2, contact_id = ?3, status = ?4, issued_at = ?5,
-            due_at = ?6, currency_symbol = ?7, note = ?8 WHERE id = ?1",
+            due_at = ?6, currency_symbol = ?7, note = ?8, tax_total_override_cents = ?9 WHERE id = ?1",
         params![
             invoice.id.to_string(),
             invoice.number,
@@ -100,6 +101,7 @@ pub fn update(conn: &Connection, invoice: &Invoice) -> CoreResult<()> {
             invoice.due_at,
             invoice.currency_symbol,
             invoice.note,
+            invoice.tax_total_override_cents,
         ],
     )?;
     if changed == 0 {
@@ -129,7 +131,8 @@ pub fn set_status(conn: &Connection, id: Uuid, status: InvoiceStatus) -> CoreRes
 
 /// Records the payment of an invoice and marks it paid in the same transaction.
 pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult<()> {
-    let changed = conn.execute(
+    let transaction = conn.unchecked_transaction()?;
+    let changed = transaction.execute(
         "UPDATE invoices SET status = ?2 WHERE id = ?1",
         params![payment.invoice_id.to_string(), InvoiceStatus::Paid.as_str()],
     )?;
@@ -137,7 +140,7 @@ pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult
         return Err(CoreError::NotFound(payment.invoice_id.to_string()));
     }
 
-    conn.execute(
+    transaction.execute(
         "INSERT INTO invoice_payments (invoice_id, paid_at, method, reference, tse_signature)
          VALUES (?1, ?2, ?3, ?4, ?5)
          ON CONFLICT(invoice_id) DO UPDATE SET paid_at = excluded.paid_at,
@@ -151,6 +154,7 @@ pub fn record_payment(conn: &Connection, payment: &InvoicePayment) -> CoreResult
             payment.tse_signature,
         ],
     )?;
+    transaction.commit()?;
     Ok(())
 }
 
@@ -289,6 +293,7 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Invoice> {
         due_at: row.get("due_at")?,
         currency_symbol: row.get("currency_symbol")?,
         note: row.get("note")?,
+        tax_total_override_cents: row.get("tax_total_override_cents")?,
         lines: Vec::new(),
     })
 }

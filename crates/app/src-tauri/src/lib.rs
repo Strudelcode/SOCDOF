@@ -12,10 +12,13 @@
 
 pub mod commands;
 
+use std::path::PathBuf;
+
 use socdof_app::desktop::DesktopState;
 use socdof_app::startup::{SplashAction, StartupHandshake};
 use socdof_app::tray::{self, TrayCommand};
 use socdof_app::window_state::{self, ScreenBounds, WindowGeometry};
+use socdof_core::lock::{InstanceLock, LOCK_FILE_NAME};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
@@ -143,9 +146,10 @@ fn apply_action(app: &AppHandle, action: SplashAction, handshake: &StartupHandsh
 
 /// Writes the geometry of `window` to the state file next to the database.
 fn persist(window: &WebviewWindow) {
-    let Ok(data_dir) = window.path().app_data_dir() else {
+    let Ok(paths) = socdof_core::data_paths::current_process() else {
         return;
     };
+    let data_dir = paths.data_dir;
     let Some(geometry) = geometry_of(window) else {
         return;
     };
@@ -266,8 +270,12 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_dir = app.path().app_data_dir()?;
+            let paths = socdof_core::data_paths::current_process()?;
+            let data_dir = paths.data_dir.clone();
+            let database = paths.database.clone();
             std::fs::create_dir_all(&data_dir)?;
+            let legacy_data_dir = app.path().app_data_dir()?;
+            let legacy_database = legacy_data_dir.join("socdof.db");
             let handle = app.handle().clone();
             let mut handshake = StartupHandshake::new();
 
@@ -279,7 +287,33 @@ pub fn run() {
             let open = if std::env::var_os(FAIL_STARTUP_ENV).is_some() {
                 Err("database_error".to_string())
             } else {
-                DesktopState::open(data_dir.join("socdof.db")).map_err(|error| error.to_string())
+                (|| -> Result<DesktopState, String> {
+                    // Older Tauri builds stored data under the bundle identifier. Migrate it once
+                    // into the shared SOCDOF folder while holding the legacy lock, and keep the
+                    // original database untouched as a rollback copy.
+                    let mut legacy_lock = None;
+                    if !paths.custom && !database.exists() && legacy_database.exists() {
+                        let lock_path = legacy_data_dir.join(LOCK_FILE_NAME);
+                        legacy_lock = Some(
+                            InstanceLock::acquire(&lock_path)
+                                .map_err(|error| error.to_string())?,
+                        );
+                        std::fs::create_dir_all(&data_dir).map_err(|error| error.to_string())?;
+                        std::fs::copy(&legacy_database, &database)
+                            .map_err(|error| error.to_string())?;
+                        for suffix in ["-wal", "-shm"] {
+                            let source = PathBuf::from(format!("{}{suffix}", legacy_database.display()));
+                            if source.exists() {
+                                let destination = PathBuf::from(format!("{}{suffix}", database.display()));
+                                std::fs::copy(source, destination)
+                                    .map_err(|error| error.to_string())?;
+                            }
+                        }
+                    }
+                    let state = DesktopState::open(database).map_err(|error| error.to_string())?;
+                    drop(legacy_lock);
+                    Ok(state)
+                })()
             };
 
             match open {
@@ -353,6 +387,9 @@ pub fn run() {
             commands::therapy_clients,
             commands::save_therapy_client,
             commands::therapy_sessions,
+            commands::therapy_trips,
+            commands::save_therapy_trip,
+            commands::delete_therapy_trip,
             commands::delete_therapy_client,
             commands::save_therapy_session,
             commands::delete_therapy_session,
@@ -431,6 +468,7 @@ pub fn run() {
             commands::export_legacy_backup,
             commands::smoke_enabled,
             commands::smoke_idle,
+            commands::smoke_shortcuts,
             commands::smoke_options,
             commands::smoke_tray_run,
             commands::dispatch_shortcut,

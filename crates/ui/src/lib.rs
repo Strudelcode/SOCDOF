@@ -13,8 +13,8 @@
 //! stylesheet, the appearance/theme engine, the Rust-drawn icon set, the component kit with the
 //! input controls, keyboard focus with token focus rings, a small form framework, the
 //! four-language UI catalogue and the component gallery that renders every state. With the `window`
-//! feature the gallery also runs as a real eframe window (`socdof-ui-gallery`); the default build
-//! stays window free so tests need no desktop libraries.
+//! feature the component gallery runs as `socdof-ui-gallery` and the persistent application runs as
+//! `socdof-ui-desktop`; the default build stays window free so tests need no desktop libraries.
 //!
 //! The primitives are pinned by deterministic snapshots ([`snapshot::capture`]): paint commands are
 //! reduced to stable text and compared with golden files, so a geometry, color or text change is
@@ -33,7 +33,9 @@ pub mod contacts;
 pub mod controls;
 pub mod dashboard;
 pub mod desktop;
+pub mod documentation;
 pub mod editor;
+pub mod fleet;
 pub mod focus;
 pub mod form;
 pub mod gallery;
@@ -46,12 +48,15 @@ pub mod invoices;
 pub mod migration;
 pub mod pos;
 pub mod products;
+pub mod projects;
 pub mod purchases;
 pub mod reports;
+pub mod restaurant;
 pub mod richtext;
 pub mod settings;
 pub mod shell;
 pub mod snapshot;
+pub mod stock_moves;
 pub mod studio;
 pub mod support;
 pub mod theme;
@@ -62,7 +67,8 @@ pub mod wallpaper;
 pub mod widgets;
 
 pub use accounting::{
-    accounting, seed_accounting, AccountingDraft, AccountingState, AccountingTab, AccountingView,
+    accounting, accounting_window, seed_accounting, AccountingDraft, AccountingState,
+    AccountingTab, AccountingView,
 };
 pub use app_store::{app_store, AppStoreState};
 pub use appointments::{
@@ -78,7 +84,10 @@ pub use components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
     Activated, ButtonVariant, SortState, Toast, Toasts, Tone,
 };
-pub use contacts::{contacts, seed_sample, ContactDraft, ContactsState, ContactsView};
+pub use contacts::{
+    contacts, contacts_content, contacts_window, seed_sample, ContactDraft, ContactsState,
+    ContactsView,
+};
 pub use controls::{
     calendar, checkbox, drawer, drop_zone, menu, password_field, select, switch, text_field,
     CalendarLabels, DrawerLabels, PopupState,
@@ -87,12 +96,14 @@ pub use dashboard::{
     dashboard, DashboardAction, DashboardData, DashboardState, Period, SAMPLE_NOW_MS,
 };
 pub use desktop::{
-    default_window_rect, desktop, format_clock, work_area, AppId, DesktopFrame, DesktopIcon,
-    DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window, WindowManager,
+    default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId,
+    DesktopFrame, DesktopIcon, DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window,
+    WindowManager,
 };
 pub use editor::{
     editor, seed_documents, DocumentDraft, EditorState, SAMPLE_NOW_MS as EDITOR_SAMPLE_NOW_MS,
 };
+pub use fleet::{fleet, FleetState, FleetView};
 pub use focus::{focus_ring, FocusState};
 pub use form::{CloseDecision, Field, FormState, UnsavedGuard};
 pub use gallery::{gallery, GalleryState};
@@ -100,16 +111,20 @@ pub use i18n::{UiTexts, UI_KEYS};
 pub use icons::{Icon, ALL_ICONS};
 pub use invoice_templates::{templates_modal, InvoiceTemplatesState};
 pub use invoices::{
-    invoices, seed_invoices, InvoiceDraft, InvoiceLineDraft, InvoicesState, InvoicesView,
+    invoices, invoices_content, invoices_window, seed_invoices, InvoiceDraft, InvoiceLineDraft,
+    InvoicesState, InvoicesView,
 };
-pub use pos::{pos, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
+pub use pos::{pos, pos_window, seed_pos, PosDraft, PosLineDraft, PosState, PosView};
 pub use products::{products, seed_products, ProductDraft, ProductsState, ProductsView};
+pub use projects::{projects, ProjectsState, ProjectsView};
 pub use purchases::{
     purchases, seed_purchases, PurchaseDraft, PurchaseLineDraft, PurchasesState, PurchasesView,
 };
 pub use reports::{reports, ReportsState};
+pub use restaurant::{restaurant, RestaurantState, RestaurantView};
 pub use settings::{
-    seed_settings, settings, SettingsState, SettingsTab, SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
+    seed_settings, settings, settings_content, settings_window, SettingsState, SettingsTab,
+    SAMPLE_NOW_MS as SETTINGS_SAMPLE_NOW_MS,
 };
 pub use shell::{
     command_palette, onboarding, start_menu, tray_flyout, Command, CommandPalette, Onboarding,
@@ -120,7 +135,8 @@ pub use studio::{studio_drawer, StudioCounts, StudioDraft, StudioState, StudioTa
 pub use support::{seed_sample as seed_support, support, SupportState, SupportView, TicketDraft};
 pub use theme::{Appearance, Palette, Theme};
 pub use therapie::{
-    seed_sample as seed_therapie, therapie, ClientDraft, TherapieState, TherapieView,
+    seed_sample as seed_therapie, therapie, therapie_window, ClientDraft, TherapieState,
+    TherapieView,
 };
 pub use tokens::{AccentPreset, CompanionColor};
 pub use users::{seed_users, users, UserDraft, UsersState, UsersView};

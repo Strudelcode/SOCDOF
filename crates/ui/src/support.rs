@@ -552,8 +552,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SupportSt
         badge(ui, theme, texts.get(key), Tone::Danger);
     }
 }
-
 /// Renders the support screen into the context.
+/// Renders support in the full application work area.
 pub fn support(
     ctx: &Context,
     theme: &Theme,
@@ -563,7 +563,30 @@ pub fn support(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            support_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+/// Renders support inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn support_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SupportState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             SupportView::List => state.back = true,
             SupportView::Detail => state.view = SupportView::List,
@@ -575,19 +598,11 @@ pub fn support(
         state.error = Some("support_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                SupportView::List => list_view(ui, theme, texts, focus, state),
-                SupportView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                SupportView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        SupportView::List => list_view(ui, theme, texts, focus, state),
+        SupportView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        SupportView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;

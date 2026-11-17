@@ -183,7 +183,7 @@ JavaScript. The decision and the removal plan for the temporary Vite frontend ar
   cache.
 - `widgets` is the desktop widgets layer: a clock/date card and a battery/connection status card,
   drawn from the tokens and independent of the window z-order.
-- `icons` paints the 28 glyphs that replace `lucide-react`, defined in a normalized box so they
+- `icons` paints the 35 glyphs that replace `lucide-react`, defined in a normalized box so they
   scale without assets.
 - `calendar` holds the civil-date math for the date picker (leap years, weekday of the first day,
   six-week grid); it mirrors the core algorithm instead of adding a date library.
@@ -474,7 +474,7 @@ cargo test --workspace
 | Legacy (`SOCDOF - TS`) | Rust |
 | React + Vite + TypeScript UI | egui components drawn from the ported design tokens |
 | CSS variables / Tailwind classes | `tokens` + `Palette` applied to the egui context |
-| `lucide-react` icons | Rust-drawn glyphs (28) |
+| `lucide-react` icons | Rust-drawn glyphs (35) |
 | `src/lib/db.ts` (Dexie/IndexedDB) | `crates/core/src/store` (SQLite) |
 | `src/lib/auth.ts` | `domain/user.rs`, `store/users.rs`, `security.rs` |
 | `src/components/*Module.tsx` | `crates/ui` screens (Phase 4–6) |

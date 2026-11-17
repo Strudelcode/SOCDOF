@@ -27,6 +27,72 @@ impl Money {
         self.0
     }
 
+    /// Parses a plain decimal into an integer with the requested number of fractional digits.
+    ///
+    /// Unlike a floating-point conversion, this never rounds values that cannot be represented at
+    /// the requested scale. Both decimal comma and decimal point are accepted; grouping separators
+    /// are deliberately rejected so an ambiguous value cannot silently change its meaning.
+    pub fn parse_scaled_decimal(input: &str, decimal_places: u32) -> Option<i64> {
+        if decimal_places > 9 {
+            return None;
+        }
+        let compact = input.trim();
+        if compact.is_empty() {
+            return None;
+        }
+
+        let (negative, body) = match compact.as_bytes()[0] {
+            b'-' => (true, &compact[1..]),
+            b'+' => (false, &compact[1..]),
+            _ => (false, compact),
+        };
+        if body.is_empty() {
+            return None;
+        }
+
+        let separator = body.bytes().position(|byte| byte == b'.' || byte == b',');
+        let (whole_part, fraction_part) = match separator {
+            Some(index) => (&body[..index], &body[index + 1..]),
+            None => (body, ""),
+        };
+        if fraction_part
+            .bytes()
+            .any(|byte| byte == b'.' || byte == b',')
+        {
+            return None;
+        }
+        if whole_part.is_empty() && fraction_part.is_empty() {
+            return None;
+        }
+        if !whole_part.bytes().all(|byte| byte.is_ascii_digit())
+            || !fraction_part.bytes().all(|byte| byte.is_ascii_digit())
+            || fraction_part.len() > decimal_places as usize
+        {
+            return None;
+        }
+
+        let whole = if whole_part.is_empty() {
+            0
+        } else {
+            whole_part.parse::<i64>().ok()?
+        };
+        let scale = 10_i64.checked_pow(decimal_places)?;
+        let mut fraction = if fraction_part.is_empty() {
+            0
+        } else {
+            fraction_part.parse::<i64>().ok()?
+        };
+        for _ in fraction_part.len()..decimal_places as usize {
+            fraction = fraction.checked_mul(10)?;
+        }
+        let value = whole.checked_mul(scale)?.checked_add(fraction)?;
+        if negative {
+            value.checked_neg()
+        } else {
+            Some(value)
+        }
+    }
+
     /// Parses user input such as `1234.56`, `1.234,56` or `-12,50`.
     ///
     /// The last separator wins as decimal separator when at most two digits follow it, otherwise all
@@ -182,6 +248,22 @@ mod tests {
         assert_eq!(Money::parse("0"), Some(Money::ZERO));
         assert_eq!(Money::parse(""), None);
         assert_eq!(Money::parse("abc"), None);
+    }
+
+    #[test]
+    fn parses_scaled_decimals_without_rounding() {
+        assert_eq!(Money::parse_scaled_decimal("1,25", 3), Some(1_250));
+        assert_eq!(Money::parse_scaled_decimal("0.5", 2), Some(50));
+        assert_eq!(Money::parse_scaled_decimal(".125", 3), Some(125));
+        assert_eq!(Money::parse_scaled_decimal("-2.5", 2), Some(-250));
+        assert_eq!(Money::parse_scaled_decimal("1.0009", 3), None);
+        assert_eq!(Money::parse_scaled_decimal("1,234", 2), None);
+        assert_eq!(Money::parse_scaled_decimal("1.2,3", 2), None);
+        assert_eq!(Money::parse_scaled_decimal("1 000", 2), None);
+        assert_eq!(
+            Money::parse_scaled_decimal("999999999999999999999", 2),
+            None
+        );
     }
 
     #[test]

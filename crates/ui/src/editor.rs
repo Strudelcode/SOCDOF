@@ -921,8 +921,8 @@ fn spell_panel(
         }
     });
 }
-
 /// Renders the text editor into the context.
+/// Renders editor in the full application work area.
 pub fn editor(
     ctx: &Context,
     theme: &Theme,
@@ -932,7 +932,31 @@ pub fn editor(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            editor_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+/// Renders editor inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn editor_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut EditorState,
+    store: &Store,
+    now: i64,
+) {
+    if active
+        && !state.confirm_delete
         && !state.has_pending_discard()
         && ctx.input(|input| input.key_pressed(egui::Key::Escape))
     {
@@ -943,32 +967,25 @@ pub fn editor(
     }
 
     let mut actions = Actions::default();
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical()
-                .id_source("editor-screen")
-                .show(ui, |ui| {
-                    header(ui, theme, texts, focus, state, &mut actions);
-                    ui.add_space(8.0);
-                    messages(ui, theme, texts, state);
-                    ui.add_space(6.0);
-                    ui.horizontal_top(|ui| {
-                        ui.vertical(|ui| {
-                            ui.set_width(310.0);
-                            document_list(ui, theme, texts, focus, state, &mut actions);
-                        });
-                        ui.add_space(14.0);
-                        ui.vertical(|ui| {
-                            ui.set_min_width(ui.available_width());
-                            document_editor(ui, theme, texts, focus, state, &mut actions);
-                        });
-                    });
+
+    egui::ScrollArea::vertical()
+        .id_source("editor-screen")
+        .show(ui, |ui| {
+            header(ui, theme, texts, focus, state, &mut actions);
+            ui.add_space(8.0);
+            messages(ui, theme, texts, state);
+            ui.add_space(6.0);
+            ui.horizontal_top(|ui| {
+                ui.vertical(|ui| {
+                    ui.set_width(310.0);
+                    document_list(ui, theme, texts, focus, state, &mut actions);
                 });
+                ui.add_space(14.0);
+                ui.vertical(|ui| {
+                    ui.set_min_width(ui.available_width());
+                    document_editor(ui, theme, texts, focus, state, &mut actions);
+                });
+            });
         });
 
     if actions.save || ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {

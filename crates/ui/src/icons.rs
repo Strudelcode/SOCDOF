@@ -4,7 +4,7 @@
 //! drawn from line segments, circles and polygons here. Glyphs are defined in a normalized 0..1 box
 //! and scaled by the caller, which keeps them crisp at any size and identical in both appearances.
 
-use egui::{Color32, Painter, Pos2, Rect, Stroke};
+use egui::{Color32, Painter, Pos2, Rect, Stroke, Vec2};
 
 /// Glyphs the kit can draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,10 +77,36 @@ pub enum Icon {
     Shield,
     /// Shopping bag, the point of sale module.
     Bag,
+    /// Car silhouette, the fleet module.
+    Car,
+    /// Office building, company profile.
+    Building,
+    /// Payment card and chip.
+    CreditCard,
+    /// Language globe and meridians.
+    Languages,
+    /// Color palette with paint wells.
+    Palette,
+    /// Security key.
+    Key,
+    /// Database cylinder.
+    Database,
+    /// Multiple user accounts.
+    Users,
+    /// Download arrow.
+    Download,
+    /// Local storage drive.
+    HardDrive,
+    /// Keyboard keycaps.
+    Keyboard,
+    /// Desktop monitor with stand.
+    Monitor,
+    /// Document page with folded corner and text lines.
+    FileText,
 }
 
 /// Every icon of the set, used by the gallery and the tests.
-pub const ALL_ICONS: [Icon; 34] = [
+pub const ALL_ICONS: [Icon; 47] = [
     Icon::Search,
     Icon::Plus,
     Icon::Edit,
@@ -115,6 +141,19 @@ pub const ALL_ICONS: [Icon; 34] = [
     Icon::Book,
     Icon::Shield,
     Icon::Bag,
+    Icon::Car,
+    Icon::Building,
+    Icon::CreditCard,
+    Icon::Languages,
+    Icon::Palette,
+    Icon::Key,
+    Icon::Database,
+    Icon::Users,
+    Icon::Download,
+    Icon::HardDrive,
+    Icon::Keyboard,
+    Icon::Monitor,
+    Icon::FileText,
 ];
 
 impl Icon {
@@ -430,6 +469,27 @@ impl Icon {
                     p(0.64, 0.32),
                 ]);
             }
+            Icon::Car => {
+                polyline(vec![
+                    p(0.1, 0.62),
+                    p(0.2, 0.43),
+                    p(0.3, 0.25),
+                    p(0.7, 0.25),
+                    p(0.82, 0.43),
+                    p(0.92, 0.62),
+                    p(0.92, 0.78),
+                    p(0.08, 0.78),
+                    p(0.1, 0.62),
+                ]);
+                polyline(vec![
+                    p(0.3, 0.27),
+                    p(0.27, 0.58),
+                    p(0.73, 0.58),
+                    p(0.7, 0.27),
+                ]);
+                painter.circle_stroke(p(0.27, 0.78), rect.width() * 0.09, stroke);
+                painter.circle_stroke(p(0.73, 0.78), rect.width() * 0.09, stroke);
+            }
             Icon::Wifi => {
                 for (spread, radius) in [(0.55, 0.44), (0.8, 0.3)] {
                     let mut points = Vec::new();
@@ -444,6 +504,160 @@ impl Icon {
                     polyline(points);
                 }
                 dot(0.5, 0.8, 0.06);
+            }
+            Icon::Building => {
+                polygon(vec![
+                    p(0.16, 0.86),
+                    p(0.16, 0.34),
+                    p(0.5, 0.14),
+                    p(0.84, 0.34),
+                    p(0.84, 0.86),
+                ]);
+                for (x, y) in [(0.34, 0.42), (0.66, 0.42), (0.34, 0.62), (0.66, 0.62)] {
+                    painter.rect_stroke(
+                        Rect::from_center_size(p(x, y), Vec2::splat(rect.width() * 0.12)),
+                        egui::Rounding::same(1.0),
+                        stroke,
+                    );
+                }
+                polyline(vec![
+                    p(0.44, 0.86),
+                    p(0.44, 0.68),
+                    p(0.56, 0.68),
+                    p(0.56, 0.86),
+                ]);
+            }
+            Icon::CreditCard => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.1, 0.22), p(0.9, 0.78)),
+                    egui::Rounding::same(rect.width() * 0.08),
+                    stroke,
+                );
+                polyline(vec![p(0.1, 0.42), p(0.9, 0.42)]);
+                polyline(vec![p(0.22, 0.62), p(0.46, 0.62)]);
+            }
+            Icon::Languages => {
+                painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
+                polyline(vec![p(0.12, 0.5), p(0.88, 0.5)]);
+                polyline(vec![
+                    p(0.5, 0.12),
+                    p(0.38, 0.32),
+                    p(0.34, 0.5),
+                    p(0.38, 0.68),
+                    p(0.5, 0.88),
+                ]);
+                polyline(vec![
+                    p(0.5, 0.12),
+                    p(0.62, 0.32),
+                    p(0.66, 0.5),
+                    p(0.62, 0.68),
+                    p(0.5, 0.88),
+                ]);
+            }
+            Icon::Palette => {
+                painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
+                dot(0.34, 0.34, 0.045);
+                dot(0.58, 0.28, 0.045);
+                dot(0.72, 0.48, 0.045);
+                dot(0.42, 0.68, 0.045);
+            }
+            Icon::Key => {
+                painter.circle_stroke(p(0.32, 0.42), rect.width() * 0.2, stroke);
+                polyline(vec![p(0.48, 0.56), p(0.84, 0.86)]);
+                polyline(vec![p(0.68, 0.7), p(0.78, 0.6)]);
+                polyline(vec![p(0.76, 0.78), p(0.86, 0.68)]);
+            }
+            Icon::Database => {
+                painter.circle_stroke(p(0.5, 0.24), rect.width() * 0.34, stroke);
+                polyline(vec![p(0.16, 0.24), p(0.16, 0.72)]);
+                polyline(vec![p(0.84, 0.24), p(0.84, 0.72)]);
+                polyline(vec![
+                    p(0.16, 0.48),
+                    p(0.24, 0.56),
+                    p(0.5, 0.6),
+                    p(0.76, 0.56),
+                    p(0.84, 0.48),
+                ]);
+                polyline(vec![
+                    p(0.16, 0.72),
+                    p(0.24, 0.8),
+                    p(0.5, 0.84),
+                    p(0.76, 0.8),
+                    p(0.84, 0.72),
+                ]);
+            }
+            Icon::Users => {
+                painter.circle_stroke(p(0.38, 0.34), rect.width() * 0.14, stroke);
+                painter.circle_stroke(p(0.68, 0.4), rect.width() * 0.11, stroke);
+                polyline(vec![
+                    p(0.12, 0.82),
+                    p(0.18, 0.62),
+                    p(0.38, 0.54),
+                    p(0.58, 0.62),
+                    p(0.64, 0.82),
+                ]);
+                polyline(vec![
+                    p(0.62, 0.62),
+                    p(0.76, 0.58),
+                    p(0.9, 0.7),
+                    p(0.92, 0.82),
+                ]);
+            }
+            Icon::Download => {
+                polyline(vec![p(0.5, 0.12), p(0.5, 0.66)]);
+                polyline(vec![p(0.28, 0.46), p(0.5, 0.68), p(0.72, 0.46)]);
+                polyline(vec![
+                    p(0.16, 0.74),
+                    p(0.16, 0.88),
+                    p(0.84, 0.88),
+                    p(0.84, 0.74),
+                ]);
+            }
+            Icon::HardDrive => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.12, 0.22), p(0.88, 0.78)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.12, 0.62), p(0.88, 0.62)]);
+                dot(0.72, 0.43, 0.035);
+                dot(0.82, 0.43, 0.035);
+            }
+            Icon::Keyboard => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.08, 0.24), p(0.92, 0.76)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                for y in [0.4, 0.56] {
+                    for x in [0.22, 0.38, 0.54, 0.7, 0.84] {
+                        dot(x, y, 0.025);
+                    }
+                }
+                polyline(vec![p(0.3, 0.66), p(0.7, 0.66)]);
+            }
+            Icon::Monitor => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.1, 0.14), p(0.9, 0.68)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.5, 0.68), p(0.5, 0.84)]);
+                polyline(vec![p(0.3, 0.86), p(0.7, 0.86)]);
+            }
+            Icon::FileText => {
+                polyline(vec![
+                    p(0.24, 0.12),
+                    p(0.62, 0.12),
+                    p(0.78, 0.28),
+                    p(0.78, 0.88),
+                    p(0.24, 0.88),
+                    p(0.24, 0.12),
+                ]);
+                polyline(vec![p(0.62, 0.12), p(0.62, 0.3), p(0.78, 0.3)]);
+                for y in [0.48, 0.62, 0.76] {
+                    polyline(vec![p(0.36, y), p(0.66, y)]);
+                }
             }
         }
     }

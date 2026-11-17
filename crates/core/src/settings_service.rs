@@ -5,6 +5,7 @@
 //! later the mobile companion all get the same rules.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use uuid::Uuid;
 
 use crate::domain::settings::{CompanyProfile, Language, ThemeMode};
@@ -13,6 +14,9 @@ use crate::store::Store;
 
 /// Prefix of the per-user preference keys in the settings table.
 pub const PREFERENCES_PREFIX: &str = "user_preferences:";
+
+/// Prefix of per-user desktop layout records.
+pub const DESKTOP_LAYOUT_PREFIX: &str = "user_desktop_layout:";
 
 /// Key of the update policy.
 pub const UPDATE_SETTINGS_KEY: &str = "update_settings";
@@ -139,6 +143,90 @@ fn preferences_key(user_id: Uuid) -> String {
     format!("{PREFERENCES_PREFIX}{user_id}")
 }
 
+/// Persisted desktop icon layout for one account.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopLayout {
+    /// Stable app slug to grid cell (column, row).
+    pub icon_positions: BTreeMap<String, (u32, u32)>,
+    /// Last normal window rectangle and maximize state, keyed by app slug.
+    pub window_states: BTreeMap<String, DesktopWindowLayout>,
+}
+
+/// Geometry restored when an application window is opened again.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopWindowLayout {
+    /// Horizontal position in desktop points.
+    pub x: i32,
+    /// Vertical position in desktop points.
+    pub y: i32,
+    /// Normal window width in desktop points.
+    pub width: u32,
+    /// Normal window height in desktop points.
+    pub height: u32,
+    /// Whether the window was maximized.
+    pub maximized: bool,
+    /// Whether this window was open when the user last left the desktop.
+    ///
+    /// Missing values in older layout records default to false.
+    pub open: bool,
+    /// Whether this open window was minimized.
+    pub minimized: bool,
+    /// Stacking order from back (zero) to front (larger values).
+    ///
+    /// Missing values in older layout records default to zero.
+    pub z_order: u32,
+}
+
+fn desktop_layout_key(user_id: Uuid) -> String {
+    format!("{DESKTOP_LAYOUT_PREFIX}{user_id}")
+}
+
+/// Loads an account's desktop layout. Unknown or older records safely fall back to defaults.
+pub fn desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<DesktopLayout> {
+    match store.get_setting(&desktop_layout_key(user_id))? {
+        Some(value) => Ok(serde_json::from_value(value).unwrap_or_default()),
+        None => Ok(DesktopLayout::default()),
+    }
+}
+
+/// Saves a normalized desktop layout, ignoring malformed app slugs and excessive grid rows.
+pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout) -> CoreResult<()> {
+    let normalized = DesktopLayout {
+        icon_positions: layout
+            .icon_positions
+            .iter()
+            .filter(|(slug, (column, row))| {
+                !slug.trim().is_empty() && slug.len() <= 64 && *column < 6 && *row < 256
+            })
+            .map(|(slug, cell)| (slug.clone(), *cell))
+            .collect(),
+        window_states: layout
+            .window_states
+            .iter()
+            .filter(|(slug, window)| {
+                !slug.trim().is_empty()
+                    && slug.len() <= 64
+                    && (-32_768..=32_768).contains(&window.x)
+                    && (-32_768..=32_768).contains(&window.y)
+                    && (320..=16_384).contains(&window.width)
+                    && (220..=16_384).contains(&window.height)
+            })
+            .map(|(slug, window)| (slug.clone(), *window))
+            .collect(),
+    };
+    store.put_setting(
+        &desktop_layout_key(user_id),
+        &serde_json::to_value(normalized)?,
+    )
+}
+
+/// Removes a user's desktop layout when their account is deleted.
+pub fn delete_desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<()> {
+    store.remove_setting(&desktop_layout_key(user_id))
+}
+
 /// Loads the company profile (defaults when nothing was saved yet).
 pub fn company_profile(store: &Store) -> CoreResult<CompanyProfile> {
     store.company_profile()
@@ -203,7 +291,8 @@ pub fn resolve_language(store: &Store, user_id: Option<Uuid>) -> CoreResult<Lang
 
 /// Removes the preferences of a user, for example when the account is deleted.
 pub fn delete_preferences(store: &Store, user_id: Uuid) -> CoreResult<()> {
-    store.remove_setting(&preferences_key(user_id))
+    store.remove_setting(&preferences_key(user_id))?;
+    delete_desktop_layout(store, user_id)
 }
 
 /// Loads the update policy (defaults before the first save).
@@ -294,6 +383,148 @@ mod tests {
         assert_eq!(
             preferences(&store, first).expect("loaded").language,
             Language::De
+        );
+    }
+
+    #[test]
+    fn legacy_window_layouts_default_to_closed_and_open_state_round_trips() {
+        let legacy: DesktopWindowLayout = serde_json::from_value(serde_json::json!({
+            "x": 24,
+            "y": 36,
+            "width": 900,
+            "height": 640,
+            "maximized": false
+        }))
+        .expect("legacy layout");
+        assert!(!legacy.open);
+        assert!(!legacy.minimized);
+        assert_eq!(legacy.z_order, 0);
+
+        let store = Store::open_in_memory().expect("store");
+        let user_id = Uuid::new_v4();
+        let layout = DesktopLayout {
+            window_states: [(
+                "contacts".to_string(),
+                DesktopWindowLayout {
+                    x: 24,
+                    y: 36,
+                    width: 900,
+                    height: 640,
+                    maximized: true,
+                    open: true,
+                    minimized: false,
+                    z_order: 1,
+                },
+            )]
+            .into_iter()
+            .collect(),
+            ..DesktopLayout::default()
+        };
+        save_desktop_layout(&store, user_id, &layout).expect("save layout");
+        assert_eq!(
+            desktop_layout(&store, user_id)
+                .expect("load layout")
+                .window_states
+                .get("contacts"),
+            layout.window_states.get("contacts")
+        );
+    }
+
+    #[test]
+    fn desktop_layout_is_scoped_to_user_and_sanitized() {
+        let store = Store::open_in_memory().expect("store");
+        let first = Uuid::new_v4();
+        let second = Uuid::new_v4();
+        let layout = DesktopLayout {
+            icon_positions: [
+                ("contacts".to_string(), (2, 1)),
+                ("settings".to_string(), (0, 3)),
+                ("".to_string(), (1, 1)),
+                ("invalid-column".to_string(), (6, 0)),
+                ("invalid-row".to_string(), (0, 256)),
+            ]
+            .into_iter()
+            .collect(),
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, first, &layout).expect("saved");
+        save_preferences(&store, first, &Preferences::default()).expect("preferences saved");
+        let loaded = desktop_layout(&store, first).expect("loaded");
+        assert_eq!(loaded.icon_positions.len(), 2);
+        assert_eq!(loaded.icon_positions.get("contacts"), Some(&(2, 1)));
+        assert_eq!(
+            desktop_layout(&store, second)
+                .expect("other user")
+                .icon_positions,
+            BTreeMap::new()
+        );
+
+        delete_preferences(&store, first).expect("account preferences deleted");
+        assert_eq!(
+            preferences(&store, first)
+                .expect("default preferences")
+                .accent_color,
+            "indigo"
+        );
+        assert!(desktop_layout(&store, first)
+            .expect("defaults")
+            .icon_positions
+            .is_empty());
+    }
+
+    #[test]
+    fn older_desktop_layout_records_default_missing_window_states() {
+        let legacy = serde_json::json!({
+            "icon_positions": {
+                "contacts": [2, 1]
+            }
+        });
+        let layout: DesktopLayout =
+            serde_json::from_value(legacy).expect("legacy layout remains readable");
+        assert_eq!(layout.icon_positions.get("contacts"), Some(&(2, 1)));
+        assert!(layout.window_states.is_empty());
+    }
+
+    #[test]
+    fn desktop_window_geometry_is_persisted_per_user_and_sanitized() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let layout = DesktopLayout {
+            window_states: [
+                (
+                    "contacts".to_string(),
+                    DesktopWindowLayout {
+                        x: 120,
+                        y: 80,
+                        width: 900,
+                        height: 640,
+                        maximized: true,
+                        open: true,
+                        minimized: false,
+                        z_order: 1,
+                    },
+                ),
+                (
+                    "invalid".to_string(),
+                    DesktopWindowLayout {
+                        width: 120,
+                        height: 100,
+                        ..DesktopWindowLayout::default()
+                    },
+                ),
+            ]
+            .into_iter()
+            .collect(),
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, user, &layout).expect("save");
+        let saved = desktop_layout(&store, user).expect("load");
+        assert_eq!(saved.window_states.len(), 1);
+        assert_eq!(
+            saved.window_states.get("contacts"),
+            layout.window_states.get("contacts")
         );
     }
 

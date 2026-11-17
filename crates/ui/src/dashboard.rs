@@ -419,8 +419,8 @@ fn kpi_card(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str, hint: &s
         );
     });
 }
-
 /// Renders the dashboard into the context.
+/// Renders dashboard in the full application work area.
 pub fn dashboard(
     ctx: &Context,
     theme: &Theme,
@@ -429,9 +429,6 @@ pub fn dashboard(
     state: &mut DashboardState,
     now: i64,
 ) {
-    let summary = state.summary(now);
-    let symbol = state.data.currency().to_string();
-
     egui::CentralPanel::default()
         .frame(
             egui::Frame::none()
@@ -439,232 +436,248 @@ pub fn dashboard(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                let subtitle = format!(
-                    "{} · {}",
-                    state.data.company,
-                    texts.get("dashboard_subtitle")
-                );
-                crate::chrome::module_header(
+            dashboard_window(ctx, true, ui, theme, texts, focus, state, now);
+        });
+}
+/// Renders dashboard inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn dashboard_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut DashboardState,
+    now: i64,
+) {
+    let _ = active;
+    let summary = state.summary(now);
+    let symbol = state.data.currency().to_string();
+
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        let subtitle = format!(
+            "{} · {}",
+            state.data.company,
+            texts.get("dashboard_subtitle")
+        );
+        crate::chrome::module_header(
+            ui,
+            theme,
+            texts,
+            focus,
+            crate::chrome::ModuleHeader {
+                app: crate::chrome::app_chrome("dashboard"),
+                title: texts.get("dashboard_title"),
+                subtitle: &subtitle,
+                status: None,
+            },
+            &mut state.back,
+        );
+
+        ui.add_space(12.0);
+        let labels: [&str; 4] =
+            std::array::from_fn(|index| texts.get(Period::ALL[index].label_key()));
+        let mut selected = state.period.index();
+        if tabs(ui, theme, focus, &labels, &mut selected) {
+            state.set_period(Period::from_index(selected));
+            ctx.request_repaint();
+        }
+
+        ui.add_space(12.0);
+        if state.data.is_empty() {
+            card(ui, theme, |ui| {
+                empty_state(
                     ui,
                     theme,
-                    texts,
-                    focus,
-                    crate::chrome::ModuleHeader {
-                        app: crate::chrome::app_chrome("dashboard"),
-                        title: texts.get("dashboard_title"),
-                        subtitle: &subtitle,
-                        status: None,
-                    },
-                    &mut state.back,
+                    texts.get("dashboard_empty_title"),
+                    texts.get("dashboard_empty_hint"),
                 );
+            });
+        }
 
-                ui.add_space(12.0);
-                let labels: [&str; 4] =
-                    std::array::from_fn(|index| texts.get(Period::ALL[index].label_key()));
-                let mut selected = state.period.index();
-                if tabs(ui, theme, focus, &labels, &mut selected) {
-                    state.set_period(Period::from_index(selected));
-                    ctx.request_repaint();
+        let kpis = [
+            (
+                texts.get("dashboard_revenue"),
+                summary.gross.format_localized(&symbol),
+                texts.get("dashboard_revenue_hint"),
+                Tone::Accent,
+            ),
+            (
+                texts.get("dashboard_open_amount"),
+                summary.open.format_localized(&symbol),
+                texts.get("dashboard_open_hint"),
+                Tone::Warning,
+            ),
+            (
+                texts.get("dashboard_overdue"),
+                summary.overdue.format_localized(&symbol),
+                texts.get("dashboard_overdue_hint"),
+                Tone::Danger,
+            ),
+            (
+                texts.get("dashboard_inventory"),
+                summary.inventory_cost.format_localized(&symbol),
+                texts.get("dashboard_inventory_hint"),
+                Tone::Accent,
+            ),
+            (
+                texts.get("dashboard_contacts"),
+                summary.contacts.to_string(),
+                texts.get("dashboard_contacts_hint"),
+                Tone::Success,
+            ),
+            (
+                texts.get("dashboard_products"),
+                summary.products.to_string(),
+                texts.get("dashboard_products_hint"),
+                Tone::Success,
+            ),
+            (
+                texts.get("dashboard_low_stock"),
+                summary.low_stock.to_string(),
+                texts.get("dashboard_low_stock_hint"),
+                if summary.low_stock > 0 {
+                    Tone::Warning
+                } else {
+                    Tone::Neutral
+                },
+            ),
+            (
+                texts.get("dashboard_upcoming"),
+                summary.upcoming_appointments.to_string(),
+                texts.get("dashboard_upcoming_hint"),
+                Tone::Neutral,
+            ),
+        ];
+        for row in kpis.chunks(4) {
+            ui.columns(4, |columns| {
+                for (index, (label, value, hint, tone)) in row.iter().enumerate() {
+                    kpi_card(&mut columns[index], theme, label, value, hint, *tone);
                 }
+            });
+            ui.add_space(8.0);
+        }
 
-                ui.add_space(12.0);
-                if state.data.is_empty() {
-                    card(ui, theme, |ui| {
-                        empty_state(
-                            ui,
-                            theme,
-                            texts.get("dashboard_empty_title"),
-                            texts.get("dashboard_empty_hint"),
-                        );
-                    });
-                }
-
-                let kpis = [
-                    (
-                        texts.get("dashboard_revenue"),
-                        summary.gross.format_localized(&symbol),
-                        texts.get("dashboard_revenue_hint"),
-                        Tone::Accent,
-                    ),
-                    (
-                        texts.get("dashboard_open_amount"),
-                        summary.open.format_localized(&symbol),
-                        texts.get("dashboard_open_hint"),
-                        Tone::Warning,
-                    ),
-                    (
-                        texts.get("dashboard_overdue"),
-                        summary.overdue.format_localized(&symbol),
-                        texts.get("dashboard_overdue_hint"),
-                        Tone::Danger,
-                    ),
-                    (
-                        texts.get("dashboard_inventory"),
-                        summary.inventory_cost.format_localized(&symbol),
-                        texts.get("dashboard_inventory_hint"),
-                        Tone::Accent,
-                    ),
-                    (
-                        texts.get("dashboard_contacts"),
-                        summary.contacts.to_string(),
-                        texts.get("dashboard_contacts_hint"),
-                        Tone::Success,
-                    ),
-                    (
-                        texts.get("dashboard_products"),
-                        summary.products.to_string(),
-                        texts.get("dashboard_products_hint"),
-                        Tone::Success,
-                    ),
-                    (
-                        texts.get("dashboard_low_stock"),
-                        summary.low_stock.to_string(),
-                        texts.get("dashboard_low_stock_hint"),
-                        if summary.low_stock > 0 {
-                            Tone::Warning
-                        } else {
-                            Tone::Neutral
-                        },
-                    ),
-                    (
-                        texts.get("dashboard_upcoming"),
-                        summary.upcoming_appointments.to_string(),
-                        texts.get("dashboard_upcoming_hint"),
-                        Tone::Neutral,
-                    ),
-                ];
-                for row in kpis.chunks(4) {
-                    ui.columns(4, |columns| {
-                        for (index, (label, value, hint, tone)) in row.iter().enumerate() {
-                            kpi_card(&mut columns[index], theme, label, value, hint, *tone);
-                        }
-                    });
-                    ui.add_space(8.0);
-                }
-
-                ui.add_space(12.0);
-                card(ui, theme, |ui| {
-                    ui.label(RichText::new(texts.get("dashboard_quick_actions")).strong());
-                    ui.add_space(6.0);
-                    ui.horizontal_wrapped(|ui| {
-                        for action in DashboardAction::ALL {
-                            if !state.action_available(action) {
-                                continue;
-                            }
-                            if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get(action.label_key()),
-                                ButtonVariant::Secondary,
-                            )
-                            .activated
-                            {
-                                state.action = Some(action);
-                            }
-                        }
-                    });
-                });
-
-                ui.add_space(12.0);
-                card(ui, theme, |ui| {
-                    ui.label(RichText::new(texts.get("dashboard_recent_invoices")).strong());
-                    ui.add_space(6.0);
-                    let rows: Vec<&InvoiceOverview> = state.data.recent(5).collect();
-                    if rows.is_empty() {
-                        empty_state(
-                            ui,
-                            theme,
-                            texts.get("dashboard_no_invoices"),
-                            texts.get("dashboard_no_invoices_hint"),
-                        );
-                    } else {
-                        egui::Grid::new("socdof-dashboard-invoices")
-                            .num_columns(4)
-                            .spacing(egui::vec2(16.0, 8.0))
-                            .show(ui, |ui| {
-                                for key in [
-                                    "dashboard_col_number",
-                                    "dashboard_col_customer",
-                                    "dashboard_col_status",
-                                    "dashboard_col_total",
-                                ] {
-                                    ui.label(
-                                        RichText::new(texts.get(key))
-                                            .size(FONT_SMALL)
-                                            .strong()
-                                            .color(theme.palette.text_muted),
-                                    );
-                                }
-                                ui.end_row();
-                                for invoice in rows {
-                                    let contact = if invoice.contact.is_empty() {
-                                        texts.get("dashboard_col_customer")
-                                    } else {
-                                        invoice.contact.as_str()
-                                    };
-                                    ui.label(&invoice.number);
-                                    ui.label(contact);
-                                    badge(
-                                        ui,
-                                        theme,
-                                        texts.get(status_key(invoice.status)),
-                                        status_tone(invoice.status),
-                                    );
-                                    ui.label(
-                                        invoice.gross.format_localized(&invoice.currency_symbol),
-                                    );
-                                    ui.end_row();
-                                }
-                            });
+        ui.add_space(12.0);
+        card(ui, theme, |ui| {
+            ui.label(RichText::new(texts.get("dashboard_quick_actions")).strong());
+            ui.add_space(6.0);
+            ui.horizontal_wrapped(|ui| {
+                for action in DashboardAction::ALL {
+                    if !state.action_available(action) {
+                        continue;
                     }
-                });
-
-                ui.add_space(12.0);
-                card(ui, theme, |ui| {
-                    ui.label(RichText::new(texts.get("dashboard_reorder_title")).strong());
-                    ui.add_space(6.0);
-                    if state.data.low_stock.is_empty() {
-                        empty_state(
-                            ui,
-                            theme,
-                            texts.get("dashboard_no_reorder"),
-                            texts.get("dashboard_no_reorder_hint"),
-                        );
-                    } else {
-                        egui::Grid::new("socdof-dashboard-reorder")
-                            .num_columns(3)
-                            .spacing(egui::vec2(16.0, 8.0))
-                            .show(ui, |ui| {
-                                for key in [
-                                    "dashboard_col_product",
-                                    "dashboard_col_stock",
-                                    "dashboard_col_reorder_level",
-                                ] {
-                                    ui.label(
-                                        RichText::new(texts.get(key))
-                                            .size(FONT_SMALL)
-                                            .strong()
-                                            .color(theme.palette.text_muted),
-                                    );
-                                }
-                                ui.end_row();
-                                for row in &state.data.low_stock {
-                                    if row.sku.is_empty() {
-                                        ui.label(&row.name);
-                                    } else {
-                                        ui.label(format!("{} ({})", row.name, row.sku));
-                                    }
-                                    ui.label(format!("{} {}", row.stock, row.unit));
-                                    ui.label(row.reorder_level.to_string());
-                                    ui.end_row();
-                                }
-                            });
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get(action.label_key()),
+                        ButtonVariant::Secondary,
+                    )
+                    .activated
+                    {
+                        state.action = Some(action);
                     }
-                });
+                }
             });
         });
+
+        ui.add_space(12.0);
+        card(ui, theme, |ui| {
+            ui.label(RichText::new(texts.get("dashboard_recent_invoices")).strong());
+            ui.add_space(6.0);
+            let rows: Vec<&InvoiceOverview> = state.data.recent(5).collect();
+            if rows.is_empty() {
+                empty_state(
+                    ui,
+                    theme,
+                    texts.get("dashboard_no_invoices"),
+                    texts.get("dashboard_no_invoices_hint"),
+                );
+            } else {
+                egui::Grid::new("socdof-dashboard-invoices")
+                    .num_columns(4)
+                    .spacing(egui::vec2(16.0, 8.0))
+                    .show(ui, |ui| {
+                        for key in [
+                            "dashboard_col_number",
+                            "dashboard_col_customer",
+                            "dashboard_col_status",
+                            "dashboard_col_total",
+                        ] {
+                            ui.label(
+                                RichText::new(texts.get(key))
+                                    .size(FONT_SMALL)
+                                    .strong()
+                                    .color(theme.palette.text_muted),
+                            );
+                        }
+                        ui.end_row();
+                        for invoice in rows {
+                            let contact = if invoice.contact.is_empty() {
+                                texts.get("dashboard_col_customer")
+                            } else {
+                                invoice.contact.as_str()
+                            };
+                            ui.label(&invoice.number);
+                            ui.label(contact);
+                            badge(
+                                ui,
+                                theme,
+                                texts.get(status_key(invoice.status)),
+                                status_tone(invoice.status),
+                            );
+                            ui.label(invoice.gross.format_localized(&invoice.currency_symbol));
+                            ui.end_row();
+                        }
+                    });
+            }
+        });
+
+        ui.add_space(12.0);
+        card(ui, theme, |ui| {
+            ui.label(RichText::new(texts.get("dashboard_reorder_title")).strong());
+            ui.add_space(6.0);
+            if state.data.low_stock.is_empty() {
+                empty_state(
+                    ui,
+                    theme,
+                    texts.get("dashboard_no_reorder"),
+                    texts.get("dashboard_no_reorder_hint"),
+                );
+            } else {
+                egui::Grid::new("socdof-dashboard-reorder")
+                    .num_columns(3)
+                    .spacing(egui::vec2(16.0, 8.0))
+                    .show(ui, |ui| {
+                        for key in [
+                            "dashboard_col_product",
+                            "dashboard_col_stock",
+                            "dashboard_col_reorder_level",
+                        ] {
+                            ui.label(
+                                RichText::new(texts.get(key))
+                                    .size(FONT_SMALL)
+                                    .strong()
+                                    .color(theme.palette.text_muted),
+                            );
+                        }
+                        ui.end_row();
+                        for row in &state.data.low_stock {
+                            if row.sku.is_empty() {
+                                ui.label(&row.name);
+                            } else {
+                                ui.label(format!("{} ({})", row.name, row.sku));
+                            }
+                            ui.label(format!("{} {}", row.stock, row.unit));
+                            ui.label(row.reorder_level.to_string());
+                            ui.end_row();
+                        }
+                    });
+            }
+        });
+    });
 }
 
 #[cfg(test)]

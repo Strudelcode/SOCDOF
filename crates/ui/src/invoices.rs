@@ -191,6 +191,7 @@ impl InvoiceDraft {
                 due_at: now + DUE_DAYS * DAY_MS,
                 currency_symbol: "€".to_string(),
                 note: None,
+                tax_total_override_cents: None,
                 lines: Vec::new(),
             },
         };
@@ -214,22 +215,13 @@ fn non_empty(value: &str) -> Option<String> {
 }
 
 fn parse_quantity(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || value <= 0.0 {
-        return None;
-    }
-    let milli = (value * 1_000.0).round() as i64;
-    (milli > 0).then_some(milli)
+    let quantity = Money::parse_scaled_decimal(input, 3)?;
+    (quantity > 0).then_some(quantity)
 }
 
 fn parse_percent_bp(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return None;
-    }
-    Some((value * 100.0).round() as i64)
+    let basis_points = Money::parse_scaled_decimal(input, 2)?;
+    (0..=10_000).contains(&basis_points).then_some(basis_points)
 }
 
 fn milli_text(milli: i64) -> String {
@@ -406,6 +398,11 @@ impl InvoicesState {
         Ok(())
     }
 
+    /// Marks the list dirty after another module creates an invoice.
+    pub fn invalidate(&mut self) {
+        self.reload = true;
+    }
+
     /// Selected invoice, if it is still part of the loaded list.
     pub fn current(&self) -> Option<&Invoice> {
         self.selected
@@ -568,6 +565,7 @@ fn sample_invoice(
         due_at: issued_at + DUE_DAYS * DAY_MS,
         currency_symbol: "€".to_string(),
         note,
+        tax_total_override_cents: None,
         lines,
     }
 }
@@ -662,6 +660,25 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &InvoicesS
 }
 
 /// Renders the invoices screen into the context.
+/// Draws the module's scrollable content into an existing UI, allowing desktop-window hosting.
+pub fn invoices_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut InvoicesState,
+    store: &Store,
+    now: i64,
+) {
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        InvoicesView::List => list_view(ui, theme, texts, focus, state, store, now),
+        InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
+}
+
+/// Renders the full-screen invoices workflow, including refresh and confirmation dialogs.
+/// Renders the full-screen invoices workflow.
 pub fn invoices(
     ctx: &Context,
     theme: &Theme,
@@ -671,7 +688,32 @@ pub fn invoices(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            invoices_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete invoices workflow and its dialogs inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
+pub fn invoices_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut InvoicesState,
+    store: &Store,
+    now: i64,
+) {
+    if active
+        && !state.confirm_delete
         && !state.templates.open
         && ctx.input(|input| input.key_pressed(egui::Key::Escape))
     {
@@ -686,19 +728,7 @@ pub fn invoices(
         state.error = Some("invoices_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                InvoicesView::List => list_view(ui, theme, texts, focus, state, store, now),
-                InvoicesView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
-                InvoicesView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    invoices_content(ui, theme, texts, focus, state, store, now);
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
@@ -979,7 +1009,6 @@ fn list_view(
         state.select(id);
     }
 }
-
 fn detail_view(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1678,5 +1707,16 @@ mod tests {
         assert!(statuses.contains(&InvoiceStatus::Sent));
         assert!(statuses.contains(&InvoiceStatus::Paid));
         assert!(statuses.contains(&InvoiceStatus::Draft));
+    }
+
+    #[test]
+    fn rejects_values_with_more_precision_than_the_store_can_keep() {
+        assert_eq!(parse_quantity("1,125"), Some(1_125));
+        assert_eq!(parse_quantity("1.125"), Some(1_125));
+        assert_eq!(parse_quantity("1.1259"), None);
+        assert_eq!(parse_quantity("0"), None);
+        assert_eq!(parse_percent_bp("19,00"), Some(1_900));
+        assert_eq!(parse_percent_bp("19.001"), None);
+        assert_eq!(parse_percent_bp("101"), None);
     }
 }

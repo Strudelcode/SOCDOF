@@ -1,5 +1,5 @@
-//! Settings screen with the eight tabs: general, appearance, security, backup, users, roles,
-//! updates and portable mode.
+//! Settings screen with eleven sections, including company, payments, appearance, security,
+//! backup, users, roles, updates, portable mode and keyboard shortcuts.
 //!
 //! The screen is a thin presentation layer over the core services. The company profile is read and
 //! written through [`socdof_core::settings_service`], appearance through the per-user
@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Context, RichText};
+use egui::{Context, FontId, RichText, Sense, Stroke, Vec2};
 use socdof_core::backup::{self, BackupFile, BackupInfo, BackupMetadata};
 use socdof_core::date;
 use socdof_core::domain::permission::{
@@ -30,13 +30,14 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field, tabs, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
+use crate::icons::Icon;
 use crate::theme::Theme;
-use crate::tokens::{preset_ids, FONT_SMALL};
+use crate::tokens::{preset_ids, AccentPreset, FONT_SMALL};
 
 /// Fixed timestamp used by the deterministic gallery data.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
@@ -44,10 +45,18 @@ pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
 /// Settings tab.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SettingsTab {
-    /// Company profile.
+    /// Native display scaling and display preferences.
     #[default]
+    Display,
+    /// Company profile.
     General,
-    /// Language, theme, accent and start module.
+    /// Bank, payment terminal and outbound mail configuration.
+    Payments,
+    /// Letterhead and DIN 5008 document details.
+    Letterhead,
+    /// Interface language.
+    Language,
+    /// Theme, accent and start module.
     Appearance,
     /// Passwords and sessions.
     Security,
@@ -61,12 +70,18 @@ pub enum SettingsTab {
     Updates,
     /// Portable data folder.
     Portable,
+    /// Keyboard shortcuts available in the native desktop host.
+    Shortcuts,
 }
 
 impl SettingsTab {
     /// Every tab in display order.
-    pub const ALL: [SettingsTab; 8] = [
+    pub const ALL: [SettingsTab; 13] = [
+        SettingsTab::Display,
         SettingsTab::General,
+        SettingsTab::Payments,
+        SettingsTab::Letterhead,
+        SettingsTab::Language,
         SettingsTab::Appearance,
         SettingsTab::Security,
         SettingsTab::Backup,
@@ -74,19 +89,25 @@ impl SettingsTab {
         SettingsTab::Roles,
         SettingsTab::Updates,
         SettingsTab::Portable,
+        SettingsTab::Shortcuts,
     ];
 
     /// Position in the tab bar.
     pub fn index(self) -> usize {
         match self {
-            SettingsTab::General => 0,
-            SettingsTab::Appearance => 1,
-            SettingsTab::Security => 2,
-            SettingsTab::Backup => 3,
-            SettingsTab::Users => 4,
-            SettingsTab::Roles => 5,
-            SettingsTab::Updates => 6,
-            SettingsTab::Portable => 7,
+            SettingsTab::Display => 0,
+            SettingsTab::General => 1,
+            SettingsTab::Payments => 2,
+            SettingsTab::Letterhead => 3,
+            SettingsTab::Language => 4,
+            SettingsTab::Appearance => 5,
+            SettingsTab::Security => 6,
+            SettingsTab::Backup => 7,
+            SettingsTab::Users => 8,
+            SettingsTab::Roles => 9,
+            SettingsTab::Updates => 10,
+            SettingsTab::Portable => 11,
+            SettingsTab::Shortcuts => 12,
         }
     }
 
@@ -98,14 +119,19 @@ impl SettingsTab {
     /// Catalogue key of the tab label.
     pub fn label_key(self) -> &'static str {
         match self {
+            SettingsTab::Display => "settings_tab_display",
             SettingsTab::General => "settings_tab_general",
-            SettingsTab::Appearance => "settings_tab_appearance",
+            SettingsTab::Payments => "settings_tab_payments",
+            SettingsTab::Letterhead => "settings_tab_letterhead",
+            SettingsTab::Language => "settings_tab_language",
+            SettingsTab::Appearance => "settings_tab_personalization",
             SettingsTab::Security => "settings_tab_security",
             SettingsTab::Backup => "settings_tab_backup",
             SettingsTab::Users => "settings_tab_users",
             SettingsTab::Roles => "settings_tab_roles",
             SettingsTab::Updates => "settings_tab_updates",
             SettingsTab::Portable => "settings_tab_portable",
+            SettingsTab::Shortcuts => "settings_tab_shortcuts",
         }
     }
 }
@@ -120,6 +146,15 @@ struct ProfileDraft {
     email: String,
     phone: String,
     tax_id: String,
+    bank_name: String,
+    iban: String,
+    bic: String,
+    bank_account_holder: String,
+    smtp_host: String,
+    smtp_port: String,
+    smtp_user: String,
+    card_payment_enabled: bool,
+    card_terminal_name: String,
     currency: String,
     backup_folder_path: String,
     auto_backup_enabled: bool,
@@ -143,6 +178,15 @@ impl ProfileDraft {
             email: profile.email.clone(),
             phone: profile.phone.clone(),
             tax_id: profile.tax_id.clone(),
+            bank_name: profile.bank_name.clone(),
+            iban: profile.iban.clone(),
+            bic: profile.bic.clone(),
+            bank_account_holder: profile.bank_account_holder.clone(),
+            smtp_host: profile.smtp_host.clone(),
+            smtp_port: profile.smtp_port.to_string(),
+            smtp_user: profile.smtp_user.clone(),
+            card_payment_enabled: profile.card_payment_enabled,
+            card_terminal_name: profile.card_terminal_name.clone(),
             currency: profile.currency.clone(),
             backup_folder_path: profile.backup_folder_path.clone(),
             auto_backup_enabled: profile.auto_backup_enabled,
@@ -152,6 +196,14 @@ impl ProfileDraft {
     }
 
     fn to_profile(&self) -> Result<CompanyProfile, &'static str> {
+        let smtp_port = self
+            .smtp_port
+            .trim()
+            .parse::<i64>()
+            .map_err(|_| "settings_error_smtp_port")?;
+        if !(1..=65_535).contains(&smtp_port) {
+            return Err("settings_error_smtp_port");
+        }
         let backup_interval_minutes = self
             .backup_interval_minutes
             .trim()
@@ -170,6 +222,15 @@ impl ProfileDraft {
             email: self.email.clone(),
             phone: self.phone.clone(),
             tax_id: self.tax_id.clone(),
+            bank_name: self.bank_name.clone(),
+            iban: self.iban.clone(),
+            bic: self.bic.clone(),
+            bank_account_holder: self.bank_account_holder.clone(),
+            smtp_host: self.smtp_host.clone(),
+            smtp_port,
+            smtp_user: self.smtp_user.clone(),
+            card_payment_enabled: self.card_payment_enabled,
+            card_terminal_name: self.card_terminal_name.clone(),
             currency: self.currency.clone(),
             backup_folder_path: self.backup_folder_path.clone(),
             auto_backup_enabled: self.auto_backup_enabled,
@@ -218,6 +279,66 @@ impl AppearanceDraft {
     }
 }
 
+/// Persisted native display preferences. These settings affect the SOCDOF window, not OS monitor hardware.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct DisplayDraft {
+    scale_percent: String,
+    night_light_enabled: bool,
+    night_light_temperature: String,
+}
+impl Default for DisplayDraft {
+    fn default() -> Self {
+        Self {
+            scale_percent: "100".to_string(),
+            night_light_enabled: false,
+            night_light_temperature: "3400".to_string(),
+        }
+    }
+}
+impl DisplayDraft {
+    fn validate(&self) -> Result<(), &'static str> {
+        let scale = self
+            .scale_percent
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| "settings_error_display")?;
+        let temperature = self
+            .night_light_temperature
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| "settings_error_display")?;
+        if !(75..=200).contains(&scale) || !(1000..=6500).contains(&temperature) {
+            return Err("settings_error_display");
+        }
+        Ok(())
+    }
+}
+/// Letterhead metadata retained independently of the company profile for backward compatibility.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct LetterheadDraft {
+    logo_path: String,
+    default_subject: String,
+    managing_director: String,
+    commercial_register: String,
+    footer_lines: [String; 4],
+    show_background: bool,
+    show_fold_marks: bool,
+}
+impl Default for LetterheadDraft {
+    fn default() -> Self {
+        Self {
+            logo_path: String::new(),
+            default_subject: String::new(),
+            managing_director: String::new(),
+            commercial_register: String::new(),
+            footer_lines: std::array::from_fn(|_| String::new()),
+            show_background: false,
+            show_fold_marks: true,
+        }
+    }
+}
 /// Editable user account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct UserDraft {
@@ -229,6 +350,7 @@ struct UserDraft {
     active: bool,
     must_change_password: bool,
     role_choice: usize,
+    account_type_choice: usize,
 }
 
 impl Default for UserDraft {
@@ -242,12 +364,13 @@ impl Default for UserDraft {
             active: true,
             must_change_password: true,
             role_choice: 1,
+            account_type_choice: 0,
         }
     }
 }
 
 impl UserDraft {
-    fn from_user(user: &User, roles: &[Role]) -> Self {
+    fn from_user(user: &User, roles: &[Role], account_type_choice: usize) -> Self {
         Self {
             id: Some(user.id),
             username: user.username.clone(),
@@ -257,6 +380,7 @@ impl UserDraft {
             active: user.active,
             must_change_password: user.must_change_password,
             role_choice: role_choice_for(user, roles),
+            account_type_choice,
         }
     }
 
@@ -390,12 +514,17 @@ pub struct SettingsState {
     tab: SettingsTab,
     profile: ProfileDraft,
     appearance: AppearanceDraft,
+    display: DisplayDraft,
+    letterhead: LetterheadDraft,
     users: Vec<User>,
     roles: Vec<Role>,
     active_user: Option<Uuid>,
     security_user: Option<Uuid>,
     security_password: String,
     security_confirm: String,
+    recovery_answer_one: String,
+    recovery_answer_two: String,
+    recovery_configured: bool,
     update_settings: UpdateSettings,
     portable_settings: PortableSettings,
     user_editor: Option<UserDraft>,
@@ -410,15 +539,15 @@ pub struct SettingsState {
     restore_metadata: Option<BackupMetadata>,
     restore_confirm: bool,
     language_popup: PopupState,
-    theme_popup: PopupState,
-    accent_popup: PopupState,
     startup_popup: PopupState,
     security_user_popup: PopupState,
     user_role_popup: PopupState,
+    user_account_type_popup: PopupState,
     update_channel_popup: PopupState,
     role_level_popups: Vec<PopupState>,
     error: Option<&'static str>,
     status: Option<&'static str>,
+    saved_preferences: Option<Preferences>,
     /// Set when the back button or Escape on a top-level view was used.
     pub back: bool,
     loaded: bool,
@@ -430,12 +559,17 @@ impl Default for SettingsState {
             tab: SettingsTab::General,
             profile: ProfileDraft::default(),
             appearance: AppearanceDraft::default(),
+            display: DisplayDraft::default(),
+            letterhead: LetterheadDraft::default(),
             users: Vec::new(),
             roles: Vec::new(),
             active_user: None,
             security_user: None,
             security_password: String::new(),
             security_confirm: String::new(),
+            recovery_answer_one: String::new(),
+            recovery_answer_two: String::new(),
+            recovery_configured: false,
             update_settings: UpdateSettings::default(),
             portable_settings: PortableSettings::default(),
             user_editor: None,
@@ -450,15 +584,15 @@ impl Default for SettingsState {
             restore_metadata: None,
             restore_confirm: false,
             language_popup: PopupState::default(),
-            theme_popup: PopupState::default(),
-            accent_popup: PopupState::default(),
             startup_popup: PopupState::default(),
             security_user_popup: PopupState::default(),
             user_role_popup: PopupState::default(),
+            user_account_type_popup: PopupState::default(),
             update_channel_popup: PopupState::default(),
             role_level_popups: vec![PopupState::default(); ALL_MODULES.len()],
             error: None,
             status: None,
+            saved_preferences: None,
             back: false,
             loaded: false,
         }
@@ -471,9 +605,22 @@ impl SettingsState {
         Self::default()
     }
 
+    /// Associates Settings with the currently authenticated account.
+    pub fn set_active_user(&mut self, user_id: Option<Uuid>) {
+        if self.active_user != user_id {
+            self.active_user = user_id;
+            self.loaded = false;
+        }
+    }
+
     /// Current tab.
     pub fn tab(&self) -> SettingsTab {
         self.tab
+    }
+
+    /// Takes appearance preferences after a successful save so the desktop shell can apply them.
+    pub fn take_saved_preferences(&mut self) -> Option<Preferences> {
+        self.saved_preferences.take()
     }
 
     /// Switches tab and clears the transient editor.
@@ -514,12 +661,24 @@ impl SettingsState {
             .security_user
             .filter(|id| self.users.iter().any(|user| user.id == *id))
             .or(self.active_user);
+        self.recovery_configured = self
+            .active_user
+            .and_then(|id| socdof_core::security_questions::security_answers(store, id).ok())
+            .is_some_and(|answers| answers.is_configured());
 
         let preferences = match self.active_user {
             Some(id) => settings_service::preferences(store, id)?,
             None => Preferences::default(),
         };
         self.appearance = AppearanceDraft::from_preferences(&preferences);
+        self.display = store
+            .get_setting("native_display_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
+        self.letterhead = store
+            .get_setting("native_letterhead_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
         self.update_settings = settings_service::update_settings(store)?;
         self.portable_settings = settings_service::portable_settings(store)?;
         self.restore_target = if self.portable_settings.enabled {
@@ -569,12 +728,70 @@ impl SettingsState {
         let preferences = self.appearance.to_preferences();
         match settings_service::save_preferences(store, user_id, &preferences) {
             Ok(()) => {
+                self.saved_preferences = Some(preferences);
                 self.error = None;
                 self.status = Some("settings_saved");
                 true
             }
             Err(_) => {
                 self.error = Some("settings_error_preferences");
+                false
+            }
+        }
+    }
+
+    fn save_display(&mut self, store: &Store) -> bool {
+        if let Err(key) = self.display.validate() {
+            self.error = Some(key);
+            return false;
+        }
+        let value = match serde_json::to_value(&self.display) {
+            Ok(value) => value,
+            Err(_) => {
+                self.error = Some("settings_error_display");
+                return false;
+            }
+        };
+        match store.put_setting("native_display_settings_v1", &value) {
+            Ok(()) => {
+                self.error = None;
+                self.status = Some("settings_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_display");
+                false
+            }
+        }
+    }
+
+    fn save_letterhead(&mut self, store: &Store) -> bool {
+        for value in [
+            &mut self.letterhead.logo_path,
+            &mut self.letterhead.default_subject,
+            &mut self.letterhead.managing_director,
+            &mut self.letterhead.commercial_register,
+        ] {
+            *value = value.trim().to_string();
+        }
+        for value in &mut self.letterhead.footer_lines {
+            *value = value.trim().to_string();
+        }
+        let value = match serde_json::to_value(&self.letterhead) {
+            Ok(value) => value,
+            Err(_) => {
+                self.error = Some("settings_error_letterhead");
+                return false;
+            }
+        };
+        match store.put_setting("native_letterhead_settings_v1", &value) {
+            Ok(()) => {
+                self.error = None;
+                self.status = Some("settings_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_letterhead");
                 false
             }
         }
@@ -611,6 +828,40 @@ impl SettingsState {
         }
     }
 
+    fn save_recovery_answers(&mut self, store: &Store) -> bool {
+        let Some(user_id) = self.active_user else {
+            self.error = Some("settings_error_no_user");
+            return false;
+        };
+        if self.recovery_answer_one.trim().chars().count() < 2
+            || self.recovery_answer_two.trim().chars().count() < 2
+        {
+            self.error = Some("settings_error_recovery_answers");
+            return false;
+        }
+        match socdof_core::security_questions::save_security_answers(
+            store,
+            user_id,
+            &[
+                self.recovery_answer_one.trim().to_owned(),
+                self.recovery_answer_two.trim().to_owned(),
+            ],
+        ) {
+            Ok(()) => {
+                self.recovery_answer_one.clear();
+                self.recovery_answer_two.clear();
+                self.recovery_configured = true;
+                self.error = None;
+                self.status = Some("settings_recovery_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_recovery_answers");
+                false
+            }
+        }
+    }
+
     fn sign_out_security_user(&mut self, store: &Store, now: i64) -> bool {
         let Some(user_id) = self.security_user else {
             self.error = Some("settings_error_no_user");
@@ -630,14 +881,34 @@ impl SettingsState {
     }
 
     fn start_new_user(&mut self) {
+        self.user_account_type_popup = PopupState::default();
+        self.user_role_popup = PopupState::default();
         self.user_editor = Some(UserDraft::default());
         self.error = None;
         self.status = None;
     }
 
-    fn edit_user(&mut self, id: Uuid) {
+    fn edit_user(&mut self, id: Uuid, store: &Store) {
+        // Saving a user invalidates the cached settings snapshot. Usually the next render
+        // refreshes it, but actions can reopen the editor before that frame (for example,
+        // keyboard-driven navigation). Reload here so a just-created account is editable
+        // immediately and account-scoped metadata is read from the same database snapshot.
+        if !self.loaded && self.refresh(store).is_err() {
+            self.error = Some("settings_error_user_load");
+            return;
+        }
         if let Some(user) = self.users.iter().find(|user| user.id == id) {
-            self.user_editor = Some(UserDraft::from_user(user, &self.roles));
+            let key = format!("account_type:{}", user.id);
+            let account_type = store
+                .get_setting(&key)
+                .ok()
+                .flatten()
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "personal".to_string());
+            let account_type_choice = if account_type == "business" { 1 } else { 0 };
+            self.user_account_type_popup = PopupState::default();
+            self.user_role_popup = PopupState::default();
+            self.user_editor = Some(UserDraft::from_user(user, &self.roles, account_type_choice));
             self.error = None;
             self.status = None;
         }
@@ -667,14 +938,22 @@ impl SettingsState {
             self.error = Some("settings_error_user_save");
             return false;
         }
-        if base.is_some()
-            && !draft.password.is_empty()
-            && store.set_password(user.id, &user.password_hash).is_err()
+        let account_type = if draft.account_type_choice == 1 {
+            "business"
+        } else {
+            "personal"
+        };
+        let account_type_key = format!("account_type:{}", user.id);
+        if store
+            .put_setting(
+                &account_type_key,
+                &serde_json::Value::String(account_type.to_string()),
+            )
+            .is_err()
         {
-            self.error = Some("settings_error_password");
+            self.error = Some("settings_error_user_save");
             return false;
         }
-
         self.user_editor = None;
         self.active_user.get_or_insert(user.id);
         self.error = None;
@@ -732,6 +1011,8 @@ impl SettingsState {
                 let result = store.delete_user(id);
                 if result.is_ok() {
                     let _ = settings_service::delete_preferences(store, id);
+                    let _ = store.remove_setting(&format!("account_type:{id}"));
+                    let _ = socdof_core::security_questions::delete_security_answers(store, id);
                 }
                 result
             }
@@ -1039,6 +1320,9 @@ fn module_label_key(module: AppModule) -> &'static str {
         AppModule::Therapy => "settings_module_therapy",
         AppModule::Editor => "settings_module_editor",
         AppModule::Documentation => "settings_module_documentation",
+        AppModule::Projects => "settings_module_projects",
+        AppModule::Fleet => "settings_module_fleet",
+        AppModule::Restaurant => "settings_module_restaurant",
     }
 }
 
@@ -1163,7 +1447,459 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SettingsS
     }
 }
 
+/// Draws Settings navigation with vector icons and a clear selected state.
+fn settings_tabs(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    selected: &mut usize,
+) -> bool {
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
+            let active = index == *selected;
+            let label = texts.get(tab.label_key());
+            let family = if active {
+                crate::theme::semibold()
+            } else {
+                egui::FontFamily::Proportional
+            };
+            let galley = ui.painter().layout_no_wrap(
+                label.to_owned(),
+                FontId::new(FONT_SMALL, family),
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
+            let width = (galley.size().x + 42.0).max(94.0);
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 38.0), Sense::click());
+            let focused = focus.register(response.id);
+            if response.clicked() {
+                focus.set_focus(Some(response.id));
+            }
+            let activated = response.clicked() || focus.activate(response.id);
+            let fill = if active {
+                theme.accent.light
+            } else if response.hovered() || focused {
+                theme.palette.surface_muted
+            } else {
+                theme.palette.surface
+            };
+            ui.painter().rect(
+                rect,
+                egui::Rounding::same(10.0),
+                fill,
+                Stroke::new(
+                    if active { 1.0_f32 } else { 0.7_f32 },
+                    if active {
+                        theme.accent.border
+                    } else {
+                        theme.palette.border
+                    },
+                ),
+            );
+            let color = if active {
+                theme.accent_text()
+            } else {
+                theme.palette.text_muted
+            };
+            let icon_rect = egui::Rect::from_center_size(
+                egui::Pos2::new(rect.left() + 17.0, rect.center().y),
+                Vec2::splat(16.0),
+            );
+            tab_icon(tab).draw(ui.painter(), icon_rect, color, 1.55);
+            ui.painter().galley(
+                egui::Pos2::new(rect.left() + 31.0, rect.center().y - galley.size().y / 2.0),
+                galley,
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
+            if focused {
+                ui.painter().rect_stroke(
+                    rect.expand(1.5),
+                    egui::Rounding::same(11.0),
+                    Stroke::new(1.5_f32, theme.accent.base),
+                );
+            }
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label)
+            });
+            if activated && !active {
+                *selected = index;
+                changed = true;
+            }
+        }
+    });
+    changed
+}
+
 /// Renders the settings screen.
+/// Draws settings into an existing UI so it can be hosted inside a desktop window.
+/// Desktop-width Settings navigation: a compact sidebar with selected and keyboard states.
+fn settings_sidebar(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    selected: &mut usize,
+) -> bool {
+    let mut changed = false;
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            Icon::Settings.draw(
+                ui.painter(),
+                egui::Rect::from_min_size(ui.cursor().min, Vec2::splat(18.0)),
+                theme.accent_text(),
+                1.6,
+            );
+            ui.add_space(24.0);
+            ui.label(RichText::new(texts.get("settings_title")).family(crate::theme::semibold()));
+        });
+        ui.add_space(10.0);
+        for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
+            let active = index == *selected;
+            let label = texts.get(tab.label_key());
+            let row_width = ui.available_width();
+            let (rect, response) =
+                ui.allocate_exact_size(Vec2::new(row_width, 36.0), Sense::click());
+            let focused = focus.register(response.id);
+            if response.clicked() {
+                focus.set_focus(Some(response.id));
+            }
+            let activated = response.clicked() || focus.activate(response.id);
+            if active || response.hovered() || focused {
+                ui.painter().rect(
+                    rect,
+                    egui::Rounding::same(8.0),
+                    if active {
+                        theme.accent.light
+                    } else {
+                        theme.palette.surface_muted
+                    },
+                    Stroke::new(
+                        if active { 1.0_f32 } else { 0.0_f32 },
+                        if active {
+                            theme.accent.border
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        },
+                    ),
+                );
+            }
+            let color = if active {
+                theme.accent_text()
+            } else {
+                theme.palette.text_muted
+            };
+            tab_icon(tab).draw(
+                ui.painter(),
+                egui::Rect::from_center_size(
+                    egui::Pos2::new(rect.left() + 17.0, rect.center().y),
+                    Vec2::splat(16.0),
+                ),
+                color,
+                1.5,
+            );
+            let galley = ui.painter().layout_no_wrap(
+                label.to_owned(),
+                FontId::new(
+                    FONT_SMALL,
+                    if active {
+                        crate::theme::semibold()
+                    } else {
+                        egui::FontFamily::Proportional
+                    },
+                ),
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
+            ui.painter().galley(
+                egui::Pos2::new(rect.left() + 32.0, rect.center().y - galley.size().y / 2.0),
+                galley,
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
+            if focused {
+                ui.painter().rect_stroke(
+                    rect.expand(1.0),
+                    egui::Rounding::same(9.0),
+                    Stroke::new(1.5_f32, theme.accent.base),
+                );
+            }
+            if activated && !active {
+                *selected = index;
+                changed = true;
+            }
+        }
+    });
+    changed
+}
+
+/// Returns the section icon used by both the compact tab strip and desktop sidebar.
+fn tab_icon(tab: SettingsTab) -> Icon {
+    match tab {
+        SettingsTab::Display => Icon::Monitor,
+        SettingsTab::General => Icon::Building,
+        SettingsTab::Payments => Icon::CreditCard,
+        SettingsTab::Letterhead => Icon::FileText,
+        SettingsTab::Language => Icon::Languages,
+        SettingsTab::Appearance => Icon::Palette,
+        SettingsTab::Security => Icon::Key,
+        SettingsTab::Backup => Icon::Database,
+        SettingsTab::Users => Icon::Users,
+        SettingsTab::Roles => Icon::Shield,
+        SettingsTab::Updates => Icon::Download,
+        SettingsTab::Portable => Icon::HardDrive,
+        SettingsTab::Shortcuts => Icon::Keyboard,
+    }
+}
+
+/// Gives every settings section a consistent visual anchor and clear hierarchy.
+fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, tab: SettingsTab) {
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
+            ui.painter()
+                .circle_filled(icon_rect.center(), 22.0, theme.accent.light);
+            tab_icon(tab).draw(
+                ui.painter(),
+                egui::Rect::from_center_size(icon_rect.center(), Vec2::splat(22.0)),
+                theme.accent_text(),
+                1.8,
+            );
+            ui.add_space(6.0);
+            ui.vertical(|ui| {
+                ui.label(
+                    RichText::new(texts.get(tab.label_key()))
+                        .size(crate::tokens::FONT_HEADING)
+                        .family(crate::theme::semibold()),
+                );
+                ui.label(
+                    RichText::new(texts.get("settings_subtitle"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                badge(
+                    ui,
+                    theme,
+                    &format!("{:02} / 11", tab.index() + 1),
+                    Tone::Accent,
+                );
+            });
+        });
+    });
+}
+
+/// Draws a selectable accent-color swatch with a high-contrast selected ring.
+fn accent_swatch(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    id: &str,
+    selected: &mut String,
+) {
+    let preset = AccentPreset::resolve(id);
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(72.0, 62.0), Sense::click());
+    let focused = focus.register(response.id);
+    if response.clicked() {
+        focus.set_focus(Some(response.id));
+    }
+    let activated = response.clicked() || focus.activate(response.id);
+    let active = selected == id;
+    let swatch = egui::Rect::from_center_size(
+        egui::Pos2::new(rect.center().x, rect.top() + 19.0),
+        Vec2::splat(25.0),
+    );
+    ui.painter().rect_filled(
+        swatch.expand(4.0),
+        egui::Rounding::same(10.0),
+        if active {
+            preset.light
+        } else {
+            theme.palette.surface
+        },
+    );
+    ui.painter().rect(
+        swatch,
+        egui::Rounding::same(7.0),
+        preset.base,
+        Stroke::new(
+            if active { 2.0_f32 } else { 1.0_f32 },
+            if active {
+                preset.base
+            } else {
+                theme.palette.border
+            },
+        ),
+    );
+    let galley = ui.painter().layout_no_wrap(
+        preset.label.clone(),
+        egui::FontId::new(9.0, egui::FontFamily::Proportional),
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
+    );
+    ui.painter().galley(
+        egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 40.0),
+        galley,
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
+    );
+    if focused {
+        ui.painter().rect_stroke(
+            rect.expand(1.0),
+            egui::Rounding::same(8.0),
+            Stroke::new(1.5_f32, theme.accent.base),
+        );
+    }
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, &preset.label)
+    });
+    if activated {
+        *selected = id.to_owned();
+    }
+}
+
+/// Draws the Settings content inside an existing desktop window.
+pub fn settings_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    if let Ok(scale) = state.display.scale_percent.trim().parse::<f32>() {
+        ui.ctx().set_zoom_factor((scale / 100.0).clamp(0.75, 2.0));
+    }
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        header(ui, theme, texts, focus, state);
+        ui.add_space(8.0);
+        messages(ui, theme, texts, state);
+        ui.add_space(6.0);
+
+        let wide_layout = ui.available_width() >= 980.0;
+        let mut selected = state.tab.index();
+        if wide_layout {
+            ui.horizontal(|ui| {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(214.0, 560.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        if settings_sidebar(ui, theme, focus, texts, &mut selected) {
+                            state.set_tab(SettingsTab::from_index(selected));
+                        }
+                    },
+                );
+                ui.add_space(12.0);
+                ui.vertical(|ui| {
+                    settings_section_heading(ui, theme, texts, state.tab);
+                    ui.add_space(12.0);
+                    settings_active_content(ui, theme, texts, focus, state, store, now);
+                });
+            });
+        } else {
+            egui::ScrollArea::horizontal()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    if settings_tabs(ui, theme, focus, texts, &mut selected) {
+                        state.set_tab(SettingsTab::from_index(selected));
+                    }
+                });
+            ui.add_space(10.0);
+            settings_section_heading(ui, theme, texts, state.tab);
+            ui.add_space(12.0);
+            settings_active_content(ui, theme, texts, focus, state, store, now);
+        }
+    });
+}
+
+/// Renders the selected Settings section without owning the surrounding navigation.
+#[allow(clippy::too_many_arguments)]
+fn settings_active_content(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    match state.tab {
+        SettingsTab::Display => display_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Letterhead => letterhead_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Shortcuts => shortcuts_tab(ui, theme, texts),
+    }
+}
+
+/// Renders settings in a native desktop window, including refresh and confirmation dialogs.
+#[allow(clippy::too_many_arguments)]
+pub fn settings_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        if state.restore_confirm {
+            state.restore_confirm = false;
+        } else if state.delete_target.is_some() {
+            state.delete_target = None;
+        } else if state.user_editor.is_some() {
+            state.user_editor = None;
+        } else if state.role_editor.is_some() {
+            state.role_editor = None;
+        } else {
+            state.back = true;
+        }
+    }
+
+    if state.refresh(store).is_err() {
+        state.error = Some("settings_error_load");
+    }
+
+    settings_content(ui, theme, texts, focus, state, store, now);
+    delete_modal(ctx, theme, texts, focus, state, store);
+    restore_modal(ctx, theme, texts, focus, state);
+}
+
+/// Renders the full-screen settings workflow.
 pub fn settings(
     ctx: &Context,
     theme: &Theme,
@@ -1198,41 +1934,181 @@ pub fn settings(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                header(ui, theme, texts, focus, state);
-                ui.add_space(8.0);
-                messages(ui, theme, texts, state);
-                ui.add_space(6.0);
-
-                let mut selected = state.tab.index();
-                let labels: Vec<&str> = SettingsTab::ALL
-                    .iter()
-                    .map(|tab| texts.get(tab.label_key()))
-                    .collect();
-                if tabs(ui, theme, focus, &labels, &mut selected) {
-                    state.set_tab(SettingsTab::from_index(selected));
-                }
-                ui.add_space(10.0);
-
-                match state.tab {
-                    SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
-                    SettingsTab::Appearance => {
-                        appearance_tab(ui, theme, texts, focus, state, store)
-                    }
-                    SettingsTab::Security => {
-                        security_tab(ui, theme, texts, focus, state, store, now)
-                    }
-                    SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
-                    SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
-                    SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
-                }
-            });
+            settings_content(ui, theme, texts, focus, state, store, now);
         });
 
     delete_modal(ctx, theme, texts, focus, state, store);
     restore_modal(ctx, theme, texts, focus, state);
+}
+
+fn display_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_display_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_display_hint"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(8.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.display.scale_percent,
+            texts.get("settings_display_scale"),
+            texts.get("settings_display_scale_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.display.night_light_enabled,
+            texts.get("settings_display_night_light"),
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.display.night_light_temperature,
+            texts.get("settings_display_night_temp"),
+            texts.get("settings_display_night_temp_hint"),
+            None,
+        );
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_display(store);
+    }
+}
+
+fn letterhead_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_letterhead_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_letterhead_hint"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(8.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.logo_path,
+            texts.get("settings_letterhead_logo"),
+            texts.get("settings_letterhead_logo_hint"),
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.default_subject,
+            texts.get("settings_letterhead_subject"),
+            texts.get("settings_letterhead_subject_hint"),
+            None,
+        );
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.letterhead.managing_director,
+                texts.get("settings_letterhead_director"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.letterhead.commercial_register,
+                texts.get("settings_letterhead_register"),
+                "",
+                None,
+            );
+        });
+        ui.add_space(6.0);
+        for index in 0..4 {
+            text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.letterhead.footer_lines[index],
+                texts.get(
+                    [
+                        "settings_letterhead_footer1",
+                        "settings_letterhead_footer2",
+                        "settings_letterhead_footer3",
+                        "settings_letterhead_footer4",
+                    ][index],
+                ),
+                texts.get("settings_letterhead_footer_hint"),
+                None,
+            );
+        }
+        ui.add_space(6.0);
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.show_background,
+            texts.get("settings_letterhead_show_bg"),
+        );
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.show_fold_marks,
+            texts.get("settings_letterhead_fold_marks"),
+        );
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_letterhead(store);
+    }
 }
 
 fn general_tab(
@@ -1339,6 +2215,315 @@ fn general_tab(
     }
 }
 
+/// Bank details, payment-terminal metadata and the non-secret SMTP connection settings.
+fn payments_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_payments_title")).strong());
+        ui.add_space(6.0);
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.bank_name,
+                texts.get("settings_bank_name"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.bank_account_holder,
+                texts.get("settings_bank_holder"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.iban,
+                texts.get("settings_iban"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.bic,
+                texts.get("settings_bic"),
+                "",
+                None,
+            );
+        });
+        ui.add_space(12.0);
+        ui.label(RichText::new(texts.get("settings_smtp_title")).strong());
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.smtp_host,
+                texts.get("settings_smtp_host"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.smtp_port,
+                texts.get("settings_smtp_port"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.smtp_user,
+                texts.get("settings_smtp_user"),
+                "",
+                None,
+            );
+        });
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_smtp_secret_note"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(12.0);
+        ui.label(RichText::new(texts.get("settings_terminal_title")).strong());
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.profile.card_payment_enabled,
+            texts.get("settings_card_payment_enabled"),
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.profile.card_terminal_name,
+            texts.get("settings_card_terminal_name"),
+            "",
+            None,
+        );
+        ui.add_space(10.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_profile(store);
+    }
+}
+
+/// Documents the keyboard shortcuts that are implemented by the native host.
+fn shortcuts_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts) {
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_shortcuts_title")).strong());
+        ui.add_space(8.0);
+        for (label, shortcut) in [
+            ("settings_shortcut_help", "F1"),
+            ("settings_shortcut_palette", "Ctrl + K"),
+            ("settings_shortcut_start", "Ctrl + Space"),
+            ("settings_shortcut_task_view", "Ctrl + Tab / Alt + Tab"),
+            ("settings_shortcut_lock", "Ctrl + L"),
+            ("settings_shortcut_fullscreen", "F11"),
+            ("settings_shortcut_close_window", "Ctrl + W"),
+            ("settings_shortcut_snap", "Ctrl + ← / Ctrl + →"),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(texts.get(label));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(shortcut)
+                            .monospace()
+                            .strong()
+                            .color(theme.accent_text()),
+                    );
+                });
+            });
+            ui.add_space(4.0);
+        }
+    });
+}
+
+fn language_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let active = state
+        .current_user()
+        .map(|user| user.display_name.clone())
+        .unwrap_or_default();
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_language_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(format!("{}: {active}", texts.get("settings_active_user")))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        if state.active_user.is_none() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("settings_error_no_user"),
+                texts.get("settings_users_empty_hint"),
+            );
+            return;
+        }
+        ui.add_space(8.0);
+        let languages = [
+            texts.get("language_de"),
+            texts.get("language_en"),
+            texts.get("language_fr"),
+            texts.get("language_es"),
+        ];
+        ui.label(
+            RichText::new(texts.get("settings_language"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        select(
+            ui,
+            theme,
+            focus,
+            &mut state.language_popup,
+            "settings-language",
+            &mut state.appearance.language,
+            &languages,
+        );
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_appearance(store);
+    }
+}
+
+/// A compact, previewable appearance-mode card.
+fn theme_choice(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    selected: &mut usize,
+    index: usize,
+    label: &str,
+    icon: Icon,
+) {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(112.0, 72.0), Sense::click());
+    let focused = focus.register(response.id);
+    if response.clicked() {
+        focus.set_focus(Some(response.id));
+    }
+    let activated = response.clicked() || focus.activate(response.id);
+    let active = *selected == index;
+    ui.painter().rect(
+        rect,
+        egui::Rounding::same(12.0),
+        if active {
+            theme.accent.light
+        } else {
+            theme.palette.surface
+        },
+        Stroke::new(
+            if active { 1.5_f32 } else { 1.0_f32 },
+            if active {
+                theme.accent.border
+            } else {
+                theme.palette.border
+            },
+        ),
+    );
+    icon.draw(
+        ui.painter(),
+        egui::Rect::from_center_size(
+            egui::Pos2::new(rect.center().x, rect.top() + 25.0),
+            Vec2::splat(22.0),
+        ),
+        if active {
+            theme.accent_text()
+        } else {
+            theme.palette.text_muted
+        },
+        1.7,
+    );
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        egui::FontId::new(
+            FONT_SMALL,
+            if active {
+                crate::theme::semibold()
+            } else {
+                egui::FontFamily::Proportional
+            },
+        ),
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
+    );
+    ui.painter().galley(
+        egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 48.0),
+        galley,
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
+    );
+    if focused {
+        ui.painter().rect_stroke(
+            rect.expand(1.5),
+            egui::Rounding::same(13.0),
+            Stroke::new(1.5_f32, theme.accent.base),
+        );
+    }
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label));
+    if activated {
+        *selected = index;
+    }
+}
+
 fn appearance_tab(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1371,70 +2556,53 @@ fn appearance_tab(
             return;
         }
         ui.columns(2, |columns| {
-            let languages: Vec<&str> = [
-                texts.get("language_de"),
-                texts.get("language_en"),
-                texts.get("language_fr"),
-                texts.get("language_es"),
-            ]
-            .to_vec();
-            columns[0].label(
-                RichText::new(texts.get("settings_language"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-            select(
-                &mut columns[0],
-                theme,
-                focus,
-                &mut state.language_popup,
-                "settings-language",
-                &mut state.appearance.language,
-                &languages,
-            );
-
-            let themes = [
-                texts.get("settings_theme_light"),
-                texts.get("settings_theme_dark"),
-                texts.get("settings_theme_system"),
-            ];
-            columns[1].label(
-                RichText::new(texts.get("settings_theme"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-            select(
-                &mut columns[1],
-                theme,
-                focus,
-                &mut state.theme_popup,
-                "settings-theme",
-                &mut state.appearance.theme,
-                &themes,
-            );
-
-            let accents: Vec<&str> = preset_ids().collect();
-            let accent_index = accents
-                .iter()
-                .position(|id| *id == state.appearance.accent)
-                .unwrap_or(0);
-            let mut selected_accent = accent_index;
             columns[0].label(
                 RichText::new(texts.get("settings_accent"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
-            if select(
-                &mut columns[0],
-                theme,
-                focus,
-                &mut state.accent_popup,
-                "settings-accent",
-                &mut selected_accent,
-                &accents,
-            ) {
-                state.appearance.accent = accents[selected_accent].to_string();
-            }
+            columns[0].add_space(6.0);
+            columns[0].horizontal_wrapped(|ui| {
+                for id in preset_ids() {
+                    accent_swatch(ui, theme, focus, id, &mut state.appearance.accent);
+                }
+            });
+
+            columns[1].label(
+                RichText::new(texts.get("settings_theme"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            columns[1].add_space(6.0);
+            columns[1].horizontal_wrapped(|ui| {
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    0,
+                    texts.get("settings_theme_light"),
+                    Icon::Sun,
+                );
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    1,
+                    texts.get("settings_theme_dark"),
+                    Icon::Moon,
+                );
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    2,
+                    texts.get("settings_theme_system"),
+                    Icon::Settings,
+                );
+            });
 
             let startup: Vec<&str> = std::iter::once(texts.get("settings_startup_dashboard"))
                 .chain(
@@ -1444,6 +2612,7 @@ fn appearance_tab(
                         .map(|module| texts.get(module_label_key(*module))),
                 )
                 .collect();
+            columns[1].add_space(12.0);
             columns[1].label(
                 RichText::new(texts.get("settings_startup"))
                     .size(FONT_SMALL)
@@ -1495,6 +2664,7 @@ fn security_tab(
     now: i64,
 ) {
     let mut save_password = false;
+    let mut save_recovery = false;
     let mut revoke = false;
     let mut selected_user = state.security_user;
     card(ui, theme, |ui| {
@@ -1609,12 +2779,64 @@ fn security_tab(
         ui.label(format!("{}: {hours}", texts.get("settings_session_hours")));
     });
 
+    ui.add_space(12.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_recovery_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_recovery_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        if state.recovery_configured {
+            ui.label(
+                RichText::new(texts.get("settings_recovery_configured"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.success),
+            );
+        }
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.recovery_answer_one,
+                texts.get("auth_recovery_question_one"),
+                texts.get("auth_recovery_answer_one"),
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.recovery_answer_two,
+                texts.get("auth_recovery_question_two"),
+                texts.get("auth_recovery_answer_two"),
+                None,
+            );
+        });
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_recovery_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save_recovery = true;
+        }
+    });
+
     state.security_user = selected_user;
     if save_password {
         state.save_security(store);
     }
     if revoke {
         state.sign_out_security_user(store, now);
+    }
+    if save_recovery {
+        state.save_recovery_answers(store);
     }
 }
 
@@ -1961,7 +3183,7 @@ fn users_tab(
         state.start_new_user();
     }
     if let Some(id) = edit {
-        state.edit_user(id);
+        state.edit_user(id, store);
     }
     if let Some(id) = delete {
         state.delete_target = Some(DeleteTarget::User(id));
@@ -2045,6 +3267,25 @@ fn user_form(
                 role_popup_id,
                 &mut draft.role_choice,
                 &role_labels,
+            );
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(texts.get("settings_user_account_type"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            let account_types = [
+                texts.get("setup_account_type_personal"),
+                texts.get("setup_account_type_business"),
+            ];
+            columns_select(
+                ui,
+                theme,
+                focus,
+                &mut state.user_account_type_popup,
+                "settings-user-account-type",
+                &mut draft.account_type_choice,
+                &account_types,
             );
             ui.add_space(6.0);
             switch(
@@ -2667,16 +3908,25 @@ mod tests {
     }
 
     fn render(state: &mut SettingsState, store: &Store) -> String {
+        render_at_width(state, store, 1100.0, Appearance::Light)
+    }
+
+    fn render_at_width(
+        state: &mut SettingsState,
+        store: &Store,
+        width: f32,
+        appearance: Appearance,
+    ) -> String {
         let ctx = crate::theme::headless_context();
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
-        let theme = Theme::new(Appearance::Light, "indigo");
+        let theme = Theme::new(appearance, "indigo");
         let mut focus = FocusState::default();
         let mut output = None;
         for _ in 0..2 {
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
-                    egui::Vec2::new(1100.0, 2400.0),
+                    egui::Vec2::new(width, 2400.0),
                 )),
                 ..Default::default()
             };
@@ -2696,11 +3946,92 @@ mod tests {
 
         state.appearance.language = 3;
         state.appearance.theme = 1;
+        state.appearance.accent = "rose".to_string();
         assert!(state.save_appearance(&store));
         let prefs = settings_service::preferences(&store, state.active_user.expect("active user"))
             .expect("prefs");
         assert_eq!(prefs.language, Language::Es);
         assert_eq!(prefs.theme_mode, ThemeMode::Dark);
+        assert_eq!(prefs.accent_color, "rose");
+        let applied = state
+            .take_saved_preferences()
+            .expect("saved preferences are returned to the desktop shell");
+        assert_eq!(applied, prefs);
+        assert!(state.take_saved_preferences().is_none());
+    }
+
+    #[test]
+    fn payment_settings_round_trip_through_the_company_profile() {
+        let (store, mut state, _texts) = seeded();
+        state.profile.bank_name = "Example Bank".to_string();
+        state.profile.bank_account_holder = "Strudel GmbH".to_string();
+        state.profile.iban = "DE89370400440532013000".to_string();
+        state.profile.bic = "COBADEFFXXX".to_string();
+        state.profile.smtp_host = "mail.example.test".to_string();
+        state.profile.smtp_port = "2525".to_string();
+        state.profile.smtp_user = "billing@example.test".to_string();
+        state.profile.card_payment_enabled = true;
+        state.profile.card_terminal_name = "Terminal One".to_string();
+
+        assert!(state.save_profile(&store));
+        let saved = store.company_profile().expect("company profile");
+        assert_eq!(saved.bank_name, "Example Bank");
+        assert_eq!(saved.bank_account_holder, "Strudel GmbH");
+        assert_eq!(saved.iban, "DE89370400440532013000");
+        assert_eq!(saved.bic, "COBADEFFXXX");
+        assert_eq!(saved.smtp_host, "mail.example.test");
+        assert_eq!(saved.smtp_port, 2525);
+        assert_eq!(saved.smtp_user, "billing@example.test");
+        assert!(saved.card_payment_enabled);
+        assert_eq!(saved.card_terminal_name, "Terminal One");
+
+        state.profile.smtp_port = "65536".to_string();
+        assert!(!state.save_profile(&store));
+        assert_eq!(state.error, Some("settings_error_smtp_port"));
+        assert_eq!(
+            store
+                .company_profile()
+                .expect("unchanged profile")
+                .smtp_port,
+            2525
+        );
+    }
+
+    #[test]
+    fn user_account_type_round_trips_through_settings() {
+        let (store, mut state, _texts) = seeded();
+        state.start_new_user();
+        if let Some(draft) = state.user_editor.as_mut() {
+            draft.username = "business-user".to_string();
+            draft.display_name = "Business User".to_string();
+            draft.password = "business-password-2026".to_string();
+            draft.password_confirm = "business-password-2026".to_string();
+            draft.account_type_choice = 1;
+        }
+        assert!(state.save_user(&store, SAMPLE_NOW_MS));
+        let user = store
+            .find_user_by_username("business-user")
+            .expect("find user")
+            .expect("user exists");
+        let key = format!("account_type:{}", user.id);
+        assert_eq!(
+            store
+                .get_setting(&key)
+                .expect("account type")
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .as_deref(),
+            Some("business")
+        );
+
+        // Reopening immediately must reload the invalidated cache itself.
+        state.edit_user(user.id, &store);
+        assert_eq!(
+            state
+                .user_editor
+                .as_ref()
+                .map(|draft| draft.account_type_choice),
+            Some(1)
+        );
     }
 
     #[test]
@@ -2719,7 +4050,7 @@ mod tests {
             .find_user_by_username("neu")
             .expect("find")
             .expect("present");
-        state.edit_user(created.id);
+        state.edit_user(created.id, &store);
         if let Some(draft) = state.user_editor.as_mut() {
             draft.display_name = "Umbenannt".to_string();
         }
@@ -2735,6 +4066,58 @@ mod tests {
         state.delete_target = Some(DeleteTarget::User(created.id));
         assert!(state.delete_confirmed(&store));
         assert!(store.find_user_by_username("neu").expect("find").is_none());
+    }
+
+    #[test]
+    fn switching_settings_to_the_signed_in_user_loads_that_users_preferences() {
+        let (store, mut state, _texts) = seeded();
+        state.start_new_user();
+        if let Some(draft) = state.user_editor.as_mut() {
+            draft.username = "staff-user".to_string();
+            draft.display_name = "Staff User".to_string();
+            draft.password = "staff-password-2026".to_string();
+            draft.password_confirm = "staff-password-2026".to_string();
+        }
+        assert!(state.save_user(&store, SAMPLE_NOW_MS));
+        let staff = store
+            .find_user_by_username("staff-user")
+            .expect("find staff")
+            .expect("staff exists");
+
+        state.set_active_user(Some(staff.id));
+        state.refresh(&store).expect("refresh for signed-in user");
+
+        assert_eq!(state.current_user().map(|user| user.id), Some(staff.id));
+        assert_eq!(
+            state.appearance.language,
+            language_index(Language::De),
+            "new accounts use their own default preferences"
+        );
+    }
+
+    #[test]
+    fn recovery_answers_are_saved_for_the_active_account() {
+        let (store, mut state, _texts) = seeded();
+        let active_user = state.active_user.expect("active account");
+        state.security_user = Some(Uuid::new_v4());
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two = "Childhood city".to_string();
+
+        assert!(state.save_recovery_answers(&store));
+        assert!(state.recovery_configured);
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            active_user,
+            0,
+            "FIRST PET"
+        )
+        .expect("verify active account"));
+        assert!(!socdof_core::security_questions::security_answers(
+            &store,
+            state.security_user.expect("separate password target")
+        )
+        .expect("other account answers")
+        .is_configured());
     }
 
     #[test]
@@ -2822,6 +4205,51 @@ mod tests {
                 .data_folder,
             "/tmp/portable"
         );
+    }
+
+    #[test]
+    fn persists_native_display_and_letterhead_settings() {
+        let (store, mut state, _texts) = seeded();
+        state.display.scale_percent = "125".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "4200".to_string();
+        assert!(state.save_display(&store));
+        let display: DisplayDraft = serde_json::from_value(
+            store
+                .get_setting("native_display_settings_v1")
+                .expect("read")
+                .expect("saved"),
+        )
+        .expect("decode");
+        assert_eq!(display.scale_percent, "125");
+        assert!(display.night_light_enabled);
+
+        state.letterhead.default_subject = "Angebot".to_string();
+        state.letterhead.footer_lines[0] = "IBAN: DE00".to_string();
+        state.letterhead.show_fold_marks = false;
+        assert!(state.save_letterhead(&store));
+        let letterhead: LetterheadDraft = serde_json::from_value(
+            store
+                .get_setting("native_letterhead_settings_v1")
+                .expect("read")
+                .expect("saved"),
+        )
+        .expect("decode");
+        assert_eq!(letterhead.default_subject, "Angebot");
+        assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
+        assert!(!letterhead.show_fold_marks);
+    }
+
+    #[test]
+    fn renders_every_tab_in_compact_and_wide_dark_layouts() {
+        let (store, mut state, texts) = seeded();
+        for tab in SettingsTab::ALL {
+            state.set_tab(tab);
+            let compact = render_at_width(&mut state, &store, 760.0, Appearance::Dark);
+            assert!(compact.contains(texts.get(tab.label_key())));
+            let wide = render_at_width(&mut state, &store, 1280.0, Appearance::Dark);
+            assert!(wide.contains(texts.get(tab.label_key())));
+        }
     }
 
     #[test]

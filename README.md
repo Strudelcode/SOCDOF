@@ -39,16 +39,16 @@ SOCDOF/
 
 Ob Kundenverwaltung, Rechnungen, Lagerbestand, ein Restaurant-Kassensystem mit Tischplan, Therapie-Dokumentation oder das Fahrtenbuch: SOCDOF deckt diese Aufgaben ab, **zu 100 % offline**, ohne Pflicht-Cloud-Konto und ohne Abo.
 
-Alle Daten liegen lokal auf deinem Rechner in einer IndexedDB-Datenbank (Dexie.js). Dazu kommen schnelle Suche, Kundenakten und Ein-Klick-Backups als JSON.
+Alle Geschäftsdaten liegen lokal in einer SQLite-Datenbank unter `%APPDATA%\\SOCDOF\\SOCDOF.db` (Windows). Die native Rust-Desktop-Version benötigt kein Cloud-Konto; Datenbank-Backups lassen sich lokal erstellen.
 
 ---
 
 ## 🚀 Funktionen & Module
 
 ### 🪟 Windows-Desktop-Erlebnis
-- **Mehrfenster-Arbeitsfläche**: Fenster öffnen, verschieben, skalieren, andocken, minimieren und maximieren.
+- **Fensterverwaltung (Grundlage)**: Z-Reihenfolge, Fensterzustände, Andocken, Minimieren/Maximieren und pro Benutzer gespeicherte Geometrie sind vorhanden. Die vollständige Einbettung der Moduloberflächen in mehrere gleichzeitig sichtbare Fenster ist noch in Arbeit.
 - **Startmenü & Taskleiste**: Angeheftete Apps, Suche, Systemstatus und Benutzerwechsel.
-- **Mehrere Monitore**: Arbeitsbereiche auf mehrere Bildschirme erweitern und Fenster abtrennen.
+- **Tastatursteuerung der Fensterverwaltung**: `Strg` + `Tab` wechselt zwischen sichtbaren Fenstereinträgen, `Strg` + `W` fordert das Schließen an, `Strg` + `←` / `→` dockt links oder rechts an und `F11` maximiert bzw. restauriert. Die Moduloberflächen sind noch nicht vollständig in diese Fenster eingebettet; Mehrmonitor-Unterstützung ist ebenfalls offen.
 - **Nachtmodus**: Warme Farbtemperatur (1500 K – 5500 K) gegen Augenbelastung.
 - **Personalisierung**: Hintergrundbilder, Mica-Effekt, Akzentfarben und eigene Profilbilder.
 - **Systemmodus beim Start**: Hell, dunkel oder dem System folgend. Die Ersteinrichtung folgt direkt dem System.
@@ -112,11 +112,16 @@ Deine Geschäftsdaten gehören dir.
 
 ## 📥 Installation & Downloads
 
-Fertige Windows-Versionen gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
+Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
 
-1. **Setup-Installer (`SOCDOF Setup ... .exe`)**: Installation mit Desktop-Verknüpfung, Startmenü und Auto-Updater.
-2. **Portable Version (`SOCDOF ... .exe`)**: Eine einzelne EXE ohne Installation, mit Selbst-Update.
-3. **Web-App**: Im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+1. **Native Rust Windows-Installation** (`SOCDOF-<Version>-windows-x64-native-setup.exe`): benutzerbezogen unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, mit Startmenü, Desktop-Verknüpfung und optionalem Autostart.
+2. **Native Linux-Version** (`SOCDOF-<Version>-linux-x86_64-native.tar.gz`): portable Rust-Desktop-Version mit eigenem Datenordner; optional per `install-linux.sh` benutzerbezogen in `~/.local` installieren.
+3. **macOS-Desktop-Version** (`SOCDOF-<Version>-macos-universal.dmg`): universelle Tauri-Übergangsversion für Apple Silicon und Intel; der native egui-Host wird nach Behebung eines Upstream-Abhängigkeitsfehlers ergänzt.
+4. **Tauri-Übergangsinstaller und MSI/DMG/AppImage**: bleiben als Rückfalloption verfügbar.
+5. **Portable Windows-Version**: ZIP ohne Setup, mit eigenem `data`-Ordner und Launcher.
+6. **Web-App**: im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.
+
+Alle Desktop-Varianten verwenden dieselbe Pfadlogik. Installierte Windows-Versionen verwenden standardmäßig `%APPDATA%\\SOCDOF\\SOCDOF.db`; portable Versionen verwenden ihren eigenen `data`-Ordner. Mit `--data-dir`, `--database` oder `SOCDOF_DATA_DIR` kann der Speicherort überschrieben werden. Die Geschäftsdatenbank bleibt bei der Deinstallation installierter Varianten erhalten. Der Autostart ist eine optionale Opt-in-Komponente. Die Auswahl bleibt bei Updates erhalten; beim Entfernen der Anwendung wird die Verknüpfung ebenfalls entfernt.
 
 ---
 
@@ -190,6 +195,22 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo run -p socdof-cli -- ./socdof.db
 ```
+
+The native launcher now includes the Restaurant module alongside the existing business apps; its menu, table orders, kitchen flow and checkout use the shared SQLite store.
+
+The first native Rust desktop host is available separately from the Tauri transition build:
+
+```bash
+cargo run -p socdof-ui --features window --bin socdof-ui-desktop
+```
+
+It opens the persistent SQLite database under the SOCDOF application-data folder
+(Windows: `%APPDATA%\SOCDOF\SOCDOF.db`). Existing native databases in the former
+`com.strudelcode.socdof` folder are copied forward on first launch, including SQLite WAL sidecars;
+the original files are kept as a safety copy. Use `--database <path>`, `--data-dir <folder>` or
+`SOCDOF_DATA_DIR` to select a different data location.
+Unlike the component gallery, the desktop host does not seed example customers, invoices or
+demo accounts; it starts with first-run setup or the existing local login.
 
 Desktop prerequisites (Ubuntu/Debian):
 

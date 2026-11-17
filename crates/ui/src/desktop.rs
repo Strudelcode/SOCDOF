@@ -31,6 +31,19 @@ use crate::tokens::{
 use crate::wallpaper::paint as paint_wallpaper;
 use crate::widgets::widgets;
 
+type DesktopWindowRenderer<'a> = dyn FnMut(
+        AppId,
+        bool,
+        &mut Ui,
+        &Context,
+        &Theme,
+        &UiTexts,
+        &mut FocusState,
+        &SocdofStore,
+        i64,
+    ) -> bool
+    + 'a;
+
 /// Height of the taskbar at the bottom of the screen.
 pub const TASKBAR_HEIGHT: f32 = 48.0;
 /// Height of a window title bar, matching the legacy window chrome.
@@ -136,6 +149,11 @@ impl Window {
     /// Current outer rectangle in screen coordinates.
     pub fn rect(&self) -> Rect {
         self.rect
+    }
+
+    /// Rectangle used when restoring a maximized window.
+    pub fn normal_rect(&self) -> Rect {
+        self.restore_rect.unwrap_or(self.rect)
     }
 
     /// Whether the window is currently minimized.
@@ -272,6 +290,33 @@ impl WindowManager {
         true
     }
 
+    /// Cycles focus to the next visible window, skipping minimized windows.
+    ///
+    /// The current topmost window is focused after wrapping around the z-order.
+    pub fn focus_next(&mut self) -> Option<AppId> {
+        if self.dialog_open() {
+            return None;
+        }
+        let visible: Vec<AppId> = self
+            .windows
+            .iter()
+            .filter(|window| !window.minimized)
+            .map(|window| window.app)
+            .collect();
+        if visible.is_empty() {
+            self.active = None;
+            return None;
+        }
+        let next = self
+            .active
+            .and_then(|active| visible.iter().position(|app| *app == active))
+            .map(|index| (index + 1) % visible.len())
+            .unwrap_or(0);
+        let app = visible[next];
+        self.focus(app);
+        Some(app)
+    }
+
     /// Asks for a confirmation before closing a window.
     pub fn request_close(&mut self, app: AppId) -> bool {
         if !self.is_open(app) {
@@ -381,6 +426,30 @@ impl WindowManager {
             (window.rect.height() + delta.y).clamp(WINDOW_MIN_HEIGHT, work_area.height()),
         );
         window.rect = clamp_rect(Rect::from_min_size(window.rect.min, size), work_area);
+    }
+
+    /// Restores a previously saved normal rectangle and maximize state.
+    ///
+    /// Coordinates are clamped to the current work area so a window saved on a larger or
+    /// differently positioned monitor remains reachable after a display change.
+    pub fn restore_geometry(
+        &mut self,
+        app: AppId,
+        normal_rect: Rect,
+        maximized: bool,
+        work_area: Rect,
+    ) {
+        let Some(window) = self.windows.iter_mut().find(|window| window.app == app) else {
+            return;
+        };
+        let rect = clamp_rect(normal_rect, work_area);
+        if maximized {
+            window.restore_rect = Some(rect);
+            window.rect = work_area;
+        } else {
+            window.restore_rect = None;
+            window.rect = rect;
+        }
     }
 
     /// Updates translated titles after a language switch.
@@ -636,9 +705,8 @@ impl IconGrid {
     /// Applies persisted cell positions; unknown apps are ignored.
     pub fn restore_positions(&mut self, positions: &[(AppId, (u32, u32))]) {
         for (app, cell) in positions {
-            if let Some(index) = self.index_of(*app) {
-                self.icons[index].cell = *cell;
-            }
+            let safe_cell = (cell.0.min(ICON_COLUMNS - 1), cell.1.min(254));
+            let _ = self.move_to(*app, safe_cell);
         }
     }
 
@@ -683,6 +751,10 @@ pub struct DesktopOutcome {
     pub sign_out: bool,
     /// Account the user picked in the start menu; the host prefills its sign-in name.
     pub switch_account: Option<String>,
+    /// Whether a desktop icon was moved and its layout should be persisted.
+    pub icon_positions_changed: bool,
+    /// Whether window geometry changed and should be persisted.
+    pub window_layout_changed: bool,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -710,19 +782,20 @@ pub fn default_window_rect(work_area: Rect, index: usize) -> Rect {
     clamp_rect(Rect::from_min_size(min, size), work_area)
 }
 
-/// Formats a millisecond timestamp as an `HH:MM:SS` clock label (UTC, so snapshots stay stable).
+/// Formats a millisecond timestamp as an `HH:MM` clock label (UTC, so snapshots stay stable).
 pub fn format_clock(millis: i64) -> String {
-    let total_seconds = millis.div_euclid(1_000);
-    let hours = total_seconds.div_euclid(3_600).rem_euclid(24);
-    let minutes = total_seconds.div_euclid(60).rem_euclid(60);
-    let seconds = total_seconds.rem_euclid(60);
-    format!("{hours:02}:{minutes:02}:{seconds:02}")
+    let total_minutes = millis.div_euclid(60_000);
+    let hours = total_minutes.div_euclid(60).rem_euclid(24);
+    let minutes = total_minutes.rem_euclid(60);
+    format!("{hours:02}:{minutes:02}")
 }
 
 /// Draws the desktop shell and reports what the host should do next.
 ///
 /// The caller owns the grid, the window manager and the shell, so window positions, open windows,
 /// icon positions, wallpaper and widget state survive a language or theme switch.
+///
+/// Draws the desktop shell without embedding application content in its windows.
 pub fn desktop(
     ctx: &Context,
     frame: DesktopFrame<'_>,
@@ -730,6 +803,49 @@ pub fn desktop(
     icons: &mut IconGrid,
     windows: &mut WindowManager,
     now: i64,
+) -> DesktopOutcome {
+    desktop_impl(ctx, frame, focus, icons, windows, now, None)
+}
+
+/// Draws the desktop and renders each open app inside its corresponding native window.
+pub fn desktop_with_content(
+    ctx: &Context,
+    frame: DesktopFrame<'_>,
+    focus: &mut FocusState,
+    icons: &mut IconGrid,
+    windows: &mut WindowManager,
+    now: i64,
+    mut render_window: impl FnMut(
+        AppId,
+        bool,
+        &mut Ui,
+        &Context,
+        &Theme,
+        &UiTexts,
+        &mut FocusState,
+        &SocdofStore,
+        i64,
+    ) -> bool,
+) -> DesktopOutcome {
+    desktop_impl(
+        ctx,
+        frame,
+        focus,
+        icons,
+        windows,
+        now,
+        Some(&mut render_window),
+    )
+}
+
+fn desktop_impl(
+    ctx: &Context,
+    frame: DesktopFrame<'_>,
+    focus: &mut FocusState,
+    icons: &mut IconGrid,
+    windows: &mut WindowManager,
+    now: i64,
+    mut render_window: Option<&mut DesktopWindowRenderer<'_>>,
 ) -> DesktopOutcome {
     let DesktopFrame {
         theme,
@@ -755,8 +871,9 @@ pub fn desktop(
             shell.start.set_accounts(accounts);
         }
     }
-    // The taskbar shows a clock with seconds, so the shell repaints once a second even while idle.
-    ctx.request_repaint_after(std::time::Duration::from_millis(1_000));
+    // Minute precision keeps the desktop responsive without forcing a full UI redraw every second.
+    // The native host still checks idle locking and refreshes its instance heartbeat periodically.
+    ctx.request_repaint_after(std::time::Duration::from_secs(10));
 
     crate::studio::studio_drawer(ctx, theme, texts, focus, &mut shell.studio, store);
 
@@ -765,15 +882,54 @@ pub fn desktop(
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
             paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
-            let blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+            let mut blocked =
+                windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+
+            if !blocked {
+                let (cycle_windows, close_active, snap_left, snap_right, maximize_active) = ui
+                    .input(|input| {
+                        (
+                            input.modifiers.command && input.key_pressed(Key::Tab),
+                            input.modifiers.command && input.key_pressed(Key::W),
+                            input.modifiers.command && input.key_pressed(Key::ArrowLeft),
+                            input.modifiers.command && input.key_pressed(Key::ArrowRight),
+                            input.key_pressed(Key::F11),
+                        )
+                    });
+                if cycle_windows && windows.focus_next().is_some() {
+                    // Ctrl+Tab changes which window is on top; persist the new stacking order.
+                    outcome.window_layout_changed = true;
+                }
+                if let Some(active) = windows.active() {
+                    if close_active {
+                        windows.request_close(active);
+                    }
+                    if snap_left {
+                        windows.snap(active, SnapEdge::Left, area);
+                        outcome.window_layout_changed = true;
+                    }
+                    if snap_right {
+                        windows.snap(active, SnapEdge::Right, area);
+                        outcome.window_layout_changed = true;
+                    }
+                    if maximize_active {
+                        windows.toggle_maximize(active, area);
+                        outcome.window_layout_changed = true;
+                    }
+                }
+                // A keyboard shortcut can open a modal confirmation. Recompute this before
+                // processing desktop icons so the same key event cannot activate background UI.
+                blocked = windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
+            }
 
             if !blocked {
                 let (left, right, up, down) = ui.input(|input| {
+                    let plain_keys = !input.modifiers.any();
                     (
-                        input.key_pressed(Key::ArrowLeft),
-                        input.key_pressed(Key::ArrowRight),
-                        input.key_pressed(Key::ArrowUp),
-                        input.key_pressed(Key::ArrowDown),
+                        plain_keys && input.key_pressed(Key::ArrowLeft),
+                        plain_keys && input.key_pressed(Key::ArrowRight),
+                        plain_keys && input.key_pressed(Key::ArrowUp),
+                        plain_keys && input.key_pressed(Key::ArrowDown),
                     )
                 });
                 if left {
@@ -806,8 +962,10 @@ pub fn desktop(
                 }
                 if !blocked && response.drag_stopped() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let placed = clamp_rect(Rect::from_center_size(pos, ICON_CELL), area);
-                        icons.place_at(icon.app(), placed.min);
+                        let cell = icons.cell_at(area, pos);
+                        if icons.move_to(icon.app(), cell).is_some() {
+                            outcome.icon_positions_changed = true;
+                        }
                     }
                 }
                 let selected = icons.selected() == index;
@@ -940,9 +1098,10 @@ pub fn desktop(
         let mut minimize = false;
         let mut toggle = false;
         let mut close = false;
+        let mut app_back = false;
 
         egui::Area::new(Id::new(("socdof-window", app.as_str())))
-            .order(egui::Order::Middle)
+            .order(egui::Order::Foreground)
             .fixed_pos(rect.min)
             .show(ctx, |ui| {
                 let (frame, _) = ui.allocate_exact_size(rect.size(), Sense::hover());
@@ -1002,16 +1161,27 @@ pub fn desktop(
                     title_galley,
                     theme.palette.text,
                 );
-                let hint = painter.layout_no_wrap(
-                    texts.get("desktop_hint").to_owned(),
-                    FontId::proportional(FONT_SMALL),
-                    theme.palette.text_muted,
-                );
-                painter.galley(
-                    Pos2::new(frame.left() + 16.0, frame.top() + TITLE_BAR_HEIGHT + 16.0),
-                    hint,
-                    theme.palette.text_muted,
-                );
+                if let Some(render_window) = render_window.as_deref_mut() {
+                    let content_rect = Rect::from_min_max(
+                        Pos2::new(frame.left() + 12.0, bar.bottom() + 8.0),
+                        Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
+                    );
+                    ui.allocate_ui_at_rect(content_rect, |ui| {
+                        app_back =
+                            render_window(app, is_active, ui, ctx, theme, texts, focus, store, now);
+                    });
+                } else {
+                    let hint = painter.layout_no_wrap(
+                        texts.get("desktop_hint").to_owned(),
+                        FontId::proportional(FONT_SMALL),
+                        theme.palette.text_muted,
+                    );
+                    painter.galley(
+                        Pos2::new(frame.left() + 16.0, frame.top() + TITLE_BAR_HEIGHT + 16.0),
+                        hint,
+                        theme.palette.text_muted,
+                    );
+                }
 
                 let mut right = bar.right() - 8.0;
                 let close_rect = Rect::from_center_size(
@@ -1090,23 +1260,30 @@ pub fn desktop(
                 }
             });
 
-        if close {
+        if app_back {
+            windows.close(app, now);
+            outcome.window_layout_changed = true;
+        } else if close {
             windows.request_close(app);
         }
-        if minimize {
-            windows.minimize(app);
+        if minimize && windows.minimize(app) {
+            outcome.window_layout_changed = true;
         }
         if toggle {
             windows.toggle_maximize(app, area);
+            outcome.window_layout_changed = true;
         }
-        if raise {
-            windows.focus(app);
+        if raise && windows.focus(app) {
+            // Clicking a window title bar raises it above its siblings.
+            outcome.window_layout_changed = true;
         }
         if drag != Vec2::ZERO {
             windows.move_by(app, drag, area);
+            outcome.window_layout_changed = true;
         }
         if resize != Vec2::ZERO {
             windows.resize_by(app, resize, area);
+            outcome.window_layout_changed = true;
         }
     }
 
@@ -1567,7 +1744,10 @@ pub fn desktop(
             shell.task_view.close();
         }
         if let Some(app) = focus_app {
-            windows.focus(app);
+            if windows.focus(app) {
+                // The task view can reorder windows without opening a new app.
+                outcome.window_layout_changed = true;
+            }
             shell.task_view.close();
         }
     }
@@ -1627,7 +1807,9 @@ pub fn desktop(
         );
         focus.collecting(false);
         if confirm {
-            windows.confirm_close(now);
+            if windows.confirm_close(now).is_some() {
+                outcome.window_layout_changed = true;
+            }
         } else if cancel || focus.escape() || !visible {
             windows.cancel_close();
         }
@@ -1690,6 +1872,25 @@ pub fn desktop(
         }
         focus.close_overlay();
         focus.set_focus(None);
+    }
+
+    // Reapply a user's last window geometry after the window manager creates or focuses it.
+    // This happens after input handling so both desktop icons and taskbar/overflow launches use
+    // the same restore path.
+    if let (Some(app), Some(user_id)) = (outcome.open_app, current_user) {
+        if let Ok(layout) = socdof_core::settings_service::desktop_layout(store, user_id) {
+            if let Some(saved) = layout.window_states.get(app.as_str()) {
+                let rect = Rect::from_min_size(
+                    Pos2::new(saved.x as f32, saved.y as f32),
+                    Vec2::new(saved.width as f32, saved.height as f32),
+                );
+                windows.restore_geometry(app, rect, saved.maximized, area);
+            }
+        }
+    }
+    if outcome.open_app.is_some() {
+        // Opening or focusing a window must persist its open state, even before it is moved.
+        outcome.window_layout_changed = true;
     }
 
     if outcome.open_studio {
@@ -2031,6 +2232,74 @@ mod tests {
     }
 
     #[test]
+    fn restoring_saved_geometry_preserves_maximize_restore_rectangle() {
+        let mut manager = WindowManager::new();
+        manager.open(window("contacts", 0), 1_000);
+        let saved = Rect::from_min_size(Pos2::new(120.0, 90.0), Vec2::new(920.0, 640.0));
+
+        manager.restore_geometry(AppId::new("contacts"), saved, true, area());
+        let restored = manager.window(AppId::new("contacts")).expect("window");
+        assert_eq!(restored.rect(), area());
+        assert!(restored.is_maximized());
+        assert_eq!(restored.normal_rect(), saved);
+
+        manager.toggle_maximize(AppId::new("contacts"), area());
+        assert_eq!(
+            manager
+                .window(AppId::new("contacts"))
+                .expect("window")
+                .rect(),
+            saved
+        );
+    }
+
+    #[test]
+    fn restored_window_geometry_is_clamped_to_the_current_work_area() {
+        let mut manager = WindowManager::new();
+        manager.open(window("contacts", 0), 1_000);
+        let offscreen = Rect::from_min_size(Pos2::new(-500.0, -400.0), Vec2::new(2_000.0, 1_500.0));
+
+        manager.restore_geometry(AppId::new("contacts"), offscreen, false, area());
+        assert_eq!(
+            manager
+                .window(AppId::new("contacts"))
+                .expect("window")
+                .rect(),
+            area()
+        );
+    }
+
+    #[test]
+    fn focus_next_cycles_visible_windows_and_skips_minimized_windows() {
+        let mut manager = WindowManager::new();
+        let contacts = AppId::new("contacts");
+        let invoices = AppId::new("invoices");
+        let settings = AppId::new("settings");
+        manager.open(window("contacts", 0), 1_000);
+        manager.open(window("invoices", 0), 1_000);
+        manager.open(window("settings", 0), 1_000);
+        manager.minimize(invoices);
+
+        assert_eq!(manager.focus_next(), Some(contacts));
+        assert_eq!(manager.active(), Some(contacts));
+        assert_eq!(manager.focus_next(), Some(settings));
+        assert_eq!(manager.active(), Some(settings));
+        assert_eq!(manager.focus_next(), Some(contacts));
+    }
+
+    #[test]
+    fn focus_next_does_not_escape_a_modal_window_confirmation() {
+        let mut manager = WindowManager::new();
+        manager.open(window("contacts", 0), 1_000);
+        manager.open(window("invoices", 0), 1_000);
+        manager.request_close(AppId::new("invoices"));
+
+        assert_eq!(manager.focus_next(), None);
+        assert_eq!(manager.active(), Some(AppId::new("invoices")));
+        assert!(manager.dialog_open());
+    }
+
+    #[test]
     fn maximize_remembers_and_restores_the_rectangle() {
         let mut manager = WindowManager::new();
         manager.open(window("contacts", 0), 1_000);
@@ -2199,6 +2468,22 @@ mod tests {
     }
 
     #[test]
+    fn restoring_untrusted_icon_positions_clamps_and_avoids_collisions() {
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("contacts"), "Kontakte", Icon::User),
+            DesktopIcon::new(AppId::new("products"), "Produkte", Icon::Folder),
+        ]);
+        grid.restore_positions(&[
+            (AppId::new("contacts"), (99, 999)),
+            (AppId::new("products"), (5, 255)),
+        ]);
+
+        assert_eq!(grid.icons()[0].cell(), (5, 254));
+        assert_eq!(grid.icons()[1].cell(), (0, 255));
+        assert_ne!(grid.icons()[0].cell(), grid.icons()[1].cell());
+    }
+
+    #[test]
     fn arrow_navigation_wraps_around_the_grid() {
         let mut grid = IconGrid::new(vec![
             DesktopIcon::new(AppId::new("a"), "a", Icon::User),
@@ -2235,9 +2520,9 @@ mod tests {
 
     #[test]
     fn the_clock_is_a_stable_utc_label() {
-        assert_eq!(format_clock(0), "00:00:00");
-        assert_eq!(format_clock(1_000_000_000), "13:46:40");
-        assert_eq!(format_clock(86_399_000), "23:59:59");
+        assert_eq!(format_clock(0), "00:00");
+        assert_eq!(format_clock(1_000_000_000), "13:46");
+        assert_eq!(format_clock(86_399_000), "23:59");
     }
 
     #[test]
@@ -2269,10 +2554,11 @@ mod tests {
             time: Some(1.0),
             ..Default::default()
         };
+        let mut rendered_apps = Vec::new();
         let output = ctx.run(input, |ctx| {
             focus.begin_frame(ctx);
             theme.apply(ctx);
-            let outcome = desktop(
+            let outcome = desktop_with_content(
                 ctx,
                 DesktopFrame {
                     theme: &theme,
@@ -2285,10 +2571,19 @@ mod tests {
                 &mut icons,
                 &mut windows,
                 1_000,
+                |app, _is_active, ui, _ctx, _theme, _texts, _focus, _store, _now| {
+                    rendered_apps.push(app.as_str());
+                    ui.label(format!("native content: {}", app.as_str()));
+                    app.as_str() == "contacts"
+                },
             );
             assert!(!outcome.back);
             focus.finish_frame();
         });
         assert!(output.shapes.len() > 40, "desktop drew little");
+        assert!(rendered_apps.contains(&"contacts"));
+        assert!(rendered_apps.contains(&"invoices"));
+        assert!(!windows.is_open(AppId::new("contacts")));
+        assert!(windows.is_open(AppId::new("invoices")));
     }
 }

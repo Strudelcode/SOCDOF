@@ -296,9 +296,30 @@ impl TableOrder {
     }
 
     /// Recomputes net, tax and gross totals from the positions.
+    ///
+    /// The legacy TypeScript screen groups all positions by tax rate before calculating VAT.
+    /// Keep that order of operations: rounding each line separately can differ by a cent.
     pub fn recalculate(&mut self) {
-        self.subtotal_cents = self.items.iter().map(|item| item.net().cents()).sum();
-        self.tax_total_cents = self.items.iter().map(|item| item.tax().cents()).sum();
+        let mut tax_bases: Vec<(i64, i64)> = Vec::new();
+        self.subtotal_cents = 0;
+
+        for item in &self.items {
+            let net_cents = item.net().cents();
+            self.subtotal_cents += net_cents;
+            if let Some((_, subtotal)) = tax_bases
+                .iter_mut()
+                .find(|(rate, _)| *rate == item.tax_rate_bp)
+            {
+                *subtotal += net_cents;
+            } else {
+                tax_bases.push((item.tax_rate_bp, net_cents));
+            }
+        }
+
+        self.tax_total_cents = tax_bases
+            .into_iter()
+            .map(|(rate, subtotal)| Money::from_cents(subtotal).tax(rate).cents())
+            .sum();
         self.total_cents = self.subtotal_cents + self.tax_total_cents;
     }
 
@@ -574,6 +595,41 @@ mod tests {
         assert_eq!(tables.len(), 13);
         assert_eq!(tables[0].name, "Tisch 1 (Fenster)");
         assert_eq!(tables[12].area, "togo");
+    }
+
+    #[test]
+    fn aggregates_tax_by_rate_before_rounding_like_typescript() {
+        let mut order = TableOrder::new("Tisch 1", 1_000);
+        order.items = vec![
+            TableOrderItem {
+                id: Uuid::new_v4(),
+                menu_item_id: None,
+                name: "Kleiner Artikel A".to_string(),
+                price_cents: 7,
+                tax_rate_bp: 700,
+                qty: 1,
+                category: "drinks".to_string(),
+                emoji: String::new(),
+                notes: String::new(),
+            },
+            TableOrderItem {
+                id: Uuid::new_v4(),
+                menu_item_id: None,
+                name: "Kleiner Artikel B".to_string(),
+                price_cents: 7,
+                tax_rate_bp: 700,
+                qty: 1,
+                category: "drinks".to_string(),
+                emoji: String::new(),
+                notes: String::new(),
+            },
+        ];
+
+        order.recalculate();
+
+        assert_eq!(order.subtotal_cents, 14);
+        assert_eq!(order.tax_total_cents, 1);
+        assert_eq!(order.total_cents, 15);
     }
 
     #[test]

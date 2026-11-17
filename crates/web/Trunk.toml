@@ -5,3 +5,8 @@ dist = "dist"
 [serve]
 address = "0.0.0.0"
 port = 3000
+
+[tools]
+# Rust 1.100 emits bulk-memory and nontrapping float-to-int instructions.
+# Pin a Binaryen release that validates and optimizes those features.
+wasm_opt = "version_131"

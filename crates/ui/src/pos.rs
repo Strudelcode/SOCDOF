@@ -39,9 +39,10 @@ const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 const HOUR_MS: i64 = 60 * 60 * 1_000;
 
 /// Payment methods in display and storage order.
-const PAYMENTS: [PaymentMethod; 5] = [
+const PAYMENTS: [PaymentMethod; 6] = [
     PaymentMethod::Cash,
     PaymentMethod::Card,
+    PaymentMethod::Nfc,
     PaymentMethod::BankTransfer,
     PaymentMethod::Invoice,
     PaymentMethod::Other,
@@ -200,6 +201,7 @@ impl PosDraft {
             paid_at: now,
             currency_symbol: "€".to_string(),
             note: non_empty(&self.note),
+            tax_total_override_cents: None,
             cash_given,
             lines,
             legacy_id: None,
@@ -217,22 +219,13 @@ fn non_empty(value: &str) -> Option<String> {
 }
 
 fn parse_quantity(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || value <= 0.0 {
-        return None;
-    }
-    let milli = (value * 1_000.0).round() as i64;
-    (milli > 0).then_some(milli)
+    let quantity = Money::parse_scaled_decimal(input, 3)?;
+    (quantity > 0).then_some(quantity)
 }
 
 fn parse_percent_bp(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return None;
-    }
-    Some((value * 100.0).round() as i64)
+    let basis_points = Money::parse_scaled_decimal(input, 2)?;
+    (0..=10_000).contains(&basis_points).then_some(basis_points)
 }
 
 fn milli_text(milli: i64) -> String {
@@ -268,6 +261,7 @@ fn payment_key(method: PaymentMethod) -> &'static str {
     match method {
         PaymentMethod::Cash => "pos_payment_cash",
         PaymentMethod::Card => "pos_payment_card",
+        PaymentMethod::Nfc => "pos_payment_nfc",
         PaymentMethod::BankTransfer => "pos_payment_bank_transfer",
         PaymentMethod::Invoice => "pos_payment_invoice",
         PaymentMethod::Other => "pos_payment_other",
@@ -278,6 +272,7 @@ fn payment_tone(method: PaymentMethod) -> Tone {
     match method {
         PaymentMethod::Cash => Tone::Success,
         PaymentMethod::Card => Tone::Accent,
+        PaymentMethod::Nfc => Tone::Accent,
         PaymentMethod::BankTransfer => Tone::Neutral,
         PaymentMethod::Invoice => Tone::Warning,
         PaymentMethod::Other => Tone::Neutral,
@@ -565,6 +560,7 @@ fn sample_order(
         paid_at,
         currency_symbol: "€".to_string(),
         note,
+        tax_total_override_cents: None,
         cash_given,
         lines,
         legacy_id: None,
@@ -673,6 +669,7 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &PosState)
 }
 
 /// Renders the POS screen into the context.
+/// Renders the POS screen into the context.
 pub fn pos(
     ctx: &Context,
     theme: &Theme,
@@ -682,7 +679,31 @@ pub fn pos(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_cancel && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            pos_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+
+/// Renders the complete POS workflow inside a native desktop window.
+#[allow(clippy::too_many_arguments)]
+pub fn pos_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_cancel && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             PosView::List => state.back = true,
             PosView::Detail => state.view = PosView::List,
@@ -694,19 +715,11 @@ pub fn pos(
         state.error = Some("pos_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                PosView::List => list_view(ui, theme, texts, focus, state, now),
-                PosView::Detail => detail_view(ui, theme, texts, focus, state),
-                PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        PosView::List => list_view(ui, theme, texts, focus, state, now),
+        PosView::Detail => detail_view(ui, theme, texts, focus, state),
+        PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_cancel;
     let mut confirm = false;
@@ -801,6 +814,7 @@ fn list_view(
                 ("pos_summary_gross", money("€", day.gross)),
                 ("pos_summary_cash", money("€", day.cash)),
                 ("pos_summary_card", money("€", day.card)),
+                ("pos_summary_nfc", money("€", day.nfc)),
             ] {
                 ui.vertical(|ui| {
                     ui.label(
@@ -1571,12 +1585,14 @@ mod tests {
 
     #[test]
     fn renders_the_list_the_detail_and_the_form() {
+        assert_eq!(payment_key(PaymentMethod::Nfc), "pos_payment_nfc");
         let (store, mut state, texts) = seeded();
 
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("pos_title")));
         assert!(painted.contains("BON-2026-0001"));
         assert!(painted.contains(texts.get("pos_summary_title")));
+        assert!(painted.contains(texts.get("pos_summary_nfc")));
         assert!(painted.contains(texts.get("pos_payment_cash")));
         assert!(painted.contains("40,16 €"));
 
@@ -1610,5 +1626,16 @@ mod tests {
                 .len(),
             3
         );
+    }
+
+    #[test]
+    fn rejects_values_with_more_precision_than_the_store_can_keep() {
+        assert_eq!(parse_quantity("1,125"), Some(1_125));
+        assert_eq!(parse_quantity("1.125"), Some(1_125));
+        assert_eq!(parse_quantity("1.1259"), None);
+        assert_eq!(parse_quantity("0"), None);
+        assert_eq!(parse_percent_bp("19,00"), Some(1_900));
+        assert_eq!(parse_percent_bp("19.001"), None);
+        assert_eq!(parse_percent_bp("101"), None);
     }
 }

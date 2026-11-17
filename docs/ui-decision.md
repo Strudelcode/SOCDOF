@@ -39,7 +39,7 @@ whole class of TypeScript/JavaScript dependencies the user wants gone.
   from the accent tokens.
 - The primitives are pinned by deterministic golden snapshots of their paint commands, so a visual
   change fails a test even without a display. The Phase 5 desktop shell and its overlays are pinned
-  the same way, 144 goldens in total, including the eight-tab settings screen.
+  the same way, 144 goldens in total, including the eleven-section responsive Settings screen.
 - The desktop shell is drawn the same way: windows are egui areas painted from the tokens instead
   of egui's own window widget, so chrome, taskbar, icon grid and the shell overlays keep one visual
   language and stay keyboard reachable. The start menu, command palette, tray flyout and onboarding

@@ -104,7 +104,7 @@ const fn definition(
 }
 
 /// The catalogue, in the same order as the permission matrix.
-const MODULES: [ModuleDefinition; 15] = [
+const MODULES: [ModuleDefinition; 18] = [
     definition(
         AppModule::Dashboard,
         "settings_module_dashboard",
@@ -210,6 +210,27 @@ const MODULES: [ModuleDefinition; 15] = [
         ModuleLicense::Trial,
         false,
     ),
+    definition(
+        AppModule::Projects,
+        "settings_module_projects",
+        "app_store_desc_projects",
+        ModuleLicense::Trial,
+        false,
+    ),
+    definition(
+        AppModule::Fleet,
+        "settings_module_fleet",
+        "app_store_desc_fleet",
+        ModuleLicense::Trial,
+        false,
+    ),
+    definition(
+        AppModule::Restaurant,
+        "settings_module_restaurant",
+        "app_store_desc_restaurant",
+        ModuleLicense::Trial,
+        false,
+    ),
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -310,7 +331,7 @@ pub fn set_active(store: &Store, id: &str, active: bool) -> CoreResult<()> {
 }
 
 /// Catalogue definitions are kept in sync with the permission matrix.
-pub fn catalogue_modules() -> [AppModule; 15] {
+pub fn catalogue_modules() -> [AppModule; 18] {
     ALL_MODULES
 }
 

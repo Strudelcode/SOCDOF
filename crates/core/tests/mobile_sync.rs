@@ -74,8 +74,15 @@ fn request(
     }
 }
 
+fn test_options() -> Options {
+    Options {
+        host: "127.0.0.1".to_string(),
+        port: 0,
+    }
+}
+
 fn start() -> http::Running {
-    http::start(Options::new(0)).expect("gateway")
+    http::start(test_options()).expect("gateway")
 }
 
 #[test]
@@ -120,7 +127,12 @@ fn uploads_a_fixture_payload_and_polls_it_back() {
     let _ = std::fs::remove_file(&database);
     let importing = database.clone();
 
-    let mut server = http::start_with(Options::new(0), move |payload| {
+    // Run SQLite schema creation before the first HTTP request. On Windows the first migration
+    // can otherwise consume the gateway's short response timeout while the upload handler opens
+    // the database for the first time.
+    drop(Store::open(&database).expect("prepare mobile sync database"));
+
+    let mut server = http::start_with(test_options(), move |payload| {
         match Store::open(&importing).and_then(|store| mobile_sync::import_value(&store, payload)) {
             Ok(_) => {}
             Err(error) => eprintln!("import failed: {error}"),

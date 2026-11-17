@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+package_dir="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+test -x "$package_dir/install-linux.sh"
+test -x "$package_dir/uninstall-linux.sh"
+test -x "$package_dir/run-socdof.sh"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+export SOCDOF_INSTALL_PREFIX="$tmp/Install Path"
+export XDG_DATA_HOME="$tmp/user data"
+mkdir -p "$XDG_DATA_HOME/SOCDOF"
+printf 'keep this user database on uninstall\n' > "$XDG_DATA_HOME/SOCDOF/SOCDOF.db"
+"$package_dir/install-linux.sh"
+test -x "$SOCDOF_INSTALL_PREFIX/bin/socdof"
+"$SOCDOF_INSTALL_PREFIX/bin/socdof" --version | grep -E '^SOCDOF [0-9]+[.][0-9]+[.][0-9]+'
+grep -F "Exec=\"$SOCDOF_INSTALL_PREFIX/bin/socdof\" %U" "$SOCDOF_INSTALL_PREFIX/share/applications/socdof.desktop"
+"$package_dir/uninstall-linux.sh"
+test ! -e "$SOCDOF_INSTALL_PREFIX/bin/socdof"
+test ! -e "$SOCDOF_INSTALL_PREFIX/share/applications/socdof.desktop"
+grep -F "keep this user database" "$XDG_DATA_HOME/SOCDOF/SOCDOF.db"
+echo "Native Linux install/uninstall smoke passed; user data was preserved."

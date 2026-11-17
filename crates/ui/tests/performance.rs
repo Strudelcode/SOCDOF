@@ -57,6 +57,7 @@ fn seed(store: &Store) -> uuid::Uuid {
             due_at: NOW + 14 * 86_400_000,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Leistung".to_string(),
                 quantity_milli: 1_000,

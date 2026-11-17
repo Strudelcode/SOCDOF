@@ -27,25 +27,50 @@ use crate::tokens::{FONT_SMALL, FONT_TITLE};
 pub const DEFAULT_IDLE_TIMEOUT_MS: i64 = 5 * 60 * 1000;
 
 /// Number of steps in the first-run wizard.
-pub const SETUP_STEPS: usize = 4;
+pub const SETUP_STEPS: usize = 5;
 
 /// Catalogue keys of the wizard steps, in order.
 const SETUP_STEP_KEYS: [&str; SETUP_STEPS] = [
-    "setup_step_language",
+    "setup_step_welcome",
     "setup_step_account",
     "setup_step_appearance",
     "setup_step_apps",
+    "setup_step_finish",
 ];
+
+/// Account type selected during first-run setup.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SetupAccountType {
+    /// Personal workspace without business-only modules.
+    #[default]
+    Personal,
+    /// Business workspace with accounting and commerce modules.
+    Business,
+}
+
+impl SetupAccountType {
+    /// Stable storage value shared with the TypeScript account model.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Personal => "personal",
+            Self::Business => "business",
+        }
+    }
+}
 
 /// Desktop layout a first-run account can start with.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SetupTemplate {
-    /// Point of sale, invoices, products and reports.
+    /// Personal workspace.
     #[default]
-    Sales,
-    /// Contacts, calendar, appointments and support.
-    Office,
-    /// Every app.
+    Personal,
+    /// General business workspace.
+    Business,
+    /// Practice and therapy workspace.
+    Practice,
+    /// Retail and point-of-sale workspace.
+    Retail,
+    /// Every installed app.
     All,
 }
 
@@ -61,6 +86,10 @@ pub enum AuthView {
     Locked,
     /// Signed-in overview with manual lock and sign-out.
     Unlocked,
+    /// Password recovery using the account's configured security answers.
+    Recover,
+    /// Mandatory password and recovery-answer setup after an administrator reset.
+    ChangePassword,
 }
 
 /// State of the login and lock screens.
@@ -104,10 +133,22 @@ pub struct AuthState {
     pub appearance_choice: Option<crate::theme::Appearance>,
     /// Accent chosen in the wizard; the host applies it after setup.
     pub accent_choice: Option<String>,
+    /// Account type chosen in the wizard.
+    pub account_type: SetupAccountType,
     /// Desktop layout chosen in the wizard.
     pub template_choice: SetupTemplate,
     /// Whether the lock screen shows the password recovery hint.
     pub forgot_hint: bool,
+    /// Account being recovered, resolved from the login name.
+    pub recovery_target: Option<Uuid>,
+    /// First configured recovery answer.
+    pub recovery_answer_one: String,
+    /// Second configured recovery answer.
+    pub recovery_answer_two: String,
+    /// New password during recovery.
+    pub recovery_new_password: String,
+    /// Confirmation of the new recovery password.
+    pub recovery_confirm_password: String,
     /// Wallpaper chosen in the wizard; the host applies it after setup.
     pub wallpaper_choice: Option<crate::wallpaper::Wallpaper>,
     /// Whether the wizard finished and the host still has to apply its choices.
@@ -157,6 +198,11 @@ impl AuthState {
         self.forgot_hint = false;
         self.password.clear();
         self.password_confirm.clear();
+        self.recovery_target = None;
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
         self.error = None;
         self.status = None;
         self.back = false;
@@ -172,6 +218,11 @@ impl AuthState {
         self.display_name.clear();
         self.password.clear();
         self.password_confirm.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.recovery_target = None;
         self.error = None;
         self.status = None;
         self.back = false;
@@ -193,14 +244,6 @@ impl AuthState {
             return Ok(());
         }
 
-        if let Some(user) = store.find_user_by_username(&username)? {
-            if !user.active {
-                self.password.clear();
-                self.error = Some("auth_error_disabled");
-                return Ok(());
-            }
-        }
-
         match store.login(&username, &self.password, now)? {
             LoginOutcome::Success {
                 user,
@@ -218,7 +261,15 @@ impl AuthState {
                 self.failed_unlocks = 0;
                 self.locked_until = None;
                 self.last_activity_ms = now;
-                self.view = AuthView::Unlocked;
+                self.view = if self
+                    .user
+                    .as_ref()
+                    .is_some_and(|user| user.must_change_password)
+                {
+                    AuthView::ChangePassword
+                } else {
+                    AuthView::Unlocked
+                };
             }
             LoginOutcome::Locked { until } => {
                 self.password.clear();
@@ -233,12 +284,76 @@ impl AuthState {
         Ok(())
     }
 
-    /// Creates the first administrator when the database has no accounts.
-    pub fn create_first_admin(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if store.user_count()? > 0 {
-            self.error = Some("auth_error_setup_exists");
+    /// Completes the mandatory first-login password change and configures recovery answers.
+    ///
+    /// This mirrors the TypeScript forced-password screen: an administrator-reset account cannot
+    /// reach the desktop until the user chooses a new password and saves both recovery answers.
+    pub fn complete_forced_password_change(
+        &mut self,
+        store: &Store,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        if self.view != AuthView::ChangePassword {
             return Ok(());
         }
+        let Some(user) = self.user.as_ref() else {
+            self.show_login();
+            return Ok(());
+        };
+        if self.recovery_new_password.chars().count() < MIN_PASSWORD_LENGTH {
+            self.error = Some("auth_error_password_short");
+            return Ok(());
+        }
+        if self.recovery_new_password != self.recovery_confirm_password {
+            self.error = Some("auth_error_password_mismatch");
+            return Ok(());
+        }
+        if self.recovery_answer_one.trim().chars().count() < 2
+            || self.recovery_answer_two.trim().chars().count() < 2
+        {
+            self.error = Some("auth_force_password_answers_required");
+            return Ok(());
+        }
+
+        let password_hash = hash_password(&self.recovery_new_password)
+            .map_err(|_| socdof_core::CoreError::Validation("auth_password_hash".to_string()))?;
+        socdof_core::security_questions::save_security_answers(
+            store,
+            user.id,
+            &[
+                self.recovery_answer_one.trim().to_owned(),
+                self.recovery_answer_two.trim().to_owned(),
+            ],
+        )?;
+        // A first-login password change is performed by the authenticated user. Unlike an
+        // administrator reset or recovery, it must preserve this active session, matching the
+        // TypeScript changePassword flow.
+        let mut updated_user = user.clone();
+        updated_user.password_hash = password_hash;
+        updated_user.must_change_password = false;
+        updated_user.updated_at = now;
+        let session_id = self
+            .session
+            .as_ref()
+            .map(|session| session.id)
+            .ok_or_else(|| {
+                socdof_core::CoreError::Validation("auth_session_required".to_string())
+            })?;
+        store.update_user_preserving_session(&updated_user, session_id, now)?;
+        self.user = Some(updated_user);
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.error = None;
+        self.status = Some("auth_password_changed");
+        self.last_activity_ms = now;
+        self.view = AuthView::Unlocked;
+        Ok(())
+    }
+
+    /// Creates the first administrator when the database has no accounts.
+    pub fn create_first_admin(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
         if self.username.trim().chars().count() < 3 {
             self.error = Some("auth_error_username_short");
             return Ok(());
@@ -253,6 +368,16 @@ impl AuthState {
         }
         if self.password.chars().count() < MIN_PASSWORD_LENGTH {
             self.error = Some("auth_error_password_short");
+            return Ok(());
+        }
+        let has_first_answer = !self.recovery_answer_one.trim().is_empty();
+        let has_second_answer = !self.recovery_answer_two.trim().is_empty();
+        if has_first_answer != has_second_answer
+            || (has_first_answer
+                && (self.recovery_answer_one.trim().chars().count() < 2
+                    || self.recovery_answer_two.trim().chars().count() < 2))
+        {
+            self.error = Some("auth_recovery_answers_required");
             return Ok(());
         }
         let password = self.password.clone();
@@ -279,14 +404,39 @@ impl AuthState {
             });
             return Ok(());
         }
-        if store.insert_user(&user).is_err() {
-            self.error = Some("auth_error_storage");
+        let account_type_key = format!("account_type:{}", user.id);
+        store.put_setting(
+            &account_type_key,
+            &serde_json::Value::String(self.account_type.as_str().to_owned()),
+        )?;
+        if has_first_answer {
+            socdof_core::security_questions::save_security_answers(
+                store,
+                user.id,
+                &[
+                    self.recovery_answer_one.trim().to_owned(),
+                    self.recovery_answer_two.trim().to_owned(),
+                ],
+            )?;
+        }
+        if store.insert_first_admin(&user).is_err() {
+            if has_first_answer {
+                let _ = socdof_core::security_questions::delete_security_answers(store, user.id);
+                let _ = store.remove_setting(&account_type_key);
+            }
+            self.error = Some(if store.user_count().unwrap_or(0) > 0 {
+                "auth_error_setup_exists"
+            } else {
+                "auth_error_storage"
+            });
             return Ok(());
         }
 
         self.username = user.username;
         self.password = password;
         self.password_confirm.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
         self.login(store, now)?;
         if self.view == AuthView::Unlocked {
             self.status = Some("auth_setup_done");
@@ -305,6 +455,95 @@ impl AuthState {
         self.error = None;
         self.status = None;
         self.forgot_hint = false;
+        self.recovery_target = None;
+    }
+
+    /// Starts recovery only for an active account with configured security answers.
+    pub fn begin_recovery(&mut self, store: &Store) {
+        let user = match store.find_user_by_username(self.username.trim()) {
+            Ok(Some(user)) if user.active => user,
+            _ => {
+                self.error = Some("auth_recovery_unavailable");
+                return;
+            }
+        };
+        let answers = match socdof_core::security_questions::security_answers(store, user.id) {
+            Ok(answers) if answers.answer_hashes.len() >= 2 => answers,
+            _ => {
+                self.error = Some("auth_recovery_unavailable");
+                return;
+            }
+        };
+        if !answers.is_configured() {
+            self.error = Some("auth_recovery_unavailable");
+            return;
+        }
+        self.username = user.username;
+        self.password.clear();
+        self.recovery_target = Some(user.id);
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.error = None;
+        self.status = None;
+        self.view = AuthView::Recover;
+    }
+
+    /// Verifies both configured answers and replaces the password, revoking old sessions.
+    pub fn reset_password_with_recovery(
+        &mut self,
+        store: &Store,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        let Some(user_id) = self.recovery_target else {
+            self.error = Some("auth_recovery_unavailable");
+            return Ok(());
+        };
+        if self.recovery_new_password.chars().count() < MIN_PASSWORD_LENGTH {
+            self.error = Some("auth_error_password_short");
+            return Ok(());
+        }
+        if self.recovery_new_password != self.recovery_confirm_password {
+            self.error = Some("auth_error_password_mismatch");
+            return Ok(());
+        }
+        let first = socdof_core::security_questions::verify_security_answer(
+            store,
+            user_id,
+            0,
+            &self.recovery_answer_one,
+        )?;
+        let second = socdof_core::security_questions::verify_security_answer(
+            store,
+            user_id,
+            1,
+            &self.recovery_answer_two,
+        )?;
+        if !first || !second {
+            self.error = Some("auth_recovery_invalid");
+            return Ok(());
+        }
+        let hash = hash_password(&self.recovery_new_password)
+            .map_err(|_| socdof_core::CoreError::Validation("auth_password_hash".to_string()))?;
+        store.set_password(user_id, &hash)?;
+        // The core revokes every persisted session during a password reset. Clear the in-memory
+        // session too, including when recovery was started from the locked screen.
+        self.user = None;
+        self.session = None;
+        self.token = None;
+        self.last_activity_ms = now;
+        self.password.clear();
+        self.password_confirm.clear();
+        self.recovery_target = None;
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.view = AuthView::Login;
+        self.error = None;
+        self.status = Some("auth_recovery_done");
+        Ok(())
     }
 
     /// Locks the current session without revoking it.
@@ -323,6 +562,10 @@ impl AuthState {
 
     /// Opens the locked session with the account password.
     pub fn unlock(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        self.tick_with_store(store, now)?;
+        if self.view != AuthView::Locked {
+            return Ok(());
+        }
         let Some(user) = self.user.clone() else {
             self.show_login();
             return Ok(());
@@ -388,7 +631,71 @@ impl AuthState {
     }
 
     /// Locks an unlocked session after the configured idle time.
+    /// Checks the persisted session as well as its local expiry. This catches revocation from
+    /// another desktop, password reset, account deactivation or permission change.
+    pub fn tick_with_store(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        if matches!(
+            self.view,
+            AuthView::Unlocked | AuthView::Locked | AuthView::ChangePassword
+        ) {
+            let active = match self.token.as_deref() {
+                Some(token) => match store.session_for_token(token, now) {
+                    Ok(session) => session.is_some(),
+                    Err(error) => {
+                        // Fail closed if the database cannot confirm the session.
+                        self.session = None;
+                        self.token = None;
+                        self.user = None;
+                        self.password.clear();
+                        self.password_confirm.clear();
+                        self.view = AuthView::Login;
+                        self.error = None;
+                        self.status = Some("auth_session_expired");
+                        return Err(error);
+                    }
+                },
+                None => false,
+            };
+            if !active {
+                self.session = None;
+                self.token = None;
+                self.user = None;
+                self.password.clear();
+                self.password_confirm.clear();
+                self.view = AuthView::Login;
+                self.error = None;
+                self.status = Some("auth_session_expired");
+                return Ok(());
+            }
+        }
+        self.tick(now);
+        Ok(())
+    }
+
+    /// Advances session expiry and idle-lock state for the supplied timestamp.
     pub fn tick(&mut self, now: i64) {
+        if !matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
+            return;
+        }
+
+        // A locked screen must not be able to revive an expired session by checking the password
+        // again. Expiry therefore applies to both the unlocked desktop and the lock screen.
+        let session_valid = self
+            .session
+            .as_ref()
+            .is_some_and(|session| session.revoked_at.is_none() && session.expires_at > now);
+        if !session_valid {
+            self.session = None;
+            self.token = None;
+            self.user = None;
+            self.password.clear();
+            self.password_confirm.clear();
+            self.view = AuthView::Login;
+            self.error = None;
+            self.status = None;
+            return;
+        }
+
         if self.view != AuthView::Unlocked || self.idle_timeout_ms <= 0 {
             return;
         }
@@ -572,6 +879,14 @@ pub fn auth(
         match state.view {
             AuthView::Login | AuthView::Setup if state.allow_exit => state.back = true,
             AuthView::Login | AuthView::Setup => {}
+            AuthView::Recover => {
+                if state.session.is_some() {
+                    let _ = state.sign_out(store, now);
+                } else {
+                    state.show_login();
+                }
+            }
+            AuthView::ChangePassword => {}
             AuthView::Unlocked => state.lock(now),
             AuthView::Locked => {}
         }
@@ -616,6 +931,12 @@ pub fn auth(
                         AuthView::Unlocked => {
                             unlocked_screen(ui, theme, texts, focus, state, store, now)
                         }
+                        AuthView::Recover => {
+                            recovery_form(ui, theme, texts, focus, state, store, now, submit)
+                        }
+                        AuthView::ChangePassword => {
+                            forced_password_form(ui, theme, texts, focus, state, store, now, submit)
+                        }
                     }
                     ui.add_space(10.0);
                     ui.vertical_centered(|ui| {
@@ -655,7 +976,14 @@ fn login_form(
     now: i64,
     submit: bool,
 ) {
+    let users = store.list_users().unwrap_or_default();
+    let active_users: Vec<_> = users.iter().filter(|user| user.active).collect();
+    if state.username.is_empty() && active_users.len() == 1 {
+        state.username = active_users[0].username.clone();
+    }
+    let mut selected_username = None;
     let mut sign_in = false;
+    let mut recover = false;
     card(ui, theme, |ui| {
         ui.label(
             RichText::new(texts.get("auth_login_title"))
@@ -668,6 +996,28 @@ fn login_form(
                 .color(theme.palette.text_muted),
         );
         ui.add_space(10.0);
+        if active_users.len() > 1 {
+            ui.label(
+                RichText::new(texts.get("auth_account_picker"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.horizontal_wrapped(|ui| {
+                for user in &active_users {
+                    let initial = user.display_name.chars().next().unwrap_or('•');
+                    let label = format!("{initial}  {}", user.display_name);
+                    let variant = if state.username == user.username {
+                        ButtonVariant::Primary
+                    } else {
+                        ButtonVariant::Secondary
+                    };
+                    if button(ui, theme, focus, &label, variant).activated {
+                        selected_username = Some(user.username.clone());
+                    }
+                }
+            });
+            ui.add_space(8.0);
+        }
         text_field(
             ui,
             theme,
@@ -700,14 +1050,216 @@ fn login_form(
             sign_in = true;
         }
         ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("auth_forgot_password"),
+            ButtonVariant::Ghost,
+        )
+        .activated
+        {
+            recover = true;
+        }
         ui.label(
             RichText::new(texts.get("auth_login_hint"))
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
         );
     });
+    if let Some(username) = selected_username {
+        state.begin_switch(&username);
+    }
     if sign_in || submit {
         let _ = state.login(store, now);
+    }
+    if recover {
+        state.begin_recovery(store);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recovery_form(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+    store: &Store,
+    now: i64,
+    submit: bool,
+) {
+    let mut reset = false;
+    let mut cancel = false;
+    card(ui, theme, |ui| {
+        ui.label(
+            RichText::new(texts.get("auth_recovery_title"))
+                .size(22.0)
+                .strong(),
+        );
+        ui.label(
+            RichText::new(texts.get("auth_recovery_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_one,
+            texts.get("auth_recovery_answer_one"),
+            "",
+            None,
+        );
+        ui.add_space(6.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_two,
+            texts.get("auth_recovery_answer_two"),
+            "",
+            None,
+        );
+        ui.add_space(8.0);
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_new_password,
+            texts.get("auth_recovery_new_password"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_confirm_password,
+            texts.get("auth_recovery_confirm"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        messages(ui, theme, texts, state, now);
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("auth_recovery_cancel"),
+                ButtonVariant::Ghost,
+            )
+            .activated
+            {
+                cancel = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("auth_recovery_reset"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                reset = true;
+            }
+        });
+    });
+    if cancel {
+        if state.session.is_some() {
+            let _ = state.sign_out(store, now);
+        } else {
+            state.show_login();
+        }
+    } else if reset || submit {
+        let _ = state.reset_password_with_recovery(store, now);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn forced_password_form(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+    store: &Store,
+    now: i64,
+    submit: bool,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(
+            RichText::new(texts.get("auth_force_password_title"))
+                .size(22.0)
+                .strong(),
+        );
+        ui.label(
+            RichText::new(texts.get("auth_force_password_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(10.0);
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_new_password,
+            texts.get("auth_recovery_new_password"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_confirm_password,
+            texts.get("auth_recovery_confirm"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_one,
+            texts.get("auth_recovery_answer_one"),
+            "",
+            None,
+        );
+        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_two,
+            texts.get("auth_recovery_answer_two"),
+            "",
+            None,
+        );
+        messages(ui, theme, texts, state, now);
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("auth_recovery_reset"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save || submit {
+        let _ = state.complete_forced_password_change(store, now);
     }
 }
 
@@ -760,7 +1312,7 @@ fn setup_form(
             }
         });
         ui.add_space(12.0);
-        if state.setup_step + 1 == SETUP_STEPS {
+        if state.setup_step == 3 {
             ui.label(RichText::new(texts.get("setup_step_import")).strong());
             state.import_pending |=
                 crate::migration::migration_step(ui, theme, texts, &mut state.migration);
@@ -768,6 +1320,13 @@ fn setup_form(
         }
         match state.setup_step {
             0 => {
+                ui.label(RichText::new(texts.get("setup_wizard_welcome_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("setup_wizard_welcome_body"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(10.0);
                 ui.vertical(|ui| {
                     for language in socdof_core::i18n::EMBEDDED_LANGUAGES {
                         let selected = state.language_choice == Some(language);
@@ -783,6 +1342,27 @@ fn setup_form(
                 });
             }
             1 => {
+                ui.label(RichText::new(texts.get("setup_account_type_title")).strong());
+                ui.horizontal(|ui| {
+                    for (account_type, key) in [
+                        (SetupAccountType::Personal, "setup_account_type_personal"),
+                        (SetupAccountType::Business, "setup_account_type_business"),
+                    ] {
+                        let variant = if state.account_type == account_type {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, texts.get(key), variant).activated {
+                            state.account_type = account_type;
+                            state.template_choice = match account_type {
+                                SetupAccountType::Personal => SetupTemplate::Personal,
+                                SetupAccountType::Business => SetupTemplate::Business,
+                            };
+                        }
+                    }
+                });
+                ui.add_space(8.0);
                 text_field(
                     ui,
                     theme,
@@ -850,6 +1430,31 @@ fn setup_form(
                     ),
                     egui::Rounding::same(2.0),
                     strength_color(theme, strength),
+                );
+                ui.add_space(12.0);
+                ui.label(RichText::new(texts.get("auth_recovery_setup_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("auth_recovery_optional"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.recovery_answer_one,
+                    texts.get("auth_recovery_question_one"),
+                    texts.get("auth_recovery_answer_one"),
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.recovery_answer_two,
+                    texts.get("auth_recovery_question_two"),
+                    texts.get("auth_recovery_answer_two"),
+                    None,
                 );
             }
             2 => {
@@ -965,20 +1570,28 @@ fn setup_form(
                         .color(theme.palette.text_muted),
                 );
             }
-            _ => {
-                ui.vertical(|ui| {
-                    for (template, key) in [
-                        (SetupTemplate::Sales, "setup_template_sales"),
-                        (SetupTemplate::Office, "setup_template_office"),
+            3 => {
+                let templates: &[(SetupTemplate, &str)] = match state.account_type {
+                    SetupAccountType::Personal => &[
+                        (SetupTemplate::Personal, "setup_template_personal"),
+                        (SetupTemplate::Practice, "setup_template_practice"),
                         (SetupTemplate::All, "setup_template_all"),
-                    ] {
-                        let variant = if state.template_choice == template {
+                    ],
+                    SetupAccountType::Business => &[
+                        (SetupTemplate::Business, "setup_template_business"),
+                        (SetupTemplate::Retail, "setup_template_retail"),
+                        (SetupTemplate::All, "setup_template_all"),
+                    ],
+                };
+                ui.vertical(|ui| {
+                    for (template, key) in templates {
+                        let variant = if state.template_choice == *template {
                             ButtonVariant::Primary
                         } else {
                             ButtonVariant::Secondary
                         };
                         if button(ui, theme, focus, texts.get(key), variant).activated {
-                            state.template_choice = template;
+                            state.template_choice = *template;
                         }
                     }
                 });
@@ -989,6 +1602,38 @@ fn setup_form(
                         .color(theme.palette.text_muted),
                 );
             }
+            4 => {
+                ui.label(RichText::new(texts.get("setup_wizard_finish_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("setup_wizard_finish_body"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(10.0);
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("auth_display_name"),
+                    state.display_name
+                ));
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("auth_username"),
+                    state.username
+                ));
+                let template_key = match state.template_choice {
+                    SetupTemplate::Personal => "setup_template_personal",
+                    SetupTemplate::Business => "setup_template_business",
+                    SetupTemplate::Practice => "setup_template_practice",
+                    SetupTemplate::Retail => "setup_template_retail",
+                    SetupTemplate::All => "setup_template_all",
+                };
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("setup_template_label"),
+                    texts.get(template_key)
+                ));
+            }
+            _ => {}
         }
         messages(ui, theme, texts, state, now);
         ui.add_space(8.0);
@@ -1108,6 +1753,7 @@ fn lock_screen(
 ) {
     let mut unlock = false;
     let mut sign_out = false;
+    let mut recover = false;
     // The legacy lock screen is a screen, not a form: a large clock, the date and the avatar of the
     // signed-in account above one password field.
     ui.add_space(10.0);
@@ -1212,7 +1858,7 @@ fn lock_screen(
         )
         .activated
         {
-            state.forgot_hint = !state.forgot_hint;
+            recover = true;
         }
         ui.label(
             RichText::new(if state.forgot_hint {
@@ -1224,6 +1870,21 @@ fn lock_screen(
             .color(theme.palette.text_muted),
         );
     });
+    if recover {
+        if let Some(user) = state.user.clone() {
+            let configured = socdof_core::security_questions::security_answers(store, user.id)
+                .map(|answers| answers.answer_hashes.len() >= 2 && answers.is_configured())
+                .unwrap_or(false);
+            if configured {
+                state.username = user.username;
+                state.begin_recovery(store);
+            } else {
+                state.forgot_hint = !state.forgot_hint;
+            }
+        } else {
+            state.forgot_hint = !state.forgot_hint;
+        }
+    }
     if !others.is_empty() {
         ui.add_space(12.0);
         ui.vertical_centered(|ui| {
@@ -1477,7 +2138,39 @@ mod tests {
     }
 
     #[test]
-    fn disabled_and_unknown_accounts_report_distinct_errors() {
+    fn externally_revoked_session_returns_to_login_on_next_validation() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("user").id;
+        store.sign_out_all(user_id, NOW + 1).expect("revoke all");
+
+        state
+            .tick_with_store(&store, NOW + 2)
+            .expect("validate session");
+
+        assert_eq!(state.view, AuthView::Login);
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
+        assert!(state.token.is_none());
+    }
+
+    #[test]
+    fn expired_session_cannot_be_resumed_from_the_lock_screen() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        state.session.as_mut().expect("session").expires_at = NOW + 100;
+        state.lock(NOW);
+
+        state.tick(NOW + 100);
+
+        assert_eq!(state.view, AuthView::Login);
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
+        assert!(state.token.is_none());
+    }
+
+    #[test]
+    fn disabled_and_unknown_accounts_return_the_same_login_error() {
         let store = store_with_admin();
         let disabled = User {
             id: Uuid::new_v4(),
@@ -1497,13 +2190,71 @@ mod tests {
         state.username = "jonas".to_string();
         state.password = "Socdof2026!".to_string();
         state.login(&store, NOW).unwrap();
-        assert_eq!(state.error, Some("auth_error_disabled"));
+        assert_eq!(state.error, Some("auth_error_invalid"));
         assert_ne!(state.view, AuthView::Unlocked);
 
         state.username = "niemand".to_string();
         state.password = "egal-egal".to_string();
         state.login(&store, NOW).unwrap();
         assert_eq!(state.error, Some("auth_error_invalid"));
+    }
+
+    #[test]
+    fn administrator_password_reset_requires_new_password_and_recovery_answers_before_desktop() {
+        let store = Store::open_in_memory().expect("store");
+        let mut user = seed_auth_user(&store, NOW).expect("admin");
+        user.must_change_password = true;
+        store.update_user(&user).expect("require password change");
+
+        let mut state = AuthState::new(&store, NOW).expect("auth");
+        state.username = user.username.clone();
+        state.password = "Socdof2026!".to_string();
+        state.login(&store, NOW).expect("login");
+        assert_eq!(state.view, AuthView::ChangePassword);
+        assert!(state.session.is_some());
+
+        state.recovery_new_password = "A-new-strong-password-2026!".to_string();
+        state.recovery_confirm_password = state.recovery_new_password.clone();
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two.clear();
+        state
+            .complete_forced_password_change(&store, NOW + 1)
+            .expect("validate forced password change");
+        assert_eq!(state.view, AuthView::ChangePassword);
+        assert_eq!(state.error, Some("auth_force_password_answers_required"));
+        assert!(store
+            .authenticate(&user.username, "Socdof2026!")
+            .expect("old password remains")
+            .is_some());
+
+        state.recovery_answer_two = "Birth city".to_string();
+        state
+            .complete_forced_password_change(&store, NOW + 2)
+            .expect("complete forced password change");
+
+        assert_eq!(state.view, AuthView::Unlocked);
+        assert_eq!(state.status, Some("auth_password_changed"));
+        assert!(!state.user.as_ref().expect("user").must_change_password);
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            user.id,
+            0,
+            "FIRST PET"
+        )
+        .expect("answer verification"));
+        let stored = store
+            .find_user_by_username(&user.username)
+            .expect("find")
+            .expect("user");
+        assert!(!stored.must_change_password);
+        assert!(store
+            .session_for_token(state.token.as_deref().expect("active token"), NOW + 3)
+            .expect("session remains valid")
+            .is_some());
+        assert!(socdof_core::security::verify_password(
+            "A-new-strong-password-2026!",
+            &stored.password_hash
+        ));
     }
 
     #[test]
@@ -1562,9 +2313,100 @@ mod tests {
     }
 
     #[test]
-    fn renders_all_four_views_in_every_language_and_theme() {
+    fn first_admin_setup_persists_optional_recovery_answers() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AuthState::new(&store, now_millis()).expect("setup state");
+        state.display_name = "First Admin".to_string();
+        state.username = "first-admin".to_string();
+        state.password = "FirstAdminPassword2026!".to_string();
+        state.password_confirm = state.password.clone();
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two = "Childhood city".to_string();
+
+        state
+            .create_first_admin(&store, now_millis())
+            .expect("create first admin");
+
+        let user = store
+            .find_user_by_username("first-admin")
+            .expect("find account")
+            .expect("account created");
+        let answers = socdof_core::security_questions::security_answers(&store, user.id)
+            .expect("recovery answers");
+        assert!(answers.is_configured());
+        let account_type_key = format!("account_type:{}", user.id);
+        assert_eq!(
+            store
+                .get_setting(&account_type_key)
+                .expect("account type")
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .as_deref(),
+            Some("personal")
+        );
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            user.id,
+            0,
+            "FIRST PET"
+        )
+        .expect("verify first answer"));
+    }
+
+    #[test]
+    fn security_answers_recover_an_account_and_reset_its_password() {
         let store = store_with_admin();
         let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("signed-in user").id;
+        socdof_core::security_questions::save_security_answers(
+            &store,
+            user_id,
+            &["Fluffy".to_string(), "Bolzano".to_string()],
+        )
+        .expect("save recovery answers");
+
+        state.show_login();
+        state.username = "admin".to_string();
+        state.begin_recovery(&store);
+        assert_eq!(state.view, AuthView::Recover);
+
+        state.recovery_answer_one = "wrong".to_string();
+        state.recovery_answer_two = "bolzano".to_string();
+        state.recovery_new_password = "recovered-password-2026".to_string();
+        state.recovery_confirm_password = state.recovery_new_password.clone();
+        state
+            .reset_password_with_recovery(&store, now_millis())
+            .expect("wrong answer check");
+        assert_eq!(state.error, Some("auth_recovery_invalid"));
+        assert!(store
+            .authenticate("admin", "Socdof2026!")
+            .expect("old password")
+            .is_some());
+
+        state.recovery_answer_one = "FLUFFY".to_string();
+        state
+            .reset_password_with_recovery(&store, now_millis())
+            .expect("password reset");
+        assert_eq!(state.view, AuthView::Login);
+        assert_eq!(state.status, Some("auth_recovery_done"));
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
+        assert!(store
+            .authenticate("admin", "recovered-password-2026")
+            .expect("new password")
+            .is_some());
+    }
+
+    #[test]
+    fn renders_all_six_views_in_every_language_and_theme() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("admin").id;
+        socdof_core::security_questions::save_security_answers(
+            &store,
+            user_id,
+            &["first pet".to_string(), "childhood city".to_string()],
+        )
+        .expect("recovery answers");
         for language in [Language::De, Language::En, Language::Fr, Language::Es] {
             let texts = UiTexts::embedded(language).unwrap();
             for appearance in [
@@ -1577,12 +2419,31 @@ mod tests {
                     AuthView::Locked,
                     AuthView::Setup,
                     AuthView::Unlocked,
+                    AuthView::Recover,
+                    AuthView::ChangePassword,
                 ] {
                     match view {
                         AuthView::Login => state.show_login(),
                         AuthView::Locked => state.lock(now_millis()),
                         AuthView::Setup => state.show_setup(),
                         AuthView::Unlocked => state.show_unlocked(),
+                        AuthView::Recover => {
+                            state.username = "admin".to_string();
+                            state.begin_recovery(&store);
+                        }
+                        AuthView::ChangePassword => {
+                            state.user = Some(
+                                store
+                                    .find_user_by_username("admin")
+                                    .unwrap()
+                                    .expect("admin"),
+                            );
+                            state.view = AuthView::ChangePassword;
+                            state.recovery_new_password = "temporary-password".to_string();
+                            state.recovery_confirm_password = state.recovery_new_password.clone();
+                            state.recovery_answer_one = "first pet".to_string();
+                            state.recovery_answer_two = "childhood city".to_string();
+                        }
                     }
                     let ctx = crate::theme::headless_context();
                     let mut focus = FocusState::default();
@@ -1663,5 +2524,120 @@ mod lock_conflict_tests {
         let conflict = LockConflict::default();
         assert_eq!(conflict.owner_label(), "");
         assert_eq!(conflict.owner, None);
+    }
+}
+
+#[cfg(test)]
+mod auth_flow_tests {
+    use super::*;
+
+    fn empty_store() -> Store {
+        Store::open_in_memory().expect("in-memory store")
+    }
+
+    fn configure_first_admin(auth: &mut AuthState) {
+        auth.username = "owner".to_string();
+        auth.display_name = "SOCDOF Owner".to_string();
+        auth.password = "correct horse battery".to_string();
+        auth.password_confirm = auth.password.clone();
+    }
+
+    #[test]
+    fn first_run_creates_the_first_admin_and_opens_a_real_session() {
+        let store = empty_store();
+        let mut auth = AuthState::new(&store, 1_000).expect("initial auth state");
+        assert_eq!(auth.view, AuthView::Setup);
+
+        configure_first_admin(&mut auth);
+        auth.create_first_admin(&store, 1_000)
+            .expect("create first administrator");
+
+        assert_eq!(store.user_count().expect("user count"), 1);
+        assert_eq!(auth.view, AuthView::Unlocked);
+        assert_eq!(
+            auth.user.as_ref().expect("signed-in user").role,
+            UserRole::Admin
+        );
+        assert!(auth.session.is_some());
+        assert!(auth.token.is_some());
+        assert_ne!(
+            store
+                .find_user_by_username("owner")
+                .expect("find owner")
+                .expect("stored owner")
+                .password_hash,
+            "correct horse battery"
+        );
+
+        let next_start = AuthState::new(&store, 2_000).expect("next startup");
+        assert_eq!(next_start.view, AuthView::Login);
+    }
+
+    #[test]
+    fn concurrent_first_run_forms_cannot_create_two_administrators() {
+        let store = empty_store();
+        let mut first = AuthState::new(&store, 1_000).expect("first setup");
+        let mut stale = AuthState::new(&store, 1_000).expect("stale setup");
+        configure_first_admin(&mut first);
+        configure_first_admin(&mut stale);
+        stale.username = "second-owner".to_string();
+
+        first
+            .create_first_admin(&store, 1_000)
+            .expect("first administrator");
+        stale
+            .create_first_admin(&store, 1_001)
+            .expect("stale setup is rejected as a handled validation state");
+
+        assert_eq!(store.user_count().expect("user count"), 1);
+        assert_eq!(stale.error, Some("auth_error_setup_exists"));
+    }
+
+    #[test]
+    fn login_lockout_expires_and_the_correct_password_then_succeeds() {
+        let store = empty_store();
+        let mut setup = AuthState::new(&store, 1_000).expect("initial setup");
+        configure_first_admin(&mut setup);
+        setup
+            .create_first_admin(&store, 1_000)
+            .expect("create administrator");
+
+        let mut login = AuthState::new(&store, 2_000).expect("login state");
+        login.username = "owner".to_string();
+        login.password = "incorrect password".to_string();
+        for attempt in 0..MAX_FAILED_ATTEMPTS {
+            // AuthState clears the password after every submission, just like the real form.
+            // Re-enter it so each loop iteration represents a distinct failed sign-in attempt.
+            login.password = "incorrect password".to_string();
+            login
+                .login(&store, 2_000 + attempt * 1_000)
+                .expect("failed login is a handled outcome");
+        }
+
+        let locked_until = login.locked_until.expect("persistent lockout");
+        assert_eq!(login.error, Some("auth_error_locked"));
+        assert_eq!(login.view, AuthView::Login);
+
+        // Recreate the auth state to model closing and relaunching the application.
+        // The next login must still be rejected by the SQLite-backed lockout record.
+        let mut restarted = AuthState::new(&store, locked_until - 1).expect("restarted auth state");
+        restarted.username = "owner".to_string();
+        restarted.password = "correct horse battery".to_string();
+        restarted
+            .login(&store, locked_until - 1)
+            .expect("locked login is a handled outcome");
+        assert_eq!(restarted.locked_until, Some(locked_until));
+        assert_eq!(restarted.error, Some("auth_error_locked"));
+
+        restarted.password = "correct horse battery".to_string();
+        restarted
+            .login(&store, locked_until + 1)
+            .expect("login after lockout");
+        assert_eq!(restarted.view, AuthView::Unlocked);
+        assert_eq!(
+            restarted.user.as_ref().expect("signed-in user").username,
+            "owner"
+        );
+        assert!(restarted.session.is_some());
     }
 }

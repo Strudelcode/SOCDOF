@@ -53,7 +53,7 @@ pub fn save_security_answers(store: &Store, user_id: Uuid, answers: &[String]) -
                 "security_answer_required".to_string(),
             ));
         }
-        hashes.push(hash_secret(answer)?);
+        hashes.push(hash_secret(&answer.to_lowercase())?);
     }
     store.put_setting(
         &key(user_id),
@@ -74,7 +74,7 @@ pub fn verify_security_answer(
     let Some(hash) = stored.answer_hashes.get(index) else {
         return Ok(false);
     };
-    Ok(verify_password(answer.trim(), hash))
+    Ok(verify_password(&answer.trim().to_lowercase(), hash))
 }
 
 /// Removes the answers of a user.
@@ -105,6 +105,9 @@ mod tests {
         assert_ne!(stored.answer_hashes[0], "first pet");
         assert!(stored.answer_hashes[0].starts_with("$argon2id$"));
 
+        assert!(
+            verify_security_answer(&store, user, 0, "FIRST PET").expect("case-insensitive verify")
+        );
         assert!(verify_security_answer(&store, user, 0, "first pet").expect("verify"));
         assert!(!verify_security_answer(&store, user, 0, "wrong").expect("verify"));
         assert!(!verify_security_answer(&store, user, 2, "first pet").expect("verify"));

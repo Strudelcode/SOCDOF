@@ -218,22 +218,13 @@ fn non_empty(value: &str) -> Option<String> {
 }
 
 fn parse_quantity(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || value <= 0.0 {
-        return None;
-    }
-    let milli = (value * 1_000.0).round() as i64;
-    (milli > 0).then_some(milli)
+    let quantity = Money::parse_scaled_decimal(input, 3)?;
+    (quantity > 0).then_some(quantity)
 }
 
 fn parse_percent_bp(input: &str) -> Option<i64> {
-    let compact = input.trim().replace(',', ".");
-    let value: f64 = compact.parse().ok()?;
-    if !value.is_finite() || !(0.0..=100.0).contains(&value) {
-        return None;
-    }
-    Some((value * 100.0).round() as i64)
+    let basis_points = Money::parse_scaled_decimal(input, 2)?;
+    (0..=10_000).contains(&basis_points).then_some(basis_points)
 }
 
 fn milli_text(milli: i64) -> String {
@@ -713,8 +704,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Purchases
         badge(ui, theme, texts.get(key), Tone::Danger);
     }
 }
-
 /// Renders the purchases screen into the context.
+/// Renders purchases in the full application work area.
 pub fn purchases(
     ctx: &Context,
     theme: &Theme,
@@ -724,7 +715,30 @@ pub fn purchases(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            purchases_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+/// Renders purchases inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn purchases_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PurchasesState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
             PurchasesView::List => state.back = true,
             PurchasesView::Detail => state.view = PurchasesView::List,
@@ -736,19 +750,11 @@ pub fn purchases(
         state.error = Some("purchases_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.view {
-                PurchasesView::List => list_view(ui, theme, texts, focus, state, now),
-                PurchasesView::Detail => detail_view(ui, theme, texts, focus, state, store),
-                PurchasesView::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        PurchasesView::List => list_view(ui, theme, texts, focus, state, now),
+        PurchasesView::Detail => detail_view(ui, theme, texts, focus, state, store),
+        PurchasesView::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;
@@ -1665,5 +1671,16 @@ mod tests {
         assert!(statuses.contains(&PurchaseOrderStatus::Ordered));
         assert!(statuses.contains(&PurchaseOrderStatus::Received));
         assert!(statuses.contains(&PurchaseOrderStatus::Draft));
+    }
+
+    #[test]
+    fn rejects_values_with_more_precision_than_the_store_can_keep() {
+        assert_eq!(parse_quantity("1,125"), Some(1_125));
+        assert_eq!(parse_quantity("1.125"), Some(1_125));
+        assert_eq!(parse_quantity("1.1259"), None);
+        assert_eq!(parse_quantity("0"), None);
+        assert_eq!(parse_percent_bp("19,00"), Some(1_900));
+        assert_eq!(parse_percent_bp("19.001"), None);
+        assert_eq!(parse_percent_bp("101"), None);
     }
 }

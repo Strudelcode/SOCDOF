@@ -748,8 +748,8 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &Appointme
         badge(ui, theme, texts.get(key), Tone::Danger);
     }
 }
-
 /// Renders the calendar screen into the context.
+/// Renders appointments in the full application work area.
 pub fn appointments(
     ctx: &Context,
     theme: &Theme,
@@ -759,7 +759,30 @@ pub fn appointments(
     store: &Store,
     now: i64,
 ) {
-    if !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            appointments_window(ctx, true, ui, theme, texts, focus, state, store, now);
+        });
+}
+/// Renders appointments inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn appointments_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AppointmentsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && !state.confirm_delete && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.screen {
             AppointmentsDetail::Calendar => state.back = true,
             AppointmentsDetail::Detail => state.screen = AppointmentsDetail::Calendar,
@@ -771,23 +794,11 @@ pub fn appointments(
         state.error = Some("appointments_error_load");
     }
 
-    egui::CentralPanel::default()
-        .frame(
-            egui::Frame::none()
-                .fill(theme.palette.background)
-                .inner_margin(egui::Margin::same(24.0)),
-        )
-        .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| match state.screen {
-                AppointmentsDetail::Calendar => {
-                    calendar_view(ui, theme, texts, focus, state, store, now)
-                }
-                AppointmentsDetail::Detail => {
-                    detail_view(ui, theme, texts, focus, state, store, now)
-                }
-                AppointmentsDetail::Form => form_view(ui, theme, texts, focus, state, store, now),
-            });
-        });
+    egui::ScrollArea::vertical().show(ui, |ui| match state.screen {
+        AppointmentsDetail::Calendar => calendar_view(ui, theme, texts, focus, state, store, now),
+        AppointmentsDetail::Detail => detail_view(ui, theme, texts, focus, state, store, now),
+        AppointmentsDetail::Form => form_view(ui, theme, texts, focus, state, store, now),
+    });
 
     let mut open = state.confirm_delete;
     let mut confirm = false;

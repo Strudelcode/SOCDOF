@@ -6,6 +6,11 @@ section, updater signing key and Discord credentials are all present.
 
 ## What a release produces
 
+The authoritative list of installable runtimes and package/data policies lives in
+[`crates/app/distribution/profiles.json`](../crates/app/distribution/profiles.json).
+CI validates that registry and all four application version declarations match;
+the published `distribution-manifest.json` is generated from the same registry.
+
 - Linux: `SOCDOF-<version>-linux-x86_64.AppImage` (signed updater bundle) and
   `SOCDOF-<version>-linux-amd64.deb`.
 - Windows: `SOCDOF-<version>-windows-x64-setup.exe` (signed NSIS updater
@@ -73,7 +78,10 @@ inline announcement failed, start that fallback manually with the tag.
 |---|---|---|
 | Linux x86_64 | AppImage | `.deb` installations do not self-update; download the new package. |
 | Windows x64 | NSIS setup | The MSI is a manual installer and is not used by the updater. |
-| macOS universal | `.app.tar.gz` | The same archive serves Apple Silicon and Intel; it must be signed/notarized for normal distribution. |
+| macOS universal | Tauri `.app.tar.gz` | Signed updater archive; the app must also be signed/notarized for normal distribution. |
+| Native Rust desktop | Windows NSIS / Linux portable tarball | Installed separately from the Tauri transition build. Native Rust self-update is not yet enabled; download and install the matching native package. macOS currently uses the Tauri universal build until the native eframe dependency chain is compatible. |
+
+The native Rust packages are published alongside the Tauri transition packages so each platform has an installable native desktop build. The native Linux archive uses a colocated `data` directory by default; the Windows native installer uses the per-user `%APPDATA%\\SOCDOF` profile; the macOS native app uses `~/Library/Application Support/SOCDOF`. All support `SOCDOF_DATA_DIR` for an explicitly selected profile. Native packages preserve this data directory on uninstall or replacement.
 
 The updater endpoint is
 `https://github.com/Strudelcode/SOCDOF/releases/latest/download/latest.json`.
@@ -88,8 +96,10 @@ macOS builds in CI are currently unsigned. They can be built and smoke-tested,
 but Gatekeeper will warn on first launch and macOS auto-update installation
 needs a properly signed and notarized `.app`. Add an Apple Developer ID
 certificate and notarization credentials before treating the macOS artifact as
-a normal end-user release. Windows SmartScreen similarly benefits from an
-Authenticode certificate, although it is not required for the Tauri updater.
+a normal end-user release. Windows artifacts currently carry publisher metadata for **Yuri / Strudel**
+but are not Authenticode-signed in CI. SmartScreen may therefore warn on first
+launch. Add the developer code-signing certificate and protected signing
+secrets before treating the Windows installer as a signed public release.
 
 ## Local verification
 

@@ -18,24 +18,24 @@
     "context": "Release binary `target/release/socdof-app --database <fresh temp file>`; wall time from spawn to exit with the line `SOCDOF shell ready` (instance lock, schema migration, status read).",
     "median_ms": 800,
     "runs": 5,
-    "note": "The windowed desktop adds only the Tauri window creation on top of this path; CI measures that in the gui-smoke job."
+    "note": "The native egui desktop host adds window creation on top of this path; CI measures the running native host in the gui-smoke job."
   },
-  "installer": {
-    "context": "Tauri bundle in crates/app/src-tauri/target/release/bundle (AppImage, deb, NSIS, MSI, DMG).",
+  "native_binary": {
+    "context": "Native Rust desktop executable `target/release/socdof-ui-desktop`; Tauri remains a migration fallback and is reported separately.",
     "max_bytes": 15728640,
-    "note": "Only measurable where GTK/WebKit and the Tauri toolchain exist (CI desktop job). The script reports `not built here` instead of guessing."
+    "note": "Built in the desktop CI matrix on Linux and Windows; the Linux native executable is checked against this byte limit. macOS host compilation is gated pending an eframe/winit/objc2 dependency update."
   },
   "installed": {
-    "context": "Unpacked application directory of that bundle.",
+    "context": "Current native portable distribution footprint (single executable); platform installer payloads will receive a separate measurement when native installers are added.",
     "max_bytes": 41943040
   },
   "idle_ram": {
-    "context": "Resident memory of the running desktop application sampled from /proc/<pid>/status (VmRSS) after five seconds without input.",
+    "context": "Resident memory of the native Rust `socdof-ui-desktop` process sampled from /proc/<pid>/status (VmRSS) after five seconds without input.",
     "max_kib": 122880,
     "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
   },
   "idle_cpu": {
-    "context": "CPU time of the running desktop application from /proc/<pid>/stat over a five second quiet interval.",
+    "context": "CPU time of the native Rust `socdof-ui-desktop` process from /proc/<pid>/stat over a five second quiet interval.",
     "max_percent": 0.5,
     "note": "Requires a display; measured in the CI gui-smoke job under Xvfb."
   },

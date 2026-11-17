@@ -200,6 +200,7 @@ pub fn metrics(projects: &[Project], tasks: &[ProjectTask]) -> ProjectMetrics {
     let mut total_budget_cents = 0;
     let mut total_logged_hours_milli = 0;
     let mut total_estimated_hours_milli = 0;
+    let mut total_tasks_count = 0;
     let mut completed_tasks_count = 0;
     let mut billable_revenue_cents = 0;
 
@@ -211,6 +212,7 @@ pub fn metrics(projects: &[Project], tasks: &[ProjectTask]) -> ProjectMetrics {
             project.hourly_rate_cents
         };
         for task in tasks.iter().filter(|task| task.project_id == project.id) {
+            total_tasks_count += 1;
             total_logged_hours_milli += task.logged_hours_milli;
             total_estimated_hours_milli += task.estimated_hours_milli;
             if task.status == "done" {
@@ -222,7 +224,6 @@ pub fn metrics(projects: &[Project], tasks: &[ProjectTask]) -> ProjectMetrics {
         }
     }
 
-    let total_tasks_count = tasks.len() as i64;
     let completion_rate = if total_tasks_count > 0 {
         ((completed_tasks_count as f64 / total_tasks_count as f64) * 100.0).round() as i64
     } else {
@@ -447,6 +448,21 @@ mod tests {
         assert!(task.validate().is_ok());
         task.status = "blocked".to_string();
         assert!(task.validate().is_err());
+    }
+
+    #[test]
+    fn metrics_ignore_tasks_that_do_not_belong_to_a_listed_project() {
+        let item = project();
+        let linked = task(item.id, "done", 1_000, true);
+        let orphan = task(Uuid::new_v4(), "todo", 9_000, true);
+
+        let result = metrics(&[item], &[linked, orphan]);
+
+        assert_eq!(result.total_tasks_count, 1);
+        assert_eq!(result.completed_tasks_count, 1);
+        assert_eq!(result.completion_rate, 100);
+        assert_eq!(result.total_logged_hours_milli, 1_000);
+        assert_eq!(result.billable_revenue_cents, 9_500);
     }
 
     #[test]

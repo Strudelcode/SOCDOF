@@ -1,8 +1,13 @@
 name: Rust
 
 on:
-  # Automatic triggers are intentionally disabled while the Rust rewrite is
-  # merged. Run this workflow manually from the Actions tab when needed.
+  # Validate PR creation/reopening and the moment a draft becomes ready. Subsequent commits
+  # on the migration branch are checked by the push trigger below, avoiding duplicate matrices.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, ready_for_review]
+  push:
+    branches: [main, feature/rust-native-desktop-host]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +15,8 @@ permissions:
 
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Keep an expensive cross-platform matrix running while newer commits queue for validation.
+  cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -27,6 +33,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
+
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Validate installable distribution profiles
+        run: node scripts/check-distribution.mjs
 
       - name: Format workspace
         run: cargo fmt --all -- --check
@@ -82,7 +96,18 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install toolchain
+        # egui 0.27 pulls objc2 0.4, which is incompatible with Rust 1.100's
+        # stricter associated-type checking. Pin this legacy desktop target to
+        # the toolchain used when the dependency family was supported.
+        uses: dtolnay/rust-toolchain@1.90.0
+        if: matrix.os == 'macos-latest'
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          components: rustfmt
+
+      - name: Install toolchain (Linux and Windows)
         uses: dtolnay/rust-toolchain@stable
+        if: matrix.os != 'macos-latest'
         with:
           components: rustfmt
 
@@ -99,6 +124,7 @@ jobs:
         uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
+            . -> target
             crates/app/src-tauri -> target
           key: desktop-${{ matrix.os }}
 
@@ -119,6 +145,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
             xdotool \
             libssl-dev \
             patchelf \
@@ -136,6 +163,52 @@ jobs:
 
       - name: Format desktop crate
         run: cargo fmt --manifest-path crates/app/src-tauri/Cargo.toml -- --check
+
+      - name: Build native Rust desktop host
+        if: runner.os != 'macOS'
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+
+      - name: Build native Rust desktop host (macOS universal)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target aarch64-apple-darwin
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target x86_64-apple-darwin
+          mkdir -p artifacts
+          lipo -create \
+            target/aarch64-apple-darwin/release/socdof-ui-desktop \
+            target/x86_64-apple-darwin/release/socdof-ui-desktop \
+            -output artifacts/socdof-ui-desktop-universal
+          file artifacts/socdof-ui-desktop-universal
+          lipo artifacts/socdof-ui-desktop-universal -verify_arch arm64 x86_64
+
+          version='${{ steps.version.outputs.value }}'
+          app="artifacts/SOCDOF-${version}-macos-universal-native.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          cp artifacts/socdof-ui-desktop-universal "$app/Contents/MacOS/SOCDOF"
+          chmod +x "$app/Contents/MacOS/SOCDOF"
+          cat > "$app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>SOCDOF</string>
+            <key>CFBundleDisplayName</key><string>SOCDOF</string>
+            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
+            <key>CFBundleVersion</key><string>${version}</string>
+            <key>CFBundleShortVersionString</key><string>${version}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>SOCDOF</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          plutil -lint "$app/Contents/Info.plist"
+          lipo "$app/Contents/MacOS/SOCDOF" -verify_arch arm64 x86_64
+          ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+          unzip -t "artifacts/SOCDOF-${version}-macos-universal-native.zip"
 
       - name: Build Tauri bundles
         working-directory: crates/app
@@ -163,19 +236,39 @@ jobs:
           chmod +x "artifacts/SOCDOF-${version}-linux-x86_64.AppImage"
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64.AppImage")" -gt 1000000
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-amd64.deb")" -gt 1000000
-          sha256sum artifacts/SOCDOF-* > artifacts/SHA256SUMS-linux.txt
+
+          # Ship the actual native Rust desktop host as a separate portable archive.
+          native_dir="artifacts/SOCDOF-${version}-linux-x86_64-native"
+          mkdir -p "$native_dir"
+          cp target/release/socdof-ui-desktop "$native_dir/"
+          chmod +x "$native_dir/socdof-ui-desktop"
+          cp crates/app/portable/run-socdof-linux.sh "$native_dir/run-socdof.sh"
+          cp crates/app/portable/install-linux.sh "$native_dir/"
+          cp crates/app/portable/uninstall-linux.sh "$native_dir/"
+          cp crates/app/portable/README-LINUX.txt "$native_dir/README.txt"
+          chmod +x "$native_dir/"*.sh
+          tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$native_dir")"
+          test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz")" -gt 1000000
+          for script in "$native_dir/"*.sh; do sh -n "$script"; done
+          grep -F 'SOCDOF_DATA_DIR' "$native_dir/run-socdof.sh"
+          bash scripts/test-native-linux-install.sh "$native_dir"
+          tar -tzf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" | grep -Fx "$(basename "$native_dir")/run-socdof.sh"
+          tar -tzf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" | grep -Fx "$(basename "$native_dir")/socdof-ui-desktop"
+
+          find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 sha256sum > artifacts/SHA256SUMS-linux.txt
+          sha256sum -c artifacts/SHA256SUMS-linux.txt
           ls -lh artifacts
 
-      - name: Check installer size budgets
+      - name: Check native Rust desktop size budgets
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/installer-budgets.txt
+          node scripts/check-budgets.mjs --scope=artifacts | tee artifacts/native-size-budgets.txt
           {
-            echo '### Installer size budgets'
+            echo '### Native Rust desktop size budgets'
             echo '```text'
-            cat artifacts/installer-budgets.txt
+            cat artifacts/native-size-budgets.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -207,8 +300,11 @@ jobs:
           New-Item -ItemType Directory -Force $portable | Out-Null
           Copy-Item $exe $portable
           Copy-Item 'crates/app/portable/README-PORTABLE.txt' $portable
+          Copy-Item 'crates/app/portable/run-socdof.cmd' $portable
+          New-Item -ItemType Directory -Force (Join-Path $portable 'data') | Out-Null
           $loader = Join-Path $release 'WebView2Loader.dll'
           if (Test-Path $loader) { Copy-Item $loader $portable }
+          if (-not (Test-Path (Join-Path $portable 'run-socdof.cmd'))) { throw 'Portable launcher is missing' }
           Compress-Archive -Path (Join-Path $portable '*') `
             -DestinationPath "artifacts/SOCDOF-$version-windows-x64-portable.zip" -Force
 
@@ -220,6 +316,29 @@ jobs:
           if (-not $msi) { throw 'MSI installer was not produced' }
           Copy-Item $nsis.FullName "artifacts/SOCDOF-$version-windows-x64-setup.exe"
           Copy-Item $msi.FullName "artifacts/SOCDOF-$version-windows-x64.msi"
+
+          # Build a separate per-user installer for the native Rust host. The Tauri installer
+          # above remains available as a transition fallback until native acceptance is complete.
+          $nativeExe = 'target/release/socdof-ui-desktop.exe'
+          if (-not (Test-Path $nativeExe)) { throw "Missing native desktop binary: $nativeExe" }
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          $makensisPath = if ($makensis) { $makensis.Source } else { $null }
+          if (-not $makensisPath) {
+            choco install nsis --no-progress -y
+            $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+            if ($makensis) { $makensisPath = $makensis.Source }
+          }
+          if (-not $makensisPath) {
+            $candidate = Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'
+            if (Test-Path $candidate) { $makensisPath = $candidate }
+          }
+          if (-not $makensisPath) { throw 'NSIS compiler is unavailable on this runner' }
+          $nativeRelease = (Resolve-Path 'target/release').Path
+          $nativeInstaller = Join-Path (Resolve-Path 'artifacts').Path "SOCDOF-$version-windows-x64-native-setup.exe"
+          & $makensisPath "/DAPP_VERSION=$version" "/DSOURCE_DIR=$nativeRelease" "/DOUTPUT_FILE=$nativeInstaller" 'crates/app/installer/native-windows.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $nativeInstaller)) {
+            throw 'Native Rust desktop installer build failed'
+          }
 
           Get-ChildItem artifacts -File | ForEach-Object {
             if ($_.Length -lt 1000) { throw "Artifact is implausibly small: $($_.Name)" }
@@ -242,7 +361,7 @@ jobs:
           test -n "$dmg"
           cp "$dmg" "artifacts/SOCDOF-${version}-macos-universal.dmg"
           test "$(wc -c < "artifacts/SOCDOF-${version}-macos-universal.dmg")" -gt 1000000
-          shasum -a 256 artifacts/SOCDOF-* > artifacts/SHA256SUMS-macos.txt
+          find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 shasum -a 256 > artifacts/SHA256SUMS-macos.txt
           ls -lh artifacts
 
       - name: Upload Linux AppImage
@@ -260,6 +379,15 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-linux-amd64.deb
           path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-linux-amd64.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Linux native Rust portable archive
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-linux-x86_64-native
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-linux-x86_64-native.tar.gz
           if-no-files-found: error
           retention-days: 14
 
@@ -290,6 +418,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Smoke-test native Windows installer
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $version = '${{ steps.version.outputs.value }}'
+          $installer = "artifacts/SOCDOF-$version-windows-x64-native-setup.exe"
+          ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
+      - name: Upload native Windows installer
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-windows-x64-native-setup
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-windows-x64-native-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload Windows MSI
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v6
@@ -314,6 +459,15 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
           path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS native Rust app
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-macos-universal-native
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-macos-universal-native.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -359,6 +513,8 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev \
+            libxkbcommon-x11-0 \
+            xdotool \
             libssl-dev \
             patchelf \
             xvfb \
@@ -374,6 +530,9 @@ jobs:
         working-directory: crates/app
         run: npm run build
 
+      - name: Build native Rust desktop host (release)
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+
       - name: Build Tauri binary
         working-directory: crates/app
         run: npm run tauri -- build --no-bundle
@@ -383,6 +542,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
+          command -v xdotool >/dev/null || { echo "xdotool is required for native window and shortcut smoke"; exit 1; }
+          xdotool -v
           Xvfb :99 -screen 0 1280x800x24 > artifacts/xvfb.log 2>&1 &
           xvfb_pid=$!
           trap 'kill "$xvfb_pid" 2>/dev/null || true' EXIT
@@ -395,11 +556,49 @@ jobs:
           export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
-          export APP_BIN="$PWD/crates/app/src-tauri/target/release/socdof-desktop"
+          export APP_BIN="$PWD/target/release/socdof-ui-desktop"
+          # Bound glibc arenas and return freed startup allocations to the OS.
+          # The same settings are shipped in the Linux portable launch script.
+          export MALLOC_ARENA_MAX=1
+          export MALLOC_TRIM_THRESHOLD_=0
+          export MALLOC_MMAP_THRESHOLD_=131072
           mkdir -p artifacts xdg-ignore
           app_pid=$(python3 scripts/idle-app-pid.py)
           echo "sampled app pid: $app_pid"
+
+          # The native egui host must create a real, visible SOCDOF window; a live process
+          # alone is not sufficient evidence that the installed desktop shell opened.
+          window_id=""
+          for _ in $(seq 1 30); do
+            window_id=$(xdotool search --onlyvisible --name SOCDOF 2>/dev/null | head -n 1 || true)
+            if [ -n "$window_id" ]; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$window_id" ]; then
+            echo "native SOCDOF window did not become visible"
+            cat artifacts/idle.log
+            kill "$app_pid" 2>/dev/null || true
+            exit 1
+          fi
+          window_title=$(xdotool getwindowname "$window_id")
+          test "$window_title" = "SOCDOF"
+          window_geometry=$(xdotool getwindowgeometry --shell "$window_id")
+          window_width=$(echo "$window_geometry" | sed -n 's/^WIDTH=//p')
+          window_height=$(echo "$window_geometry" | sed -n 's/^HEIGHT=//p')
+          test "$window_width" -ge 760
+          test "$window_height" -ge 560
+          echo "SOCDOF_NATIVE_WINDOW visible=1 title=$window_title width=$window_width height=$window_height id=$window_id" \
+            | tee artifacts/native-window.txt
           sleep 15
+          {
+            echo "### Native desktop memory profile (PID $app_pid)"
+            grep -E '^(VmRSS|RssAnon|RssFile|RssShmem|VmData|VmSwap):' "/proc/$app_pid/status" || true
+            if test -r "/proc/$app_pid/smaps_rollup"; then
+              cat "/proc/$app_pid/smaps_rollup"
+            fi
+          } | tee artifacts/runtime-memory-profile.txt
           node scripts/check-budgets.mjs --scope=runtime --pid "$app_pid" | tee artifacts/runtime-budgets.txt
           kill "$app_pid" 2>/dev/null || true
           sleep 1
@@ -554,11 +753,11 @@ jobs:
 
       - name: Native dialog bridge
         shell: bash
+        timeout-minutes: 5
         run: |
           set -euo pipefail
-          mkdir -p artifacts/dialog-target
+          mkdir -p artifacts/dialog-target artifacts/xdg-dialogs artifacts/xdg-dialogs-cancel
           echo '{}' > artifacts/dialog-target/import.json
-          export XDG_DATA_HOME="$PWD/artifacts/xdg-dialogs"
           export GDK_BACKEND=x11
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
@@ -566,30 +765,52 @@ jobs:
           export LIBGL_ALWAYS_SOFTWARE=1
           export NO_AT_BRIDGE=1
           export SOCDOF_SMOKE_DIALOGS=1
+
+          # Chosen folder/open paths plus an intentionally invalid save target.
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-dialogs"
           export SOCDOF_SMOKE_DIALOG_FOLDER="$PWD/artifacts/dialog-target"
           export SOCDOF_SMOKE_DIALOG_OPEN="$PWD/artifacts/dialog-target/import.json"
           export SOCDOF_SMOKE_DIALOG_SAVE="$PWD/artifacts/dialog-target/missing/backup.socdofbak"
+          export SOCDOF_SMOKE_DIALOG_CONFIRM=yes
           SOCDOF_SMOKE_REPORT="$PWD/artifacts/dialogs-report.json" \
-            timeout 120s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            timeout --kill-after=5s 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
               "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/dialogs.log 2>&1
+
+          # A separate process exercises cancellation and a cancelled confirmation.
+          export XDG_DATA_HOME="$PWD/artifacts/xdg-dialogs-cancel"
+          export SOCDOF_SMOKE_DIALOG_FOLDER=cancel
+          export SOCDOF_SMOKE_DIALOG_OPEN=cancel
+          export SOCDOF_SMOKE_DIALOG_SAVE=cancel
+          export SOCDOF_SMOKE_DIALOG_CONFIRM=cancel
+          SOCDOF_SMOKE_REPORT="$PWD/artifacts/dialogs-cancel-report.json" \
+            timeout --kill-after=5s 60s dbus-run-session -- xvfb-run -a --server-args="-screen 0 1280x800x24" \
+              "$PWD/crates/app/src-tauri/target/release/socdof-desktop" > artifacts/dialogs-cancel.log 2>&1
+
           python3 - <<'PY'
           import pathlib
 
-          log = pathlib.Path("artifacts/dialogs.log").read_text(errors="replace")
+          chosen = pathlib.Path("artifacts/dialogs.log").read_text(errors="replace")
+          cancelled = pathlib.Path("artifacts/dialogs-cancel.log").read_text(errors="replace")
 
-          assert "SOCDOF_DIALOG kind=folder outcome=chosen" in log, "folder picker rejected a folder"
-          assert "SOCDOF_DIALOG kind=open_file outcome=chosen" in log, "open dialog rejected a file"
-          assert "SOCDOF_DIALOG kind=save_file outcome=error reason=parent_missing" in log, (
+          assert "SOCDOF_DIALOG kind=folder outcome=chosen" in chosen, "folder picker rejected a folder"
+          assert "SOCDOF_DIALOG kind=open_file outcome=chosen" in chosen, "open dialog rejected a file"
+          assert "SOCDOF_DIALOG kind=save_file outcome=error reason=parent_missing" in chosen, (
               "save dialog accepted a missing parent folder"
           )
-          assert "SOCDOF_DIALOG kind=folder outcome=cancelled" in log, "cancel was not reported"
-          assert "SOCDOF_DIALOG kind=message outcome=acknowledged" in log, "message was not acknowledged"
-          print("dialog bridge OK")
+          assert "SOCDOF_DIALOG kind=message outcome=acknowledged" in chosen, "message was not acknowledged"
+          assert "SOCDOF_DIALOG kind=confirm outcome=confirmed" in chosen, "confirmation was not accepted"
+
+          assert "SOCDOF_DIALOG kind=folder outcome=cancelled" in cancelled, "folder cancel was not reported"
+          assert "SOCDOF_DIALOG kind=open_file outcome=cancelled" in cancelled, "open-file cancel was not reported"
+          assert "SOCDOF_DIALOG kind=save_file outcome=cancelled" in cancelled, "save-file cancel was not reported"
+          assert "SOCDOF_DIALOG kind=message outcome=acknowledged" in cancelled, "cancel-run message was not acknowledged"
+          assert "SOCDOF_DIALOG kind=confirm outcome=cancelled" in cancelled, "confirmation cancel was not reported"
+          print("dialog bridge OK: chosen, validation error, cancellation and confirmation paths")
           PY
           {
             echo '### Native dialog bridge'
             echo '```text'
-            grep 'SOCDOF_DIALOG' artifacts/dialogs.log || true
+            grep 'SOCDOF_DIALOG' artifacts/dialogs.log artifacts/dialogs-cancel.log || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -669,6 +890,7 @@ jobs:
               export XDG_DATA_HOME="$xdg"
               export SOCDOF_SMOKE_REPORT="$PWD/artifacts/keys-$label-report.json"
               export SOCDOF_SMOKE_IDLE=1
+              export SOCDOF_SMOKE_SHORTCUTS=1
               if [ "$locked" = "locked" ]; then
                 export SOCDOF_SMOKE_LOCKED=1
               fi
@@ -689,11 +911,18 @@ jobs:
               kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
               return 1
             fi
+            DISPLAY=:91 xdotool windowactivate --sync "$window" 2>/dev/null || true
             DISPLAY=:91 xdotool windowfocus "$window" 2>/dev/null || true
             sleep 1
-            DISPLAY=:91 xdotool key --window "$window" F11 || true
+            # Xvfb can retain Alt from the window activation/focus transition. Release every
+            # modifier explicitly before sending the unmodified documented shortcuts.
+            DISPLAY=:91 xdotool keyup Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
+            # Send real X11 keyboard events to the focused window; do not target a client directly.
+            DISPLAY=:91 xdotool key --clearmodifiers F11 || true
             sleep 1
-            DISPLAY=:91 xdotool key --window "$window" F12 || true
+            DISPLAY=:91 xdotool keyup Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
+            DISPLAY=:91 xdotool key --clearmodifiers F12 || true
+            DISPLAY=:91 xdotool keyup F11 F12 Alt_L Alt_R Super_L Super_R Control_L Control_R Shift_L Shift_R 2>/dev/null || true
             sleep 1
             kill "$app_pid" "$xvfb_pid" 2>/dev/null || true
             wait "$app_pid" 2>/dev/null || true
@@ -789,6 +1018,13 @@ jobs:
             artifacts/splash-failure.log
             artifacts/keys-*.log
             artifacts/dialogs.log
+            artifacts/dialogs-cancel.log
+            artifacts/dialogs-report.json
+            artifacts/dialogs-cancel-report.json
+            artifacts/tray.log
+            artifacts/idle.log
+            artifacts/native-window.txt
+            artifacts/runtime-budgets.txt
             artifacts/xdg-data/**/backups/*.socdofbak
           if-no-files-found: warn
           retention-days: 14
@@ -813,7 +1049,7 @@ jobs:
       - name: Install Trunk
         uses: jetli/trunk-action@v0.5.0
         with:
-          version: latest
+          version: v0.22.1
 
       - name: Build web bundle
         working-directory: crates/web

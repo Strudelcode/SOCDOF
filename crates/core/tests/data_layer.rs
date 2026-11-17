@@ -68,6 +68,7 @@ fn invoice(number: &str, buyer: &Contact) -> Invoice {
         due_at: NOW,
         currency_symbol: "€".to_string(),
         note: Some("Danke".to_string()),
+        tax_total_override_cents: None,
         lines: vec![InvoiceLine {
             description: "Beratung".to_string(),
             quantity_milli: 1_000,
@@ -147,6 +148,7 @@ fn pos_receipt_rolls_back_when_the_stock_is_missing() {
         paid_at: NOW,
         currency_symbol: "€".to_string(),
         note: None,
+        tax_total_override_cents: None,
         cash_given: None,
         lines: vec![PosOrderLine {
             product_id: Some(product.id),
@@ -668,4 +670,28 @@ fn full_text_search_finds_contacts_products_and_invoices() {
     store.update_contact(&renamed).expect("updated");
     assert!(store.search_contacts("Alpen").expect("contacts").is_empty());
     assert_eq!(store.search_contacts("Neue").expect("contacts").len(), 1);
+}
+
+#[test]
+fn stock_increase_rejects_integer_overflow_without_changing_inventory() {
+    let store = store();
+    let product = create_product(&store, "Grenzbestand", i64::MAX);
+    let movement = StockMove {
+        id: Uuid::new_v4(),
+        product_id: product.id,
+        kind: StockMoveKind::In,
+        quantity: 1,
+        reason: Some("overflow regression".to_string()),
+        created_at: NOW + 1,
+    };
+
+    assert!(store.adjust_stock(&movement).is_err());
+    assert_eq!(
+        store
+            .find_product(product.id)
+            .expect("product")
+            .expect("exists")
+            .stock,
+        i64::MAX
+    );
 }

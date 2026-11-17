@@ -165,6 +165,11 @@ impl Theme {
         widgets.active.bg_fill = self.palette.surface;
         widgets.active.bg_stroke = Stroke::new(1.0_f32, self.accent.base);
         widgets.active.fg_stroke = Stroke::new(1.0_f32, self.palette.text);
+        // Open combo boxes and menus share the same contrast as hovered controls.
+        widgets.open.weak_bg_fill = self.accent.light;
+        widgets.open.bg_fill = self.palette.surface;
+        widgets.open.bg_stroke = Stroke::new(1.0_f32, self.accent.border);
+        widgets.open.fg_stroke = Stroke::new(1.0_f32, self.palette.text);
         for widget in [
             &mut widgets.noninteractive,
             &mut widgets.inactive,
@@ -193,7 +198,7 @@ impl Theme {
                 ),
                 (
                     TextStyle::Button,
-                    FontId::new(FONT_BODY, FontFamily::Proportional),
+                    FontId::new(FONT_BODY, FontFamily::Name("Semibold".into())),
                 ),
                 (
                     TextStyle::Small,
@@ -201,7 +206,7 @@ impl Theme {
                 ),
                 (
                     TextStyle::Heading,
-                    FontId::new(FONT_HEADING, FontFamily::Proportional),
+                    FontId::new(FONT_HEADING, FontFamily::Name("Semibold".into())),
                 ),
                 (
                     TextStyle::Monospace,
@@ -295,6 +300,18 @@ mod tests {
         assert_eq!(
             ctx.style().visuals.override_text_color,
             Some(theme.palette.text)
+        );
+        assert_eq!(
+            ctx.style().visuals.widgets.open.bg_fill,
+            theme.palette.surface
+        );
+        assert_eq!(
+            ctx.style().visuals.widgets.open.bg_stroke.color,
+            theme.accent.border
+        );
+        assert_eq!(
+            ctx.style().text_styles[&TextStyle::Button].family,
+            FontFamily::Name("Semibold".into())
         );
         assert_eq!(theme.accent_text(), theme.accent.dark_text);
 

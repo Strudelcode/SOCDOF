@@ -5,13 +5,14 @@
 //! screens. It is drawn entirely by Rust: there is no HTML, no CSS and no JavaScript involved. With
 //! the `window` feature the same function runs inside the eframe window host.
 
-use egui::{Context, Id, RichText};
+use egui::{Context, Id, Key, Modifiers, Pos2, Rect, RichText, Vec2};
 use socdof_core::app_store;
-use socdof_core::domain::permission::AppModule;
-use socdof_core::domain::settings::Language;
-use socdof_core::error::CoreResult;
+use socdof_core::domain::permission::{AppModule, PermissionLevel};
+use socdof_core::domain::settings::{Language, ThemeMode};
+use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::money::Money;
 use socdof_core::now_millis;
+use socdof_core::settings_service::{self, Preferences};
 
 use crate::accounting::{accounting, seed_accounting, AccountingState};
 use crate::app_store::{app_store as app_store_screen, AppStoreState};
@@ -28,8 +29,12 @@ use crate::controls::{
     DrawerLabels, PopupState,
 };
 use crate::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
-use crate::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
+use crate::desktop::{
+    desktop_with_content, work_area, AppId, DesktopFrame, DesktopIcon, IconGrid, Window,
+    WindowManager,
+};
 use crate::editor::{editor as editor_screen, seed_documents, EditorState};
+use crate::fleet::{fleet, FleetState};
 use crate::focus::FocusState;
 use crate::form::{CloseDecision, Field, FormState, UnsavedGuard};
 use crate::i18n::UiTexts;
@@ -37,6 +42,7 @@ use crate::icons::Icon;
 use crate::invoices::{invoices, seed_invoices, InvoicesState};
 use crate::pos::{pos, seed_pos, PosState};
 use crate::products::{products, seed_products, ProductsState};
+use crate::projects::{projects, ProjectsState};
 use crate::purchases::{purchases, seed_purchases, PurchasesState};
 use crate::reports::{reports as reports_screen, ReportsState};
 use crate::settings::{seed_settings, settings, SettingsState};
@@ -100,16 +106,15 @@ fn app_view(
     focus: &mut FocusState,
     slug: &str,
     body: impl FnOnce(&mut FocusState),
-) -> bool {
-    let action = crate::chrome::app_window(
+) -> crate::chrome::WindowAction {
+    crate::chrome::app_window(
         ctx,
         theme,
         texts,
         focus,
         crate::chrome::app_chrome(slug),
         body,
-    );
-    action.close || action.minimize
+    )
 }
 
 /// Translated label of a desktop app.
@@ -127,6 +132,9 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Dashboard, "dashboard"),
         (AppModule::Contacts, "contacts"),
         (AppModule::Products, "products"),
+        (AppModule::Projects, "projects"),
+        (AppModule::Fleet, "fleet"),
+        (AppModule::Restaurant, "restaurant"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -138,6 +146,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Users, "users"),
         (AppModule::Settings, "settings"),
         (AppModule::Editor, "editor"),
+        (AppModule::Documentation, "documentation"),
     ] {
         if !active.contains(&module) {
             continue;
@@ -149,26 +158,195 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
             app.icon,
         ));
     }
+    // The App Store is a desktop utility rather than a permission-controlled business module.
+    let app = crate::chrome::app_chrome("app-store");
+    icons.push(DesktopIcon::new(
+        AppId::new(app.slug),
+        texts.get(app.title_key),
+        app.icon,
+    ));
     IconGrid::new(icons)
+}
+
+/// Resolves a persisted start-up module to a stable desktop app identifier.
+fn startup_app(module: &str) -> Option<AppId> {
+    Some(match module {
+        "dashboard" => AppId::new("dashboard"),
+        "contacts" => AppId::new("contacts"),
+        "products" => AppId::new("products"),
+        "projects" => AppId::new("projects"),
+        "fleet" => AppId::new("fleet"),
+        "restaurant" => AppId::new("restaurant"),
+        "invoices" => AppId::new("invoices"),
+        "accounting" => AppId::new("accounting"),
+        "purchases" => AppId::new("purchases"),
+        "pos" => AppId::new("pos"),
+        "calendar" => AppId::new("calendar"),
+        "support" => AppId::new("support"),
+        "reports" => AppId::new("reports"),
+        "therapy" => AppId::new("therapy"),
+        "users" => AppId::new("users"),
+        "settings" => AppId::new("settings"),
+        "editor" => AppId::new("editor"),
+        "documentation" => AppId::new("documentation"),
+        _ => return None,
+    })
+}
+
+/// Slugs whose native window state is managed by the desktop window manager.
+const NATIVE_WINDOW_SLUGS: &[&str] = &[
+    "contacts",
+    "invoices",
+    "settings",
+    "accounting",
+    "pos",
+    "therapy",
+    "users",
+    "dashboard",
+    "products",
+    "projects",
+    "fleet",
+    "restaurant",
+    "purchases",
+    "calendar",
+    "editor",
+    "app-store",
+    "support",
+    "reports",
+    "documentation",
+];
+
+/// Replaces the saved open-window set with the windows that are actually open now.
+///
+/// Clearing every known slug first is important: otherwise a window closed during this session
+/// remains marked as open in the previous layout and unexpectedly reappears on the next login.
+fn capture_native_windows(layout: &mut settings_service::DesktopLayout, windows: &WindowManager) {
+    for slug in NATIVE_WINDOW_SLUGS {
+        let saved = layout.window_states.entry((*slug).to_string()).or_default();
+        saved.open = false;
+        saved.minimized = false;
+    }
+
+    for (z_order, window) in windows.windows().iter().enumerate() {
+        let rect = window.normal_rect();
+        layout.window_states.insert(
+            window.app().as_str().to_string(),
+            settings_service::DesktopWindowLayout {
+                x: rect.min.x.round() as i32,
+                y: rect.min.y.round() as i32,
+                width: rect.width().round().max(320.0) as u32,
+                height: rect.height().round().max(220.0) as u32,
+                maximized: window.is_maximized(),
+                open: true,
+                minimized: window.is_minimized(),
+                z_order: z_order as u32,
+            },
+        );
+    }
+}
+
+/// Restores only native windows that were open for this account at the previous exit.
+fn restore_native_windows(
+    state: &mut GalleryState,
+    layout: &settings_service::DesktopLayout,
+    screen: Rect,
+    now: i64,
+) {
+    let area = work_area(screen);
+    let mut saved_windows = layout
+        .window_states
+        .iter()
+        .filter(|(_, window)| window.open)
+        .collect::<Vec<_>>();
+    saved_windows.sort_by(|(left_slug, left), (right_slug, right)| {
+        left.z_order
+            .cmp(&right.z_order)
+            .then_with(|| left_slug.cmp(right_slug))
+    });
+
+    for (slug, saved) in saved_windows {
+        let app = match slug.as_str() {
+            "contacts" => AppId::new("contacts"),
+            "invoices" => AppId::new("invoices"),
+            "settings" => AppId::new("settings"),
+            "accounting" => AppId::new("accounting"),
+            "pos" => AppId::new("pos"),
+            "therapy" => AppId::new("therapy"),
+            "users" => AppId::new("users"),
+            "dashboard" => AppId::new("dashboard"),
+            "products" => AppId::new("products"),
+            "projects" => AppId::new("projects"),
+            "fleet" => AppId::new("fleet"),
+            "restaurant" => AppId::new("restaurant"),
+            "purchases" => AppId::new("purchases"),
+            "calendar" => AppId::new("calendar"),
+            "editor" => AppId::new("editor"),
+            "support" => AppId::new("support"),
+            "reports" => AppId::new("reports"),
+            "app-store" => AppId::new("app-store"),
+            "documentation" => AppId::new("documentation"),
+            _ => continue,
+        };
+        let Some(title) = state.desktop_icons.label_of(app) else {
+            continue;
+        };
+
+        let width = (saved.width as f32).clamp(320.0, area.width());
+        let height = (saved.height as f32).clamp(220.0, area.height());
+        let x = (saved.x as f32).clamp(area.left(), (area.right() - width).max(area.left()));
+        let y = (saved.y as f32).clamp(area.top(), (area.bottom() - height).max(area.top()));
+        let rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(width, height));
+
+        state
+            .desktop_windows
+            .open(Window::new(app, title, rect), now);
+        if saved.maximized {
+            state.desktop_windows.toggle_maximize(app, area);
+        }
+        if saved.minimized {
+            state.desktop_windows.minimize(app);
+        }
+    }
 }
 
 /// Trims the desktop to the layout template chosen in the wizard.
 fn apply_setup_template(state: &mut GalleryState) {
     let apps: &[&str] = match state.auth.template_choice {
-        SetupTemplate::Sales => &[
-            "dashboard",
-            "pos",
-            "invoices",
-            "products",
-            "reports",
-            "settings",
-        ],
-        SetupTemplate::Office => &[
+        SetupTemplate::Personal => &[
             "dashboard",
             "contacts",
             "calendar",
-            "support",
-            "editor",
+            "documentation",
+            "settings",
+        ],
+        SetupTemplate::Business => &[
+            "dashboard",
+            "invoices",
+            "accounting",
+            "contacts",
+            "products",
+            "purchases",
+            "calendar",
+            "reports",
+            "settings",
+        ],
+        SetupTemplate::Practice => &[
+            "dashboard",
+            "therapy",
+            "contacts",
+            "calendar",
+            "invoices",
+            "accounting",
+            "settings",
+        ],
+        SetupTemplate::Retail => &[
+            "dashboard",
+            "pos",
+            "products",
+            "purchases",
+            "accounting",
+            "contacts",
+            "invoices",
             "settings",
         ],
         SetupTemplate::All => return,
@@ -240,6 +418,18 @@ pub struct GalleryState {
     pub products: ProductsState,
     /// Whether the products screen is shown instead of the gallery.
     pub products_open: bool,
+    /// Project portfolio and task management state.
+    pub projects: ProjectsState,
+    /// Whether the project management screen is open.
+    pub projects_open: bool,
+    /// Vehicle fleet, logbook and fuel state.
+    pub fleet: FleetState,
+    /// Restaurant floor plan, menu, kitchen and checkout state.
+    pub restaurant: crate::restaurant::RestaurantState,
+    /// Whether the fleet screen is open.
+    pub fleet_open: bool,
+    /// Whether the restaurant screen is open.
+    pub restaurant_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -272,6 +462,8 @@ pub struct GalleryState {
     pub editor: EditorState,
     /// Whether the editor screen is shown instead of the gallery.
     pub editor_open: bool,
+    /// Searchable local documentation manual.
+    pub documentation: crate::documentation::DocumentationState,
     /// App Store module state.
     pub app_store: AppStoreState,
     /// Whether the App Store screen is shown instead of the gallery.
@@ -292,13 +484,38 @@ pub struct GalleryState {
     pub auth: AuthState,
     /// Whether the authentication screen is shown instead of the gallery.
     pub auth_open: bool,
-    /// In-memory database behind the sample screens.
+    /// Database backing the UI; in-memory for gallery fixtures and persistent for the desktop host.
     pub store: Store,
 }
 
 impl GalleryState {
-    /// Builds the initial state for a language, appearance and accent.
+    /// Builds the sample state used by the component gallery and visual snapshots.
     pub fn new(language: Language, appearance: Appearance, accent_id: &str) -> CoreResult<Self> {
+        let store = Store::open_in_memory()?;
+        Self::build(language, appearance, accent_id, store, true)
+    }
+
+    /// Builds the real application state around an existing persistent database.
+    ///
+    /// Unlike GalleryState::new, this constructor never inserts sample business records or
+    /// demo credentials. Existing accounts are shown at the login screen; a new database starts
+    /// in the first-run setup flow.
+    pub fn from_store(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+    ) -> CoreResult<Self> {
+        Self::build(language, appearance, accent_id, store, false)
+    }
+
+    fn build(
+        language: Language,
+        appearance: Appearance,
+        accent_id: &str,
+        store: Store,
+        seed_demo_data: bool,
+    ) -> CoreResult<Self> {
         let texts = load_texts(language)?;
         let form = FormState::new(vec![
             Field::new(texts.get("field_company"), texts.get("field_company_hint"))
@@ -308,54 +525,80 @@ impl GalleryState {
                 .required()
                 .email(),
         ]);
-        let store = Store::open_in_memory()?;
-        seed_sample(&store, &texts)?;
-        seed_products(&store, &texts)?;
+
+        if seed_demo_data {
+            seed_sample(&store, &texts)?;
+            seed_products(&store, &texts)?;
+            seed_invoices(&store, &texts)?;
+            seed_accounting(&store, &texts)?;
+            seed_purchases(&store, &texts)?;
+            seed_pos(&store, &texts)?;
+            seed_appointments(&store, &texts)?;
+            UsersState::seed(&store)?;
+            seed_settings(&store, &texts)?;
+            seed_documents(&store, &texts)?;
+            seed_support(&store, &texts)?;
+            seed_therapie(&store, &texts)?;
+        }
+
+        // Keep the real desktop's login/startup path lightweight. Each app refreshes from the
+        // persistent store when it is opened; the component gallery still eagerly loads its
+        // fixtures so visual and interaction tests keep their established starting state.
         let mut contacts_state = ContactsState::new();
-        contacts_state.refresh(&store)?;
         let mut products_state = ProductsState::new();
-        products_state.refresh(&store)?;
-        seed_invoices(&store, &texts)?;
+        let mut projects_state = ProjectsState::new();
+        let mut fleet_state = FleetState::new();
+        let mut restaurant_state = crate::restaurant::RestaurantState::new();
         let mut invoices_state = InvoicesState::new();
-        invoices_state.refresh(&store)?;
-        seed_accounting(&store, &texts)?;
         let mut accounting_state = AccountingState::new();
-        accounting_state.refresh(&store, now_millis())?;
-        seed_purchases(&store, &texts)?;
         let mut purchases_state = PurchasesState::new();
-        purchases_state.refresh(&store)?;
-        seed_pos(&store, &texts)?;
         let mut pos_state = PosState::new();
-        pos_state.refresh(&store)?;
-        seed_appointments(&store, &texts)?;
         let mut appointments_state = AppointmentsState::new();
-        appointments_state.refresh(&store)?;
-        UsersState::seed(&store)?;
         let mut users_state = UsersState::new();
-        users_state.refresh(&store)?;
-        seed_settings(&store, &texts)?;
         let mut settings_state = SettingsState::new();
-        settings_state.refresh(&store)?;
-        let auth_state = AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?;
-        seed_documents(&store, &texts)?;
+        if seed_demo_data {
+            contacts_state.refresh(&store)?;
+            products_state.refresh(&store)?;
+            projects_state.refresh(&store)?;
+            fleet_state.refresh(&store)?;
+            restaurant_state.refresh(&store)?;
+            invoices_state.refresh(&store)?;
+            accounting_state.refresh(&store, now_millis())?;
+            purchases_state.refresh(&store)?;
+            pos_state.refresh(&store)?;
+            appointments_state.refresh(&store)?;
+            users_state.refresh(&store)?;
+            settings_state.refresh(&store)?;
+        }
+        let auth_state = if seed_demo_data {
+            AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?
+        } else {
+            AuthState::new(&store, now_millis())?
+        };
         let mut editor_state = EditorState::new();
-        editor_state.reset_for_open(&store)?;
+        if seed_demo_data {
+            editor_state.reset_for_open(&store)?;
+        }
+
         let mut active_modules = app_store::active_modules(&store)?;
         if active_modules.is_empty() {
             active_modules = socdof_core::domain::permission::ALL_MODULES.to_vec();
         }
         let desktop_icons = desktop_icons(&texts, &active_modules);
-        let mut dashboard = DashboardState::new(DashboardData::sample(&texts));
+        let dashboard_data = if seed_demo_data {
+            DashboardData::sample(&texts)
+        } else {
+            let (company, counts, invoices, low_stock) = store.dashboard_snapshot(now_millis())?;
+            DashboardData::new(company, counts, invoices, low_stock)
+        };
+        let mut dashboard = DashboardState::new(dashboard_data);
         dashboard.set_active_modules(active_modules);
-        let mut app_store_state = AppStoreState::new();
-        app_store_state.refresh(&store)?;
-        seed_support(&store, &texts)?;
-        let mut support_state = SupportState::new();
-        support_state.refresh(&store)?;
+
+        let app_store_state = AppStoreState::new();
+        let support_state = SupportState::new();
         let reports_state = ReportsState::new();
-        seed_therapie(&store, &texts)?;
-        let mut therapie_state = TherapieState::new();
-        therapie_state.refresh(&store)?;
+        let therapie_state = TherapieState::new();
+
         Ok(Self {
             language,
             appearance,
@@ -388,6 +631,12 @@ impl GalleryState {
             contacts_open: false,
             products: products_state,
             products_open: false,
+            projects: projects_state,
+            projects_open: false,
+            fleet: fleet_state,
+            fleet_open: false,
+            restaurant: restaurant_state,
+            restaurant_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -403,6 +652,7 @@ impl GalleryState {
             users: users_state,
             users_open: false,
             editor: editor_state,
+            documentation: crate::documentation::DocumentationState::default(),
             editor_open: false,
             app_store: app_store_state,
             app_store_open: false,
@@ -413,7 +663,7 @@ impl GalleryState {
             therapie: therapie_state,
             therapie_open: false,
             auth: auth_state,
-            auth_open: false,
+            auth_open: !seed_demo_data,
             store,
         })
     }
@@ -439,11 +689,50 @@ impl GalleryState {
         Theme::new(self.appearance, &self.accent_id)
     }
 
+    /// Closes every module view before changing the active workspace.
+    ///
+    /// This is also used after account switches so a previous user's screen cannot remain active.
+    fn close_module_views(&mut self) {
+        self.dashboard_open = false;
+        self.contacts_open = false;
+        self.products_open = false;
+        self.projects_open = false;
+        self.fleet_open = false;
+        self.restaurant_open = false;
+        self.invoices_open = false;
+        self.accounting_open = false;
+        self.purchases_open = false;
+        self.pos_open = false;
+        self.appointments_open = false;
+        self.settings_open = false;
+        self.users_open = false;
+        self.editor_open = false;
+        self.app_store_open = false;
+        self.support_open = false;
+        self.reports_open = false;
+        self.therapie_open = false;
+    }
+
     /// Opens the screen of a desktop app and leaves the desktop.
     ///
     /// The desktop reports the launched app; this method reloads the module state from the store so
     /// the screen shows live rows instead of the last visit.
     fn open_desktop_app(&mut self, app: AppId, now: i64) -> CoreResult<()> {
+        let module = AppModule::from_storage(app.as_str());
+        if let Some(module) = module {
+            let user = self
+                .auth
+                .user
+                .as_ref()
+                .ok_or_else(|| CoreError::Validation("permission_denied".to_string()))?;
+            if !self
+                .store
+                .user_allows(user, module, PermissionLevel::View)?
+            {
+                return Err(CoreError::Validation("permission_denied".to_string()));
+            }
+        }
+        self.close_module_views();
         self.desktop_open = false;
         match app.as_str() {
             "dashboard" => self.dashboard_open = true,
@@ -455,11 +744,24 @@ impl GalleryState {
                 self.products.refresh(&self.store)?;
                 self.products_open = true;
             }
+            "projects" => {
+                self.projects.reset_for_open(&self.store)?;
+                self.projects_open = true;
+            }
+            "fleet" => {
+                self.fleet.reset_for_open(&self.store)?;
+                self.fleet_open = true;
+            }
+            "restaurant" => {
+                self.restaurant.reset_for_open(&self.store)?;
+                self.restaurant_open = true;
+            }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
                 self.invoices_open = true;
             }
             "accounting" => {
+                self.accounting.invalidate();
                 self.accounting.refresh(&self.store, now)?;
                 self.accounting_open = true;
             }
@@ -483,7 +785,27 @@ impl GalleryState {
             }
             "settings" => {
                 self.settings.reset_for_open();
+                self.settings
+                    .set_active_user(self.auth.user.as_ref().map(|user| user.id));
+                self.settings.refresh(&self.store)?;
                 self.settings_open = true;
+            }
+            "documentation" => {
+                let title = self
+                    .desktop_icons
+                    .label_of(app)
+                    .unwrap_or("Manual")
+                    .to_owned();
+                let area = work_area(Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::Vec2::new(1280.0, 800.0),
+                ));
+                let rect =
+                    crate::desktop::default_window_rect(area, self.desktop_windows.windows().len());
+                self.desktop_windows
+                    .open(Window::new(app, title, rect), now);
+                self.desktop_open = true;
+                return Ok(());
             }
             "editor" => {
                 self.editor.reset_for_open(&self.store)?;
@@ -515,14 +837,89 @@ impl GalleryState {
 
     /// Reloads the module selection into the dashboard and desktop navigation.
     fn sync_module_navigation(&mut self) -> CoreResult<()> {
-        let active = app_store::active_modules(&self.store)?;
+        let mut active = app_store::active_modules(&self.store)?;
+        if active.is_empty() {
+            active = socdof_core::domain::permission::ALL_MODULES.to_vec();
+        }
+        if let Some(user) = self.auth.user.as_ref() {
+            let mut permitted = Vec::with_capacity(active.len());
+            for module in active {
+                if self
+                    .store
+                    .user_allows(user, module, PermissionLevel::View)?
+                {
+                    permitted.push(module);
+                }
+            }
+            active = permitted;
+        } else {
+            active.clear();
+        }
         self.dashboard.set_active_modules(active.clone());
         self.desktop_icons = desktop_icons(&self.texts, &active);
         Ok(())
     }
 }
 
-/// Renders the gallery into the context.
+/// Handles the documented application-wide keyboard shortcuts for the native desktop.
+///
+/// The shortcuts are consumed here rather than by individual app screens, so they behave the
+/// same regardless of which module window currently owns keyboard focus.
+fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
+    let (fullscreen, help, palette, lock, start_menu, task_view, escape) = ctx.input_mut(|input| {
+        (
+            input.consume_key(Modifiers::NONE, Key::F11),
+            input.consume_key(Modifiers::NONE, Key::F1),
+            input.consume_key(Modifiers::CTRL, Key::K),
+            input.consume_key(Modifiers::CTRL, Key::L),
+            input.consume_key(Modifiers::CTRL, Key::Space),
+            input.consume_key(Modifiers::CTRL, Key::Tab)
+                || input.consume_key(Modifiers::ALT, Key::Tab),
+            input.consume_key(Modifiers::NONE, Key::Escape),
+        )
+    });
+    let desktop_ready = !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked;
+    if fullscreen && desktop_ready {
+        let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+    }
+    if help && desktop_ready {
+        let _ = state.open_desktop_app(AppId::new("documentation"), now);
+    }
+    if palette && desktop_ready {
+        state.shell.open_palette();
+    }
+    if lock && desktop_ready {
+        state.shell.close_overlays();
+        state.auth.lock(now);
+        state.auth_open = true;
+        state.desktop_open = false;
+        state.close_module_views();
+        state.desktop_windows = WindowManager::new();
+    }
+    if start_menu && desktop_ready {
+        state.shell.toggle_start();
+    }
+    if task_view && desktop_ready {
+        if state.shell.task_view.is_open() {
+            state.shell.task_view.close();
+        } else {
+            state.shell.close_overlays();
+            state.shell.task_view.open();
+        }
+    }
+    if escape && desktop_ready {
+        if state.shell.dismiss_top_overlay() {
+            // The topmost transient overlay owns Escape.
+        } else if state.shell.overlay_open() || state.shell.studio.is_open() {
+            // First-run onboarding and Studio retain their modal/focus behavior.
+        } else if let Some(active) = state.desktop_windows.active() {
+            state.desktop_windows.close(active, now);
+        }
+    }
+}
+
+/// Renders the gallery or active desktop screen into the egui context.
 pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     state.focus.begin_frame(ctx);
     let theme = state.theme();
@@ -530,10 +927,35 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     let texts = state.texts.clone();
     let now = now_millis();
 
+    handle_global_shortcuts(ctx, state, now);
+
+    // Authentication remains active while the desktop is visible. The login renderer cannot
+    // own the idle timer because it is not called during normal desktop frames.
+    if !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked {
+        let interacting = ctx.input(|input| input.pointer.any_down() || !input.events.is_empty());
+        if interacting {
+            state.auth.note_activity(now);
+        }
+        if state.auth.tick_with_store(&state.store, now).is_err() {
+            state.auth.show_login();
+        }
+        if state.auth.view != crate::auth::AuthView::Unlocked {
+            state.desktop_open = false;
+            state.auth_open = true;
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
+        }
+        if state.auth.view == crate::auth::AuthView::Locked {
+            state.desktop_open = false;
+            state.auth_open = true;
+        }
+    }
+
     if state.auth_open {
         if state.auth.import_pending {
             let _ = state.auth.run_pending_import(&state.store);
         }
+        let was_unlocked = state.auth.view == crate::auth::AuthView::Unlocked;
         auth(
             ctx,
             &theme,
@@ -543,10 +965,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &state.store,
             now,
         );
-        // The wizard collects language, appearance, accent and layout; the host owns them, so it
-        // applies the choices as soon as the user leaves the step that made them.
+        // The wizard collects language, appearance, accent and layout; apply them immediately
+        // and persist the account preferences so they survive the next application start.
         if let Some(language) = state.auth.language_choice.take() {
-            state.language = language;
+            let _ = state.set_language(language);
         }
         if let Some(appearance) = state.auth.appearance_choice.take() {
             state.appearance = appearance;
@@ -561,8 +983,80 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             custom.revision = now as u64;
             state.shell.wallpaper.custom = Some(custom);
         }
-        if state.auth.take_wizard_completed() {
+        let wizard_completed = state.auth.take_wizard_completed();
+        if wizard_completed {
             apply_setup_template(state);
+        }
+        let mut startup_module = None;
+        if !was_unlocked && state.auth.view == crate::auth::AuthView::Unlocked {
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                let preferences = if wizard_completed {
+                    Preferences {
+                        language: state.language,
+                        theme_mode: if state.appearance.is_dark() {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::Light
+                        },
+                        accent_color: state.accent_id.clone(),
+                        ..Preferences::default()
+                    }
+                } else {
+                    settings_service::preferences(&state.store, user_id).unwrap_or_default()
+                };
+                if wizard_completed {
+                    if let Err(error) =
+                        settings_service::save_preferences(&state.store, user_id, &preferences)
+                    {
+                        eprintln!("SOCDOF could not save first-run preferences: {error}");
+                    }
+                } else {
+                    let _ = state.set_language(preferences.language);
+                    state.appearance = match preferences.theme_mode {
+                        ThemeMode::Dark => Appearance::Dark,
+                        ThemeMode::Light => Appearance::Light,
+                        ThemeMode::System => state.appearance,
+                    };
+                    state.accent_id = preferences.accent_color;
+                    startup_module = startup_app(&preferences.startup_module);
+                }
+            }
+        }
+        if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
+            state.auth_open = false;
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
+            state.desktop_open = true;
+            if state.sync_module_navigation().is_err() {
+                // A permission lookup failure must never expose the previous account's launcher.
+                state.desktop_icons = IconGrid::new(Vec::new());
+                state.dashboard.set_active_modules(Vec::new());
+            } else if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                if let Ok(layout) = settings_service::desktop_layout(&state.store, user_id) {
+                    let positions = state
+                        .desktop_icons
+                        .icons()
+                        .iter()
+                        .filter_map(|icon| {
+                            layout
+                                .icon_positions
+                                .get(icon.app().as_str())
+                                .map(|cell| (icon.app(), *cell))
+                        })
+                        .collect::<Vec<_>>();
+                    state.desktop_icons.restore_positions(&positions);
+                    restore_native_windows(state, &layout, ctx.screen_rect(), now);
+                }
+            }
+            if let Some(app) =
+                startup_module.filter(|app| state.desktop_icons.index_of(*app).is_some())
+            {
+                // A stale or disabled start-up module falls back to the desktop instead of
+                // leaving the user on a blank screen.
+                if state.open_desktop_app(app, now).is_err() {
+                    state.desktop_open = true;
+                }
+            }
         }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
@@ -573,7 +1067,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     }
 
     if state.desktop_open {
-        let outcome = desktop(
+        let outcome = desktop_with_content(
             ctx,
             DesktopFrame {
                 theme: &theme,
@@ -586,21 +1080,360 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             &mut state.desktop_icons,
             &mut state.desktop_windows,
             now,
+            |app, active, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
+                "contacts" => {
+                    crate::contacts::contacts_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.contacts,
+                        store,
+                        now,
+                    );
+                    let back = state.contacts.back;
+                    state.contacts.back = false;
+                    back
+                }
+                "invoices" => {
+                    crate::invoices::invoices_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.invoices,
+                        store,
+                        now,
+                    );
+                    let back = state.invoices.back;
+                    state.invoices.back = false;
+                    back
+                }
+                "accounting" => {
+                    crate::accounting::accounting_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.accounting,
+                        store,
+                        now,
+                    );
+                    let back = state.accounting.back;
+                    state.accounting.back = false;
+                    back
+                }
+                "projects" => {
+                    crate::projects::projects_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.projects,
+                        store,
+                        now,
+                    );
+                    let back = state.projects.back;
+                    state.projects.back = false;
+                    back
+                }
+                "fleet" => {
+                    crate::fleet::fleet_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.fleet,
+                        store,
+                        now,
+                    );
+                    let back = state.fleet.back;
+                    state.fleet.back = false;
+                    back
+                }
+                "restaurant" => {
+                    crate::restaurant::restaurant_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.restaurant,
+                        store,
+                        now,
+                    );
+                    let back = state.restaurant.back;
+                    state.restaurant.back = false;
+                    back
+                }
+                "products" => {
+                    crate::products::products_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.products,
+                        store,
+                        now,
+                    );
+                    let back = state.products.back;
+                    state.products.back = false;
+                    back
+                }
+                "purchases" => {
+                    crate::purchases::purchases_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.purchases,
+                        store,
+                        now,
+                    );
+                    let back = state.purchases.back;
+                    state.purchases.back = false;
+                    back
+                }
+                "calendar" => {
+                    crate::appointments::appointments_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.appointments,
+                        store,
+                        now,
+                    );
+                    let back = state.appointments.back;
+                    state.appointments.back = false;
+                    back
+                }
+                "documentation" => {
+                    crate::documentation::documentation_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.documentation,
+                    );
+                    false
+                }
+                "editor" => {
+                    crate::editor::editor_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.editor,
+                        store,
+                        now,
+                    );
+                    let back = state.editor.back;
+                    state.editor.back = false;
+                    back
+                }
+                "app-store" => {
+                    crate::app_store::app_store_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.app_store,
+                        store,
+                    );
+                    let back = state.app_store.back;
+                    state.app_store.back = false;
+                    back
+                }
+                "support" => {
+                    crate::support::support_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.support,
+                        store,
+                        now,
+                    );
+                    let back = state.support.back;
+                    state.support.back = false;
+                    back
+                }
+                "reports" => {
+                    crate::reports::reports_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.reports,
+                        store,
+                        now,
+                    );
+                    let back = state.reports.back;
+                    state.reports.back = false;
+                    back
+                }
+                "dashboard" => {
+                    crate::dashboard::dashboard_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.dashboard,
+                        now,
+                    );
+                    false
+                }
+                "pos" => {
+                    crate::pos::pos_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.pos,
+                        store,
+                        now,
+                    );
+                    let back = state.pos.back;
+                    state.pos.back = false;
+                    back
+                }
+                "therapy" => {
+                    crate::therapie::therapie_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.therapie,
+                        store,
+                        now,
+                    );
+                    let back = state.therapie.back;
+                    state.therapie.back = false;
+                    back
+                }
+                "users" => {
+                    crate::users::users_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.users,
+                        store,
+                        now,
+                    );
+                    let back = state.users.back;
+                    state.users.back = false;
+                    back
+                }
+                "settings" => {
+                    crate::settings::settings_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.settings,
+                        store,
+                        now,
+                    );
+                    let back = state.settings.back;
+                    state.settings.back = false;
+                    back
+                }
+                _ => {
+                    ui.label(texts.get("desktop_hint"));
+                    false
+                }
+            },
         );
+        if outcome.icon_positions_changed || outcome.window_layout_changed {
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                match settings_service::desktop_layout(&state.store, user_id) {
+                    Ok(mut layout) => {
+                        if outcome.icon_positions_changed {
+                            layout.icon_positions = state
+                                .desktop_icons
+                                .positions()
+                                .into_iter()
+                                .map(|(app, cell)| (app.as_str().to_string(), cell))
+                                .collect();
+                        }
+                        if outcome.window_layout_changed {
+                            capture_native_windows(&mut layout, &state.desktop_windows);
+                        }
+                        if let Err(error) =
+                            settings_service::save_desktop_layout(&state.store, user_id, &layout)
+                        {
+                            eprintln!("SOCDOF could not save desktop layout: {error}");
+                        }
+                    }
+                    Err(error) => {
+                        // Do not replace a user's saved layout with defaults after a read failure.
+                        eprintln!(
+                            "SOCDOF could not load desktop layout; skipping save to protect existing data: {error}"
+                        );
+                    }
+                }
+            }
+        }
         if outcome.back {
             state.desktop_open = false;
         }
         if outcome.lock {
             state.auth.lock(now);
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.sign_out {
             let _ = state.auth.sign_out(&state.store, now);
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if let Some(username) = outcome.switch_account.clone() {
             state.auth.begin_switch(&username);
+            state.close_module_views();
+            state.desktop_windows = WindowManager::new();
             state.desktop_open = false;
+            state.auth_open = true;
         }
         if outcome.toggle_theme {
             state.appearance = if state.appearance.is_dark() {
@@ -608,6 +1441,25 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             } else {
                 Appearance::Dark
             };
+            if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
+                match settings_service::preferences(&state.store, user_id) {
+                    Ok(mut preferences) => {
+                        preferences.theme_mode = if state.appearance.is_dark() {
+                            ThemeMode::Dark
+                        } else {
+                            ThemeMode::Light
+                        };
+                        if let Err(error) =
+                            settings_service::save_preferences(&state.store, user_id, &preferences)
+                        {
+                            eprintln!("SOCDOF could not persist desktop theme: {error}");
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!("SOCDOF could not load desktop theme preferences: {error}")
+                    }
+                }
+            }
         }
         if let Some(app) = outcome.open_app {
             if state.open_desktop_app(app, now).is_err() {
@@ -652,6 +1504,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 DashboardAction::OpenAccounting => {
                     state.dashboard_open = false;
                     state.dashboard.back = false;
+                    state.accounting.invalidate();
                     state.accounting_open = true;
                 }
                 DashboardAction::OpenPurchases => {
@@ -708,10 +1561,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
             }
         }
-        if closed || state.dashboard.back {
+        if closed.close || closed.minimize || state.dashboard.back {
             state.dashboard_open = false;
             state.dashboard.back = false;
-            state.desktop_windows.close(AppId::new("dashboard"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("dashboard"));
+            } else {
+                state.desktop_windows.close(AppId::new("dashboard"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -729,10 +1587,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.contacts.back {
+        if closed.close || closed.minimize || state.contacts.back {
             state.contacts_open = false;
             state.contacts.back = false;
-            state.desktop_windows.close(AppId::new("contacts"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("contacts"));
+            } else {
+                state.desktop_windows.close(AppId::new("contacts"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -750,10 +1613,112 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.products.back {
+        if closed.close || closed.minimize || state.products.back {
             state.products_open = false;
             state.products.back = false;
-            state.desktop_windows.close(AppId::new("products"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("products"));
+            } else {
+                state.desktop_windows.close(AppId::new("products"), now);
+            }
+            state.desktop_open = true;
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.projects_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "projects", |focus| {
+            projects(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.projects,
+                &state.store,
+                now,
+            );
+        });
+        if let Some(invoice_id) = state.projects.created_invoice.take() {
+            state.projects_open = false;
+            state.desktop_windows.close(AppId::new("projects"), now);
+            state.invoices.invalidate();
+            match state.invoices.refresh(&state.store) {
+                Ok(()) => {
+                    state.invoices.select(invoice_id);
+                    state.invoices_open = true;
+                }
+                Err(error) => state.projects.error = Some(error.to_string()),
+            }
+        }
+        if closed.close || closed.minimize || state.projects.back {
+            state.projects_open = false;
+            state.projects.back = false;
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("projects"));
+            } else {
+                state.desktop_windows.close(AppId::new("projects"), now);
+            }
+            state.desktop_open = true;
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.fleet_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "fleet", |focus| {
+            fleet(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.fleet,
+                &state.store,
+                now,
+            );
+        });
+        if closed.close || closed.minimize || state.fleet.back {
+            state.fleet_open = false;
+            state.fleet.back = false;
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("fleet"));
+            } else {
+                state.desktop_windows.close(AppId::new("fleet"), now);
+            }
+            state.desktop_open = true;
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.restaurant_open {
+        let closed = app_view(
+            ctx,
+            &theme,
+            &texts,
+            &mut state.focus,
+            "restaurant",
+            |focus| {
+                crate::restaurant::restaurant(
+                    ctx,
+                    &theme,
+                    &texts,
+                    focus,
+                    &mut state.restaurant,
+                    &state.store,
+                    now,
+                );
+            },
+        );
+        if closed.close || closed.minimize || state.restaurant.back {
+            state.restaurant_open = false;
+            state.restaurant.back = false;
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("restaurant"));
+            } else {
+                state.desktop_windows.close(AppId::new("restaurant"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -771,10 +1736,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.invoices.back {
+        if closed.close || closed.minimize || state.invoices.back {
             state.invoices_open = false;
             state.invoices.back = false;
-            state.desktop_windows.close(AppId::new("invoices"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("invoices"));
+            } else {
+                state.desktop_windows.close(AppId::new("invoices"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -799,10 +1769,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 );
             },
         );
-        if closed || state.accounting.back {
+        if closed.close || closed.minimize || state.accounting.back {
             state.accounting_open = false;
             state.accounting.back = false;
-            state.desktop_windows.close(AppId::new("accounting"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("accounting"));
+            } else {
+                state.desktop_windows.close(AppId::new("accounting"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -827,10 +1802,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 );
             },
         );
-        if closed || state.purchases.back {
+        if closed.close || closed.minimize || state.purchases.back {
             state.purchases_open = false;
             state.purchases.back = false;
-            state.desktop_windows.close(AppId::new("purchases"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("purchases"));
+            } else {
+                state.desktop_windows.close(AppId::new("purchases"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -848,10 +1828,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.pos.back {
+        if closed.close || closed.minimize || state.pos.back {
             state.pos_open = false;
             state.pos.back = false;
-            state.desktop_windows.close(AppId::new("pos"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("pos"));
+            } else {
+                state.desktop_windows.close(AppId::new("pos"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -869,10 +1854,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.appointments.back {
+        if closed.close || closed.minimize || state.appointments.back {
             state.appointments_open = false;
             state.appointments.back = false;
-            state.desktop_windows.close(AppId::new("calendar"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("calendar"));
+            } else {
+                state.desktop_windows.close(AppId::new("calendar"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -890,10 +1880,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.users.back {
+        if closed.close || closed.minimize || state.users.back {
             state.users_open = false;
             state.users.back = false;
-            state.desktop_windows.close(AppId::new("users"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("users"));
+            } else {
+                state.desktop_windows.close(AppId::new("users"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -911,10 +1906,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.editor.back {
+        if closed.close || closed.minimize || state.editor.back {
             state.editor_open = false;
             state.editor.back = false;
-            state.desktop_windows.close(AppId::new("editor"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("editor"));
+            } else {
+                state.desktop_windows.close(AppId::new("editor"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -944,10 +1944,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 state.app_store.error = Some("app_store_error_storage");
             }
         }
-        if closed || state.app_store.back {
+        if closed.close || closed.minimize || state.app_store.back {
             state.app_store_open = false;
             state.app_store.back = false;
-            state.desktop_windows.close(AppId::new("app-store"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("app-store"));
+            } else {
+                state.desktop_windows.close(AppId::new("app-store"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -965,10 +1970,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.support.back {
+        if closed.close || closed.minimize || state.support.back {
             state.support_open = false;
             state.support.back = false;
-            state.desktop_windows.close(AppId::new("support"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("support"));
+            } else {
+                state.desktop_windows.close(AppId::new("support"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -986,10 +1996,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.reports.back {
+        if closed.close || closed.minimize || state.reports.back {
             state.reports_open = false;
             state.reports.back = false;
-            state.desktop_windows.close(AppId::new("reports"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("reports"));
+            } else {
+                state.desktop_windows.close(AppId::new("reports"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1007,10 +2022,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.therapie.back {
+        if closed.close || closed.minimize || state.therapie.back {
             state.therapie_open = false;
             state.therapie.back = false;
-            state.desktop_windows.close(AppId::new("therapy"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("therapy"));
+            } else {
+                state.desktop_windows.close(AppId::new("therapy"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1028,10 +2048,24 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 now,
             );
         });
-        if closed || state.settings.back {
+        if let Some(preferences) = state.settings.take_saved_preferences() {
+            let _ = state.set_language(preferences.language);
+            state.appearance = match preferences.theme_mode {
+                ThemeMode::Dark => Appearance::Dark,
+                ThemeMode::Light => Appearance::Light,
+                ThemeMode::System => state.appearance,
+            };
+            state.accent_id = preferences.accent_color;
+        }
+        if closed.close || closed.minimize || state.settings.back {
             state.settings_open = false;
             state.settings.back = false;
-            state.desktop_windows.close(AppId::new("settings"), now);
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("settings"));
+            } else {
+                state.desktop_windows.close(AppId::new("settings"), now);
+            }
+            state.desktop_open = true;
         }
         state.focus.finish_frame();
         return;
@@ -1265,6 +2299,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     )
                     .activated
                     {
+                        state.accounting.invalidate();
                         state.accounting_open = true;
                         state.accounting.view = crate::accounting::AccountingView::List;
                     }
@@ -2096,6 +3131,169 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
 mod tests {
     use super::*;
 
+    #[test]
+    fn persistent_state_uses_the_supplied_store_without_demo_records() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = GalleryState::from_store(Language::De, Appearance::Dark, "indigo", store)
+            .expect("persistent state");
+
+        assert!(state.auth_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Setup);
+        assert_eq!(state.store.contact_count().expect("contacts"), 0);
+        assert_eq!(state.store.product_count().expect("products"), 0);
+        assert_eq!(state.store.invoice_count().expect("invoices"), 0);
+        assert_eq!(state.store.user_count().expect("users"), 0);
+
+        // Heavy module catalogues are deferred until the user actually opens the app.
+        assert!(state.app_store.modules.is_empty());
+        state
+            .open_desktop_app(AppId::new("app-store"), now_millis())
+            .expect("open App Store");
+        assert_eq!(state.app_store.modules.len(), 18);
+    }
+
+    fn send_shortcut(ctx: &Context, state: &mut GalleryState, key: Key, modifiers: Modifiers) {
+        let input = egui::RawInput {
+            events: vec![egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers,
+            }],
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| {
+            handle_global_shortcuts(ctx, state, now_millis())
+        });
+    }
+
+    #[test]
+    fn global_start_menu_shortcut_toggles_the_start_menu() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(state.shell.start.is_open());
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(!state.shell.start.is_open());
+    }
+
+    #[test]
+    fn global_task_view_shortcut_opens_the_window_overview() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        send_shortcut(&ctx, &mut state, Key::Tab, Modifiers::CTRL);
+        assert!(state.shell.task_view.is_open());
+        assert!(!state.shell.start.is_open());
+        assert!(!state.shell.palette.is_open());
+    }
+
+    #[test]
+    fn f1_opens_the_native_documentation_window() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        let admin =
+            crate::auth::seed_auth_user(&state.store, socdof_core::now_millis()).expect("admin");
+        state.auth.user = Some(admin);
+        send_shortcut(&ctx, &mut state, Key::F1, Modifiers::NONE);
+        assert!(state.desktop_windows.is_open(AppId::new("documentation")));
+        assert!(state.desktop_open);
+    }
+
+    #[test]
+    fn global_command_palette_shortcut_works_from_the_native_desktop() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.desktop_icons =
+            desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
+        state.auth_open = false;
+        state.desktop_open = true;
+
+        send_shortcut(&ctx, &mut state, Key::K, Modifiers::CTRL);
+
+        assert!(state.shell.palette.is_open());
+        assert!(!state.shell.start.is_open());
+        assert!(!state.shell.tray.is_open());
+    }
+
+    #[test]
+    fn global_lock_shortcut_preserves_the_session_and_closes_desktop_windows() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        let contacts = AppId::new("contacts");
+        state.desktop_windows.open(
+            Window::new(
+                contacts,
+                "Contacts",
+                Rect::from_min_size(Pos2::new(48.0, 48.0), Vec2::new(900.0, 600.0)),
+            ),
+            now_millis(),
+        );
+        assert!(!state.desktop_windows.windows().is_empty());
+        let session_id = state.auth.session.as_ref().expect("active session").id;
+
+        send_shortcut(&ctx, &mut state, Key::L, Modifiers::CTRL);
+
+        assert!(state.auth_open);
+        assert!(!state.desktop_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Locked);
+        assert_eq!(
+            state.auth.session.as_ref().expect("preserved session").id,
+            session_id
+        );
+        assert!(state.desktop_windows.windows().is_empty());
+        assert!(!state.contacts_open);
+    }
+
+    #[test]
+    fn escape_dismisses_the_shell_palette_without_signing_out() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        state.shell.open_palette();
+        let session_id = state.auth.session.as_ref().expect("active session").id;
+
+        send_shortcut(&ctx, &mut state, Key::Escape, Modifiers::NONE);
+
+        assert!(!state.shell.palette.is_open());
+        assert_eq!(state.auth.view, crate::auth::AuthView::Unlocked);
+        assert_eq!(
+            state.auth.session.as_ref().expect("active session").id,
+            session_id
+        );
+    }
+
+    #[test]
+    fn global_shortcuts_are_ignored_while_authentication_is_visible() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::from_store(
+            Language::En,
+            Appearance::Dark,
+            "indigo",
+            Store::open_in_memory().expect("store"),
+        )
+        .expect("setup state");
+
+        send_shortcut(&ctx, &mut state, Key::K, Modifiers::CTRL);
+        send_shortcut(&ctx, &mut state, Key::L, Modifiers::CTRL);
+
+        assert!(state.auth_open);
+        assert_eq!(state.auth.view, crate::auth::AuthView::Setup);
+        assert!(!state.shell.palette.is_open());
+    }
+
     fn render(language: Language, appearance: Appearance, modal_open: bool) -> usize {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(language, appearance, "indigo").expect("gallery state");
@@ -2103,6 +3301,56 @@ mod tests {
         let output = ctx.run(egui::RawInput::default(), |ctx| gallery(ctx, &mut state));
         assert!(output.shapes.len() > 10, "nothing was drawn");
         output.shapes.len()
+    }
+
+    #[test]
+    fn standard_user_launcher_hides_and_rejects_ungranted_modules() {
+        use socdof_core::domain::user::{User, UserRole};
+
+        let store = Store::open_in_memory().expect("store");
+        let user = User {
+            id: uuid::Uuid::new_v4(),
+            username: "staff".to_string(),
+            display_name: "Staff member".to_string(),
+            role: UserRole::User,
+            role_id: None,
+            active: true,
+            password_hash: "test-hash".to_string(),
+            must_change_password: false,
+            created_at: now_millis(),
+            updated_at: now_millis(),
+        };
+        store.insert_user(&user).expect("insert standard user");
+        let mut state = GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+            .expect("persistent state");
+        state.auth.user = Some(user);
+
+        state.sync_module_navigation().expect("filter launcher");
+
+        assert!(state
+            .desktop_icons
+            .index_of(AppId::new("contacts"))
+            .is_some());
+        assert!(state
+            .desktop_icons
+            .index_of(AppId::new("settings"))
+            .is_none());
+        assert!(state.desktop_icons.index_of(AppId::new("users")).is_none());
+        assert!(state
+            .open_desktop_app(AppId::new("settings"), now_millis())
+            .is_err());
+        assert!(state
+            .open_desktop_app(AppId::new("contacts"), now_millis())
+            .is_ok());
+        assert!(state.contacts_open);
+    }
+
+    #[test]
+    fn startup_module_resolves_only_known_desktop_apps() {
+        assert_eq!(startup_app("invoices"), Some(AppId::new("invoices")));
+        assert_eq!(startup_app("dashboard"), Some(AppId::new("dashboard")));
+        assert_eq!(startup_app("missing"), None);
+        assert_eq!(startup_app(""), None);
     }
 
     #[test]
@@ -2175,13 +3423,8 @@ mod tests {
         assert!(painted.contains("Buchhaltung"), "modules missing");
         assert_eq!(
             state.desktop_icons.icons().len(),
-            socdof_core::domain::permission::ALL_MODULES
-                .iter()
-                .filter(|module| !matches!(
-                    module,
-                    socdof_core::domain::permission::AppModule::Documentation
-                ))
-                .count()
+            socdof_core::domain::permission::ALL_MODULES.len() + 1,
+            "every permission module and the always-available App Store must have a desktop tile"
         );
     }
 
@@ -2573,7 +3816,7 @@ mod tests {
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
         assert!(state.app_store_open, "App Store did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
-        assert_eq!(state.app_store.modules.len(), 15);
+        assert_eq!(state.app_store.modules.len(), 18);
     }
 
     #[test]
@@ -2646,6 +3889,424 @@ mod tests {
         assert!(state.settings_open, "settings did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
         assert_eq!(state.settings.tab(), crate::settings::SettingsTab::General);
+    }
+
+    #[test]
+    fn desktop_idle_timeout_returns_to_the_locked_authentication_screen() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.desktop_open = true;
+        state.auth_open = false;
+        state.auth.idle_timeout_ms = 1_000;
+        state.auth.last_activity_ms = now_millis() - 1_001;
+
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(1280.0, 800.0),
+            )),
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
+
+        assert!(
+            !state.desktop_open,
+            "desktop remained visible after idle timeout"
+        );
+        assert!(state.auth_open, "lock screen was not shown");
+        assert_eq!(state.auth.view, crate::auth::AuthView::Locked);
+        assert!(
+            state.auth.session.is_some(),
+            "locking revoked the active session"
+        );
+    }
+
+    #[test]
+    fn saving_window_layout_clears_closed_windows_and_preserves_open_geometry() {
+        let mut layout = settings_service::DesktopLayout::default();
+        for slug in NATIVE_WINDOW_SLUGS {
+            layout.window_states.insert(
+                (*slug).to_string(),
+                settings_service::DesktopWindowLayout {
+                    x: 10,
+                    y: 20,
+                    width: 800,
+                    height: 600,
+                    maximized: false,
+                    open: true,
+                    minimized: true,
+                    z_order: 99,
+                },
+            );
+        }
+        let mut windows = WindowManager::new();
+        let projects = AppId::new("projects");
+        let rect = Rect::from_min_size(Pos2::new(120.0, 90.0), Vec2::new(920.0, 640.0));
+        windows.open(Window::new(projects, "Projects", rect), 1_000);
+        windows.open(
+            Window::new(
+                AppId::new("fleet"),
+                "Fleet",
+                Rect::from_min_size(Pos2::new(80.0, 70.0), Vec2::new(820.0, 560.0)),
+            ),
+            1_001,
+        );
+        windows.minimize(AppId::new("fleet"));
+
+        capture_native_windows(&mut layout, &windows);
+
+        let projects_slug = String::from("projects");
+        let projects_state = layout
+            .window_states
+            .get(&projects_slug)
+            .expect("projects state");
+        assert!(projects_state.open);
+        assert_eq!(projects_state.x, 120);
+        assert_eq!(projects_state.y, 90);
+        assert_eq!(projects_state.width, 920);
+        assert_eq!(projects_state.height, 640);
+        assert_eq!(projects_state.z_order, 0);
+        let fleet_slug = String::from("fleet");
+        let fleet_state = layout.window_states.get(&fleet_slug).expect("fleet state");
+        assert!(fleet_state.open);
+        assert!(fleet_state.minimized);
+        assert_eq!(fleet_state.z_order, 1);
+        for slug in ["contacts", "invoices", "app-store", "support", "reports"] {
+            let saved = layout.window_states.get(slug).expect("known window state");
+            assert!(
+                !saved.open,
+                "closed {slug} window stayed open in the saved layout"
+            );
+            assert!(!saved.minimized);
+        }
+    }
+
+    #[test]
+    fn desktop_restores_only_previously_open_native_windows() {
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.desktop_icons =
+            desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
+        let mut layout = settings_service::DesktopLayout::default();
+        layout.window_states.insert(
+            "contacts".to_string(),
+            settings_service::DesktopWindowLayout {
+                x: -500,
+                y: -200,
+                width: 900,
+                height: 600,
+                maximized: true,
+                open: true,
+                minimized: false,
+                z_order: 2,
+            },
+        );
+        layout.window_states.insert(
+            "invoices".to_string(),
+            settings_service::DesktopWindowLayout {
+                x: 40,
+                y: 50,
+                width: 1000,
+                height: 700,
+                maximized: false,
+                open: true,
+                minimized: true,
+                z_order: 1,
+            },
+        );
+        for (slug, z_order) in [
+            ("accounting", 0),
+            ("pos", 3),
+            ("therapy", 4),
+            ("users", 5),
+            ("projects", 6),
+            ("fleet", 7),
+            ("restaurant", 8),
+            ("products", 9),
+            ("purchases", 10),
+            ("calendar", 11),
+            ("editor", 12),
+            ("app-store", 13),
+            ("support", 14),
+            ("reports", 15),
+            ("dashboard", 16),
+            ("documentation", 17),
+        ] {
+            layout.window_states.insert(
+                slug.to_string(),
+                settings_service::DesktopWindowLayout {
+                    x: 80,
+                    y: 70,
+                    width: 820,
+                    height: 560,
+                    maximized: false,
+                    open: true,
+                    minimized: false,
+                    z_order,
+                },
+            );
+        }
+
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+        restore_native_windows(&mut state, &layout, screen, 1_000);
+
+        let contacts = AppId::new("contacts");
+        assert!(state.desktop_windows.is_open(contacts));
+        assert!(state
+            .desktop_windows
+            .window(contacts)
+            .expect("restored contacts window")
+            .is_maximized());
+        let normal = state
+            .desktop_windows
+            .window(contacts)
+            .expect("restored contacts window")
+            .normal_rect();
+        assert!(normal.min.x >= work_area(screen).left());
+        assert!(normal.min.y >= work_area(screen).top());
+        assert_eq!(normal.width(), 900.0);
+        assert_eq!(normal.height(), 600.0);
+        assert!(state.desktop_windows.is_open(AppId::new("invoices")));
+        assert!(state
+            .desktop_windows
+            .window(AppId::new("invoices"))
+            .expect("restored minimized invoices window")
+            .is_minimized());
+        assert!(state.desktop_windows.is_open(AppId::new("accounting")));
+        assert!(state.desktop_windows.is_open(AppId::new("pos")));
+        assert!(state.desktop_windows.is_open(AppId::new("therapy")));
+        assert!(state.desktop_windows.is_open(AppId::new("users")));
+        assert!(state.desktop_windows.is_open(AppId::new("projects")));
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+        assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
+        assert!(state.desktop_windows.is_open(AppId::new("documentation")));
+        for slug in [
+            "products",
+            "purchases",
+            "calendar",
+            "editor",
+            "app-store",
+            "support",
+            "reports",
+            "dashboard",
+        ] {
+            assert!(
+                state.desktop_windows.is_open(AppId::new(slug)),
+                "{slug} window did not remain open"
+            );
+        }
+        assert!(state.desktop_windows.is_open(AppId::new("projects")));
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+        assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
+        assert_eq!(
+            state.desktop_windows.windows()[0].app(),
+            AppId::new("accounting")
+        );
+        assert_eq!(
+            state.desktop_windows.windows()[1].app(),
+            AppId::new("invoices")
+        );
+        assert_eq!(state.desktop_windows.windows()[2].app(), contacts);
+        assert_eq!(state.desktop_windows.windows()[3].app(), AppId::new("pos"));
+        assert_eq!(
+            state.desktop_windows.windows()[4].app(),
+            AppId::new("therapy")
+        );
+        assert_eq!(
+            state.desktop_windows.windows()[5].app(),
+            AppId::new("users")
+        );
+        assert!(!state.desktop_windows.is_open(AppId::new("settings")));
+    }
+
+    #[test]
+    fn escape_does_not_close_module_windows_while_first_run_onboarding_is_open() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.desktop_open = true;
+        state.desktop_windows.open(
+            Window::new(
+                AppId::new("fleet"),
+                "Fleet".to_owned(),
+                Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0)),
+            ),
+            1_000,
+        );
+        send_shortcut(&ctx, &mut state, Key::Escape, Modifiers::NONE);
+        assert!(state.shell.onboarding.is_open());
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+    }
+
+    #[test]
+    fn escape_in_the_active_module_window_does_not_close_other_modules() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.desktop_open = true;
+        // The default shell state deliberately starts with first-run onboarding visible.
+        // Complete it here so Escape tests the focused app window rather than the modal wizard.
+        state.shell.onboarding.finish();
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+
+        for (index, slug) in ["projects", "fleet"].into_iter().enumerate() {
+            let app = AppId::new(slug);
+            let title = state
+                .desktop_icons
+                .label_of(app)
+                .expect("module icon")
+                .to_owned();
+            let rect = crate::desktop::default_window_rect(work_area(screen), index);
+            state
+                .desktop_windows
+                .open(Window::new(app, title, rect), 1_000);
+        }
+        assert_eq!(
+            state.desktop_windows.active(),
+            Some(AppId::new("fleet")),
+            "the last opened module should own keyboard focus"
+        );
+
+        let initial = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+        let _ = ctx.run(initial, |ctx| gallery(ctx, &mut state));
+        // The first desktop frame may leave a shell overlay focused; isolate the module-window
+        // Escape behavior so the shortcut does not merely dismiss that overlay.
+        state.shell.close_overlays();
+        state.shell.studio.close();
+        let escape = egui::RawInput {
+            screen_rect: Some(screen),
+            events: vec![egui::Event::Key {
+                key: Key::Escape,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }],
+            ..Default::default()
+        };
+        let _ = ctx.run(escape, |ctx| gallery(ctx, &mut state));
+
+        assert!(
+            state.desktop_windows.is_open(AppId::new("projects")),
+            "Escape in Fleet closed the background Projects window"
+        );
+        assert!(
+            !state.desktop_windows.is_open(AppId::new("fleet")),
+            "Escape did not close the active Fleet window"
+        );
+    }
+
+    #[test]
+    fn native_desktop_renders_all_registered_business_module_windows() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.desktop_icons =
+            desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.desktop_open = true;
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+        for (index, slug) in [
+            "accounting",
+            "pos",
+            "therapy",
+            "users",
+            "projects",
+            "fleet",
+            "restaurant",
+            "products",
+            "purchases",
+            "calendar",
+            "editor",
+            "app-store",
+            "support",
+            "reports",
+            "dashboard",
+            "documentation",
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let app = AppId::new(slug);
+            let title = state
+                .desktop_icons
+                .label_of(app)
+                .expect("module icon")
+                .to_owned();
+            let rect = crate::desktop::default_window_rect(work_area(screen), index);
+            state
+                .desktop_windows
+                .open(Window::new(app, title, rect), 1_000);
+        }
+
+        let input = egui::RawInput {
+            screen_rect: Some(screen),
+            ..Default::default()
+        };
+        // egui Areas establish their persisted layer geometry during the first frame.
+        // Render a second frame before inspecting the native floating-window contents.
+        let _ = ctx.run(input.clone(), |ctx| gallery(ctx, &mut state));
+        let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
+        let painted = crate::snapshot::signature(&output).join("\n");
+
+        assert!(
+            painted.contains("BWA") || painted.contains("UStVA"),
+            "accounting window content was not drawn"
+        );
+        assert!(
+            painted.contains("Neuer Bon"),
+            "POS window content was not drawn"
+        );
+        assert!(
+            painted.contains(state.texts.get("users_new")),
+            "users window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("projects_title")),
+            "projects window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("fleet_title")),
+            "fleet window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("restaurant_title")),
+            "restaurant window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("docs_title")),
+            "documentation window content was not drawn; painted={painted:?}"
+        );
+        for key in [
+            "products_title",
+            "purchases_title",
+            "appointments_title",
+            "editor_title",
+            "app_store_title",
+            "support_title",
+            "reports_title",
+            "dashboard_title",
+        ] {
+            assert!(
+                painted.contains(state.texts.get(key)),
+                "{key} window content was not drawn; painted={painted:?}"
+            );
+        }
+        assert!(state.desktop_windows.is_open(AppId::new("accounting")));
+        assert!(state.desktop_windows.is_open(AppId::new("pos")));
+        assert!(state.desktop_windows.is_open(AppId::new("therapy")));
+        assert!(state.desktop_windows.is_open(AppId::new("users")));
+        assert!(
+            output.shapes.len() > 80,
+            "native module windows drew too few shapes"
+        );
     }
 
     #[test]

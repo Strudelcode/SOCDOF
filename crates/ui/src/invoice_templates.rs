@@ -757,7 +757,7 @@ pub fn templates_modal(
                 {
                     state.delete(store);
                 }
-                if button(
+                button(
                     ui,
                     theme,
                     focus,
@@ -765,10 +765,6 @@ pub fn templates_modal(
                     ButtonVariant::Ghost,
                 )
                 .activated
-                {
-                    return true;
-                }
-                false
             })
             .inner
         },

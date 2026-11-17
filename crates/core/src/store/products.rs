@@ -181,7 +181,9 @@ pub fn apply_stock(conn: &Connection, movement: &StockMove) -> CoreResult<i64> {
         return Err(CoreError::NotFound(movement.product_id.to_string()));
     };
 
-    let next = current + movement.kind.delta(movement.quantity);
+    let next = current
+        .checked_add(movement.kind.delta(movement.quantity))
+        .ok_or_else(|| CoreError::Validation("stock_overflow".to_string()))?;
     if next < 0 {
         return Err(CoreError::Validation("stock_insufficient".to_string()));
     }

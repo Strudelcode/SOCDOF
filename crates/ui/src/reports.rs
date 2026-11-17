@@ -153,8 +153,8 @@ fn kpi(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str) {
         ui.label(RichText::new(value).size(FONT_TITLE).strong());
     });
 }
-
 /// Renders the reports screen into the context.
+/// Renders reports in the full application work area.
 pub fn reports(
     ctx: &Context,
     theme: &Theme,
@@ -164,14 +164,6 @@ pub fn reports(
     store: &Store,
     now: i64,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-        state.back = true;
-    }
-
-    if state.refresh(store, now).is_err() {
-        state.error = Some("reports_error_load");
-    }
-
     egui::CentralPanel::default()
         .frame(
             egui::Frame::none()
@@ -179,8 +171,31 @@ pub fn reports(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state));
+            reports_window(ctx, true, ui, theme, texts, focus, state, store, now);
         });
+}
+/// Renders reports inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn reports_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut ReportsState,
+    store: &Store,
+    now: i64,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        state.back = true;
+    }
+
+    if state.refresh(store, now).is_err() {
+        state.error = Some("reports_error_load");
+    }
+
+    egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state));
 }
 
 fn body(

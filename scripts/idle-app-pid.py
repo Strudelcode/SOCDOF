@@ -34,7 +34,9 @@ def descendants(root: int) -> list[int]:
 
 
 for _ in range(60):
-    for pid in descendants(proc.pid):
+    # dbus-run-session may exec the target in-place, making proc.pid itself the desktop process.
+    # Include the root process as well as descendants so both launch modes are detected.
+    for pid in [proc.pid, *descendants(proc.pid)]:
         try:
             with open(f"/proc/{pid}/comm", encoding="utf-8") as handle:
                 comm = handle.read().strip()
@@ -45,5 +47,14 @@ for _ in range(60):
             sys.exit(0)
     time.sleep(1)
 
-print("no socdof-desktop process found", file=sys.stderr)
+if proc.poll() is not None:
+    log.close()
+    try:
+        with open("artifacts/idle.log", "r", encoding="utf-8", errors="replace") as handle:
+            tail = handle.read()[-6000:]
+        print(f"SOCDOF exited during startup (code {proc.returncode}):\\n{tail}", file=sys.stderr)
+    except OSError:
+        print(f"SOCDOF exited during startup (code {proc.returncode})", file=sys.stderr)
+else:
+    print("no SOCDOF desktop process found after 60 seconds", file=sys.stderr)
 sys.exit(1)

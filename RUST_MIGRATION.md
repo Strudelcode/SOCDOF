@@ -5,11 +5,11 @@
 
 | | |
 |---|---|
-| **Branch** | `freebuff/socdof-rust-rewrite` (uncommitted working tree) |
+| **Branch** | `feature/rust-native-desktop-host` |
 | **Started** | 2026-11-07 |
-| **State** | 2026-11-12, final visual-parity evidence captured from the v26 release binary. The feature migration and all gates are green; the visual gate stays **open** because Settings (both themes) and the dark palette remain below the SSIM target. See §15.7. |
-| **Current phase** | Phase 9 — implementation complete, **visual gate open**. Final ten pairs: eight reach window ≥98, five reach SSIM ≥0.90. Dashboard/Invoices/Contacts and the light palette meet their targets; Settings stays at 0.7251/0.7072 SSIM and the dark palette at 0.8778. Remaining: the Settings icon/text rendering, the dark palette backdrop and the installer/bundling plus environment-bound integrations in §18.4. |
-| **Overall progress** | ~99 % (feature surfaces, data layer, Tauri shell, FatturaPA import, batch contacts, v26 versioning, 1,011-key i18n packs and all gates are implemented; the open work is the last visual residual in §15.7, installer/bundling and environment-bound integrations) |
+| **State** | 2026-11-15, the native egui host uses the real SQLite store and login/setup flow; CI run 1235 has been triaged and corrective changes are committed for re-verification. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance remains open; see §15.7. |
+| **Current phase** | Phase 11 — **application foundation first**. Prioritize login/account lifecycle, settings persistence, desktop shell/navigation, visual consistency, startup behavior and a reliable Windows installer before resuming remaining app-level parity work. |
+| **Overall progress** | Core persistence, authentication, settings modules and 18 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -17,6 +17,21 @@
 
 ---
 
+
+## 1.1 Reprioritized delivery order — application foundation first
+
+The next implementation passes intentionally stop adding small app-specific features until the native application feels like a complete desktop product. Work in this order:
+
+1. **Startup and authentication:** first-run setup, login, account switching, lock/unlock, sign-out, session expiry and useful recovery/error states.
+2. **Account and settings persistence:** per-account language/theme/accent/startup preferences, company profile, users/roles, backups and settings that survive a full restart.
+3. **Desktop shell:** app launcher, navigation, taskbar/window controls, focus/z-order, keyboard shortcuts, notifications, wallpaper and desktop state restoration.
+4. **Visual system:** compare the real startup/login/desktop/settings screens with the legacy app in both themes and all four languages; fix layout, spacing, typography, icons and responsive behavior before polishing individual apps.
+5. **Windows distribution:** an initial per-user NSIS installer script is now wired into the desktop CI artifact job. It offers an install-directory choice, creates Start Menu/Desktop shortcuts and uninstall registration, and deliberately preserves the database in the Windows application-data folder. Still required: confirm the installer builds on the Windows runner, install/upgrade/launch/uninstall it on a clean Windows machine, and verify data preservation. Keep the Tauri package as a transition fallback until the native package passes these checks; do not label the native host as the production installer before then.
+6. **Resume app parity:** continue the remaining app workflows only after the above gates are demonstrably working.
+
+A feature is not considered complete merely because its screen exists: it must be exercised through the real desktop startup path, persist across restart where appropriate, and be covered by an automated test or a documented manual acceptance check.
+
+---
 ## 1. Why this branch exists
 
 The shipped application is ~112,800 lines of TypeScript/TSX in 126 files, bundled into a 3.9 MB
@@ -749,18 +764,20 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 
 ## 12. Phase 9 — Performance & size budget
 
-- [ ] Installer ≤ 15 MB, installed ≤ 40 MB — not built here. Observed 2026-11-10:
+- [ ] Native executable ≤ 15 MB, portable footprint ≤ 40 MB — current native host measurement pending. Observed 2026-11-10:
       `cargo check --manifest-path crates/app/src-tauri/Cargo.toml` exits 101 with
       `error: failed to run custom build command for gio-sys v0.18.1` /
       `Package 'gio-2.0' … not found`, and there is no `crates/app/src-tauri/target`.
-      Measurement: `.github/workflows/rust.yml`, job `desktop`, step **Check installer size
-      budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on the built bundle (limit
-      15,728,640 B) and on its extracted tree (limit 41,943,040 B, `dpkg-deb -x` or
-      `--appimage-extract`); a violation exits 1 and fails the job
-- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — not built here for the same reason; additionally
-      `command -v Xvfb` prints nothing, so no window can exist.
+      Measurement: `.github/workflows/rust.yml`, job `desktop`, step **Check native Rust desktop size
+      budgets** runs `node scripts/check-budgets.mjs --scope=artifacts` on
+      `target/release/socdof-ui-desktop` (limit 15,728,640 B) and its current single-executable
+      portable footprint (limit 41,943,040 B); a violation exits 1 and fails the job. The Tauri
+      transition fallback remains built/uploaded separately and is not the native release target.
+- [ ] Idle RAM ≤ 120 MB, idle CPU < 0.5 % — the previous measurement belongs to the Tauri
+      transition fallback. The CI gate now builds and measures the native `socdof-ui-desktop`
+      executable; a current-head result is still pending.
       Measurement: `.github/workflows/rust.yml`, job `gui-smoke`, step **Idle RAM/CPU budget**
-      starts the built app under `Xvfb :99`, resolves the real process with
+      starts the native Rust host under `Xvfb :99`, resolves its process with
       `scripts/idle-app-pid.py` and runs `node scripts/check-budgets.mjs --scope=runtime --pid <pid>`,
       which reads `VmRSS` and `utime+stime` from `/proc/<pid>` over five quiet seconds (limits
       122,880 KiB and 0.5 %, exit 1 on a violation). The same sampler ran here against a live
@@ -768,7 +785,7 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 - [x] Cold start < 800 ms: 248 ms median of five runs of the release `socdof-app` on a fresh
       database (instance lock, schema migration, status) measured 2026-11-10 with
       `scripts/check-budgets.mjs`; 59 ms more than the 2026-11-09 pass because schema v9 rebuilds the
-      invoice FTS index once on first open. The windowed desktop only adds the Tauri window on top
+      invoice FTS index once on first open. The native egui desktop host is measured separately in gui-smoke
 - [x] Large dataset test: 50k contacts, 100k invoices — `crates/ui/tests/performance.rs` seeds an
       in-memory store through `Store::insert_contacts`/`Store::insert_invoices` (18.5 s), runs the
       real `contacts()` and `invoices()` screens with `egui::Context::run` at 1280×900 (3 warm-up +
@@ -782,7 +799,7 @@ the legacy module had it (`pdf::din5008`, `docx`, `barcode::qr` tests); 5. unit 
 - [x] Memory profiling report attached to this file — `docs/performance.md` §"Memory report" holds
       the measured `VmRSS`/`VmHWM` of the benchmark process after both screens rendered (196.9 MiB
       for the seeded 50k/100k dataset including the in-memory SQLite store) and the CI path that
-      samples the real app: job `gui-smoke`, step **Idle RAM/CPU budget** against the 120 MB limit
+      samples the native Rust desktop host: job `gui-smoke`, step **Idle RAM/CPU budget** against the 120 MB limit
 - [x] UI bundle ≤ 1.5 MB (≤ 400 KB gz): the desktop frontend built by `npm run build` is 52,305 B
       raw and 15,535 B gzip against 1,572,864 B / 409,600 B. The separate browser bundle (6,415,465 B
       raw, 2,991,359 B gzip) is documented in §14 and guarded by its own regression limit
@@ -1167,7 +1184,7 @@ visual reference.
 | DunningModal, InvoiceEmailModal, PaymentModal | **done (this pass)** | egui `crates/ui/src/invoice_actions.rs`; new Tauri commands `invoice_dunning`, `invoice_mail_draft`, `invoice_payment`, `record_invoice_payment`, `export_invoice_eml`; dialog in `crates/app/ui/index.html`; smoke markers `invoice_dunning`, `invoice_mail`, `export_eml`, `record_payment`; test `dunning_mail_and_payment_close_the_webview_gap` |
 | ContactsModule, ContactDetailModal, ContactEditModal, CustomerPickerModal, ConfirmDeleteModal | **done** | The webview now has a searchable customer picker with customer/supplier filters and inline new-contact creation, the contact detail dialog with KPIs, invoice history, notes and contact persons, and the shared delete confirmation. `crates/app/ui/src/contact_tools.ts`; contact persistence stays in the core store. |
 | ContactEmailDraftModal | **done (this pass)** | core `domain::mail` contact payload; commands `contact_mail_draft` and `export_contact_eml`; webview dialog on every contact card; smoke `SOCDOF_SMOKE contact_mail` / `export_contact_eml`; test `contact_mail_and_fattura_are_generated` |
-| ProductsModule, ProductLabelModal, SmartReorderModal, StockMovesModule, TableModule | **done** | egui `products.rs`; Tauri `product_label`, `reorder_plan`, `create_reorder_draft`, `set_product_reorder_exclusion`; webview Products tab covers list/create/edit/delete, the QR label editor with three formats and the reorder hub with threshold modes, request list and draft purchase order. |
+| ProductsModule, ProductLabelModal, SmartReorderModal, StockMovesModule, TableModule | **partial** | Native egui `products.rs` covers product CRUD, stock in/out, QR labels and reorder planning; the Tauri/webview bridge covers label and reorder actions. The legacy `StockMovesModule` is a separate double-entry journal with source/destination locations, references, filters and CSV/print export; those journal workflows are not yet available in the native Rust host and remain open. |
 | Dashboard, CalculatorModule, DesktopCalculatorWidget, DesktopWidgetsLayer, DesktopWidgetsModal, WidgetSettingsModal, WidgetsModule, WidgetsIcon | **done** | The webview dashboard loads real store aggregates through `dashboard`; `crates/app/ui/src/workspace_tools.ts` adds the integer-thousandths calculator with persisted history, the clock/date/notes/KPI widget layer with visibility settings, and TaskView with virtual desktops. The egui widgets remain in `crates/ui/src/widgets.rs`. |
 | Sidebar, TopBar, CommandPalette, CommandPaletteModal, DesktopWindowWorkspace, AppLauncher, AppLocationPickerModal, DynamicCalendarIcon, DynamicReportsIcon, SocdofLogo, FlagIcon | **partial** | The webview top bar has wrapped module tabs and Command/Tasks/Widgets/Calculator actions, and `command_palette.ts` searches modules, actions, contacts, products and invoices and runs the selected item; this is the launcher path. The legacy location picker has no Rust data model and stays out of scope. Desktop window chrome is native Tauri. |
 | AccountingModule, PurchasesModule, ReportsModule | **done** | Tauri commands `journal_entries`, `journal_summary`, `journal_cash_book`, `save_journal_entry`, `delete_journal_entry`, `export_journal_csv`, `purchase_orders`, `save_purchase_order`, `set_purchase_order_status`, `receive_purchase_order` and `report`; webview tabs for journal/cash book/BWA with real sums and CSV export, purchase orders with supplier/product validation and goods receipt, and period reports with invoice/status totals. Tests `journal_entries_summarise_cash_book_and_reject_invalid_values`, `purchase_orders_validate_references_and_receive_stock`; reply of invalid amount, kind, channel, vendor or product is rejected. |
@@ -1175,7 +1192,7 @@ visual reference.
 | TherapyPracticeModule, `therapy/`, therapy invoice templates | **present** | `crates/ui/src/therapie.rs`, core therapy modules. |
 | StudioDrawer, AccountScopedWorkspace | **present** | `crates/ui/src/studio.rs`; the Tauri window stays single-workspace. |
 | SupportServicesModule, SupportDocumentViewerModal, SupportTicketPrintModal, SupportTimesheetModal, SupportWorkItemModal | **present** | `crates/ui/src/support.rs`. |
-| SettingsModule, BackupSetupModal, AppStoreModule | **done** | The Settings tab edits the company profile, selects and opens the backup folder, lists/creates/saves backups, verifies and restores a native `.socdofbak` archive through `verify_backup`/`restore_backup`, and loads/toggles the 15-module AppStore through `app_store_modules`/`app_store_set_active`; window controls live in the header. `backup_files` falls back to the default `backups/` folder beside the database when no profile folder is configured. Tests `app_store_lists_and_persists_activation` and `verify_and_restore_replace_the_database_atomically`. |
+| SettingsModule, BackupSetupModal, AppStoreModule | **done** | The Settings tab edits the company profile, selects and opens the backup folder, lists/creates/saves backups, verifies and restores a native `.socdofbak` archive through `verify_backup`/`restore_backup`, and loads/toggles the 17-module AppStore through `app_store_modules`/`app_store_set_active`; window controls live in the header. `backup_files` falls back to the default `backups/` folder beside the database when no profile folder is configured. Tests `app_store_lists_and_persists_activation` and `verify_and_restore_replace_the_database_atomically`. |
 | DisplaySettingsSection | **done (this pass)** | The Settings profile card now edits language, light/dark/system theme and accent colour; the values are stored in the existing `CompanyProfile` and applied immediately. A language change persists in `localStorage` and reloads the webview so every module picks it up. Eight de/en/fr/es keys cover the section. |
 | AuthGate, UserManagementSettings, LanguageSelectionModal | **done** | `users.ts` adds the login gate for databases with accounts, local account create/edit/delete with last-admin protection via `users`/`save_user`/`delete_user`/`login_user`, session display, sign-out and the shared language modal with de/en/fr/es. Password hashes stay in the core. Tests: `crates/app/tests/users_storage.rs`. |
 | External template/language/flag folders (`socdof:list-external-templates`, `read-external-template-file`, `get-templates-folder-path`, `open-templates-folder`, `read-local-languages`, `save-local-language-file`, `get-available-flags`, `get-flags-folder-path`, `open-languages-folder`, `open-flags-folder`) | **done (this pass)** | `crates/app/src/external_assets.rs` resolves env/portable/app-data folders, seeds READMEs, lists/reads `.docx/.doc/.pdf/.json/.html/.htm`, parses flat and nested language JSON, writes validated packs, and returns flag images as data URLs; Tauri commands are registered in `crates/app/src-tauri/src/commands.rs`, and the Templates tab shows the three folders with refresh/open/read actions. Tests `external_folders_seed_list_and_read_templates`, `external_languages_parse_flat_and_nested_packs_with_flags`, `external_assets_validate_open_folder_and_path_overrides`; smoke `SOCDOF_SMOKE external_templates count=1`, `external_languages count=1`, `external_flags count=1`, `external_template_read filename=smoke-template.html success=true bytes=22`. |
@@ -1256,9 +1273,15 @@ listed as the next work in 18.5, not as an open parity gap.
 
 ### 18.5 Next locally implementable work (not environment-blocked)
 
-- The remaining TypeScript components in the egui/webview split: TaskViewModal/Appointments,
-  SupportServicesModule, TherapyPracticeModule, StudioDrawer/AccountScopedWorkspace and
-  the DocumentationApp/StorageInspector screens.
+- **Restaurant module (third functional app port, 2026-11-13):** added the native egui app, registered the 18th permission/App Store module, and added DE/EN/FR/ES catalogues. The Rust screen now covers the 13-table floor plan and area filters, live open orders, menu search/category filters, menu CRUD and availability, kitchen status transitions, item quantities and notes, server assignment, cash/card/NFC checkout, tip and split totals, hospitality receipt metadata, atomic invoice/POS posting, daily Z-report KPIs and the legacy GoBD semicolon CSV format. Regression tests cover menu validation, order persistence, notes/server/status, last-line deletion, cash change and atomic checkout. Remaining side-by-side checks: receipt preview/printing, sound feedback, exact CSV filename and edge-case parity against the Tauri module.
+- **Projects module (first functional app port, 2026-11-13):** added `AppModule::Projects` to the permission matrix and App Store; native egui project/task CRUD uses the persistent SQLite store and core validation/metrics. It supports contact linking, budget/hourly rate, project/task statuses and priorities, billable logged hours, CSV export via the native save dialog, and draft invoice creation from billable logged tasks using the active invoice template. The created invoice opens in the native Invoices screen. Added DE/EN/FR/ES catalogues and regression tests for CRUD, validation, billing totals and legacy built-in-role upgrades. Remaining parity review: edge-case comparison of project filters, task transitions, CSV output and invoice numbering against the Tauri command path.
+- **Fleet module (second functional app port, 2026-11-13):** registered `AppModule::Fleet` in the 18-module permission/App Store catalogue and native desktop launcher. The native egui app now manages vehicles, trips and fuel/charging receipts with the shared SQLite APIs and core validation, automatically advances vehicle odometers for new trips, computes business/private/commute kilometres and the €0.30/km allowance, and exports the logbook CSV with a native save dialog. CRUD, validation and persistence regression tests are included; DE/EN/FR/ES labels are present. Vehicle, purpose and inclusive date filters are now present; remaining work is side-by-side verification of filter behavior, edit edge cases and CSV output.
+
+- **Contacts module (2026-11-13):** added native batch creation with atomic persistence, CSV and vCard import, a removable import preview with category assignment, and native CSV/vCard export through save dialogs. The Rust core includes RFC 4180-style quoted-field parsing, separator detection, common Outlook/Google/Apple/German headers, UTF-8 BOM CSV output, vCard 2.1/3.0/4.0 parsing, grouped properties, folded-line handling, URI telephone normalization, truncated final-card recovery and UTF-8-safe 75-octet vCard export folding. Regression tests cover duplicate/blank rows, malformed quoted tails, 5,000-row CSV input, vCard variants and round trips. Remaining: quoted-printable/charset support, multiple EMAIL/TEL property scanning, cancellation/unreadable-file platform checks and exact TypeScript output parity. DE/EN/FR/ES labels are registered in the catalogue inventory.
+- **Native macOS host build:** temporarily gated in the desktop matrix. The current egui 0.27/winit 0.29 stack resolves `objc2 0.4.1`, which fails to compile with the current Rust toolchain. Linux and Windows native builds remain enabled; a framework/dependency upgrade is still required before macOS native parity can be claimed.
+- **Accounting and tax-advisor ledger (2026-11-13):** the native Accounting screen loads a core aggregate across sent/paid/overdue invoices, non-draft purchases and completed POS receipts. It presents BWA revenue/cost/result, 7% and 19% VAT bases, output/input VAT and liability, open receivables and POS Z-report tender totals. Today and inclusive custom date ranges are supported. The tax-advisor ledger now exports twelve monthly Excel-compatible sheets with formulas and DE/EN/FR/ES labels plus a selected-month CSV, with selectable years, separate cash/bank totals, sequential carry-over, editable persisted opening balances and transaction sources from practice billing items, paid invoice payments, POS receipts, non-draft purchases and manual journal entries. Linked invoices are suppressed when billing items already represent them. Remaining: therapy practice trips with their per-trip rates, formula/layout and exact byte parity against the legacy workbook, local-timezone boundaries and full cross-platform CI; see `docs/accounting-rust-parity.md`.
+- **Native Rust desktop host (first integration pass, 2026-11-13):** `cargo run -p socdof-ui --features window --bin socdof-ui-desktop` now starts the egui shell with the persistent SQLite database, the shared `network_session.lock`, saved language/theme/accent and real setup/login. `GalleryState::from_store` deliberately skips all sample records and demo credentials; `GalleryState::new` remains the isolated fixture path for visual tests. Lock/sign-out/account-switch actions return to the authentication screen. The Tauri webview and its installer are retained until native parity and OS integrations are proven.
+- The remaining TypeScript components in the egui/webview split: TaskViewModal/Appointments, SupportServicesModule, TherapyPracticeModule, StudioDrawer/AccountScopedWorkspace and the DocumentationApp/StorageInspector screens. Restaurant now has a native functional screen; its TS reference remains for side-by-side parity checks until acceptance.
 - Closed in the backoffice pass: Accounting, Purchases, Reports, Restore/Verify and AppStore are
   now real Tauri webview modules; the earlier Settings profile/backup, Textwerk and Calendar
   screens remain in place. The Xvfb smoke now drives the real navigation to accounting, purchases,
@@ -1278,8 +1301,7 @@ listed as the next work in 18.5, not as an open parity gap.
 
 ### 18.6 Open TODO list
 
-The feature surfaces are closed; the visual-parity gate and the release environment are open. No
-requested surface is a placeholder, but “implemented” is not the same as “visually accepted”.
+Functional parity is being completed before GUI polish. The native Restaurant, Projects and Fleet screens are new ports and still need side-by-side edge-case verification; the visual-parity gate and release environment remain open.
 
 - [x] Contacts: detail modal, customer picker and delete-confirmation parity.
 - [x] Dashboard calculator and widget layer, including calculator history and visibility settings.
@@ -1318,6 +1340,9 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 
 | Date | Phase | Note |
 |---|---|---|
+| 2026-11-13 | 9 | Added the first persistent native egui desktop host on `feature/rust-native-desktop-host`: real SQLite path, legacy-compatible instance lock and heartbeat, saved profile language/theme/accent, first-run setup or login, and no demo data. The fixture gallery remains unchanged as a separate development path. The Tauri frontend is not removed until native parity, platform integrations and installer verification pass. |
+| 2026-11-13 | 10 | Added native Projects and Fleet to the egui desktop: project/task portfolio and billing, vehicle register/logbook/fuel records, odometer updates, analytics, CSV exports, 18-module permissions/App Store catalogue, legacy built-in-role upgrades and DE/EN/FR/ES labels. Added persistence, validation and billing regression tests. |
+| 2026-11-13 | 10 | Added native Restaurant to the egui desktop and 18-module permission/App Store matrix: 13-table floor plan, table orders, menu CRUD/availability, kitchen statuses, notes, server, cash/card/NFC checkout, tips/split, hospitality receipts, atomic invoice/POS posting, daily Z-report and GoBD CSV. Added DE/EN/FR/ES labels and native persistence/checkout tests. |
 | 2026-11-11 | 18 | Webview parity pass: contact detail + customer picker, calculator/history and widgets, command palette, task view with virtual desktops, login gate and user management, language modal, documentation browser and storage inspector; 984 identical de/en/fr/es keys and new tests. Real TS/Rust screenshot pairs in `docs/parity/`. |
 | 2026-11-12 | 18 | Final visual evidence from the v26 binary: eight of ten pairs pass the ≥98 pixel target, five pass SSIM ≥0.90; Settings and the dark palette remain open. Added the real FatturaPA XML import, sequential contact creation and v26 version alignment; all gates incl. the Xvfb GUI smoke pass. |
 | 2026-11-12 | 18 | Ported the POS flow into the Tauri webview: receipt overview, daily totals, validated receipt creation, payment/change handling and cancellation with stock reversal; added a focused command-layer regression test. |
@@ -2073,3 +2098,302 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
     `export_restaurant_csv rows=1 bytes=232` and schema 15.
   - Still open: only the environment-bound list in 18.4. The locally implementable breadth and
     installer work is scheduled in 18.5.
+
+
+- 2026-11-13 (functional parity inventory and Projects KPI audit) — captured the complete
+  TypeScript/JavaScript source baseline in `docs/rust-functional-parity-inventory.md`: 126 source
+  files across app screens, shell, auth, documents, therapy, shared libraries, types and entry
+  points. The Rust tree currently contains 183 Rust source/test files; file counts are inventory
+  metadata only and are not counted as parity evidence. The README links the inventory.
+  - First focused comparison: `SOCDOF - TS/src/components/support/ProjectsModule.tsx` against
+    `crates/ui/src/projects.rs`, `crates/app/src/project_bridge.rs`,
+    `crates/core/src/domain/project.rs`, `crates/core/src/store/projects.rs` and
+    `crates/app/tests/projects.rs`.
+  - Found and corrected a KPI edge-case mismatch: the TypeScript metrics loop counts tasks only
+    through the listed projects, while Rust previously used `tasks.len()` for the denominator.
+    Rust now counts only tasks attached to the supplied project set; a regression test covers an
+    unrelated/orphan task so completion percentage and totals cannot drift.
+  - Verification is now running in GitHub Actions on pull requests and migration-branch pushes.
+    The first run exposed workspace rustfmt drift and one pre-existing Clippy range-loop warning in
+    `crates/core/src/pdf/din5008.rs`; the Clippy issue is fixed and a one-time rustfmt pass is being
+    prepared. No full test-suite success is claimed until the complete jobs finish.
+
+
+- 2026-11-13 (Fleet side-by-side audit, first pass) — compared the complete TypeScript
+  `FleetModule.tsx` save, edit, delete, filtering, analytics and CSV paths with the native
+  `crates/ui/src/fleet.rs`, `crates/core/src/domain/fleet.rs`, the SQLite store, desktop bridge
+  and integration tests.
+  - Confirmed that the native analytics receives filtered trips while fuel costs and active
+    vehicle counts remain global, matching the TypeScript `useMemo` behavior.
+  - Confirmed that editing a trip does not retroactively change the vehicle odometer and deleting
+    a vehicle keeps historical trip and fuel records. Added an integration assertion for the
+    latter behavior.
+  - Confirmed that the native CSV writer includes the UTF-8 BOM and the same semicolon columns;
+    Rust additionally escapes embedded quotes safely.
+  - The audit is still partial: keyboard/form edge cases, all translation labels, invoice handoff
+    and native dialog behavior need further comparison. The Fleet module is not declared complete.
+
+
+- 2026-11-13 (Restaurant tax rounding audit) — compared the TypeScript order calculations in
+  `RestaurantModule.tsx` with `TableOrder::recalculate`. The legacy UI first groups net line
+  amounts by tax rate (7% and 19%), then calculates VAT for each group. Rust previously rounded
+  every line's VAT separately and summed those rounded values, which can differ by one cent for
+  small or numerous positions. The Rust calculation now groups by basis-point rate before applying
+  the shared half-up money rounding. Added a regression case with two 0.07 EUR lines at 7%:
+  TypeScript-compatible order totals are 0.14 EUR net, 0.01 EUR VAT and 0.15 EUR gross. Restaurant
+  parity remains under review for receipt rendering, checkout persistence side effects, and the
+  complete kitchen/order state workflow.
+
+
+- 2026-11-13 (restaurant invoice VAT persistence) — the grouped-tax correction revealed a second
+  parity requirement: the legacy POS checkout stores its calculated order tax total on the invoice,
+  while the Rust invoice model previously recalculated tax per line. Added optional
+  `tax_total_override_cents` to the invoice domain and schema migration v16. Restaurant checkout
+  now sets the override from the paid order; invoice reads, totals and PDF/template views use that
+  persisted amount, while ordinary invoices continue to calculate VAT from their own lines.
+  The integration test checks two 0.07 EUR / 7% items produce 0.14 EUR net, 0.01 EUR VAT and
+  0.15 EUR gross both before and after reopening the SQLite database.
+
+
+- 2026-11-13 (POS ledger VAT parity) — extended the same persisted tax override to
+  `PosOrder`, not only the restaurant order and ERP invoice. Schema migration v17 adds the
+  nullable override to `pos_orders`; normal counter sales keep line-based tax calculation, while
+  restaurant checkouts carry their grouped VAT into the POS ledger and Z-report summaries.
+  The restaurant checkout/reopen integration test now verifies the POS summary retains the same
+  one-cent VAT and 15-cent gross total.
+
+- 2026-11-14 (native desktop interaction pass) — added keyboard-first window management to the egui shell: Ctrl+Tab cycles visible windows while skipping minimized windows, Ctrl+W requests the normal close-confirmation flow, Ctrl+Left/Ctrl+Right snaps the active window to either half of the work area, and F11 toggles maximize/restore. The window manager exposes a tested focus-cycle operation and refuses to change focus while a modal close/reopen confirmation is active. README desktop claims were corrected to describe the current SQLite data path and to mark multi-monitor support as unfinished rather than implemented. Regression tests cover wrap-around, minimized-window skipping and modal focus trapping. CI format initially caught one rustfmt line-wrap difference; corrected in the follow-up commit. The real module-content-in-window refactor remains open: module screens still use context-level panels and are not yet embedded in independent desktop windows.
+
+
+## 2026-11-15 — CI stabilization and work-time record
+
+- Investigated workflow run 1235 on PR #22, commit `044d23fe52e4cb581be807179585aa596f44b370`, using the full logs for Format, Windows tests and Linux GUI smoke.
+- Corrected the four rustfmt differences without changing application behavior.
+- Fixed the Windows-only visual golden comparison by normalizing CRLF checkout files to LF before strict comparison; added a regression test rather than weakening or regenerating the goldens.
+- Changed the idle CPU measurement window from five to thirty seconds to reduce phase sensitivity to periodic idle wake-ups. The 0.5% CPU and 120 MiB RSS limits remain unchanged.
+- Updated `docs/rust-ci-knowledge-base.md` with the observed symptoms, causes, fixes and pending verification for all three failures.
+- **Verification state:** changes are committed to the PR branch; a new full CI run must pass before the foundation is called stable.
+- **Effort estimate:** approximately 0.6 hours of hands-on investigation, implementation and documentation. CI queue/runtime is excluded. This is an estimate, not a stopwatch measurement; future entries use the same convention.
+
+
+## 2026-11-15 — Native Windows installer safety and smoke coverage
+
+- The native NSIS installer and uninstaller now check whether `socdof-ui-desktop.exe` is running and ask the user to close it before proceeding. They no longer force-kill the application, avoiding loss of unsaved form state during upgrades or uninstall.
+- Added a Windows CI installer smoke that installs silently into a custom path containing spaces, checks the executable, shortcuts and uninstall registration, runs the installed executable's `--help` entry point, simulates an existing autostart preference across an upgrade, then uninstalls and verifies that the AppData marker survives.
+- **Verification state:** implementation is committed for the next Windows Actions run; no installer runtime pass is claimed until the smoke step succeeds.
+- **Effort estimate:** approximately 0.5 hours for installer safety, test automation and workflow integration; CI runtime is excluded.
+
+
+## 2026-11-15 — CI trigger de-duplication
+
+- The migration branch already has a `push` trigger, so a commit push and the corresponding pull-request `synchronize` event were starting identical cross-platform matrices twice.
+- Kept pull-request validation for opening, reopening and marking the PR ready; commit updates are validated by the branch push trigger. This prevents duplicate full CI runs without removing a validation path.
+- **Effort estimate:** approximately 0.1 hours; workflow review and documentation. CI queue time is excluded.
+
+
+- Installer smoke cleanup was hardened: a failed assertion now runs the fallback uninstaller before removing its temporary install directory, and the passing path asserts that uninstall removed the install directory.
+- **Additional effort estimate:** approximately 0.1 hours for test cleanup and post-uninstall verification.
+
+
+## 2026-11-15 — Publisher metadata alignment
+
+- Set the native NSIS installer and Tauri bundle publisher metadata to the repository's required identity, **Yuri / Strudel** (organization: **Strudelcode**).
+- Kept code signing separate from publisher metadata. The current environment has no Authenticode certificate or signing secrets, so Windows artifacts remain unsigned; this is documented as a release prerequisite rather than generating an untrusted self-signed CI certificate.
+- **Effort estimate:** approximately 0.1 hours for metadata alignment and release documentation.
+
+
+## 2026-11-15 — Native host idle repaint optimization
+
+- The 30-second GUI-smoke sample still measured 0.67% CPU (RSS remained within budget), proving the earlier short-window hypothesis was insufficient.
+- Reduced idle redraws on static login/setup/locked screens from every 10 seconds to every 15 seconds. A lockout countdown keeps one-second updates; the active desktop retains its existing ten-second repaint. This preserves the 30-second lock stale timeout and does not change the CPU budget.
+- **Verification:** run 1246 measured 0.27% idle CPU and 119,912 KiB RSS, both within the unchanged budgets.
+- **Effort estimate:** approximately 0.2 hours for measurement analysis, targeted UI scheduling change and CI documentation.
+
+
+## 2026-11-15 — Native dialog CI smoke repair
+
+- Reproduced the GUI-smoke timeout from the uploaded `socdof-gui-smoke` artifact. The dialog log proved that folder selection, file selection and save-path validation worked; execution stopped because the smoke path opened a real message box and the workflow combined chosen and cancelled expectations in one process.
+- Updated smoke-mode message handling so it never blocks on a human dialog, completed the chosen/validation flow with explicit confirmation, and added a separate process for folder/open/save cancellation and cancelled confirmation.
+- Updated the CI knowledge base with the failure evidence and fix.
+- **Partial verification:** run 1246 completed the chosen folder/open/save-validation, message acknowledgement and confirmation paths. It then exposed an invalid test assumption that a fresh profile must contain an external template; the cancellation process is still pending.
+- **Effort estimate:** approximately 0.4 hours for artifact inspection, root-cause analysis, smoke-flow repair and documentation.
+
+
+## 2026-11-15 — Workflow YAML correction
+
+- Corrected the indentation of the newly added dialog-smoke artifact paths after GitHub rejected the workflow before creating any jobs.
+- **Effort estimate:** approximately 0.1 hours; YAML diagnosis, correction and CI knowledge-base entry.
+
+
+## 2026-11-15 — NSIS installer/uninstaller helper correction
+
+- Fixed the Windows native installer compile error by registering and using the separate StrFunc uninstaller helper in `un.onInit`.
+- **Verification state:** the Windows NSIS compile must pass in the next run before installer smoke is considered testable.
+- **Effort estimate:** approximately 0.1 hours for log diagnosis and the NSIS helper correction.
+
+
+- Added a five-minute step timeout and a five-second forced cleanup grace to both native-dialog smoke processes so a future modal regression cannot leave the Linux GUI job waiting indefinitely.
+- **Additional effort estimate:** approximately 0.05 hours for smoke-process timeout hardening.
+
+
+## 2026-11-15 — NSIS process-check portability correction
+
+- Replaced the optional StrFunc uninstaller helper with the Windows-native `tasklist.exe | findstr.exe` process check because the NSIS 3.13 package on the CI runner does not include the expected `UnStrFunc` macro.
+- Installer and uninstaller still refuse to proceed while SOCDOF is running; they never force-kill the process.
+- **Verification state:** next Windows build must compile the NSIS script and run the full install/upgrade/uninstall smoke.
+- **Effort estimate:** approximately 0.2 hours for compiler-log diagnosis and replacing the unavailable helper.
+
+
+## 2026-11-15 — First-run external-template empty state
+
+- The GUI smoke reached the expected first-run state with zero user-imported external templates. The UI already supports this empty state; only the smoke assertion was wrong.
+- Updated the smoke to validate a template when one exists while accepting a genuinely empty first-run folder.
+- **Verification state:** committed; next GUI-smoke run must complete both the chosen and cancellation processes.
+- **Effort estimate:** approximately 0.2 hours for artifact inspection, first-run behavior analysis, test correction and documentation.
+
+
+## 2026-11-15 — Tray quit smoke ordering
+
+- Run 1249 passed formatting, WASM, Linux/Windows tests and all three desktop build jobs. The only remaining failure was the GUI-smoke tray assertion: show-window and backup were dispatched, but quit was intentionally skipped because the frontend still had FatturaPA and back-office checks to execute.
+- Moved the smoke-only quit dispatch to the successful end of `finish_smoke`, after report validation and persistence. It uses the exact same `run_tray_command` / `TrayCommand::Quit` handler as the platform tray menu. This preserves the complete UI smoke and ensures the process exits through the tested quit action.
+- Added the tray log to the uploaded diagnostic artifact.
+- **Verification state:** code and documentation committed; next full CI run must pass the complete GUI smoke, including tray quit, before the foundation is considered CI-green.
+- **Effort estimate:** approximately 0.2 hours for log diagnosis, command-flow correction and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — First-run administrator and login regression tests
+
+- Audited the native egui host startup path: it opens the four-step first-run setup when the database has no users and routes subsequent launches through login. The first-admin insert is transactionally restricted to an empty users table.
+- Added regression tests against the real in-memory SQLite store and `AuthState`: first administrator creation and password hashing, successful initial session, login on the next start, stale setup race rejection, persistent failed-login lockout and successful login after expiry.
+- **Verification state:** committed; Linux and Windows workspace test jobs must pass before treating this coverage as verified.
+- **Effort estimate:** approximately 0.3 hours for startup/auth path inspection, test implementation and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — Native desktop window startup verification
+
+- Strengthened the native egui desktop smoke: the idle-resource test now waits for an actual visible `SOCDOF` window, checks its title and verifies the 760×560 minimum window geometry before taking resource measurements.
+- This closes the gap where a process could remain alive without successfully presenting the native desktop shell. The Xvfb smoke retains the window marker and startup log as artifacts.
+- **Verification state:** committed; pending the next Linux GUI-smoke run.
+- **Effort estimate:** approximately 0.2 hours for workflow hardening and documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — GUI smoke X11 dependency correction
+
+- Run 1250 passed all cross-platform tests, desktop builds, Windows native installer smoke, Linux package staging and resource budgets. The GUI smoke passed Tauri startup, splash handshake, native dialogs and the complete tray menu including the corrected quit action.
+- The shortcut-dispatch step then timed out while searching for the X11 window. Its application log independently showed that the main window was visible; the smoke environment had not explicitly installed the `xdotool` binary required to enumerate and focus it.
+- Added `xdotool` to the GUI-smoke packages and an immediate executable/version check so missing tooling can no longer masquerade as a failed application launch.
+- **Verification state:** committed; pending the next GUI-smoke run.
+- **Effort estimate:** approximately 0.1 hours for log correlation, dependency correction and CI documentation. CI runtime is excluded.
+
+
+## 2026-11-15 — Authentication test lint correction
+
+- Run 1254 caught two formatting-only differences and one Clippy `useless_conversion` warning in the newly added auth-flow regression tests.
+- Applied rustfmt's exact wrapping/blank-line changes and removed the redundant conversion from the `i64` retry counter. No application logic or test coverage was weakened.
+- **Verification state:** committed; next full CI run must pass Format, Clippy and both platform test jobs.
+- **Effort estimate:** approximately 0.1 hours for CI log diagnosis, lint correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Authentication lockout test interaction correction
+
+- Run 1256 exposed that the new lockout regression test entered the invalid password once and then attempted multiple submissions without re-entering it. The real authentication form clears the password after each attempt, so the test only generated one failed credential check.
+- Updated the test to re-enter the wrong password before every submission. The lockout remains enforced by the persistent SQLite store; no production authentication behavior was changed.
+- **Verification state:** committed; pending the next Linux and Windows test run.
+- **Effort estimate:** approximately 0.1 hours for cross-platform log analysis, test correction and documentation. CI runtime is excluded.
+
+## 2026-11-15 — Keyboard shortcut smoke uses focused X11 input
+
+- Run 1256 passed the desktop builds, native packaging, WASM build and formatting, but the GUI smoke did not observe its F11 shortcut marker.
+- The smoke used `xdotool key --window`, which bypasses the normal focused-window input route. It now activates/focuses the SOCDOF window and sends F11/F12 through ordinary X11 keyboard input.
+- **Verification state:** committed; pending a fresh GUI-smoke run.
+- **Effort estimate:** approximately 0.2 hours for workflow-log diagnosis, input-path correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Lockout persistence across restart regression
+
+- Strengthened the authentication regression test to recreate `AuthState` after lockout and verify that a correct password is still rejected before the stored deadline. The same fresh state then signs in successfully after expiry.
+- This verifies the SQLite persistence boundary rather than only the in-memory form state.
+- **Verification state:** committed; pending cross-platform CI.
+- **Effort estimate:** approximately 0.1 hours for test hardening and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native desktop global keyboard shortcuts
+
+- Added shell-level keyboard handling to the native egui host for F11 fullscreen, Ctrl+K command palette, Ctrl+L session lock and Escape overlay dismissal.
+- The shortcuts are consumed centrally, so individual app views do not need duplicate handlers. Locking returns to the existing authentication screen and clears open module windows without revoking the session.
+- Updated the parity inventory to distinguish implemented in-app shortcuts from the still-open OS tray/startup integration.
+- **Verification state:** committed; cross-platform compile and test CI is required because the local environment has no Rust toolchain.
+- **Effort estimate:** approximately 0.4 hours for shell event-path review, implementation and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Global shortcut rustdoc placement correction
+
+- The first build after adding native shell shortcuts found that the helper had been inserted between the existing public gallery documentation and its function. This caused missing-doc errors across Linux, Windows, and WASM, plus a Clippy empty-doc-line warning.
+- Moved the helper documentation to its function and restored the public gallery API documentation directly above the function.
+- **Verification state:** committed; next full CI run required.
+- **Effort estimate:** approximately 0.1 hours for cross-platform CI diagnosis, source correction and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native shortcut behavior tests
+
+- Added direct headless egui tests for command-palette opening, lock-session behavior and preserved session identity, Escape dismissal and authentication-screen shortcut gating.
+- The tests call the same private handler used by the real native desktop frame, rather than validating only a separate chord resolver.
+- **Verification state:** committed; full CI run pending.
+- **Effort estimate:** approximately 0.3 hours for state-flow review, headless test implementation and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Native multi-window rendering for Projects, Fleet and Restaurant
+
+- Extracted the three module screens' existing render bodies from their full-work-area CentralPanel wrappers into reusable child-window renderers. The original public screen functions now remain compatibility wrappers, preserving their layout and interaction path.
+- Added the renderers to the native desktop dispatcher, with per-window active state and isolated `back` handling.
+- Expanded the native multi-window headless regression to open Accounting, POS, Therapy, Users, Projects, Fleet and Restaurant concurrently and verify the module titles are painted.
+- Updated the parity inventory to identify the next still-missing module-window adapters instead of marking all desktop windows complete.
+- **Verification state:** committed; workspace Clippy, Linux/Windows tests, native builds and GUI smoke pending.
+- **Effort estimate:** approximately 1.2 hours for source extraction, dispatcher integration, regression coverage and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Complete registered launcher module window dispatch
+
+- Added reusable child-window renderers for Products, Purchases, Calendar/Appointments, Editor, App Store, Support, Reports and Dashboard, preserving each original full-work-area renderer as a compatibility wrapper.
+- Connected all eight modules to the native WindowManager dispatcher with isolated module state and active-window Back/Escape routing.
+- The desktop dispatcher now renders all 18 registered launcher modules. The expanded headless regression opens fifteen concurrent modules and verifies translated titles and retained WindowManager entries.
+- Updated the parity inventory to state precisely what is now implemented and what remains unaccepted.
+- **Verification state:** committed; full cross-platform CI pending.
+- **Effort estimate:** approximately 2.0 hours for eight render adapters, dispatcher integration, regression expansion and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Active child-window keyboard isolation
+
+- Added a headless regression that opens Projects and Fleet together, focuses Fleet, sends Escape and verifies only the active Fleet window closes while Projects remains open.
+- This protects module drafts/navigation from key events intended for a different child window.
+- **Verification state:** committed; current-head CI pending.
+- **Effort estimate:** approximately 0.2 hours for focus-path test and documentation. CI runtime is excluded.
+
+
+
+## 2026-11-15 — Explicit Xvfb modifier release for shortcut smoke
+
+- Run 1260 passed Linux/Windows tests, Linux/Windows/macOS desktop builds, formatting and WASM, but the GUI shortcut smoke saw `Alt+F11` instead of plain F11.
+- Artifact inspection of `keys-ready.log` and `keys-locked.log` confirmed the resolver correctly rejected the modified chord. The problem was synthetic X11 modifier state, not the application's shortcut resolver.
+- The workflow now releases Alt, Super, Ctrl and Shift before and after each key sequence, then sends F11/F12 through the focused window.
+- **Verification state:** committed; next full CI run pending.
+- **Effort estimate:** approximately 0.3 hours for artifact download, event-marker diagnosis, workflow correction and documentation. CI runtime is excluded.
+
+
+## 2026-11-17 — Installable Rust desktop distribution foundation
+
+- Established one shared data contract for the native Rust host and the Tauri transition host: stable per-user database location, explicit database/data-directory overrides, environment override, and lock-protected migration of the former Tauri profile including SQLite WAL/SHM files.
+- Defined seven install/deployment profiles covering native Windows/Linux, Tauri transition installers/portable variants including universal macOS, and the WASM web build. Added a version consistency gate so Cargo, Tauri and frontend releases cannot silently diverge.
+- Added per-platform native package paths: Windows per-user NSIS installer, Linux portable archive with per-user install/uninstall scripts, and a Tauri universal macOS DMG; the native egui macOS host is deferred because winit/glutin currently fails to compile its objc2 0.4.1 dependency on the macOS runner. Portable Windows and Linux builds keep isolated colocated data by default; installed builds use the standard per-user profile.
+- Added Linux install/uninstall smoke coverage proving the executable and desktop entry are removed while the user's database remains. Existing Windows installer smoke continues to verify custom install paths, shortcuts, upgrade preferences and data preservation. macOS packaging verifies both CPU architectures and the DMG container.
+- The native Rust host now shows a splash immediately and loads/migrates its database in the background, with a visible retry path if startup fails.
+- **Verification state:** implementation committed on PR #22; the latest full CI runs are queued behind an older long-running run. The new cross-platform build, package smoke and startup changes are not yet certified green.
+- **Still open before calling distribution production-ready:** native Windows code signing, native Rust self-update, native Windows signing, and any requested Linux .deb/AppImage packaging. Native macOS remains blocked on the upstream objc2 0.4.1 dependency; the Tauri universal DMG is the installable macOS target for now. Tauri signed-updater packages remain the transition fallback.

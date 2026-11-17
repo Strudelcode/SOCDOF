@@ -70,6 +70,9 @@ jobs:
             exit 1
           fi
 
+      - name: Validate installable distribution profiles
+        run: node scripts/check-distribution.mjs
+
       - name: Extract release notes from CHANGELOG.md
         id: notes
         run: node scripts/release-notes.mjs "$RELEASE_TAG"
@@ -108,13 +111,21 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Install toolchain
+      - name: Install macOS-compatible Rust toolchain
+        if: matrix.platform == 'macos'
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install Rust toolchain
+        if: matrix.platform != 'macos'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache release cargo
         uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
+            . -> target
             crates/app/src-tauri -> target
           key: release-${{ matrix.platform }}
 
@@ -172,6 +183,81 @@ jobs:
             npm run tauri -- build --config src-tauri/tauri.release.conf.json
           fi
 
+      - name: Build native Rust Linux portable distribution
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+          version='${{ needs.prepare.outputs.version }}'
+          dir="artifacts/SOCDOF-${version}-linux-x86_64-native"
+          mkdir -p "$dir"
+          cp target/release/socdof-ui-desktop "$dir/"
+          chmod +x "$dir/socdof-ui-desktop"
+          cp crates/app/portable/run-socdof-linux.sh "$dir/run-socdof.sh"
+          cp crates/app/portable/install-linux.sh "$dir/"
+          cp crates/app/portable/uninstall-linux.sh "$dir/"
+          cp crates/app/portable/README-LINUX.txt "$dir/README.txt"
+          chmod +x "$dir/"*.sh
+          tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$dir")"
+          test -s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz"
+
+      - name: Build native Rust macOS universal app
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ needs.prepare.outputs.version }}'
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target aarch64-apple-darwin
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target x86_64-apple-darwin
+          app="artifacts/SOCDOF-${version}-macos-universal-native.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          lipo -create \
+            target/aarch64-apple-darwin/release/socdof-ui-desktop \
+            target/x86_64-apple-darwin/release/socdof-ui-desktop \
+            -output "$app/Contents/MacOS/SOCDOF"
+          chmod +x "$app/Contents/MacOS/SOCDOF"
+          cat > "$app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>SOCDOF</string>
+            <key>CFBundleDisplayName</key><string>SOCDOF</string>
+            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
+            <key>CFBundleVersion</key><string>${version}</string>
+            <key>CFBundleShortVersionString</key><string>${version}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>SOCDOF</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          lipo "$app/Contents/MacOS/SOCDOF" -verify_arch arm64 x86_64
+          ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+          test -s "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+
+      - name: Build native Rust Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+          $version = '${{ needs.prepare.outputs.version }}'
+          $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          if (-not $makensis) {
+            choco install nsis --no-progress -y
+            $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
+          }
+          if (-not $makensis) { throw 'NSIS compiler is unavailable' }
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          $installer = Join-Path (Resolve-Path artifacts).Path "SOCDOF-$version-windows-x64-native-setup.exe"
+          $source = (Resolve-Path target/release).Path
+          & $makensis.Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" 'crates/app/installer/native-windows.nsi'
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw 'Native NSIS installer build failed' }
+          ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
       - name: Stage release assets
         run: >-
           node scripts/stage-release-artifacts.mjs
@@ -179,6 +265,29 @@ jobs:
           --version ${{ needs.prepare.outputs.version }}
           --bundle-dir ${{ matrix.bundle_dir }}
           --output-dir artifacts
+
+      - name: Refresh Linux checksums including native package
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 sha256sum > artifacts/SHA256SUMS-linux.txt
+
+      - name: Refresh Windows checksums including native installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts -File -Filter 'SOCDOF-*' | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "{0}  {1}" -f $hash, $_.Name
+          } | Set-Content artifacts/SHA256SUMS-windows.txt
+
+      - name: Refresh macOS checksums including native app
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 shasum -a 256 > artifacts/SHA256SUMS-macos.txt
+
+      - name: Write installable distribution manifest
+        if: matrix.platform == 'linux'
+        run: node scripts/check-distribution.mjs --write artifacts/distribution-manifest.json
 
       - name: Upload platform assets
         uses: actions/upload-artifact@v6

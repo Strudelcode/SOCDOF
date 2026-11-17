@@ -125,6 +125,94 @@ impl TherapySession {
     }
 }
 
+/// One separately recorded practice trip from the legacy TherapyMileage screen.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TherapyTrip {
+    /// Stable identifier.
+    pub id: Uuid,
+    /// Optional client; general practice trips are allowed.
+    pub client_id: Option<Uuid>,
+    /// Calendar date in YYYY-MM-DD format.
+    pub date: String,
+    /// Starting location.
+    pub departure: String,
+    /// Destination.
+    pub destination: String,
+    /// Reason for the trip.
+    pub purpose: String,
+    /// Odometer at departure in thousandths of a kilometre.
+    pub start_km_milli: i64,
+    /// Odometer at arrival in thousandths of a kilometre.
+    pub end_km_milli: i64,
+    /// Individually selected reimbursement rate in cents per kilometre.
+    pub rate_cents_per_km: i64,
+}
+
+impl TherapyTrip {
+    /// Distance driven, clamped at zero like the legacy TypeScript screen.
+    pub fn distance_km_milli(&self) -> i64 {
+        (self.end_km_milli - self.start_km_milli).max(0)
+    }
+
+    /// Reimbursement shown in the mileage screen; legacy UI defaults a missing/zero rate to 0.30.
+    pub fn reimbursement(&self) -> Money {
+        self.reimbursement_at_rate(30)
+    }
+
+    /// Reimbursement using an explicit fallback rate, rounded to the nearest cent.
+    pub fn reimbursement_at_rate(&self, fallback_cents_per_km: i64) -> Money {
+        let rate = if self.rate_cents_per_km == 0 {
+            fallback_cents_per_km.max(0)
+        } else {
+            self.rate_cents_per_km.max(0)
+        };
+        let cents = (i128::from(self.distance_km_milli()) * i128::from(rate) + 500) / 1000;
+        Money::from_cents(cents.min(i128::from(i64::MAX)) as i64)
+    }
+
+    /// Validates the values before persistence.
+    pub fn validate(&self) -> Result<(), String> {
+        let valid_shape = self.date.len() == 10
+            && self.date.as_bytes().get(4) == Some(&b'-')
+            && self.date.as_bytes().get(7) == Some(&b'-')
+            && self
+                .date
+                .chars()
+                .enumerate()
+                .all(|(index, value)| matches!(index, 4 | 7) || value.is_ascii_digit());
+        let valid_calendar_date = if valid_shape {
+            let year = self.date[..4].parse::<i32>().ok();
+            let month = self.date[5..7].parse::<u32>().ok();
+            let day = self.date[8..10].parse::<u32>().ok();
+            match (year, month, day) {
+                (Some(year), Some(month @ 1..=12), Some(day)) => {
+                    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+                    let days = match month {
+                        2 if leap => 29,
+                        2 => 28,
+                        4 | 6 | 9 | 11 => 30,
+                        _ => 31,
+                    };
+                    (1..=days).contains(&day)
+                }
+                _ => false,
+            }
+        } else {
+            false
+        };
+        if !valid_calendar_date {
+            return Err("trip_date_invalid".to_string());
+        }
+        if self.departure.trim().is_empty() || self.destination.trim().is_empty() {
+            return Err("trip_route_required".to_string());
+        }
+        if self.start_km_milli < 0 || self.end_km_milli < 0 || self.rate_cents_per_km < 0 {
+            return Err("trip_values_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
 /// Amount of one session: treatment time at the hourly rate plus the driven kilometres.
 pub fn session_amount(session: &TherapySession, client: &TherapyClient) -> Money {
     let minutes = session.minutes.max(0);

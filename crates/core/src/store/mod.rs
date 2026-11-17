@@ -21,9 +21,9 @@ use crate::domain::purchase::PurchaseOrder;
 use crate::domain::restaurant::{MenuItem, TableOrder};
 use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
-use crate::domain::stock::StockMove;
+use crate::domain::stock::{StockJournalEntry, StockMove};
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
-use crate::domain::therapy::{TherapyClient, TherapySession};
+use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::domain::user::User;
 use crate::domain::workspace::{Report, Widget};
 use crate::error::CoreResult;
@@ -47,13 +47,14 @@ pub mod restaurant;
 pub mod search;
 pub mod sessions;
 pub mod settings;
+pub mod stock_journal;
 pub mod support;
 pub mod therapy;
 pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 15;
+pub const SCHEMA_VERSION: i64 = 19;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -741,6 +742,25 @@ impl Store {
             version = 15;
         }
 
+        if version < 16 {
+            self.conn.execute_batch(SCHEMA_V16)?;
+            version = 16;
+        }
+
+        if version < 17 {
+            self.conn.execute_batch(SCHEMA_V17)?;
+            version = 17;
+        }
+
+        if version < 18 {
+            self.conn.execute_batch(SCHEMA_V18)?;
+            version = 18;
+        }
+        if version < 19 {
+            self.conn.execute_batch(SCHEMA_V19)?;
+            version = 19;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -1065,6 +1085,11 @@ impl Store {
         search::contacts(&self.conn, query)
     }
 
+    /// Removes legacy placeholder e-mail addresses created by flawed older imports.
+    pub fn sanitize_legacy_contact_emails(&self) -> CoreResult<usize> {
+        contacts::sanitize_legacy_emails(&self.conn)
+    }
+
     // --- Text editor documents -------------------------------------------------------------
 
     /// Inserts a document.
@@ -1243,6 +1268,26 @@ impl Store {
         products::adjust_stock(&self.conn, movement)
     }
 
+    /// Books a double-entry journal movement and returns the resulting warehouse stock.
+    pub fn insert_stock_journal_entry(&self, entry: &StockJournalEntry) -> CoreResult<i64> {
+        stock_journal::insert(&self.conn, entry)
+    }
+
+    /// Lists the immutable double-entry stock journal, newest first.
+    pub fn list_stock_journal_entries(&self) -> CoreResult<Vec<StockJournalEntry>> {
+        stock_journal::list(&self.conn)
+    }
+
+    /// Searches journal rows by product, SKU, location, reference or note.
+    pub fn search_stock_journal_entries(&self, query: &str) -> CoreResult<Vec<StockJournalEntry>> {
+        stock_journal::search(&self.conn, query)
+    }
+
+    /// Number of double-entry stock journal rows.
+    pub fn stock_journal_count(&self) -> CoreResult<i64> {
+        stock_journal::count(&self.conn)
+    }
+
     /// Number of products.
     pub fn product_count(&self) -> CoreResult<i64> {
         Ok(self
@@ -1275,6 +1320,11 @@ impl Store {
         users::insert(&self.conn, user)
     }
 
+    /// Creates the first administrator if no account exists yet.
+    pub fn insert_first_admin(&self, user: &User) -> CoreResult<()> {
+        users::insert_first_admin(&self.conn, user)
+    }
+
     /// Finds a user by login name, ignoring case.
     pub fn find_user_by_username(&self, username: &str) -> CoreResult<Option<User>> {
         users::find_by_username(&self.conn, username)
@@ -1288,6 +1338,16 @@ impl Store {
     /// Replaces the editable fields of a user; protects the last administrator.
     pub fn update_user(&self, user: &User) -> CoreResult<()> {
         users::update(&self.conn, user)
+    }
+
+    /// Updates the signed-in user's own password while retaining only the authorizing session.
+    pub fn update_user_preserving_session(
+        &self,
+        user: &User,
+        session_id: uuid::Uuid,
+        now: i64,
+    ) -> CoreResult<()> {
+        users::update_preserving_session(&self.conn, user, session_id, now)
     }
 
     /// Deletes a user account; protects the last administrator.
@@ -1680,6 +1740,26 @@ impl Store {
     /// Number of sessions of a client.
     pub fn therapy_session_count(&self, client_id: uuid::Uuid) -> CoreResult<i64> {
         therapy::session_count(&self.conn, client_id)
+    }
+
+    /// Lists every practice trip, newest first.
+    pub fn therapy_trips(&self) -> CoreResult<Vec<TherapyTrip>> {
+        therapy::list_trips(&self.conn)
+    }
+
+    /// Inserts a practice trip with its own reimbursement rate.
+    pub fn insert_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::insert_trip(&self.conn, trip)
+    }
+
+    /// Replaces a practice trip.
+    pub fn update_therapy_trip(&self, trip: &TherapyTrip) -> CoreResult<()> {
+        therapy::update_trip(&self.conn, trip)
+    }
+
+    /// Deletes a practice trip.
+    pub fn delete_therapy_trip(&self, id: uuid::Uuid) -> CoreResult<()> {
+        therapy::delete_trip(&self.conn, id)
     }
 
     /// Puts every still open session of a client on one invoice.
@@ -2077,6 +2157,61 @@ CREATE INDEX IF NOT EXISTS therapy_sessions_client
     ON therapy_sessions (client_id, started_at);
 "#;
 
+/// Schema v16: preserve POS/restaurant VAT totals calculated by tax group.
+const SCHEMA_V16: &str = r#"
+ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v17: preserve grouped VAT totals on POS receipts.
+const SCHEMA_V17: &str = r#"
+ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v19: persist double-entry stock movements and backfill existing movement history.
+const SCHEMA_V19: &str = r#"
+CREATE TABLE IF NOT EXISTS stock_journal_entries (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    source_location TEXT NOT NULL,
+    dest_location TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    reference TEXT NOT NULL,
+    notes TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stock_journal_product_created
+    ON stock_journal_entries(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_journal_created
+    ON stock_journal_entries(created_at DESC);
+INSERT OR IGNORE INTO stock_journal_entries
+    (id, product_id, source_location, dest_location, quantity, reference, notes, created_at)
+SELECT id, product_id,
+    CASE WHEN kind = 'in' THEN 'Virtual/Vendors' ELSE 'Physical/Warehouse' END,
+    CASE WHEN kind = 'in' THEN 'Physical/Warehouse' ELSE 'Virtual/Customers' END,
+    quantity, coalesce(nullif(reason, ''), 'Legacy stock movement'), reason, created_at
+FROM stock_moves;
+"#;
+
+/// Schema v18: persist the TherapyMileage logbook independently from treatment sessions.
+const SCHEMA_V18: &str = r#"
+CREATE TABLE IF NOT EXISTS therapy_trips (
+    id                 TEXT PRIMARY KEY,
+    client_id          TEXT REFERENCES therapy_clients(id) ON DELETE SET NULL,
+    date               TEXT NOT NULL,
+    departure          TEXT NOT NULL,
+    destination        TEXT NOT NULL,
+    purpose            TEXT NOT NULL DEFAULT '',
+    start_km_milli     INTEGER NOT NULL DEFAULT 0,
+    end_km_milli       INTEGER NOT NULL DEFAULT 0,
+    rate_cents_per_km  INTEGER NOT NULL DEFAULT 30
+);
+
+CREATE INDEX IF NOT EXISTS therapy_trips_date
+    ON therapy_trips(date DESC);
+CREATE INDEX IF NOT EXISTS therapy_trips_client
+    ON therapy_trips(client_id, date DESC);
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2084,6 +2219,7 @@ mod tests {
     use crate::domain::appointment::{Appointment, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
+    use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
     use crate::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
     use crate::domain::settings::ThemeMode;
@@ -2120,6 +2256,7 @@ mod tests {
             due_at: 86_400_000,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2150,6 +2287,61 @@ mod tests {
             .expect("invoice");
         assert_eq!(reloaded.status, InvoiceStatus::Paid);
         assert_eq!(store.schema_version().expect("version"), SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn failed_payment_insert_does_not_mark_invoice_paid() {
+        use crate::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+        use crate::domain::payment::{InvoicePayment, PaymentMethod};
+
+        let store = Store::open_in_memory().expect("store");
+        let mut contact =
+            crate::domain::contact::Contact::new(crate::domain::contact::ContactKind::Company, 0);
+        contact.company_name = Some("Kunde".to_string());
+        store.insert_contact(&contact).expect("contact");
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-atomic".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: 0,
+            due_at: 86_400_000,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+        store
+            .conn
+            .execute_batch(
+                "CREATE TRIGGER reject_invoice_payment
+                 BEFORE INSERT ON invoice_payments
+                 BEGIN SELECT RAISE(ABORT, 'simulated payment storage failure'); END;",
+            )
+            .expect("trigger");
+
+        let payment = InvoicePayment::new(
+            invoice.id,
+            PaymentMethod::Transfer,
+            1_760_000_000_000,
+            "Banküberweisung (Konto)".to_string(),
+        );
+        assert!(store.record_invoice_payment(&payment).is_err());
+        let stored = store
+            .find_invoice(invoice.id)
+            .expect("reload")
+            .expect("invoice");
+        assert_eq!(stored.status, InvoiceStatus::Sent);
+        assert_eq!(
+            store.invoice_payment(invoice.id).expect("payment read"),
+            None
+        );
     }
 
     #[test]
@@ -2186,6 +2378,7 @@ mod tests {
             due_at: now_millis(),
             currency_symbol: "€".to_string(),
             note: Some("Danke für den Auftrag".to_string()),
+            tax_total_override_cents: None,
             lines: vec![
                 InvoiceLine {
                     description: "Beratung".to_string(),
@@ -2236,6 +2429,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: Vec::new(),
         };
 
@@ -2340,6 +2534,7 @@ mod tests {
             paid_at: 10,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             cash_given: Some(Money::from_cents(1_000)),
             lines: vec![PosOrderLine {
                 product_id: Some(product.id),
@@ -2486,6 +2681,7 @@ mod tests {
             due_at: 0,
             currency_symbol: "€".to_string(),
             note: None,
+            tax_total_override_cents: None,
             lines: vec![InvoiceLine {
                 description: "Beratung".to_string(),
                 quantity_milli: 1_000,
@@ -2651,6 +2847,90 @@ mod tests {
         };
         assert!(store.adjust_stock(&too_much).is_err());
         assert_eq!(store.list_products().expect("list")[0].stock, 6);
+    }
+
+    #[test]
+    fn built_in_roles_gain_new_modules_without_losing_existing_grants() {
+        let store = Store::open_in_memory().expect("store");
+        let mut administrator = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("administrator")
+            .expect("administrator exists");
+        let original_contacts = administrator.level(AppModule::Contacts);
+        administrator.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&administrator.permissions)
+                        .expect("serialize old grants"),
+                    administrator.id.to_string(),
+                ],
+            )
+            .expect("simulate old admin role");
+
+        let mut standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("standard role")
+            .expect("standard role exists");
+        standard.permissions.retain(|grant| {
+            !matches!(
+                grant.module,
+                AppModule::Projects | AppModule::Fleet | AppModule::Restaurant
+            )
+        });
+        store
+            .conn
+            .execute(
+                "UPDATE roles SET permissions = ?1 WHERE id = ?2",
+                rusqlite::params![
+                    serde_json::to_string(&standard.permissions).expect("serialize old grants"),
+                    standard.id.to_string(),
+                ],
+            )
+            .expect("simulate old standard role");
+
+        permissions::seed_builtin(&store.conn, now_millis()).expect("upgrade built-ins");
+
+        let upgraded_admin = store
+            .find_role(ADMIN_ROLE_ID)
+            .expect("find")
+            .expect("admin");
+        let upgraded_standard = store
+            .find_role(USER_ROLE_ID)
+            .expect("find")
+            .expect("standard");
+        assert_eq!(upgraded_admin.level(AppModule::Contacts), original_contacts);
+        assert_eq!(
+            upgraded_admin.level(AppModule::Projects),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Projects),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Fleet),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Fleet),
+            PermissionLevel::Edit
+        );
+        assert_eq!(
+            upgraded_admin.level(AppModule::Restaurant),
+            PermissionLevel::Manage
+        );
+        assert_eq!(
+            upgraded_standard.level(AppModule::Restaurant),
+            PermissionLevel::Edit
+        );
     }
 
     #[test]

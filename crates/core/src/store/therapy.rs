@@ -3,7 +3,7 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use crate::domain::therapy::{TherapyClient, TherapySession};
+use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::error::{CoreError, CoreResult};
 use crate::money::Money;
 
@@ -199,6 +199,97 @@ pub fn link_invoice(
     Ok(changed)
 }
 
+/// Inserts one practice trip.
+pub fn insert_trip(conn: &Connection, trip: &TherapyTrip) -> CoreResult<()> {
+    trip.validate().map_err(CoreError::Validation)?;
+    conn.execute(
+        "INSERT INTO therapy_trips
+            (id, client_id, date, departure, destination, purpose, start_km_milli,
+             end_km_milli, rate_cents_per_km)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            trip.id.to_string(),
+            trip.client_id.map(|id| id.to_string()),
+            trip.date,
+            trip.departure.trim(),
+            trip.destination.trim(),
+            trip.purpose.trim(),
+            trip.start_km_milli,
+            trip.end_km_milli,
+            trip.rate_cents_per_km,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Replaces an existing practice trip.
+pub fn update_trip(conn: &Connection, trip: &TherapyTrip) -> CoreResult<()> {
+    trip.validate().map_err(CoreError::Validation)?;
+    let changed = conn.execute(
+        "UPDATE therapy_trips SET client_id = ?2, date = ?3, departure = ?4,
+            destination = ?5, purpose = ?6, start_km_milli = ?7, end_km_milli = ?8,
+            rate_cents_per_km = ?9 WHERE id = ?1",
+        params![
+            trip.id.to_string(),
+            trip.client_id.map(|id| id.to_string()),
+            trip.date,
+            trip.departure.trim(),
+            trip.destination.trim(),
+            trip.purpose.trim(),
+            trip.start_km_milli,
+            trip.end_km_milli,
+            trip.rate_cents_per_km,
+        ],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(trip.id.to_string()));
+    }
+    Ok(())
+}
+
+/// Deletes one practice trip.
+pub fn delete_trip(conn: &Connection, id: Uuid) -> CoreResult<()> {
+    let changed = conn.execute(
+        "DELETE FROM therapy_trips WHERE id = ?1",
+        params![id.to_string()],
+    )?;
+    if changed == 0 {
+        return Err(CoreError::NotFound(id.to_string()));
+    }
+    Ok(())
+}
+
+/// Loads all practice trips, newest first.
+pub fn list_trips(conn: &Connection) -> CoreResult<Vec<TherapyTrip>> {
+    let mut statement = conn.prepare(
+        "SELECT id, client_id, date, departure, destination, purpose, start_km_milli,
+                end_km_milli, rate_cents_per_km
+         FROM therapy_trips ORDER BY date DESC, rowid DESC",
+    )?;
+    let rows = statement.query_map([], |row| {
+        let id: String = row.get("id")?;
+        let client_id: Option<String> = row.get("client_id")?;
+        Ok(TherapyTrip {
+            id: Uuid::parse_str(&id).map_err(|_| rusqlite::Error::InvalidQuery)?,
+            client_id: client_id
+                .as_deref()
+                .and_then(|value| Uuid::parse_str(value).ok()),
+            date: row.get("date")?,
+            departure: row.get("departure")?,
+            destination: row.get("destination")?,
+            purpose: row.get("purpose")?,
+            start_km_milli: row.get("start_km_milli")?,
+            end_km_milli: row.get("end_km_milli")?,
+            rate_cents_per_km: row.get("rate_cents_per_km")?,
+        })
+    })?;
+    let mut trips = Vec::new();
+    for row in rows {
+        trips.push(row?);
+    }
+    Ok(trips)
+}
+
 fn collect_sessions(
     rows: rusqlite::MappedRows<'_, impl FnMut(&Row<'_>) -> rusqlite::Result<TherapySession>>,
 ) -> CoreResult<Vec<TherapySession>> {
@@ -242,4 +333,79 @@ fn map_session(row: &Row<'_>) -> rusqlite::Result<TherapySession> {
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
+}
+
+#[cfg(test)]
+mod trip_tests {
+    use super::*;
+    use crate::domain::therapy::TherapyTrip;
+    use crate::money::Money;
+    use crate::store::Store;
+
+    fn trip(client_id: Option<Uuid>) -> TherapyTrip {
+        TherapyTrip {
+            id: Uuid::new_v4(),
+            client_id,
+            date: "2026-11-14".to_string(),
+            departure: "Praxis".to_string(),
+            destination: "Bozen".to_string(),
+            purpose: "Hausbesuch".to_string(),
+            start_km_milli: 12_500_000,
+            end_km_milli: 12_542_000,
+            rate_cents_per_km: 38,
+        }
+    }
+
+    #[test]
+    fn practice_trip_roundtrips_and_keeps_its_individual_rate() {
+        let store = Store::open_in_memory().expect("store");
+        let mut client = TherapyClient::new(1);
+        client.name = "Klient".to_string();
+        client.hourly_rate = Money::from_cents(9_000);
+        store.insert_therapy_client(&client).expect("client");
+
+        let mut trip = trip(Some(client.id));
+        assert_eq!(trip.distance_km_milli(), 42_000);
+        assert_eq!(trip.reimbursement(), Money::from_cents(1_596));
+        store.insert_therapy_trip(&trip).expect("insert");
+        assert_eq!(store.therapy_trips().expect("list"), vec![trip.clone()]);
+
+        trip.rate_cents_per_km = 42;
+        trip.purpose = "Folgetermin".to_string();
+        store.update_therapy_trip(&trip).expect("update");
+        assert_eq!(store.therapy_trips().expect("reload"), vec![trip.clone()]);
+        assert_eq!(trip.reimbursement(), Money::from_cents(1_764));
+
+        store.delete_therapy_trip(trip.id).expect("delete");
+        assert!(store.therapy_trips().expect("empty").is_empty());
+    }
+
+    #[test]
+    fn deleting_a_client_preserves_trip_history_and_clears_its_link() {
+        let store = Store::open_in_memory().expect("store");
+        let mut client = TherapyClient::new(1);
+        client.name = "Klient".to_string();
+        store.insert_therapy_client(&client).expect("client");
+        let trip = trip(Some(client.id));
+        store.insert_therapy_trip(&trip).expect("trip");
+
+        store
+            .delete_therapy_client(client.id)
+            .expect("delete client");
+        let stored = store.therapy_trips().expect("trips");
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].id, trip.id);
+        assert_eq!(stored[0].client_id, None);
+    }
+
+    #[test]
+    fn rejects_invalid_practice_trip_values() {
+        let store = Store::open_in_memory().expect("store");
+        let mut trip = trip(None);
+        trip.date = "2026-13-40".to_string();
+        assert!(store.insert_therapy_trip(&trip).is_err());
+        trip.date = "2026-11-14".to_string();
+        trip.rate_cents_per_km = -1;
+        assert!(store.insert_therapy_trip(&trip).is_err());
+    }
 }

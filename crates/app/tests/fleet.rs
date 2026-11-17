@@ -126,11 +126,22 @@ fn fleet_roundtrip_persists_and_calculates() {
     assert_eq!(persisted.fuel.len(), 1);
     assert_eq!(persisted.vehicles[0].notes, "Werkstatt");
 
-    reopened.delete_fleet_trip(trip.id).expect("delete trip");
-    reopened.delete_fleet_fuel(fuel.id).expect("delete fuel");
+    // The TypeScript module deletes only the vehicle record. Historical logbook
+    // entries and fuel receipts must remain available after the vehicle is removed.
     reopened
         .delete_fleet_vehicle(created.id)
         .expect("delete vehicle");
+    let without_vehicle = reopened
+        .fleet_overview()
+        .expect("history after vehicle deletion");
+    assert!(without_vehicle.vehicles.is_empty());
+    assert_eq!(without_vehicle.trips.len(), 1);
+    assert_eq!(without_vehicle.fuel.len(), 1);
+    assert_eq!(without_vehicle.trips[0].vehicle_plate, "M-SO 2026");
+    assert_eq!(without_vehicle.fuel[0].vehicle_plate, "M-SO 2026");
+
+    reopened.delete_fleet_trip(trip.id).expect("delete trip");
+    reopened.delete_fleet_fuel(fuel.id).expect("delete fuel");
     let empty = reopened.fleet_overview().expect("empty overview");
     assert!(empty.vehicles.is_empty());
     assert!(empty.trips.is_empty());

@@ -93,6 +93,13 @@ impl AppStoreState {
 
     /// Activates or deactivates one module through the core, then reloads the catalogue.
     pub fn toggle(&mut self, store: &Store, module: AppModule) -> bool {
+        // Tests, command actions and keyboard shortcuts may request a toggle before the
+        // catalogue screen has been rendered. Resolve the source of truth lazily instead of
+        // treating an unloaded catalogue as an unknown module.
+        if !self.loaded && self.refresh(store).is_err() {
+            self.error = Some("app_store_error_load");
+            return false;
+        }
         let Some(entry) = self
             .modules
             .iter()
@@ -191,8 +198,8 @@ fn header(
         &mut state.back,
     );
 }
-
 /// Renders the App Store into the context.
+/// Renders app_store in the full application work area.
 pub fn app_store(
     ctx: &Context,
     theme: &Theme,
@@ -201,13 +208,6 @@ pub fn app_store(
     state: &mut AppStoreState,
     store: &Store,
 ) {
-    if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-        state.back = true;
-    }
-    if state.refresh(store).is_err() {
-        state.error = Some("app_store_error_load");
-    }
-
     egui::CentralPanel::default()
         .frame(
             egui::Frame::none()
@@ -215,144 +215,162 @@ pub fn app_store(
                 .inner_margin(egui::Margin::same(24.0)),
         )
         .show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                header(ui, theme, texts, focus, state);
-                ui.add_space(10.0);
-                card(ui, theme, |ui| {
-                    ui.horizontal(|ui| {
-                        badge(
-                            ui,
-                            theme,
-                            &format!("{} / {}", state.active_count(), state.modules.len()),
-                            Tone::Accent,
-                        );
-                        badge(ui, theme, texts.get("app_store_local_badge"), Tone::Neutral);
-                    });
-                    ui.add_space(6.0);
-                    ui.label(
-                        RichText::new(texts.get("app_store_hero_hint"))
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                    );
-                    ui.add_space(10.0);
-                    search_field(
+            app_store_window(ctx, true, ui, theme, texts, focus, state, store);
+        });
+}
+/// Renders app_store inside one native desktop child window.
+#[allow(clippy::too_many_arguments)]
+pub fn app_store_window(
+    ctx: &Context,
+    active: bool,
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AppStoreState,
+    store: &Store,
+) {
+    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+        state.back = true;
+    }
+    if state.refresh(store).is_err() {
+        state.error = Some("app_store_error_load");
+    }
+
+    egui::ScrollArea::vertical().show(ui, |ui| {
+        header(ui, theme, texts, focus, state);
+        ui.add_space(10.0);
+        card(ui, theme, |ui| {
+            ui.horizontal(|ui| {
+                badge(
+                    ui,
+                    theme,
+                    &format!("{} / {}", state.active_count(), state.modules.len()),
+                    Tone::Accent,
+                );
+                badge(ui, theme, texts.get("app_store_local_badge"), Tone::Neutral);
+            });
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(texts.get("app_store_hero_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.add_space(10.0);
+            search_field(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("app_store_search"),
+            );
+        });
+        ui.add_space(8.0);
+        messages(ui, theme, texts, state);
+        ui.add_space(6.0);
+
+        let ids: Vec<AppModule> = state
+            .filtered(texts)
+            .into_iter()
+            .map(|module| module.module)
+            .collect();
+        if ids.is_empty() {
+            card(ui, theme, |ui| {
+                empty_state(
+                    ui,
+                    theme,
+                    texts.get("app_store_empty_title"),
+                    texts.get("app_store_empty_hint"),
+                );
+            });
+            return;
+        }
+
+        for id in ids {
+            let Some(module) = state
+                .modules
+                .iter()
+                .find(|module| module.module == id)
+                .cloned()
+            else {
+                continue;
+            };
+            ui.add_space(10.0);
+            card(ui, theme, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new(texts.get(module.name_key)).strong());
+                    badge(
                         ui,
                         theme,
-                        focus,
-                        &mut state.query,
-                        texts.get("app_store_search"),
+                        texts.get(module.state_key()),
+                        if module.active {
+                            Tone::Success
+                        } else {
+                            Tone::Neutral
+                        },
+                    );
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(module.license_key()),
+                        match module.license {
+                            ModuleLicense::Included => Tone::Accent,
+                            ModuleLicense::Trial => Tone::Warning,
+                            ModuleLicense::Locked => Tone::Danger,
+                        },
                     );
                 });
-                ui.add_space(8.0);
-                messages(ui, theme, texts, state);
-                ui.add_space(6.0);
-
-                let ids: Vec<AppModule> = state
-                    .filtered(texts)
-                    .into_iter()
-                    .map(|module| module.module)
-                    .collect();
-                if ids.is_empty() {
-                    card(ui, theme, |ui| {
-                        empty_state(
-                            ui,
-                            theme,
-                            texts.get("app_store_empty_title"),
-                            texts.get("app_store_empty_hint"),
-                        );
-                    });
-                    return;
-                }
-
-                for id in ids {
-                    let Some(module) = state
-                        .modules
-                        .iter()
-                        .find(|module| module.module == id)
-                        .cloned()
-                    else {
-                        continue;
-                    };
-                    ui.add_space(10.0);
-                    card(ui, theme, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(RichText::new(texts.get(module.name_key)).strong());
-                            badge(
+                ui.add_space(3.0);
+                ui.label(
+                    RichText::new(texts.get(module.description_key))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(7.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} {}",
+                            texts.get("app_store_version"),
+                            module.version
+                        ))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                    );
+                    if module.required {
+                        badge(ui, theme, texts.get("app_store_required"), Tone::Neutral);
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let enabled = module.can_toggle();
+                        ui.add_enabled_ui(enabled, |ui| {
+                            let label = if module.active {
+                                texts.get("app_store_deactivate")
+                            } else if module.license == ModuleLicense::Locked {
+                                texts.get("app_store_locked_action")
+                            } else {
+                                texts.get("app_store_activate")
+                            };
+                            if button(
                                 ui,
                                 theme,
-                                texts.get(module.state_key()),
+                                focus,
+                                label,
                                 if module.active {
-                                    Tone::Success
+                                    ButtonVariant::Secondary
                                 } else {
-                                    Tone::Neutral
+                                    ButtonVariant::Primary
                                 },
-                            );
-                            badge(
-                                ui,
-                                theme,
-                                texts.get(module.license_key()),
-                                match module.license {
-                                    ModuleLicense::Included => Tone::Accent,
-                                    ModuleLicense::Trial => Tone::Warning,
-                                    ModuleLicense::Locked => Tone::Danger,
-                                },
-                            );
-                        });
-                        ui.add_space(3.0);
-                        ui.label(
-                            RichText::new(texts.get(module.description_key))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
-                        ui.add_space(7.0);
-                        ui.horizontal(|ui| {
-                            ui.label(
-                                RichText::new(format!(
-                                    "{} {}",
-                                    texts.get("app_store_version"),
-                                    module.version
-                                ))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                            );
-                            if module.required {
-                                badge(ui, theme, texts.get("app_store_required"), Tone::Neutral);
+                            )
+                            .activated
+                            {
+                                state.toggle(store, module.module);
                             }
-                            ui.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    let enabled = module.can_toggle();
-                                    ui.add_enabled_ui(enabled, |ui| {
-                                        let label = if module.active {
-                                            texts.get("app_store_deactivate")
-                                        } else if module.license == ModuleLicense::Locked {
-                                            texts.get("app_store_locked_action")
-                                        } else {
-                                            texts.get("app_store_activate")
-                                        };
-                                        if button(
-                                            ui,
-                                            theme,
-                                            focus,
-                                            label,
-                                            if module.active {
-                                                ButtonVariant::Secondary
-                                            } else {
-                                                ButtonVariant::Primary
-                                            },
-                                        )
-                                        .activated
-                                        {
-                                            state.toggle(store, module.module);
-                                        }
-                                    });
-                                },
-                            );
                         });
                     });
-                }
+                });
             });
-        });
+        }
+    });
 }
 
 #[cfg(test)]
@@ -369,8 +387,8 @@ mod tests {
         let store = Store::open_in_memory().expect("store");
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
-        assert_eq!(state.modules.len(), 15);
-        assert_eq!(state.active_count(), 15);
+        assert_eq!(state.modules.len(), 18);
+        assert_eq!(state.active_count(), 18);
         let mut texts = texts();
         state.query = "therapie".to_string();
         let filtered = state.filtered(&texts);
@@ -394,6 +412,11 @@ mod tests {
         assert!(!app_store::is_active(&store, AppModule::Contacts).expect("state"));
         assert!(state.toggle(&store, AppModule::Contacts));
         assert!(app_store::is_active(&store, AppModule::Contacts).expect("state"));
+
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(!app_store::is_active(&store, AppModule::Restaurant).expect("restaurant inactive"));
+        assert!(state.toggle(&store, AppModule::Restaurant));
+        assert!(app_store::is_active(&store, AppModule::Restaurant).expect("restaurant active"));
     }
 
     #[test]
@@ -456,5 +479,29 @@ mod tests {
             }
             assert!(output.expect("frame").shapes.len() > 5);
         }
+    }
+
+    #[test]
+    fn toggle_loads_the_catalogue_before_first_screen_render() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AppStoreState::new();
+
+        assert!(state.toggle(&store, AppModule::Contacts));
+        assert_eq!(state.status, Some("app_store_deactivated"));
+        assert!(!app_store::is_active(&store, AppModule::Contacts).expect("inactive"));
+
+        assert!(state.toggle(&store, AppModule::Contacts));
+        assert_eq!(state.status, Some("app_store_activated"));
+        assert!(app_store::is_active(&store, AppModule::Contacts).expect("active"));
+    }
+
+    #[test]
+    fn required_modules_remain_protected_after_lazy_initialization() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AppStoreState::new();
+
+        assert!(!state.toggle(&store, AppModule::Dashboard));
+        assert_eq!(state.error, Some("app_store_error_required"));
+        assert!(state.loaded);
     }
 }

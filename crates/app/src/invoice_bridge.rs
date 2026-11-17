@@ -277,6 +277,7 @@ impl InvoiceInput {
                 "" => None,
                 note => Some(note.to_string()),
             },
+            tax_total_override_cents: None,
             lines: self.items.iter().map(InvoiceItemInput::to_line).collect(),
         };
         invoice.validate().map_err(CoreError::Validation)?;

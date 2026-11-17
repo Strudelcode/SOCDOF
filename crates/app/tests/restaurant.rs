@@ -207,6 +207,71 @@ fn restaurant_roundtrip_persists_calculates_and_checks_out() {
 }
 
 #[test]
+fn restaurant_checkout_keeps_grouped_vat_on_the_paid_invoice() {
+    let dir = temp_dir("grouped-vat");
+    let database = dir.join("socdof.sqlite");
+    let state = DesktopState::open(&database).expect("state");
+
+    let mut first = dish_input();
+    first.name = "Kleiner Artikel A".to_string();
+    first.price = 0.07;
+    first.tax_rate = 7;
+    let first = state.save_restaurant_menu_item(&first).expect("first dish");
+
+    let mut second = dish_input();
+    second.name = "Kleiner Artikel B".to_string();
+    second.price = 0.07;
+    second.tax_rate = 7;
+    let second = state
+        .save_restaurant_menu_item(&second)
+        .expect("second dish");
+
+    let table = "Tisch 1 (Fenster)";
+    let opened = state
+        .add_restaurant_item(table, first.id)
+        .expect("open first line");
+    let order_id = opened.order.expect("opened order").id;
+    state
+        .add_restaurant_item(table, second.id)
+        .expect("add second line");
+
+    let checkout = state
+        .restaurant_checkout(&RestaurantCheckoutInput {
+            order_id: Some(order_id),
+            payment_method: "card".to_string(),
+            split_count: 1,
+            ..Default::default()
+        })
+        .expect("checkout");
+    assert_eq!(checkout.order.tax_total, 0.01);
+    assert_eq!(checkout.order.total, 0.15);
+
+    let invoice = state.invoice(checkout.invoice_id).expect("invoice");
+    assert_eq!(invoice.subtotal_cents, 14);
+    assert_eq!(invoice.tax_total_cents, 1);
+    assert_eq!(invoice.total_cents, 15);
+    let pos = state.pos_overview(0, i64::MAX, None).expect("POS overview");
+    assert_eq!(pos.summary.tax_cents, 1);
+    assert_eq!(pos.summary.gross_cents, 15);
+
+    state.release_lock();
+    drop(state);
+
+    let reopened = DesktopState::open(&database).expect("reopen");
+    let persisted = reopened
+        .invoice(checkout.invoice_id)
+        .expect("persisted invoice");
+    assert_eq!(persisted.tax_total_cents, 1);
+    assert_eq!(persisted.total_cents, 15);
+    let persisted_pos = reopened
+        .pos_overview(0, i64::MAX, None)
+        .expect("persisted POS overview");
+    assert_eq!(persisted_pos.summary.tax_cents, 1);
+    assert_eq!(persisted_pos.summary.gross_cents, 15);
+    reopened.release_lock();
+}
+
+#[test]
 fn restaurant_rejects_invalid_dish_order_and_checkout_values() {
     let dir = temp_dir("validation");
     let state = DesktopState::open(dir.join("socdof.sqlite")).expect("state");

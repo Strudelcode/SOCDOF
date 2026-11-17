@@ -110,10 +110,11 @@ pub fn purge_expired(conn: &Connection, now: i64) -> CoreResult<usize> {
 
 /// Current lockout end for an account, if the lockout is still running.
 pub fn locked_until(conn: &Connection, username: &str, now: i64) -> CoreResult<Option<i64>> {
+    let username = username.trim().to_ascii_lowercase();
     let until: Option<i64> = conn
         .query_row(
             "SELECT locked_until FROM auth_attempts WHERE username = ?1",
-            params![username.trim()],
+            params![username],
             |row| row.get(0),
         )
         .optional()?
@@ -124,18 +125,19 @@ pub fn locked_until(conn: &Connection, username: &str, now: i64) -> CoreResult<O
 
 /// Records a failed sign-in and returns the lockout end when the threshold is reached.
 pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResult<Option<i64>> {
+    let username = username.trim().to_ascii_lowercase();
     conn.execute(
         "INSERT INTO auth_attempts (username, failed_count, locked_until, updated_at)
          VALUES (?1, 1, NULL, ?2)
          ON CONFLICT(username) DO UPDATE SET
             failed_count = auth_attempts.failed_count + 1,
             updated_at = excluded.updated_at",
-        params![username.trim(), now],
+        params![username, now],
     )?;
 
     let failed: i64 = conn.query_row(
         "SELECT failed_count FROM auth_attempts WHERE username = ?1",
-        params![username.trim()],
+        params![username],
         |row| row.get(0),
     )?;
 
@@ -143,7 +145,7 @@ pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResu
         let until = now + LOCKOUT_MS;
         conn.execute(
             "UPDATE auth_attempts SET locked_until = ?2, failed_count = 0 WHERE username = ?1",
-            params![username.trim(), until],
+            params![username, until],
         )?;
         return Ok(Some(until));
     }
@@ -153,9 +155,10 @@ pub fn register_failure(conn: &Connection, username: &str, now: i64) -> CoreResu
 
 /// Clears the counter after a successful sign-in.
 pub fn clear_failures(conn: &Connection, username: &str) -> CoreResult<()> {
+    let username = username.trim().to_ascii_lowercase();
     conn.execute(
         "DELETE FROM auth_attempts WHERE username = ?1",
-        params![username.trim()],
+        params![username],
     )?;
     Ok(())
 }
@@ -170,13 +173,16 @@ pub fn login(
     password: &str,
     now: i64,
 ) -> CoreResult<LoginOutcome> {
-    if let Some(until) = locked_until(conn, username, now)? {
+    // Usernames are case-insensitive in the users table. Keep the lockout key canonical too,
+    // otherwise changing the letter case would create a fresh failure counter and bypass lockout.
+    let attempt_key = username.trim().to_ascii_lowercase();
+    if let Some(until) = locked_until(conn, &attempt_key, now)? {
         return Ok(LoginOutcome::Locked { until });
     }
 
     match users::authenticate(conn, username, password)? {
         Some(user) => {
-            clear_failures(conn, username)?;
+            clear_failures(conn, &attempt_key)?;
             let (session, token) = create(conn, &user, now, SESSION_TTL_MS)?;
             Ok(LoginOutcome::Success {
                 user: Box::new(user),
@@ -184,7 +190,7 @@ pub fn login(
                 token,
             })
         }
-        None => match register_failure(conn, username, now)? {
+        None => match register_failure(conn, &attempt_key, now)? {
             Some(until) => Ok(LoginOutcome::Locked { until }),
             None => Ok(LoginOutcome::Invalid),
         },
@@ -204,4 +210,51 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Session> {
         last_seen_at: row.get("last_seen_at")?,
         revoked_at: row.get("revoked_at")?,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn attempts_table() -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory database");
+        conn.execute_batch(
+            "CREATE TABLE auth_attempts (
+                username TEXT PRIMARY KEY,
+                failed_count INTEGER NOT NULL,
+                locked_until INTEGER,
+                updated_at INTEGER NOT NULL
+            );",
+        )
+        .expect("auth attempts schema");
+        conn
+    }
+
+    #[test]
+    fn login_lockout_is_shared_across_username_case_variants() {
+        let conn = attempts_table();
+        for attempt in 0..MAX_FAILED_ATTEMPTS {
+            let locked =
+                register_failure(&conn, "Admin", 1_000 + attempt).expect("record failed login");
+            assert_eq!(locked.is_some(), attempt + 1 == MAX_FAILED_ATTEMPTS);
+        }
+
+        assert!(locked_until(&conn, "ADMIN", 20_000)
+            .expect("read lockout")
+            .is_some());
+        assert!(locked_until(&conn, "aDmIn", 20_000)
+            .expect("read lockout")
+            .is_some());
+    }
+
+    #[test]
+    fn successful_login_clears_case_insensitive_failure_counter() {
+        let conn = attempts_table();
+        register_failure(&conn, "Admin", 1_000).expect("record failed login");
+        clear_failures(&conn, "ADMIN").expect("clear failures");
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM auth_attempts", [], |row| row.get(0))
+            .expect("count attempts");
+        assert_eq!(count, 0);
+    }
 }
