@@ -446,6 +446,9 @@ pub struct SettingsState {
     security_user: Option<Uuid>,
     security_password: String,
     security_confirm: String,
+    recovery_answer_one: String,
+    recovery_answer_two: String,
+    recovery_configured: bool,
     update_settings: UpdateSettings,
     portable_settings: PortableSettings,
     user_editor: Option<UserDraft>,
@@ -487,6 +490,9 @@ impl Default for SettingsState {
             security_user: None,
             security_password: String::new(),
             security_confirm: String::new(),
+            recovery_answer_one: String::new(),
+            recovery_answer_two: String::new(),
+            recovery_configured: false,
             update_settings: UpdateSettings::default(),
             portable_settings: PortableSettings::default(),
             user_editor: None,
@@ -521,6 +527,14 @@ impl SettingsState {
     /// Creates an unloaded screen; the first [`SettingsState::refresh`] loads the store.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Associates Settings with the currently authenticated account.
+    pub fn set_active_user(&mut self, user_id: Option<Uuid>) {
+        if self.active_user != user_id {
+            self.active_user = user_id;
+            self.loaded = false;
+        }
     }
 
     /// Current tab.
@@ -571,6 +585,10 @@ impl SettingsState {
             .security_user
             .filter(|id| self.users.iter().any(|user| user.id == *id))
             .or(self.active_user);
+        self.recovery_configured = self
+            .active_user
+            .and_then(|id| socdof_core::security_questions::security_answers(store, id).ok())
+            .is_some_and(|answers| answers.is_configured());
 
         let preferences = match self.active_user {
             Some(id) => settings_service::preferences(store, id)?,
@@ -664,6 +682,40 @@ impl SettingsState {
             }
             Err(_) => {
                 self.error = Some("settings_error_password");
+                false
+            }
+        }
+    }
+
+    fn save_recovery_answers(&mut self, store: &Store) -> bool {
+        let Some(user_id) = self.active_user else {
+            self.error = Some("settings_error_no_user");
+            return false;
+        };
+        if self.recovery_answer_one.trim().chars().count() < 2
+            || self.recovery_answer_two.trim().chars().count() < 2
+        {
+            self.error = Some("settings_error_recovery_answers");
+            return false;
+        }
+        match socdof_core::security_questions::save_security_answers(
+            store,
+            user_id,
+            &[
+                self.recovery_answer_one.trim().to_owned(),
+                self.recovery_answer_two.trim().to_owned(),
+            ],
+        ) {
+            Ok(()) => {
+                self.recovery_answer_one.clear();
+                self.recovery_answer_two.clear();
+                self.recovery_configured = true;
+                self.error = None;
+                self.status = Some("settings_recovery_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_recovery_answers");
                 false
             }
         }
@@ -1800,6 +1852,7 @@ fn security_tab(
     now: i64,
 ) {
     let mut save_password = false;
+    let mut save_recovery = false;
     let mut revoke = false;
     let mut selected_user = state.security_user;
     card(ui, theme, |ui| {
@@ -1914,12 +1967,64 @@ fn security_tab(
         ui.label(format!("{}: {hours}", texts.get("settings_session_hours")));
     });
 
+    ui.add_space(12.0);
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_recovery_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_recovery_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        if state.recovery_configured {
+            ui.label(
+                RichText::new(texts.get("settings_recovery_configured"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.success),
+            );
+        }
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.recovery_answer_one,
+                texts.get("auth_recovery_question_one"),
+                texts.get("auth_recovery_answer_one"),
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.recovery_answer_two,
+                texts.get("auth_recovery_question_two"),
+                texts.get("auth_recovery_answer_two"),
+                None,
+            );
+        });
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_recovery_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save_recovery = true;
+        }
+    });
+
     state.security_user = selected_user;
     if save_password {
         state.save_security(store);
     }
     if revoke {
         state.sign_out_security_user(store, now);
+    }
+    if save_recovery {
+        state.save_recovery_answers(store);
     }
 }
 
@@ -3082,6 +3187,31 @@ mod tests {
         state.delete_target = Some(DeleteTarget::User(created.id));
         assert!(state.delete_confirmed(&store));
         assert!(store.find_user_by_username("neu").expect("find").is_none());
+    }
+
+    #[test]
+    fn recovery_answers_are_saved_for_the_active_account() {
+        let (store, mut state, _texts) = seeded();
+        let active_user = state.active_user.expect("active account");
+        state.security_user = Some(Uuid::new_v4());
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two = "Childhood city".to_string();
+
+        assert!(state.save_recovery_answers(&store));
+        assert!(state.recovery_configured);
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            active_user,
+            0,
+            "FIRST PET"
+        )
+        .expect("verify active account"));
+        assert!(!socdof_core::security_questions::security_answers(
+            &store,
+            state.security_user.expect("separate password target")
+        )
+        .expect("other account answers")
+        .is_configured());
     }
 
     #[test]

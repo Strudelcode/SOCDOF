@@ -764,6 +764,8 @@ impl GalleryState {
             }
             "settings" => {
                 self.settings.reset_for_open();
+                self.settings
+                    .set_active_user(self.auth.user.as_ref().map(|user| user.id));
                 self.settings.refresh(&self.store)?;
                 self.settings_open = true;
             }
