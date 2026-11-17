@@ -467,8 +467,6 @@ pub struct SettingsState {
     restore_metadata: Option<BackupMetadata>,
     restore_confirm: bool,
     language_popup: PopupState,
-    theme_popup: PopupState,
-    accent_popup: PopupState,
     startup_popup: PopupState,
     security_user_popup: PopupState,
     user_role_popup: PopupState,
@@ -512,8 +510,6 @@ impl Default for SettingsState {
             restore_metadata: None,
             restore_confirm: false,
             language_popup: PopupState::default(),
-            theme_popup: PopupState::default(),
-            accent_popup: PopupState::default(),
             startup_popup: PopupState::default(),
             security_user_popup: PopupState::default(),
             user_role_popup: PopupState::default(),
@@ -1643,6 +1639,7 @@ fn accent_swatch(
     }
 }
 
+/// Draws the Settings content inside an existing desktop window.
 pub fn settings_content(
     ui: &mut egui::Ui,
     theme: &Theme,
