@@ -330,3 +330,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Symptom:** `light-de-products.txt` no longer matched the rendered Products screen; the live view now contains the stock-journal entry point and changed card geometry.
 - **Fix:** classify Products as an evolving native screen in `semantic_scene_key`, retaining assertions for its localized title and non-trivial paint output instead of freezing pre-port geometry.
 - **Verification:** pending current-head CI.
+
+## RUST-CI-032 — Native account recovery wired to existing security-answer storage (2026-11-17)
+
+- **Gap found:** the core already had an Argon2id security-question store, but the Rust login/setup UI did not call it; the forgot-password action only toggled a hint.
+- **Fix:** first-admin setup can configure two recovery answers; login opens a recovery view, verifies both answers case-insensitively, validates the new password and resets it through the core store, revoking old sessions.
+- **Tests:** wrong answers preserve the old password; correct answers replace it; all five auth views are rendered in every locale/theme.
+- **Verification:** pending current-head CI.

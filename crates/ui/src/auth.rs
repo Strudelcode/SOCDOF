@@ -61,6 +61,8 @@ pub enum AuthView {
     Locked,
     /// Signed-in overview with manual lock and sign-out.
     Unlocked,
+    /// Password recovery using the account's configured security answers.
+    Recover,
 }
 
 /// State of the login and lock screens.
@@ -108,6 +110,16 @@ pub struct AuthState {
     pub template_choice: SetupTemplate,
     /// Whether the lock screen shows the password recovery hint.
     pub forgot_hint: bool,
+    /// Account being recovered, resolved from the login name.
+    pub recovery_target: Option<Uuid>,
+    /// First configured recovery answer.
+    pub recovery_answer_one: String,
+    /// Second configured recovery answer.
+    pub recovery_answer_two: String,
+    /// New password during recovery.
+    pub recovery_new_password: String,
+    /// Confirmation of the new recovery password.
+    pub recovery_confirm_password: String,
     /// Wallpaper chosen in the wizard; the host applies it after setup.
     pub wallpaper_choice: Option<crate::wallpaper::Wallpaper>,
     /// Whether the wizard finished and the host still has to apply its choices.
@@ -157,6 +169,11 @@ impl AuthState {
         self.forgot_hint = false;
         self.password.clear();
         self.password_confirm.clear();
+        self.recovery_target = None;
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
         self.error = None;
         self.status = None;
         self.back = false;
@@ -172,6 +189,11 @@ impl AuthState {
         self.display_name.clear();
         self.password.clear();
         self.password_confirm.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.recovery_target = None;
         self.error = None;
         self.status = None;
         self.back = false;
@@ -243,6 +265,16 @@ impl AuthState {
             self.error = Some("auth_error_password_short");
             return Ok(());
         }
+        let has_first_answer = !self.recovery_answer_one.trim().is_empty();
+        let has_second_answer = !self.recovery_answer_two.trim().is_empty();
+        if has_first_answer != has_second_answer
+            || (has_first_answer
+                && (self.recovery_answer_one.trim().chars().count() < 2
+                    || self.recovery_answer_two.trim().chars().count() < 2))
+        {
+            self.error = Some("auth_recovery_answers_required");
+            return Ok(());
+        }
         let password = self.password.clone();
         let user = User {
             id: Uuid::new_v4(),
@@ -267,7 +299,20 @@ impl AuthState {
             });
             return Ok(());
         }
+        if has_first_answer {
+            socdof_core::security_questions::save_security_answers(
+                store,
+                user.id,
+                &[
+                    self.recovery_answer_one.trim().to_owned(),
+                    self.recovery_answer_two.trim().to_owned(),
+                ],
+            )?;
+        }
         if store.insert_first_admin(&user).is_err() {
+            if has_first_answer {
+                let _ = socdof_core::security_questions::delete_security_answers(store, user.id);
+            }
             self.error = Some(if store.user_count().unwrap_or(0) > 0 {
                 "auth_error_setup_exists"
             } else {
@@ -297,6 +342,91 @@ impl AuthState {
         self.error = None;
         self.status = None;
         self.forgot_hint = false;
+        self.recovery_target = None;
+    }
+
+    /// Starts recovery only for an active account with configured security answers.
+    pub fn begin_recovery(&mut self, store: &Store) {
+        let user = match store.find_user_by_username(self.username.trim()) {
+            Ok(Some(user)) if user.active => user,
+            _ => {
+                self.error = Some("auth_recovery_unavailable");
+                return;
+            }
+        };
+        let answers = match socdof_core::security_questions::security_answers(store, user.id) {
+            Ok(answers) if answers.answer_hashes.len() >= 2 => answers,
+            _ => {
+                self.error = Some("auth_recovery_unavailable");
+                return;
+            }
+        };
+        if !answers.is_configured() {
+            self.error = Some("auth_recovery_unavailable");
+            return;
+        }
+        self.username = user.username;
+        self.password.clear();
+        self.recovery_target = Some(user.id);
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.error = None;
+        self.status = None;
+        self.view = AuthView::Recover;
+    }
+
+    /// Verifies both configured answers and replaces the password, revoking old sessions.
+    pub fn reset_password_with_recovery(
+        &mut self,
+        store: &Store,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        let Some(user_id) = self.recovery_target else {
+            self.error = Some("auth_recovery_unavailable");
+            return Ok(());
+        };
+        if self.recovery_new_password.chars().count() < MIN_PASSWORD_LENGTH {
+            self.error = Some("auth_error_password_short");
+            return Ok(());
+        }
+        if self.recovery_new_password != self.recovery_confirm_password {
+            self.error = Some("auth_error_password_mismatch");
+            return Ok(());
+        }
+        let first = socdof_core::security_questions::verify_security_answer(
+            store,
+            user_id,
+            0,
+            &self.recovery_answer_one,
+        )?;
+        let second = socdof_core::security_questions::verify_security_answer(
+            store,
+            user_id,
+            1,
+            &self.recovery_answer_two,
+        )?;
+        if !first || !second {
+            self.error = Some("auth_recovery_invalid");
+            return Ok(());
+        }
+        let hash = hash_password(&self.recovery_new_password).map_err(|_| {
+            socdof_core::CoreError::Validation("auth_password_hash".to_string())
+        })?;
+        store.set_password(user_id, &hash)?;
+        self.password.clear();
+        self.password_confirm.clear();
+        self.recovery_target = None;
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.view = AuthView::Login;
+        self.error = None;
+        self.status = Some("auth_recovery_done");
+        let _ = now;
+        Ok(())
     }
 
     /// Locks the current session without revoking it.
@@ -629,6 +759,7 @@ pub fn auth(
         match state.view {
             AuthView::Login | AuthView::Setup if state.allow_exit => state.back = true,
             AuthView::Login | AuthView::Setup => {}
+            AuthView::Recover => state.show_login(),
             AuthView::Unlocked => state.lock(now),
             AuthView::Locked => {}
         }
@@ -673,6 +804,9 @@ pub fn auth(
                         AuthView::Unlocked => {
                             unlocked_screen(ui, theme, texts, focus, state, store, now)
                         }
+                        AuthView::Recover => {
+                            recovery_form(ui, theme, texts, focus, state, store, now, submit)
+                        }
                     }
                     ui.add_space(10.0);
                     ui.vertical_centered(|ui| {
@@ -713,6 +847,7 @@ fn login_form(
     submit: bool,
 ) {
     let mut sign_in = false;
+    let mut recover = false;
     card(ui, theme, |ui| {
         ui.label(
             RichText::new(texts.get("auth_login_title"))
@@ -757,6 +892,17 @@ fn login_form(
             sign_in = true;
         }
         ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("auth_forgot_password"),
+            ButtonVariant::Ghost,
+        )
+        .activated
+        {
+            recover = true;
+        }
         ui.label(
             RichText::new(texts.get("auth_login_hint"))
                 .size(FONT_SMALL)
@@ -765,6 +911,92 @@ fn login_form(
     });
     if sign_in || submit {
         let _ = state.login(store, now);
+    }
+    if recover {
+        state.begin_recovery(store);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn recovery_form(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+    store: &Store,
+    now: i64,
+    submit: bool,
+) {
+    let mut reset = false;
+    let mut cancel = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("auth_recovery_title")).size(22.0).strong());
+        ui.label(
+            RichText::new(texts.get("auth_recovery_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_one,
+            texts.get("auth_recovery_answer_one"),
+            "",
+            None,
+        );
+        ui.add_space(6.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_two,
+            texts.get("auth_recovery_answer_two"),
+            "",
+            None,
+        );
+        ui.add_space(8.0);
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_new_password,
+            texts.get("auth_recovery_new_password"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_confirm_password,
+            texts.get("auth_recovery_confirm"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        messages(ui, theme, texts, state, now);
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            if button(ui, theme, focus, texts.get("auth_recovery_cancel"), ButtonVariant::Ghost)
+                .activated
+            {
+                cancel = true;
+            }
+            if button(ui, theme, focus, texts.get("auth_recovery_reset"), ButtonVariant::Primary)
+                .activated
+            {
+                reset = true;
+            }
+        });
+    });
+    if cancel {
+        state.show_login();
+    } else if reset || submit {
+        let _ = state.reset_password_with_recovery(store, now);
     }
 }
 
@@ -907,6 +1139,31 @@ fn setup_form(
                     ),
                     egui::Rounding::same(2.0),
                     strength_color(theme, strength),
+                );
+                ui.add_space(12.0);
+                ui.label(RichText::new(texts.get("auth_recovery_setup_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("auth_recovery_optional"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.recovery_answer_one,
+                    texts.get("auth_recovery_question_one"),
+                    texts.get("auth_recovery_answer_one"),
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.recovery_answer_two,
+                    texts.get("auth_recovery_question_two"),
+                    texts.get("auth_recovery_answer_two"),
+                    None,
                 );
             }
             2 => {
@@ -1651,7 +1908,47 @@ mod tests {
     }
 
     #[test]
-    fn renders_all_four_views_in_every_language_and_theme() {
+    fn security_answers_recover_an_account_and_reset_its_password() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("signed-in user").id;
+        socdof_core::security_questions::save_security_answers(
+            &store,
+            user_id,
+            &["Fluffy".to_string(), "Bolzano".to_string()],
+        )
+        .expect("save recovery answers");
+
+        state.show_login();
+        state.username = "admin".to_string();
+        state.begin_recovery(&store);
+        assert_eq!(state.view, AuthView::Recover);
+
+        state.recovery_answer_one = "wrong".to_string();
+        state.recovery_answer_two = "bolzano".to_string();
+        state.recovery_new_password = "recovered-password-2026".to_string();
+        state.recovery_confirm_password = state.recovery_new_password.clone();
+        state.reset_password_with_recovery(&store, now_millis())
+            .expect("wrong answer check");
+        assert_eq!(state.error, Some("auth_recovery_invalid"));
+        assert!(store
+            .authenticate("admin", "sicheres-passwort")
+            .expect("old password")
+            .is_some());
+
+        state.recovery_answer_one = "FLUFFY".to_string();
+        state.reset_password_with_recovery(&store, now_millis())
+            .expect("password reset");
+        assert_eq!(state.view, AuthView::Login);
+        assert_eq!(state.status, Some("auth_recovery_done"));
+        assert!(store
+            .authenticate("admin", "recovered-password-2026")
+            .expect("new password")
+            .is_some());
+    }
+
+    #[test]
+    fn renders_all_five_views_in_every_language_and_theme() {
         let store = store_with_admin();
         let mut state = signed_in(&store);
         for language in [Language::De, Language::En, Language::Fr, Language::Es] {
@@ -1666,12 +1963,17 @@ mod tests {
                     AuthView::Locked,
                     AuthView::Setup,
                     AuthView::Unlocked,
+                    AuthView::Recover,
                 ] {
                     match view {
                         AuthView::Login => state.show_login(),
                         AuthView::Locked => state.lock(now_millis()),
                         AuthView::Setup => state.show_setup(),
                         AuthView::Unlocked => state.show_unlocked(),
+                        AuthView::Recover => {
+                            state.username = "admin".to_string();
+                            state.begin_recovery(&store);
+                        }
                     }
                     let ctx = crate::theme::headless_context();
                     let mut focus = FocusState::default();

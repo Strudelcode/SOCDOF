@@ -261,3 +261,12 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - Existing General, Security, Backup, Users, Roles, Updates and Portable sections remain available.
 - Still open against TypeScript: account recovery questions, avatars, multi-monitor/display configuration, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
 - Verification: current-head CI and payment persistence regression test pending.
+
+
+## Native account recovery follow-up (2026-11-17)
+
+- Connected the existing Argon2id-backed security-answer store to first-admin setup and the login screen.
+- First-admin setup accepts two optional fixed recovery answers; if one is entered, both must be completed. Only salted hashes are persisted.
+- Login now opens a recovery view for active accounts with configured answers. Both answers must match before the password is replaced; password replacement invalidates prior sessions through the core store.
+- Recovery answers are normalized case-insensitively to match the TypeScript flow.
+- Still open: per-user selectable recovery questions for all managed accounts, recovery configuration after first setup, user avatars/account type, and the remaining profile/workstation parity.
