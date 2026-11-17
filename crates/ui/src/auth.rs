@@ -88,6 +88,8 @@ pub enum AuthView {
     Unlocked,
     /// Password recovery using the account's configured security answers.
     Recover,
+    /// Mandatory password and recovery-answer setup after an administrator reset.
+    ChangePassword,
 }
 
 /// State of the login and lock screens.
@@ -259,7 +261,11 @@ impl AuthState {
                 self.failed_unlocks = 0;
                 self.locked_until = None;
                 self.last_activity_ms = now;
-                self.view = AuthView::Unlocked;
+                self.view = if self.user.as_ref().is_some_and(|user| user.must_change_password) {
+                    AuthView::ChangePassword
+                } else {
+                    AuthView::Unlocked
+                };
             }
             LoginOutcome::Locked { until } => {
                 self.password.clear();
@@ -271,6 +277,64 @@ impl AuthState {
                 self.error = Some("auth_error_invalid");
             }
         }
+        Ok(())
+    }
+
+    /// Completes the mandatory first-login password change and configures recovery answers.
+    ///
+    /// This mirrors the TypeScript forced-password screen: an administrator-reset account cannot
+    /// reach the desktop until the user chooses a new password and saves both recovery answers.
+    pub fn complete_forced_password_change(
+        &mut self,
+        store: &Store,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        if self.view != AuthView::ChangePassword {
+            return Ok(());
+        }
+        let Some(user) = self.user.as_ref() else {
+            self.show_login();
+            return Ok(());
+        };
+        if self.recovery_new_password.chars().count() < MIN_PASSWORD_LENGTH {
+            self.error = Some("auth_error_password_short");
+            return Ok(());
+        }
+        if self.recovery_new_password != self.recovery_confirm_password {
+            self.error = Some("auth_error_password_mismatch");
+            return Ok(());
+        }
+        if self.recovery_answer_one.trim().chars().count() < 2
+            || self.recovery_answer_two.trim().chars().count() < 2
+        {
+            self.error = Some("auth_force_password_answers_required");
+            return Ok(());
+        }
+
+        let password_hash = hash_password(&self.recovery_new_password)
+            .map_err(|_| socdof_core::CoreError::Validation("auth_password_hash".to_string()))?;
+        socdof_core::security_questions::save_security_answers(
+            store,
+            user.id,
+            &[
+                self.recovery_answer_one.trim().to_owned(),
+                self.recovery_answer_two.trim().to_owned(),
+            ],
+        )?;
+        store.set_password(user.id, &password_hash)?;
+        if let Some(user) = self.user.as_mut() {
+            user.password_hash = password_hash;
+            user.must_change_password = false;
+            user.updated_at = now;
+        }
+        self.recovery_new_password.clear();
+        self.recovery_confirm_password.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
+        self.error = None;
+        self.status = Some("auth_password_changed");
+        self.last_activity_ms = now;
+        self.view = AuthView::Unlocked;
         Ok(())
     }
 
@@ -805,6 +869,7 @@ pub fn auth(
                     state.show_login();
                 }
             }
+            AuthView::ChangePassword => {}
             AuthView::Unlocked => state.lock(now),
             AuthView::Locked => {}
         }
@@ -851,6 +916,9 @@ pub fn auth(
                         }
                         AuthView::Recover => {
                             recovery_form(ui, theme, texts, focus, state, store, now, submit)
+                        }
+                        AuthView::ChangePassword => {
+                            forced_password_form(ui, theme, texts, focus, state, store, now, submit)
                         }
                     }
                     ui.add_space(10.0);
@@ -1093,6 +1161,88 @@ fn recovery_form(
         }
     } else if reset || submit {
         let _ = state.reset_password_with_recovery(store, now);
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn forced_password_form(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+    store: &Store,
+    now: i64,
+    submit: bool,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(
+            RichText::new(texts.get("auth_force_password_title"))
+                .size(22.0)
+                .strong(),
+        );
+        ui.label(
+            RichText::new(texts.get("auth_force_password_subtitle"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(10.0);
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_new_password,
+            texts.get("auth_recovery_new_password"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        password_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_confirm_password,
+            texts.get("auth_recovery_confirm"),
+            texts.get("auth_password_hint"),
+            None,
+        );
+        ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_one,
+            texts.get("auth_recovery_answer_one"),
+            "",
+            None,
+        );
+        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_two,
+            texts.get("auth_recovery_answer_two"),
+            "",
+            None,
+        );
+        messages(ui, theme, texts, state, now);
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("auth_recovery_reset"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save || submit {
+        let _ = state.complete_forced_password_change(store, now);
     }
 }
 
@@ -2030,6 +2180,46 @@ mod tests {
         state.password = "egal-egal".to_string();
         state.login(&store, NOW).unwrap();
         assert_eq!(state.error, Some("auth_error_invalid"));
+    }
+
+    #[test]
+    fn administrator_password_reset_requires_new_password_and_recovery_answers_before_desktop() {
+        let store = Store::open_in_memory().expect("store");
+        let mut user = seed_auth_user(&store, NOW).expect("admin");
+        user.must_change_password = true;
+        store.update_user(&user).expect("require password change");
+
+        let mut state = AuthState::new(&store, NOW).expect("auth");
+        state.username = user.username.clone();
+        state.password = "Socdof2026!".to_string();
+        state.login(&store, NOW).expect("login");
+        assert_eq!(state.view, AuthView::ChangePassword);
+        assert!(state.session.is_some());
+
+        state.recovery_new_password = "A-new-strong-password-2026!".to_string();
+        state.recovery_confirm_password = state.recovery_new_password.clone();
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two = "Birth city".to_string();
+        state
+            .complete_forced_password_change(&store, NOW + 1)
+            .expect("complete forced password change");
+
+        assert_eq!(state.view, AuthView::Unlocked);
+        assert_eq!(state.status, Some("auth_password_changed"));
+        assert!(!state.user.as_ref().expect("user").must_change_password);
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            user.id,
+            0,
+            "FIRST PET"
+        )
+        .expect("answer verification"));
+        let stored = store.find_user_by_username(&user.username).expect("find").expect("user");
+        assert!(!stored.must_change_password);
+        assert!(socdof_core::security::verify_password(
+            "A-new-strong-password-2026!",
+            &stored.password_hash
+        ));
     }
 
     #[test]
