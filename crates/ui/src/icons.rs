@@ -79,10 +79,30 @@ pub enum Icon {
     Bag,
     /// Car silhouette, the fleet module.
     Car,
+    /// Office building, company profile.
+    Building,
+    /// Payment card and chip.
+    CreditCard,
+    /// Language globe and meridians.
+    Languages,
+    /// Color palette with paint wells.
+    Palette,
+    /// Security key.
+    Key,
+    /// Database cylinder.
+    Database,
+    /// Multiple user accounts.
+    Users,
+    /// Download arrow.
+    Download,
+    /// Local storage drive.
+    HardDrive,
+    /// Keyboard keycaps.
+    Keyboard,
 }
 
 /// Every icon of the set, used by the gallery and the tests.
-pub const ALL_ICONS: [Icon; 35] = [
+pub const ALL_ICONS: [Icon; 45] = [
     Icon::Search,
     Icon::Plus,
     Icon::Edit,
@@ -118,6 +138,16 @@ pub const ALL_ICONS: [Icon; 35] = [
     Icon::Shield,
     Icon::Bag,
     Icon::Car,
+    Icon::Building,
+    Icon::CreditCard,
+    Icon::Languages,
+    Icon::Palette,
+    Icon::Key,
+    Icon::Database,
+    Icon::Users,
+    Icon::Download,
+    Icon::HardDrive,
+    Icon::Keyboard,
 ];
 
 impl Icon {
@@ -468,6 +498,86 @@ impl Icon {
                     polyline(points);
                 }
                 dot(0.5, 0.8, 0.06);
+            }
+            Icon::Building => {
+                polygon(vec![p(0.16, 0.86), p(0.16, 0.34), p(0.5, 0.14), p(0.84, 0.34), p(0.84, 0.86)]);
+                for (x, y) in [(0.34, 0.42), (0.66, 0.42), (0.34, 0.62), (0.66, 0.62)] {
+                    painter.rect_stroke(
+                        Rect::from_center_size(p(x, y), Vec2::splat(rect.width() * 0.12)),
+                        egui::Rounding::same(1.0),
+                        stroke,
+                    );
+                }
+                polyline(vec![p(0.44, 0.86), p(0.44, 0.68), p(0.56, 0.68), p(0.56, 0.86)]);
+            }
+            Icon::CreditCard => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.1, 0.22), p(0.9, 0.78)),
+                    egui::Rounding::same(rect.width() * 0.08),
+                    stroke,
+                );
+                polyline(vec![p(0.1, 0.42), p(0.9, 0.42)]);
+                polyline(vec![p(0.22, 0.62), p(0.46, 0.62)]);
+            }
+            Icon::Languages => {
+                painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
+                polyline(vec![p(0.12, 0.5), p(0.88, 0.5)]);
+                polyline(vec![p(0.5, 0.12), p(0.38, 0.32), p(0.34, 0.5), p(0.38, 0.68), p(0.5, 0.88)]);
+                polyline(vec![p(0.5, 0.12), p(0.62, 0.32), p(0.66, 0.5), p(0.62, 0.68), p(0.5, 0.88)]);
+            }
+            Icon::Palette => {
+                painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
+                dot(0.34, 0.34, 0.045);
+                dot(0.58, 0.28, 0.045);
+                dot(0.72, 0.48, 0.045);
+                dot(0.42, 0.68, 0.045);
+            }
+            Icon::Key => {
+                painter.circle_stroke(p(0.32, 0.42), rect.width() * 0.2, stroke);
+                polyline(vec![p(0.48, 0.56), p(0.84, 0.86)]);
+                polyline(vec![p(0.68, 0.7), p(0.78, 0.6)]);
+                polyline(vec![p(0.76, 0.78), p(0.86, 0.68)]);
+            }
+            Icon::Database => {
+                painter.ellipse_stroke(p(0.5, 0.24), Vec2::new(rect.width() * 0.34, rect.height() * 0.12), stroke);
+                polyline(vec![p(0.16, 0.24), p(0.16, 0.72)]);
+                polyline(vec![p(0.84, 0.24), p(0.84, 0.72)]);
+                polyline(vec![p(0.16, 0.48), p(0.24, 0.56), p(0.5, 0.6), p(0.76, 0.56), p(0.84, 0.48)]);
+                polyline(vec![p(0.16, 0.72), p(0.24, 0.8), p(0.5, 0.84), p(0.76, 0.8), p(0.84, 0.72)]);
+            }
+            Icon::Users => {
+                painter.circle_stroke(p(0.38, 0.34), rect.width() * 0.14, stroke);
+                painter.circle_stroke(p(0.68, 0.4), rect.width() * 0.11, stroke);
+                polyline(vec![p(0.12, 0.82), p(0.18, 0.62), p(0.38, 0.54), p(0.58, 0.62), p(0.64, 0.82)]);
+                polyline(vec![p(0.62, 0.62), p(0.76, 0.58), p(0.9, 0.7), p(0.92, 0.82)]);
+            }
+            Icon::Download => {
+                polyline(vec![p(0.5, 0.12), p(0.5, 0.66)]);
+                polyline(vec![p(0.28, 0.46), p(0.5, 0.68), p(0.72, 0.46)]);
+                polyline(vec![p(0.16, 0.74), p(0.16, 0.88), p(0.84, 0.88), p(0.84, 0.74)]);
+            }
+            Icon::HardDrive => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.12, 0.22), p(0.88, 0.78)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.12, 0.62), p(0.88, 0.62)]);
+                dot(0.72, 0.43, 0.035);
+                dot(0.82, 0.43, 0.035);
+            }
+            Icon::Keyboard => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.08, 0.24), p(0.92, 0.76)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                for y in [0.4, 0.56] {
+                    for x in [0.22, 0.38, 0.54, 0.7, 0.84] {
+                        dot(x, y, 0.025);
+                    }
+                }
+                polyline(vec![p(0.3, 0.66), p(0.7, 0.66)]);
             }
         }
     }
