@@ -115,7 +115,7 @@ Deine Geschäftsdaten gehören dir.
 Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https://github.com/Strudelcode/SOCDOF/releases):
 
 1. **Native Rust Windows-Installation** (`SOCDOF-<Version>-windows-x64-native-setup.exe`): benutzerbezogen unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, mit Startmenü, Desktop-Verknüpfung und optionalem Autostart.
-2. **Native Linux-Version** (`SOCDOF-<Version>-linux-x86_64-native.tar.gz`): portable Rust-Desktop-Version mit eigenem Datenordner.
+2. **Native Linux-Version** (`SOCDOF-<Version>-linux-x86_64-native.tar.gz`): portable Rust-Desktop-Version mit eigenem Datenordner; optional per `install-linux.sh` benutzerbezogen in `~/.local` installieren.
 3. **Native macOS-Version** (`SOCDOF-<Version>-macos-universal-native.dmg`): universelle Rust-App für Apple Silicon und Intel.
 4. **Tauri-Übergangsinstaller und MSI/DMG/AppImage**: bleiben als Rückfalloption verfügbar.
 5. **Portable Windows-Version**: ZIP ohne Setup, mit eigenem `data`-Ordner und Launcher.

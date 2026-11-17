@@ -191,6 +191,7 @@ jobs:
           hdiutil create -volname "SOCDOF Native" -srcfolder artifacts/SOCDOF.app -ov -format UDZO "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
           lipo -info artifacts/SOCDOF.app/Contents/MacOS/SOCDOF | grep -E 'arm64.*x86_64|x86_64.*arm64'
           hdiutil verify "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
+          rm -rf artifacts/SOCDOF.app
 
       - name: Build Tauri bundles
         working-directory: crates/app
@@ -344,7 +345,7 @@ jobs:
           cp "$dmg" "artifacts/SOCDOF-${version}-macos-universal.dmg"
           test "$(wc -c < "artifacts/SOCDOF-${version}-macos-universal.dmg")" -gt 1000000
           test -s "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
-          shasum -a 256 artifacts/SOCDOF-* > artifacts/SHA256SUMS-macos.txt
+          find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 shasum -a 256 > artifacts/SHA256SUMS-macos.txt
           ls -lh artifacts
 
       - name: Upload Linux AppImage
