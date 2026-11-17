@@ -34,6 +34,11 @@ jobs:
         with:
           components: rustfmt
 
+      - name: Install Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
       - name: Validate installable distribution profiles
         run: node scripts/check-distribution.mjs
 
@@ -183,31 +188,11 @@ jobs:
           mkdir -p "$native_dir"
           cp target/release/socdof-ui-desktop "$native_dir/"
           chmod +x "$native_dir/socdof-ui-desktop"
-          cat > "$native_dir/run-socdof.sh" <<'EOF'
-          #!/bin/sh
-          set -eu
-          script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-          # A portable archive keeps its database and backups beside the executable.
-          export SOCDOF_DATA_DIR="${SOCDOF_DATA_DIR:-$script_dir/data}"
-          mkdir -p "$SOCDOF_DATA_DIR"
-          # Bound glibc arenas and return freed startup allocations to the OS.
-          export MALLOC_ARENA_MAX=1
-          export MALLOC_TRIM_THRESHOLD_=0
-          export MALLOC_MMAP_THRESHOLD_=131072
-          exec "$script_dir/socdof-ui-desktop" "$@"
-          EOF
-          chmod +x "$native_dir/run-socdof.sh"
-          cat > "$native_dir/README.txt" <<'EOF'
-          SOCDOF native Rust desktop (Linux x86_64)
-
-          Recommended: ./run-socdof.sh
-          Direct launch: ./socdof-ui-desktop
-          Optional data directory: ./run-socdof.sh --data-dir "$HOME/.local/share/SOCDOF"
-          Default portable database: ./data/SOCDOF.db (set SOCDOF_DATA_DIR to override)
-
-          This portable build requires the system GTK, Wayland/X11 and OpenGL libraries used by
-          eframe/winit. Keep your SOCDOF database and backups when upgrading.
-          EOF
+          cp crates/app/portable/run-socdof-linux.sh "$native_dir/run-socdof.sh"
+          cp crates/app/portable/install-linux.sh "$native_dir/"
+          cp crates/app/portable/uninstall-linux.sh "$native_dir/"
+          cp crates/app/portable/README-LINUX.txt "$native_dir/README.txt"
+          chmod +x "$native_dir/"*.sh
           tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$native_dir")"
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz")" -gt 1000000
           sh -n "$native_dir/run-socdof.sh"

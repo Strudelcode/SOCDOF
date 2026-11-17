@@ -187,25 +187,11 @@ jobs:
           mkdir -p "$dir"
           cp target/release/socdof-ui-desktop "$dir/"
           chmod +x "$dir/socdof-ui-desktop"
-          cat > "$dir/run-socdof.sh" <<'EOF'
-          #!/bin/sh
-          set -eu
-          script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-          export SOCDOF_DATA_DIR="${SOCDOF_DATA_DIR:-$script_dir/data}"
-          mkdir -p "$SOCDOF_DATA_DIR"
-          export MALLOC_ARENA_MAX=1
-          export MALLOC_TRIM_THRESHOLD_=0
-          export MALLOC_MMAP_THRESHOLD_=131072
-          exec "$script_dir/socdof-ui-desktop" "$@"
-          EOF
-          chmod +x "$dir/run-socdof.sh"
-          cat > "$dir/README.txt" <<'EOF'
-          SOCDOF native Rust desktop for Linux x86_64
-          Start with ./run-socdof.sh. The portable data folder is ./data by default.
-          Set SOCDOF_DATA_DIR to use a different data directory.
-          Requires the host GTK, X11/Wayland and OpenGL runtime libraries.
-          EOF
-          sh -n "$dir/run-socdof.sh"
+          cp crates/app/portable/run-socdof-linux.sh "$dir/run-socdof.sh"
+          cp crates/app/portable/install-linux.sh "$dir/"
+          cp crates/app/portable/uninstall-linux.sh "$dir/"
+          cp crates/app/portable/README-LINUX.txt "$dir/README.txt"
+          chmod +x "$dir/"*.sh
           tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$dir")"
           test -s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz"
 
