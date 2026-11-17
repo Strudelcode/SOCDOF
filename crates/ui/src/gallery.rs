@@ -3783,10 +3783,8 @@ mod tests {
     fn desktop_restores_only_previously_open_native_windows() {
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
-        state.desktop_icons = desktop_icons(
-            &state.texts,
-            &socdof_core::domain::permission::ALL_MODULES,
-        );
+        state.desktop_icons =
+            desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
         let mut layout = settings_service::DesktopLayout::default();
         layout.window_states.insert(
             "contacts".to_string(),
