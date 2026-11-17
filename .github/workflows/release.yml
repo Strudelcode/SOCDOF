@@ -195,6 +195,42 @@ jobs:
           tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$dir")"
           test -s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz"
 
+      - name: Build native Rust macOS universal app
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ needs.prepare.outputs.version }}'
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target aarch64-apple-darwin
+          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop --target x86_64-apple-darwin
+          app="artifacts/SOCDOF-${version}-macos-universal-native.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          lipo -create \
+            target/aarch64-apple-darwin/release/socdof-ui-desktop \
+            target/x86_64-apple-darwin/release/socdof-ui-desktop \
+            -output "$app/Contents/MacOS/SOCDOF"
+          chmod +x "$app/Contents/MacOS/SOCDOF"
+          cat > "$app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>SOCDOF</string>
+            <key>CFBundleDisplayName</key><string>SOCDOF</string>
+            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
+            <key>CFBundleVersion</key><string>${version}</string>
+            <key>CFBundleShortVersionString</key><string>${version}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>SOCDOF</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/SOCDOF"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+          test -s "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+
       - name: Build native Rust Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
