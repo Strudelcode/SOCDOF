@@ -397,3 +397,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the fixture helper returns a concrete User while AuthState stores Option<User>.
 - **Fix:** wrap the fixture account in Some; production authentication behavior is unchanged.
 - **Verification:** pending the next current-head Linux/Windows test run.
+
+
+## RUST-CI-041 — Forced password change must preserve the current session
+
+- **First observed:** source-level parity review after the initial forced-password implementation.
+- **Symptom/risk:** the generic core password-reset API revokes every account session, while the TypeScript changePassword path updates the authenticated user's password without ending the current session.
+- **Root cause:** reusing the administrator/recovery reset primitive for a user-initiated first-login change would immediately invalidate the session that is required to complete the forced-change flow.
+- **Fix:** persist the changed user through Store::update_user, clearing must_change_password while preserving the active session. The regression test now verifies that the session token remains valid after the password and recovery answers are saved.
+- **Verification:** pending the next current-head Linux/Windows test run.
