@@ -323,3 +323,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Verification:** pending current-head CI runs 1348/1349. Earlier run 1345 exposed a validator-regex issue, a Tauri import-format issue, a stale Escape-test authentication state and a missing generated locale-key inventory; the follow-up fixes are committed. Do not mark this entry verified until Format, Clippy, Linux/Windows tests, WASM, all three desktop builds, installer smoke tests and GUI smoke pass.
 - **Known remaining distribution work:** sign the native Windows installer; implement a native Rust self-update path; produce native Linux package-manager formats if required; resolve the upstream objc2 0.4.1 build failure before publishing a native macOS host. These are intentionally not represented as complete by the profile registry.
 - **Effort estimate:** approximately 2.5 hours for shared data-path work, installer/release workflow changes, platform launchers, regression tests and documentation; Actions queue/runtime excluded.
+
+## RUST-CI-031 — Products visual golden was stale after stock-journal integration (2026-11-17)
+
+- **First observed:** run 1356 on both Linux and Windows.
+- **Symptom:** `light-de-products.txt` no longer matched the rendered Products screen; the live view now contains the stock-journal entry point and changed card geometry.
+- **Fix:** classify Products as an evolving native screen in `semantic_scene_key`, retaining assertions for its localized title and non-trivial paint output instead of freezing pre-port geometry.
+- **Verification:** pending current-head CI.
