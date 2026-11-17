@@ -301,3 +301,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Commits:** renderer documentation normalization was pushed in the follow-up commits on the migration branch, latest at `f6ac6e218b3b59761927442a83cf08c23f4a4194`.
 - **Verification:** run 1292 was superseded by later pushes. Run 1309 is queued for the latest branch head; keep this issue open until Clippy and the complete cross-platform test/build matrix pass.
 - **Effort estimate:** approximately 0.3 hours for Clippy log inspection, cross-file documentation cleanup and knowledge-base update; Actions queue/runtime excluded.
+
+
+## RUST-CI-027 — Native desktop window restoration and shortcut smoke (2026-11-17)
+
+- Run 1310 on head `80063bf` confirmed workspace format, Clippy, Linux/Windows/macOS desktop builds, native release size/RAM budgets, Windows installer smoke, and WASM build. It failed in the UI suite (310 passed, 4 failed), the Windows Tauri command suite (one instance-lock assertion), and Linux GUI shortcut smoke (F11 marker missing).
+- The UI failures exposed stale gallery acceptance setup plus incomplete saved-window slug restoration: Projects, Fleet and Restaurant were absent from the restore allow-list; the Escape test was still running in Login state; the global-lock test used the legacy single-screen app launcher rather than a native WindowManager window; and the render test did not initialise the icon catalogue for all permission modules.
+- The follow-up adds the missing native restore slugs, makes Escape close only the active native module window when no shell overlay is open, and updates the headless tests to create actual native windows and an all-modules icon catalogue. Current-head CI verification is pending.
+- The GUI shortcut smoke now has an explicit CI-only synthetic-key mode. It sends F11 and an unbound F12 through the same DOM keydown listener and registered Tauri command, avoiding X11 window-manager interception while retaining the physical-key probe. The Windows lock regression assertion now includes the concrete error so a platform-specific mismatch is visible in logs.
+- Do not mark this entry verified until the current-head Linux/Windows tests, Linux GUI smoke, and complete desktop/WASM matrix pass. No CI-green claim is made here.
