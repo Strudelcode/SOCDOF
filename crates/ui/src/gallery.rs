@@ -4104,7 +4104,7 @@ mod tests {
         state.desktop_icons =
             desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
         state.auth_open = false;
-        state.auth.view = crate::auth::AuthView::Login;
+        state.auth.view = crate::auth::AuthView::Unlocked;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
         for (index, slug) in [

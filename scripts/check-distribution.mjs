@@ -9,9 +9,16 @@ const fail = (message) => {
   process.exit(1);
 };
 const workspace = read("Cargo.toml");
-const workspaceVersion = workspace.match(/\\[workspace\\.package\\][\\s\\S]*?^version\\s*=\\s*"([^"]+)"/m)?.[1];
+const workspacePackage = workspace.split("[workspace.package]")[1]?.split("\n[")[0] ?? "";
+const workspaceVersion = workspacePackage
+  .split("\n")
+  .find((line) => line.trim().startsWith("version ="))
+  ?.split('"')[1];
 const packageVersion = JSON.parse(read("crates/app/package.json")).version;
-const tauriCargoVersion = read("crates/app/src-tauri/Cargo.toml").match(/^version\\s*=\\s*"([^"]+)"/m)?.[1];
+const tauriCargoVersion = read("crates/app/src-tauri/Cargo.toml")
+  .split("\n")
+  .find((line) => line.trim().startsWith("version ="))
+  ?.split('"')[1];
 const tauriConfigVersion = JSON.parse(read("crates/app/src-tauri/tauri.conf.json")).version;
 const versions = {
   "workspace Cargo.toml": workspaceVersion,
@@ -79,7 +86,7 @@ if (writeIndex >= 0) {
   const destination = process.argv[writeIndex + 1];
   if (!destination) fail("--write requires an output path");
   fs.mkdirSync(path.dirname(path.resolve(destination)), { recursive: true });
-  fs.writeFileSync(destination, `${JSON.stringify(manifest, null, 2)}\\n`);
+  fs.writeFileSync(destination, JSON.stringify(manifest, null, 2) + "\n");
   console.log(`Validated ${ids.length} profiles and wrote ${destination} for SOCDOF ${packageVersion}.`);
 } else {
   console.log(`SOCDOF ${packageVersion}: ${ids.length} install/deployment profiles validated.`);

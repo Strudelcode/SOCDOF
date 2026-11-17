@@ -14,11 +14,11 @@ pub mod commands;
 
 use std::path::PathBuf;
 
-use socdof_core::lock::{InstanceLock, LOCK_FILE_NAME};
 use socdof_app::desktop::DesktopState;
 use socdof_app::startup::{SplashAction, StartupHandshake};
 use socdof_app::tray::{self, TrayCommand};
 use socdof_app::window_state::{self, ScreenBounds, WindowGeometry};
+use socdof_core::lock::{InstanceLock, LOCK_FILE_NAME};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
