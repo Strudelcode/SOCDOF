@@ -96,7 +96,18 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install toolchain
+        # egui 0.27 pulls objc2 0.4, which is incompatible with Rust 1.100's
+        # stricter associated-type checking. Pin this legacy desktop target to
+        # the toolchain used when the dependency family was supported.
+        uses: dtolnay/rust-toolchain@1.90.0
+        if: matrix.os == 'macos-latest'
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          components: rustfmt
+
+      - name: Install toolchain (Linux and Windows)
         uses: dtolnay/rust-toolchain@stable
+        if: matrix.os != 'macos-latest'
         with:
           components: rustfmt
 
