@@ -369,7 +369,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .any(|argument| argument == "--help" || argument == "-h")
     {
         println!(
-            "SOCDOF native desktop\\n\\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>] [--version]"
+            "SOCDOF native desktop\n\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>] [--version]"
         );
         return Ok(());
     }

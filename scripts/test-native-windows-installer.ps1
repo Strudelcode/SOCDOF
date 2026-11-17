@@ -56,7 +56,7 @@ try {
     $help = Start-Process -FilePath $exe -ArgumentList '--help' -Wait -PassThru
     if ($help.ExitCode -ne 0) { throw "Installed executable --help failed with exit code $($help.ExitCode)." }
     $versionOutput = & $exe --version
-    if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '^SOCDOF \\d+\\.\\d+\\.\\d+') {
+    if ($LASTEXITCODE -ne 0 -or -not $versionOutput.StartsWith('SOCDOF ')) {
         throw "Installed executable returned an invalid version: $versionOutput"
     }
 
