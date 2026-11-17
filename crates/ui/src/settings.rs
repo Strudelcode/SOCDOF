@@ -1,5 +1,5 @@
-//! Settings screen with the eight tabs: general, appearance, security, backup, users, roles,
-//! updates and portable mode.
+//! Settings screen with eleven sections, including company, payments, appearance, security,
+//! backup, users, roles, updates, portable mode and keyboard shortcuts.
 //!
 //! The screen is a thin presentation layer over the core services. The company profile is read and
 //! written through [`socdof_core::settings_service`], appearance through the per-user
