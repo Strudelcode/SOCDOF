@@ -379,3 +379,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** eleven translated Settings tabs were placed in an unbounded horizontal layout. Their intrinsic button widths propagated to the parent module instead of being constrained by the desktop window.
 - **Fix:** wrap the Settings-only tab strip in a horizontal egui scroll area. This preserves the single-row navigation and all tab actions while keeping the module width within the available viewport; other shorter tab bars are unchanged.
 - **Verification:** pending the next Linux/Windows visual test run. Do not refresh the golden snapshot unless the rendered geometry has been reviewed.
+
+
+## RUST-CI-039 — Mandatory password-change patch needed rustfmt normalization
+
+- **First observed:** workflow run 1393, workspace Format job.
+- **Symptom:** rustfmt reported four formatting-only diffs in the new forced-password login path and its render regression fixture.
+- **Root cause:** the new enum transition, session validity predicate and test assertions exceeded the workspace's preferred line width.
+- **Fix:** apply rustfmt's exact suggested line breaks; no behavior or assertions are removed.
+- **Verification:** pending the next current-head Format, Linux/Windows test and desktop build matrix.
