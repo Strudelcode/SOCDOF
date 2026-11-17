@@ -37,7 +37,6 @@ if (registry.schemaVersion !== 1 || registry.productName !== "SOCDOF") {
 const requiredProfiles = [
   "native-windows",
   "native-linux",
-  "native-macos",
   "tauri-windows-installer",
   "tauri-windows-portable",
   "tauri-linux",

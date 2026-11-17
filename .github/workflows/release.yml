@@ -215,47 +215,6 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw 'Native NSIS installer build failed' }
           ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
 
-      - name: Build native Rust macOS universal application disk image
-        if: matrix.platform == 'macos'
-        shell: bash
-        run: |
-          set -euo pipefail
-          version='${{ needs.prepare.outputs.version }}'
-          cargo build --release --target aarch64-apple-darwin -p socdof-ui --features window --bin socdof-ui-desktop
-          cargo build --release --target x86_64-apple-darwin -p socdof-ui --features window --bin socdof-ui-desktop
-          mkdir -p artifacts/SOCDOF.app/Contents/MacOS artifacts/SOCDOF.app/Contents/Resources
-          lipo -create \
-            target/aarch64-apple-darwin/release/socdof-ui-desktop \
-            target/x86_64-apple-darwin/release/socdof-ui-desktop \
-            -output artifacts/SOCDOF.app/Contents/MacOS/SOCDOF
-          chmod +x artifacts/SOCDOF.app/Contents/MacOS/SOCDOF
-          cat > artifacts/SOCDOF.app/Contents/Info.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict>
-            <key>CFBundleName</key><string>SOCDOF</string>
-            <key>CFBundleDisplayName</key><string>SOCDOF</string>
-            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
-            <key>CFBundleExecutable</key><string>SOCDOF</string>
-            <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleShortVersionString</key><string>$version</string>
-            <key>CFBundleVersion</key><string>$version</string>
-            <key>LSMinimumSystemVersion</key><string>11.0</string>
-          </dict></plist>
-          EOF
-          cat > artifacts/SOCDOF.app/Contents/Resources/README.txt <<'EOF'
-          SOCDOF native Rust desktop (Universal macOS)
-          Drag SOCDOF.app into Applications. User data is stored in
-          ~/Library/Application Support/SOCDOF unless SOCDOF_DATA_DIR is set.
-          This build is currently unsigned and may require the user to approve its first launch.
-          EOF
-          hdiutil create -volname "SOCDOF Native" -srcfolder artifacts/SOCDOF.app -ov -format UDZO \
-            "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
-          lipo -info artifacts/SOCDOF.app/Contents/MacOS/SOCDOF | grep -E 'arm64.*x86_64|x86_64.*arm64'
-          hdiutil verify "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
-          rm -rf artifacts/SOCDOF.app
-          test -s "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
-
       - name: Stage release assets
         run: >-
           node scripts/stage-release-artifacts.mjs

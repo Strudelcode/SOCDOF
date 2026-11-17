@@ -11,7 +11,10 @@
     "directoryName": "SOCDOF",
     "databaseFile": "SOCDOF.db",
     "environmentVariable": "SOCDOF_DATA_DIR",
-    "commandLine": ["--data-dir", "--database"]
+    "commandLine": [
+      "--data-dir",
+      "--database"
+    ]
   },
   "profiles": [
     {
@@ -19,7 +22,9 @@
       "platform": "windows",
       "runtime": "rust-native",
       "installMode": "per-user-nsis",
-      "artifacts": ["SOCDOF-{version}-windows-x64-native-setup.exe"],
+      "artifacts": [
+        "SOCDOF-{version}-windows-x64-native-setup.exe"
+      ],
       "dataPolicy": "shared-user-profile",
       "updater": "manual-installer"
     },
@@ -28,17 +33,10 @@
       "platform": "linux",
       "runtime": "rust-native",
       "installMode": "portable-archive",
-      "artifacts": ["SOCDOF-{version}-linux-x86_64-native.tar.gz"],
+      "artifacts": [
+        "SOCDOF-{version}-linux-x86_64-native.tar.gz"
+      ],
       "dataPolicy": "portable-folder-by-default",
-      "updater": "manual-download"
-    },
-    {
-      "id": "native-macos",
-      "platform": "macos",
-      "runtime": "rust-native",
-      "installMode": "universal-dmg",
-      "artifacts": ["SOCDOF-{version}-macos-universal-native.dmg"],
-      "dataPolicy": "shared-user-profile",
       "updater": "manual-download"
     },
     {
@@ -58,7 +56,9 @@
       "platform": "windows",
       "runtime": "tauri-transition",
       "installMode": "portable-zip",
-      "artifacts": ["SOCDOF-{version}-windows-x64-portable.zip"],
+      "artifacts": [
+        "SOCDOF-{version}-windows-x64-portable.zip"
+      ],
       "dataPolicy": "portable-folder-by-default",
       "updater": "manual-download"
     },
@@ -91,7 +91,9 @@
       "platform": "web",
       "runtime": "wasm",
       "installMode": "browser-or-pwa",
-      "artifacts": ["web-bundle"],
+      "artifacts": [
+        "web-bundle"
+      ],
       "dataPolicy": "browser-origin-storage",
       "updater": "web-deployment"
     }
