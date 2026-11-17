@@ -251,3 +251,13 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - Each module retains its own state object and its own Back/Escape behavior. The original single-screen renderers remain as compatibility wrappers around the same content functions.
 - The headless acceptance path opens fifteen independent module windows in one desktop frame sequence and asserts each module's translated title is present. It also verifies that the windows remain registered in the WindowManager.
 - Documentation-specific surfaces and full workflow parity are still subject to separate acceptance; this does not imply the whole TypeScript application is fully ported.
+
+
+## Native Settings parity follow-up (2026-11-17)
+
+- Added a persistent Payments section for bank name, account holder, IBAN, BIC, SMTP host/port/user and card-terminal metadata. Saving the section uses the existing company-profile settings service, so the data is shared by Windows and Linux and survives restart.
+- SMTP port validation is strict (1–65535). SMTP passwords are intentionally not stored in the profile; a secure OS credential-store integration is still required before enabling that field.
+- Added a native Shortcuts section listing the shortcuts actually implemented by the Rust desktop host.
+- Existing General, Appearance, Security, Backup, Users, Roles, Updates and Portable sections remain available.
+- Still open against TypeScript: display/multi-monitor configuration, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
+- Verification: current-head CI and the payment persistence regression test are pending.

@@ -47,6 +47,8 @@ pub enum SettingsTab {
     /// Company profile.
     #[default]
     General,
+    /// Bank, payment terminal and outbound mail configuration.
+    Payments,
     /// Language, theme, accent and start module.
     Appearance,
     /// Passwords and sessions.
@@ -61,12 +63,15 @@ pub enum SettingsTab {
     Updates,
     /// Portable data folder.
     Portable,
+    /// Keyboard shortcuts available in the native desktop host.
+    Shortcuts,
 }
 
 impl SettingsTab {
     /// Every tab in display order.
-    pub const ALL: [SettingsTab; 8] = [
+    pub const ALL: [SettingsTab; 10] = [
         SettingsTab::General,
+        SettingsTab::Payments,
         SettingsTab::Appearance,
         SettingsTab::Security,
         SettingsTab::Backup,
@@ -74,19 +79,22 @@ impl SettingsTab {
         SettingsTab::Roles,
         SettingsTab::Updates,
         SettingsTab::Portable,
+        SettingsTab::Shortcuts,
     ];
 
     /// Position in the tab bar.
     pub fn index(self) -> usize {
         match self {
             SettingsTab::General => 0,
-            SettingsTab::Appearance => 1,
-            SettingsTab::Security => 2,
-            SettingsTab::Backup => 3,
-            SettingsTab::Users => 4,
-            SettingsTab::Roles => 5,
-            SettingsTab::Updates => 6,
-            SettingsTab::Portable => 7,
+            SettingsTab::Payments => 1,
+            SettingsTab::Appearance => 2,
+            SettingsTab::Security => 3,
+            SettingsTab::Backup => 4,
+            SettingsTab::Users => 5,
+            SettingsTab::Roles => 6,
+            SettingsTab::Updates => 7,
+            SettingsTab::Portable => 8,
+            SettingsTab::Shortcuts => 9,
         }
     }
 
@@ -99,6 +107,7 @@ impl SettingsTab {
     pub fn label_key(self) -> &'static str {
         match self {
             SettingsTab::General => "settings_tab_general",
+            SettingsTab::Payments => "settings_tab_payments",
             SettingsTab::Appearance => "settings_tab_appearance",
             SettingsTab::Security => "settings_tab_security",
             SettingsTab::Backup => "settings_tab_backup",
@@ -106,6 +115,7 @@ impl SettingsTab {
             SettingsTab::Roles => "settings_tab_roles",
             SettingsTab::Updates => "settings_tab_updates",
             SettingsTab::Portable => "settings_tab_portable",
+            SettingsTab::Shortcuts => "settings_tab_shortcuts",
         }
     }
 }
@@ -120,6 +130,15 @@ struct ProfileDraft {
     email: String,
     phone: String,
     tax_id: String,
+    bank_name: String,
+    iban: String,
+    bic: String,
+    bank_account_holder: String,
+    smtp_host: String,
+    smtp_port: String,
+    smtp_user: String,
+    card_payment_enabled: bool,
+    card_terminal_name: String,
     currency: String,
     backup_folder_path: String,
     auto_backup_enabled: bool,
@@ -143,6 +162,15 @@ impl ProfileDraft {
             email: profile.email.clone(),
             phone: profile.phone.clone(),
             tax_id: profile.tax_id.clone(),
+            bank_name: profile.bank_name.clone(),
+            iban: profile.iban.clone(),
+            bic: profile.bic.clone(),
+            bank_account_holder: profile.bank_account_holder.clone(),
+            smtp_host: profile.smtp_host.clone(),
+            smtp_port: profile.smtp_port.to_string(),
+            smtp_user: profile.smtp_user.clone(),
+            card_payment_enabled: profile.card_payment_enabled,
+            card_terminal_name: profile.card_terminal_name.clone(),
             currency: profile.currency.clone(),
             backup_folder_path: profile.backup_folder_path.clone(),
             auto_backup_enabled: profile.auto_backup_enabled,
@@ -152,6 +180,14 @@ impl ProfileDraft {
     }
 
     fn to_profile(&self) -> Result<CompanyProfile, &'static str> {
+        let smtp_port = self
+            .smtp_port
+            .trim()
+            .parse::<i64>()
+            .map_err(|_| "settings_error_smtp_port")?;
+        if !(1..=65_535).contains(&smtp_port) {
+            return Err("settings_error_smtp_port");
+        }
         let backup_interval_minutes = self
             .backup_interval_minutes
             .trim()
@@ -170,6 +206,15 @@ impl ProfileDraft {
             email: self.email.clone(),
             phone: self.phone.clone(),
             tax_id: self.tax_id.clone(),
+            bank_name: self.bank_name.clone(),
+            iban: self.iban.clone(),
+            bic: self.bic.clone(),
+            bank_account_holder: self.bank_account_holder.clone(),
+            smtp_host: self.smtp_host.clone(),
+            smtp_port,
+            smtp_user: self.smtp_user.clone(),
+            card_payment_enabled: self.card_payment_enabled,
+            card_terminal_name: self.card_terminal_name.clone(),
             currency: self.currency.clone(),
             backup_folder_path: self.backup_folder_path.clone(),
             auto_backup_enabled: self.auto_backup_enabled,
@@ -1195,6 +1240,7 @@ pub fn settings_content(
 
         match state.tab {
             SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
             SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
@@ -1202,6 +1248,7 @@ pub fn settings_content(
             SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
             SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Shortcuts => shortcuts_tab(ui, theme, texts),
         }
     });
 }
@@ -1387,6 +1434,161 @@ fn general_tab(
     if save {
         state.save_profile(store);
     }
+}
+
+/// Bank details, payment-terminal metadata and the non-secret SMTP connection settings.
+fn payments_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_payments_title")).strong());
+        ui.add_space(6.0);
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.bank_name,
+                texts.get("settings_bank_name"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.bank_account_holder,
+                texts.get("settings_bank_holder"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.iban,
+                texts.get("settings_iban"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.bic,
+                texts.get("settings_bic"),
+                "",
+                None,
+            );
+        });
+        ui.add_space(12.0);
+        ui.label(RichText::new(texts.get("settings_smtp_title")).strong());
+        ui.columns(2, |columns| {
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.smtp_host,
+                texts.get("settings_smtp_host"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.profile.smtp_port,
+                texts.get("settings_smtp_port"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.profile.smtp_user,
+                texts.get("settings_smtp_user"),
+                "",
+                None,
+            );
+        });
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_smtp_secret_note"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        ui.add_space(12.0);
+        ui.label(RichText::new(texts.get("settings_terminal_title")).strong());
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.profile.card_payment_enabled,
+            texts.get("settings_card_payment_enabled"),
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.profile.card_terminal_name,
+            texts.get("settings_card_terminal_name"),
+            "",
+            None,
+        );
+        ui.add_space(10.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_profile(store);
+    }
+}
+
+/// Documents the keyboard shortcuts that are implemented by the native host.
+fn shortcuts_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts) {
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_shortcuts_title")).strong());
+        ui.add_space(8.0);
+        for (label, shortcut) in [
+            ("settings_shortcut_help", "F1"),
+            ("settings_shortcut_palette", "Ctrl + K"),
+            ("settings_shortcut_start", "Ctrl + Space"),
+            ("settings_shortcut_task_view", "Ctrl + Tab / Alt + Tab"),
+            ("settings_shortcut_lock", "Ctrl + L"),
+            ("settings_shortcut_fullscreen", "F11"),
+            ("settings_shortcut_close_window", "Ctrl + W"),
+            ("settings_shortcut_snap", "Ctrl + ← / Ctrl + →"),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(texts.get(label));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(shortcut)
+                            .monospace()
+                            .strong()
+                            .color(theme.accent_text()),
+                    );
+                });
+            });
+            ui.add_space(4.0);
+        }
+    });
 }
 
 fn appearance_tab(
