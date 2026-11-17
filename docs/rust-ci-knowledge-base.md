@@ -345,3 +345,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** add the missing bank, SMTP, card-terminal and shortcut-title keys to `UI_KEYS`, the committed catalogue inventory and all four embedded locale packs.
 - **Verification:** pending current-head CI.
 
+## RUST-CI-035 — Persist account type through the keyed settings API (2026-11-17)
+
+- **First observed:** run 1375, Linux Clippy/test compile.
+- **Symptom:** the first-run wizard called the per-user settings API as though it accepted a user ID and key; the actual Store API accepts a single namespaced key and a JSON value.
+- **Fix:** persist account type under `account_type:{user_id}` using `put_setting`, and clean it up with `remove_setting` if first-admin creation fails.
+- **Regression test:** first-admin setup now asserts that the selected account type is persisted.
+- **Verification:** pending current-head CI.
+

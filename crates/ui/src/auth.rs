@@ -326,7 +326,11 @@ impl AuthState {
             });
             return Ok(());
         }
-        store.put_setting(user.id, "account_type", &self.account_type.as_str())?;
+        let account_type_key = format!("account_type:{}", user.id);
+        store.put_setting(
+            &account_type_key,
+            &serde_json::Value::String(self.account_type.as_str().to_owned()),
+        )?;
         if has_first_answer {
             socdof_core::security_questions::save_security_answers(
                 store,
@@ -340,7 +344,7 @@ impl AuthState {
         if store.insert_first_admin(&user).is_err() {
             if has_first_answer {
                 let _ = socdof_core::security_questions::delete_security_answers(store, user.id);
-                let _ = store.delete_setting(user.id, "account_type");
+                let _ = store.remove_setting(&account_type_key);
             }
             self.error = Some(if store.user_count().unwrap_or(0) > 0 {
                 "auth_error_setup_exists"
@@ -1439,8 +1443,16 @@ fn setup_form(
                         .color(theme.palette.text_muted),
                 );
                 ui.add_space(10.0);
-                ui.label(format!("{}: {}", texts.get("auth_display_name"), state.display_name));
-                ui.label(format!("{}: {}", texts.get("auth_username"), state.username));
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("auth_display_name"),
+                    state.display_name
+                ));
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("auth_username"),
+                    state.username
+                ));
                 let template_key = match state.template_choice {
                     SetupTemplate::Personal => "setup_template_personal",
                     SetupTemplate::Business => "setup_template_business",
@@ -2097,6 +2109,15 @@ mod tests {
         let answers = socdof_core::security_questions::security_answers(&store, user.id)
             .expect("recovery answers");
         assert!(answers.is_configured());
+        let account_type_key = format!("account_type:{}", user.id);
+        assert_eq!(
+            store
+                .get_setting(&account_type_key)
+                .expect("account type")
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .as_deref(),
+            Some("personal")
+        );
         assert!(socdof_core::security_questions::verify_security_answer(
             &store,
             user.id,
