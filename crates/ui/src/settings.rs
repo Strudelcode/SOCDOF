@@ -289,13 +289,25 @@ struct DisplayDraft {
 }
 impl Default for DisplayDraft {
     fn default() -> Self {
-        Self { scale_percent: "100".to_string(), night_light_enabled: false, night_light_temperature: "3400".to_string() }
+        Self {
+            scale_percent: "100".to_string(),
+            night_light_enabled: false,
+            night_light_temperature: "3400".to_string(),
+        }
     }
 }
 impl DisplayDraft {
     fn validate(&self) -> Result<(), &'static str> {
-        let scale = self.scale_percent.trim().parse::<u32>().map_err(|_| "settings_error_display")?;
-        let temperature = self.night_light_temperature.trim().parse::<u32>().map_err(|_| "settings_error_display")?;
+        let scale = self
+            .scale_percent
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| "settings_error_display")?;
+        let temperature = self
+            .night_light_temperature
+            .trim()
+            .parse::<u32>()
+            .map_err(|_| "settings_error_display")?;
         if !(75..=200).contains(&scale) || !(1000..=6500).contains(&temperature) {
             return Err("settings_error_display");
         }
@@ -317,9 +329,13 @@ struct LetterheadDraft {
 impl Default for LetterheadDraft {
     fn default() -> Self {
         Self {
-            logo_path: String::new(), default_subject: String::new(), managing_director: String::new(),
-            commercial_register: String::new(), footer_lines: std::array::from_fn(|_| String::new()),
-            show_background: false, show_fold_marks: true,
+            logo_path: String::new(),
+            default_subject: String::new(),
+            managing_director: String::new(),
+            commercial_register: String::new(),
+            footer_lines: std::array::from_fn(|_| String::new()),
+            show_background: false,
+            show_fold_marks: true,
         }
     }
 }
@@ -655,10 +671,14 @@ impl SettingsState {
             None => Preferences::default(),
         };
         self.appearance = AppearanceDraft::from_preferences(&preferences);
-        self.display = store.get_setting("native_display_settings_v1")?
-            .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
-        self.letterhead = store.get_setting("native_letterhead_settings_v1")?
-            .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
+        self.display = store
+            .get_setting("native_display_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
+        self.letterhead = store
+            .get_setting("native_letterhead_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
         self.update_settings = settings_service::update_settings(store)?;
         self.portable_settings = settings_service::portable_settings(store)?;
         self.restore_target = if self.portable_settings.enabled {
@@ -727,27 +747,53 @@ impl SettingsState {
         }
         let value = match serde_json::to_value(&self.display) {
             Ok(value) => value,
-            Err(_) => { self.error = Some("settings_error_display"); return false; }
+            Err(_) => {
+                self.error = Some("settings_error_display");
+                return false;
+            }
         };
         match store.put_setting("native_display_settings_v1", &value) {
-            Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
-            Err(_) => { self.error = Some("settings_error_display"); false }
+            Ok(()) => {
+                self.error = None;
+                self.status = Some("settings_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_display");
+                false
+            }
         }
     }
 
     fn save_letterhead(&mut self, store: &Store) -> bool {
-        for value in [&mut self.letterhead.logo_path, &mut self.letterhead.default_subject,
-            &mut self.letterhead.managing_director, &mut self.letterhead.commercial_register] {
+        for value in [
+            &mut self.letterhead.logo_path,
+            &mut self.letterhead.default_subject,
+            &mut self.letterhead.managing_director,
+            &mut self.letterhead.commercial_register,
+        ] {
             *value = value.trim().to_string();
         }
-        for value in &mut self.letterhead.footer_lines { *value = value.trim().to_string(); }
+        for value in &mut self.letterhead.footer_lines {
+            *value = value.trim().to_string();
+        }
         let value = match serde_json::to_value(&self.letterhead) {
             Ok(value) => value,
-            Err(_) => { self.error = Some("settings_error_letterhead"); return false; }
+            Err(_) => {
+                self.error = Some("settings_error_letterhead");
+                return false;
+            }
         };
         match store.put_setting("native_letterhead_settings_v1", &value) {
-            Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
-            Err(_) => { self.error = Some("settings_error_letterhead"); false }
+            Ok(()) => {
+                self.error = None;
+                self.status = Some("settings_saved");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_letterhead");
+                false
+            }
         }
     }
 
@@ -4041,7 +4087,13 @@ mod tests {
         state.display.night_light_enabled = true;
         state.display.night_light_temperature = "4200".to_string();
         assert!(state.save_display(&store));
-        let display: DisplayDraft = serde_json::from_value(store.get_setting("native_display_settings_v1").expect("read").expect("saved")).expect("decode");
+        let display: DisplayDraft = serde_json::from_value(
+            store
+                .get_setting("native_display_settings_v1")
+                .expect("read")
+                .expect("saved"),
+        )
+        .expect("decode");
         assert_eq!(display.scale_percent, "125");
         assert!(display.night_light_enabled);
 
@@ -4049,7 +4101,13 @@ mod tests {
         state.letterhead.footer_lines[0] = "IBAN: DE00".to_string();
         state.letterhead.show_fold_marks = false;
         assert!(state.save_letterhead(&store));
-        let letterhead: LetterheadDraft = serde_json::from_value(store.get_setting("native_letterhead_settings_v1").expect("read").expect("saved")).expect("decode");
+        let letterhead: LetterheadDraft = serde_json::from_value(
+            store
+                .get_setting("native_letterhead_settings_v1")
+                .expect("read")
+                .expect("saved"),
+        )
+        .expect("decode");
         assert_eq!(letterhead.default_subject, "Angebot");
         assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
         assert!(!letterhead.show_fold_marks);
