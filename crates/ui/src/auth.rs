@@ -261,7 +261,11 @@ impl AuthState {
                 self.failed_unlocks = 0;
                 self.locked_until = None;
                 self.last_activity_ms = now;
-                self.view = if self.user.as_ref().is_some_and(|user| user.must_change_password) {
+                self.view = if self
+                    .user
+                    .as_ref()
+                    .is_some_and(|user| user.must_change_password)
+                {
                     AuthView::ChangePassword
                 } else {
                     AuthView::Unlocked
@@ -620,7 +624,10 @@ impl AuthState {
     /// Checks the persisted session as well as its local expiry. This catches revocation from
     /// another desktop, password reset, account deactivation or permission change.
     pub fn tick_with_store(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if matches!(self.view, AuthView::Unlocked | AuthView::Locked | AuthView::ChangePassword) {
+        if matches!(
+            self.view,
+            AuthView::Unlocked | AuthView::Locked | AuthView::ChangePassword
+        ) {
             let active = match self.token.as_deref() {
                 Some(token) => match store.session_for_token(token, now) {
                     Ok(session) => session.is_some(),
@@ -2225,7 +2232,10 @@ mod tests {
             "FIRST PET"
         )
         .expect("answer verification"));
-        let stored = store.find_user_by_username(&user.username).expect("find").expect("user");
+        let stored = store
+            .find_user_by_username(&user.username)
+            .expect("find")
+            .expect("user");
         assert!(!stored.must_change_password);
         assert!(socdof_core::security::verify_password(
             "A-new-strong-password-2026!",
@@ -2408,7 +2418,10 @@ mod tests {
                             state.begin_recovery(&store);
                         }
                         AuthView::ChangePassword => {
-                            state.user = store.find_user_by_username("admin").unwrap().expect("admin");
+                            state.user = store
+                                .find_user_by_username("admin")
+                                .unwrap()
+                                .expect("admin");
                             state.view = AuthView::ChangePassword;
                             state.recovery_new_password = "temporary-password".to_string();
                             state.recovery_confirm_password = state.recovery_new_password.clone();
