@@ -183,11 +183,15 @@ jobs:
           cat > "$native_dir/run-socdof.sh" <<'EOF'
           #!/bin/sh
           set -eu
+          script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+          # A portable archive keeps its database and backups beside the executable.
+          export SOCDOF_DATA_DIR="${SOCDOF_DATA_DIR:-$script_dir/data}"
+          mkdir -p "$SOCDOF_DATA_DIR"
           # Bound glibc arenas and return freed startup allocations to the OS.
           export MALLOC_ARENA_MAX=1
           export MALLOC_TRIM_THRESHOLD_=0
           export MALLOC_MMAP_THRESHOLD_=131072
-          exec "$(dirname "$0")/socdof-ui-desktop" "$@"
+          exec "$script_dir/socdof-ui-desktop" "$@"
           EOF
           chmod +x "$native_dir/run-socdof.sh"
           cat > "$native_dir/README.txt" <<'EOF'
@@ -204,6 +208,7 @@ jobs:
           tar -czf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" -C artifacts "$(basename "$native_dir")"
           test "$(stat -c%s "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz")" -gt 1000000
           sh -n "$native_dir/run-socdof.sh"
+          grep -F 'SOCDOF_DATA_DIR' "$native_dir/run-socdof.sh"
           tar -tzf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" | grep -Fx "$(basename "$native_dir")/run-socdof.sh"
           tar -tzf "artifacts/SOCDOF-${version}-linux-x86_64-native.tar.gz" | grep -Fx "$(basename "$native_dir")/socdof-ui-desktop"
 
@@ -252,8 +257,11 @@ jobs:
           New-Item -ItemType Directory -Force $portable | Out-Null
           Copy-Item $exe $portable
           Copy-Item 'crates/app/portable/README-PORTABLE.txt' $portable
+          Copy-Item 'crates/app/portable/run-socdof.cmd' $portable
+          New-Item -ItemType Directory -Force (Join-Path $portable 'data') | Out-Null
           $loader = Join-Path $release 'WebView2Loader.dll'
           if (Test-Path $loader) { Copy-Item $loader $portable }
+          if (-not (Test-Path (Join-Path $portable 'run-socdof.cmd'))) { throw 'Portable launcher is missing' }
           Compress-Archive -Path (Join-Path $portable '*') `
             -DestinationPath "artifacts/SOCDOF-$version-windows-x64-portable.zip" -Force
 
