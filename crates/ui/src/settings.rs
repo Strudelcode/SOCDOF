@@ -1495,17 +1495,17 @@ fn settings_sidebar(
 /// Returns the section icon used by both the compact tab strip and desktop sidebar.
 fn tab_icon(tab: SettingsTab) -> Icon {
     match tab {
-        SettingsTab::General => Icon::User,
-        SettingsTab::Payments => Icon::Receipt,
-        SettingsTab::Language => Icon::Book,
-        SettingsTab::Appearance => Icon::Sun,
-        SettingsTab::Security => Icon::Shield,
-        SettingsTab::Backup => Icon::Refresh,
-        SettingsTab::Users => Icon::User,
-        SettingsTab::Roles => Icon::Grid,
-        SettingsTab::Updates => Icon::Refresh,
-        SettingsTab::Portable => Icon::Folder,
-        SettingsTab::Shortcuts => Icon::Grid,
+        SettingsTab::General => Icon::Building,
+        SettingsTab::Payments => Icon::CreditCard,
+        SettingsTab::Language => Icon::Languages,
+        SettingsTab::Appearance => Icon::Palette,
+        SettingsTab::Security => Icon::Key,
+        SettingsTab::Backup => Icon::Database,
+        SettingsTab::Users => Icon::Users,
+        SettingsTab::Roles => Icon::Shield,
+        SettingsTab::Updates => Icon::Download,
+        SettingsTab::Portable => Icon::HardDrive,
+        SettingsTab::Shortcuts => Icon::Keyboard,
     }
 }
 
