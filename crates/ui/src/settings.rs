@@ -1941,47 +1941,174 @@ pub fn settings(
     restore_modal(ctx, theme, texts, focus, state);
 }
 
-fn display_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, focus: &mut FocusState, state: &mut SettingsState, store: &Store) {
+fn display_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
     let mut save = false;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("settings_display_title")).strong());
         ui.add_space(4.0);
-        ui.label(RichText::new(texts.get("settings_display_hint")).size(FONT_SMALL).color(theme.palette.text_muted));
+        ui.label(
+            RichText::new(texts.get("settings_display_hint"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
         ui.add_space(8.0);
-        text_field(ui, theme, focus, &mut state.display.scale_percent, texts.get("settings_display_scale"), texts.get("settings_display_scale_hint"), None);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.display.scale_percent,
+            texts.get("settings_display_scale"),
+            texts.get("settings_display_scale_hint"),
+            None,
+        );
         ui.add_space(6.0);
-        switch(ui, theme, focus, &mut state.display.night_light_enabled, texts.get("settings_display_night_light"));
-        text_field(ui, theme, focus, &mut state.display.night_light_temperature, texts.get("settings_display_night_temp"), texts.get("settings_display_night_temp_hint"), None);
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.display.night_light_enabled,
+            texts.get("settings_display_night_light"),
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.display.night_light_temperature,
+            texts.get("settings_display_night_temp"),
+            texts.get("settings_display_night_temp_hint"),
+            None,
+        );
         ui.add_space(8.0);
-        if button(ui, theme, focus, texts.get("settings_save"), ButtonVariant::Primary).activated { save = true; }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
     });
-    if save { state.save_display(store); }
+    if save {
+        state.save_display(store);
+    }
 }
 
-fn letterhead_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, focus: &mut FocusState, state: &mut SettingsState, store: &Store) {
+fn letterhead_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
     let mut save = false;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("settings_letterhead_title")).strong());
         ui.add_space(4.0);
-        ui.label(RichText::new(texts.get("settings_letterhead_hint")).size(FONT_SMALL).color(theme.palette.text_muted));
+        ui.label(
+            RichText::new(texts.get("settings_letterhead_hint"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
         ui.add_space(8.0);
-        text_field(ui, theme, focus, &mut state.letterhead.logo_path, texts.get("settings_letterhead_logo"), texts.get("settings_letterhead_logo_hint"), None);
-        text_field(ui, theme, focus, &mut state.letterhead.default_subject, texts.get("settings_letterhead_subject"), texts.get("settings_letterhead_subject_hint"), None);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.logo_path,
+            texts.get("settings_letterhead_logo"),
+            texts.get("settings_letterhead_logo_hint"),
+            None,
+        );
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.default_subject,
+            texts.get("settings_letterhead_subject"),
+            texts.get("settings_letterhead_subject_hint"),
+            None,
+        );
         ui.columns(2, |columns| {
-            text_field(&mut columns[0], theme, focus, &mut state.letterhead.managing_director, texts.get("settings_letterhead_director"), "", None);
-            text_field(&mut columns[1], theme, focus, &mut state.letterhead.commercial_register, texts.get("settings_letterhead_register"), "", None);
+            text_field(
+                &mut columns[0],
+                theme,
+                focus,
+                &mut state.letterhead.managing_director,
+                texts.get("settings_letterhead_director"),
+                "",
+                None,
+            );
+            text_field(
+                &mut columns[1],
+                theme,
+                focus,
+                &mut state.letterhead.commercial_register,
+                texts.get("settings_letterhead_register"),
+                "",
+                None,
+            );
         });
         ui.add_space(6.0);
         for index in 0..4 {
-            text_field(ui, theme, focus, &mut state.letterhead.footer_lines[index], texts.get(["settings_letterhead_footer1", "settings_letterhead_footer2", "settings_letterhead_footer3", "settings_letterhead_footer4"][index]), texts.get("settings_letterhead_footer_hint"), None);
+            text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.letterhead.footer_lines[index],
+                texts.get(
+                    [
+                        "settings_letterhead_footer1",
+                        "settings_letterhead_footer2",
+                        "settings_letterhead_footer3",
+                        "settings_letterhead_footer4",
+                    ][index],
+                ),
+                texts.get("settings_letterhead_footer_hint"),
+                None,
+            );
         }
         ui.add_space(6.0);
-        switch(ui, theme, focus, &mut state.letterhead.show_background, texts.get("settings_letterhead_show_bg"));
-        switch(ui, theme, focus, &mut state.letterhead.show_fold_marks, texts.get("settings_letterhead_fold_marks"));
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.show_background,
+            texts.get("settings_letterhead_show_bg"),
+        );
+        switch(
+            ui,
+            theme,
+            focus,
+            &mut state.letterhead.show_fold_marks,
+            texts.get("settings_letterhead_fold_marks"),
+        );
         ui.add_space(8.0);
-        if button(ui, theme, focus, texts.get("settings_save"), ButtonVariant::Primary).activated { save = true; }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
     });
-    if save { state.save_letterhead(store); }
+    if save {
+        state.save_letterhead(store);
+    }
 }
 
 fn general_tab(
