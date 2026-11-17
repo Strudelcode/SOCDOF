@@ -12,6 +12,7 @@ mkdir -p "$XDG_DATA_HOME/SOCDOF"
 printf 'keep this user database on uninstall\n' > "$XDG_DATA_HOME/SOCDOF/SOCDOF.db"
 "$package_dir/install-linux.sh"
 test -x "$SOCDOF_INSTALL_PREFIX/bin/socdof"
+"$SOCDOF_INSTALL_PREFIX/bin/socdof" --version | grep -E '^SOCDOF [0-9]+\\.[0-9]+\\.[0-9]+'
 grep -F "Exec=\"$SOCDOF_INSTALL_PREFIX/bin/socdof\" %U" "$SOCDOF_INSTALL_PREFIX/share/applications/socdof.desktop"
 "$package_dir/uninstall-linux.sh"
 test ! -e "$SOCDOF_INSTALL_PREFIX/bin/socdof"

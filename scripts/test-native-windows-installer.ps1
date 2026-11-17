@@ -55,6 +55,10 @@ try {
     # The installed binary must at least start its native command-line entry point successfully.
     $help = Start-Process -FilePath $exe -ArgumentList '--help' -Wait -PassThru
     if ($help.ExitCode -ne 0) { throw "Installed executable --help failed with exit code $($help.ExitCode)." }
+    $versionOutput = & $exe --version
+    if ($LASTEXITCODE -ne 0 -or $versionOutput -notmatch '^SOCDOF \\d+\\.\\d+\\.\\d+') {
+        throw "Installed executable returned an invalid version: $versionOutput"
+    }
 
     # Simulate an existing user's opt-in and verify that an upgrade preserves it.
     New-Item -ItemType Directory -Path $startupDir -Force | Out-Null

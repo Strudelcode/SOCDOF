@@ -363,13 +363,18 @@ mod tests {
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() -> Result<(), Box<dyn Error>> {
-    if std::env::args_os()
-        .skip(1)
+    let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
+    if arguments
+        .iter()
         .any(|argument| argument == "--help" || argument == "-h")
     {
         println!(
-            "SOCDOF native desktop\\n\\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>]"
+            "SOCDOF native desktop\\n\\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>] [--version]"
         );
+        return Ok(());
+    }
+    if arguments.iter().any(|argument| argument == "--version" || argument == "-V") {
+        println!("SOCDOF {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
     let app = DesktopApp::new();
