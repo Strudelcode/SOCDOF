@@ -399,15 +399,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Verification:** pending the next current-head Linux/Windows test run.
 
 
-## RUST-CI-041 — Forced password change must preserve the current session
+## RUST-CI-041 — Initial self-service password session fix was incomplete
 
 - **First observed:** source-level parity review after the initial forced-password implementation.
-- **Symptom/risk:** the generic core password-reset API revokes every account session, while the TypeScript changePassword path updates the authenticated user's password without ending the current session.
-- **Root cause:** reusing the administrator/recovery reset primitive for a user-initiated first-login change would immediately invalidate the session that is required to complete the forced-change flow.
-- **Fix:** persist the changed user through Store::update_user, clearing must_change_password while preserving the active session. The regression test now verifies that the session token remains valid after the password and recovery answers are saved.
-- **Verification:** pending the next current-head Linux/Windows test run.
-
-
+- **Symptom/risk:** the generic core password-reset API revokes every account session, while the TypeScript self-service password-change path keeps the authenticated session alive.
+- **Initial hypothesis:** using the generic Store::update_user path while changing the current account would preserve the session. The next Linux/Windows CI run disproved this assumption: that path revokes every session when the password hash changes.
+- **Status:** superseded by RUST-CI-042. Do not use this entry's initial proposed implementation; the dedicated update_user_preserving_session transaction is the verified design candidate.
 ## RUST-CI-042 — Forced password change revoked its own authenticated session
 
 - **First observed:** workflow run 1401 on head `8c66fb8186a765013c04687e97991b8ff08bbc86`, Linux and Windows UI test jobs.
