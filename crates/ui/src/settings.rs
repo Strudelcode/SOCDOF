@@ -2961,6 +2961,40 @@ mod tests {
     }
 
     #[test]
+    fn payment_settings_round_trip_through_the_company_profile() {
+        let (store, mut state, _texts) = seeded();
+        state.profile.bank_name = "Example Bank".to_string();
+        state.profile.bank_account_holder = "Strudel GmbH".to_string();
+        state.profile.iban = "DE89370400440532013000".to_string();
+        state.profile.bic = "COBADEFFXXX".to_string();
+        state.profile.smtp_host = "mail.example.test".to_string();
+        state.profile.smtp_port = "2525".to_string();
+        state.profile.smtp_user = "billing@example.test".to_string();
+        state.profile.card_payment_enabled = true;
+        state.profile.card_terminal_name = "Terminal One".to_string();
+
+        assert!(state.save_profile(&store));
+        let saved = store.company_profile().expect("company profile");
+        assert_eq!(saved.bank_name, "Example Bank");
+        assert_eq!(saved.bank_account_holder, "Strudel GmbH");
+        assert_eq!(saved.iban, "DE89370400440532013000");
+        assert_eq!(saved.bic, "COBADEFFXXX");
+        assert_eq!(saved.smtp_host, "mail.example.test");
+        assert_eq!(saved.smtp_port, 2525);
+        assert_eq!(saved.smtp_user, "billing@example.test");
+        assert!(saved.card_payment_enabled);
+        assert_eq!(saved.card_terminal_name, "Terminal One");
+
+        state.profile.smtp_port = "65536".to_string();
+        assert!(!state.save_profile(&store));
+        assert_eq!(state.error, Some("settings_error_smtp_port"));
+        assert_eq!(
+            store.company_profile().expect("unchanged profile").smtp_port,
+            2525
+        );
+    }
+
+    #[test]
     fn creates_edits_and_deletes_users() {
         let (store, mut state, _texts) = seeded();
         state.start_new_user();
