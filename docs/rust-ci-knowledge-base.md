@@ -353,3 +353,20 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression test:** first-admin setup now asserts that the selected account type is persisted.
 - **Verification:** pending current-head CI.
 
+
+
+## RUST-CI-036 — Account-type editor round-trip reloads the settings cache
+
+- **First observed:** workflow run 1379, Linux UI tests (326 passed, 1 failed).
+- **Symptom:** the account-type value was written to SQLite correctly, but reopening the just-created user editor returned no draft.
+- **Root cause:** `save_user` invalidates the settings cache; the production screen reloads on the next frame, while the unit test reopened the editor before exercising that reload lifecycle. The stored value was not lost.
+- **Fix:** the regression test now calls `refresh` after saving and before reopening the editor, then asserts that the persisted `business` value maps back to the selected account type.
+- **Verification:** pending the next Linux/Windows test run.
+
+## RUST-CI-037 — Windows mobile-sync integration test exceeded its first-open SQLite window
+
+- **First observed:** workflow run 1379, Windows core integration tests.
+- **Symptom:** `uploads_a_fixture_payload_and_polls_it_back` timed out while reading the first upload response; the other mobile-sync integration tests passed.
+- **Root cause:** this end-to-end test created the SQLite schema lazily inside the upload callback. On a cold Windows runner, schema initialization happened on the HTTP request path and exceeded the short response timeout.
+- **Fix:** initialize and close the test database before starting the HTTP gateway. The request still exercises the real upload callback and persistence path, but first-time schema migration is no longer mixed into the HTTP response timing.
+- **Verification:** pending the next Windows core integration run.
