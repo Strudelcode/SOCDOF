@@ -4,7 +4,7 @@
 //! drawn from line segments, circles and polygons here. Glyphs are defined in a normalized 0..1 box
 //! and scaled by the caller, which keeps them crisp at any size and identical in both appearances.
 
-use egui::{Color32, Painter, Pos2, Rect, Stroke};
+use egui::{Color32, Painter, Pos2, Rect, Stroke, Vec2};
 
 /// Glyphs the kit can draw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
