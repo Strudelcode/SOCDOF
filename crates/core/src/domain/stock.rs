@@ -40,7 +40,6 @@ impl StockMoveKind {
     }
 }
 
-
 /// Physical and virtual locations used by the double-entry stock journal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StockLocation {
