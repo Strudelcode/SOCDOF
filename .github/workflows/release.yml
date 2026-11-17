@@ -251,6 +251,8 @@ jobs:
           EOF
           hdiutil create -volname "SOCDOF Native" -srcfolder artifacts/SOCDOF.app -ov -format UDZO \
             "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
+          lipo -info artifacts/SOCDOF.app/Contents/MacOS/SOCDOF | grep -E 'arm64.*x86_64|x86_64.*arm64'
+          hdiutil verify "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
           test -s "artifacts/SOCDOF-${version}-macos-universal-native.dmg"
 
       - name: Stage release assets
@@ -260,6 +262,25 @@ jobs:
           --version ${{ needs.prepare.outputs.version }}
           --bundle-dir ${{ matrix.bundle_dir }}
           --output-dir artifacts
+
+      - name: Refresh Linux checksums including native package
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: find artifacts -maxdepth 1 -type f -name 'SOCDOF-*' -print0 | sort -z | xargs -0 sha256sum > artifacts/SHA256SUMS-linux.txt
+
+      - name: Refresh Windows checksums including native installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts -File -Filter 'SOCDOF-*' | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "{0}  {1}" -f $hash, $_.Name
+          } | Set-Content artifacts/SHA256SUMS-windows.txt
+
+      - name: Refresh macOS checksums including native app
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: shasum -a 256 artifacts/SOCDOF-* > artifacts/SHA256SUMS-macos.txt
 
       - name: Write installable distribution manifest
         if: matrix.platform == 'linux'
