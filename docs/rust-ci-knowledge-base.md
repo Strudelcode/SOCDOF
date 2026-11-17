@@ -481,3 +481,18 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the original native vector icon catalogue had no dedicated glyphs for company, payment card, language, palette, key, database, multiple users, download, local drive or keyboard.
 - **Fix:** add ten crisp vector glyphs to the icon catalogue and map all eleven Settings categories to a distinct, semantically relevant icon. The icon gallery's `ALL_ICONS` test now exercises the new glyphs automatically.
 - **Verification:** committed; current-head Format, Clippy, Linux/Windows tests and native desktop builds must pass.
+## RUST-CI-047 — Settings navigation refactor removed the desktop-window adapter and left stale icon references
+
+- **First observed:** workflow run 1441, Windows/Linux UI compile and desktop jobs.
+- **Symptom:** `settings_window` was no longer exported, `settings_tabs` still referenced the removed `settings_tab_icon` helper, and the full-screen gallery could not compile.
+- **Root cause:** extracting the active section renderer replaced a source range that also contained the existing desktop-window adapter; the icon mapper was then consolidated without updating every call site.
+- **Fix:** restore `settings_window` as the adapter for Escape, refresh, delete and restore dialogs; route the sidebar, compact tabs and section heading through one `tab_icon` mapper.
+- **Verification:** run 1449 on commit `9b74eb8` passed Windows/Linux tests, all desktop builds, GUI smoke and Format.
+
+## RUST-CI-048 — Appearance preview controls left obsolete popup state and strict Clippy documentation failures
+
+- **First observed:** workflow run 1447, Linux/Windows Clippy and test jobs.
+- **Symptom:** `theme_popup` and `accent_popup` became dead fields after dropdowns were replaced with visual cards/swatches; the extracted public `settings_content` entry point lacked its required documentation. The new accent round-trip test also initially used the wrong `Preferences` field name.
+- **Root cause:** the UI no longer needed popup state for theme/accent, but the state struct/default initializer and test assertion were not updated alongside the visual control replacement.
+- **Fix:** remove the two unused popup fields and initializers, document `settings_content`, and assert the persisted `Preferences::accent_color` field. Apply the final rustfmt layout to the theme-card accessibility metadata.
+- **Verification:** run 1449 passed strict Clippy and Format on both Windows/Linux; 329 Linux tests and 329 Windows tests passed, including the responsive dark Settings rendering test.
