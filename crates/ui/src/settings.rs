@@ -2192,7 +2192,11 @@ fn theme_choice(
     ui.painter().galley(
         egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 48.0),
         galley,
-        if active { theme.palette.text } else { theme.palette.text_muted },
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
     );
     if focused {
         ui.painter().rect_stroke(
