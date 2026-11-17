@@ -500,7 +500,13 @@ impl Icon {
                 dot(0.5, 0.8, 0.06);
             }
             Icon::Building => {
-                polygon(vec![p(0.16, 0.86), p(0.16, 0.34), p(0.5, 0.14), p(0.84, 0.34), p(0.84, 0.86)]);
+                polygon(vec![
+                    p(0.16, 0.86),
+                    p(0.16, 0.34),
+                    p(0.5, 0.14),
+                    p(0.84, 0.34),
+                    p(0.84, 0.86),
+                ]);
                 for (x, y) in [(0.34, 0.42), (0.66, 0.42), (0.34, 0.62), (0.66, 0.62)] {
                     painter.rect_stroke(
                         Rect::from_center_size(p(x, y), Vec2::splat(rect.width() * 0.12)),
@@ -508,7 +514,12 @@ impl Icon {
                         stroke,
                     );
                 }
-                polyline(vec![p(0.44, 0.86), p(0.44, 0.68), p(0.56, 0.68), p(0.56, 0.86)]);
+                polyline(vec![
+                    p(0.44, 0.86),
+                    p(0.44, 0.68),
+                    p(0.56, 0.68),
+                    p(0.56, 0.86),
+                ]);
             }
             Icon::CreditCard => {
                 painter.rect_stroke(
@@ -522,8 +533,20 @@ impl Icon {
             Icon::Languages => {
                 painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
                 polyline(vec![p(0.12, 0.5), p(0.88, 0.5)]);
-                polyline(vec![p(0.5, 0.12), p(0.38, 0.32), p(0.34, 0.5), p(0.38, 0.68), p(0.5, 0.88)]);
-                polyline(vec![p(0.5, 0.12), p(0.62, 0.32), p(0.66, 0.5), p(0.62, 0.68), p(0.5, 0.88)]);
+                polyline(vec![
+                    p(0.5, 0.12),
+                    p(0.38, 0.32),
+                    p(0.34, 0.5),
+                    p(0.38, 0.68),
+                    p(0.5, 0.88),
+                ]);
+                polyline(vec![
+                    p(0.5, 0.12),
+                    p(0.62, 0.32),
+                    p(0.66, 0.5),
+                    p(0.62, 0.68),
+                    p(0.5, 0.88),
+                ]);
             }
             Icon::Palette => {
                 painter.circle_stroke(p(0.5, 0.5), rect.width() * 0.38, stroke);
@@ -542,19 +565,47 @@ impl Icon {
                 painter.circle_stroke(p(0.5, 0.24), rect.width() * 0.34, stroke);
                 polyline(vec![p(0.16, 0.24), p(0.16, 0.72)]);
                 polyline(vec![p(0.84, 0.24), p(0.84, 0.72)]);
-                polyline(vec![p(0.16, 0.48), p(0.24, 0.56), p(0.5, 0.6), p(0.76, 0.56), p(0.84, 0.48)]);
-                polyline(vec![p(0.16, 0.72), p(0.24, 0.8), p(0.5, 0.84), p(0.76, 0.8), p(0.84, 0.72)]);
+                polyline(vec![
+                    p(0.16, 0.48),
+                    p(0.24, 0.56),
+                    p(0.5, 0.6),
+                    p(0.76, 0.56),
+                    p(0.84, 0.48),
+                ]);
+                polyline(vec![
+                    p(0.16, 0.72),
+                    p(0.24, 0.8),
+                    p(0.5, 0.84),
+                    p(0.76, 0.8),
+                    p(0.84, 0.72),
+                ]);
             }
             Icon::Users => {
                 painter.circle_stroke(p(0.38, 0.34), rect.width() * 0.14, stroke);
                 painter.circle_stroke(p(0.68, 0.4), rect.width() * 0.11, stroke);
-                polyline(vec![p(0.12, 0.82), p(0.18, 0.62), p(0.38, 0.54), p(0.58, 0.62), p(0.64, 0.82)]);
-                polyline(vec![p(0.62, 0.62), p(0.76, 0.58), p(0.9, 0.7), p(0.92, 0.82)]);
+                polyline(vec![
+                    p(0.12, 0.82),
+                    p(0.18, 0.62),
+                    p(0.38, 0.54),
+                    p(0.58, 0.62),
+                    p(0.64, 0.82),
+                ]);
+                polyline(vec![
+                    p(0.62, 0.62),
+                    p(0.76, 0.58),
+                    p(0.9, 0.7),
+                    p(0.92, 0.82),
+                ]);
             }
             Icon::Download => {
                 polyline(vec![p(0.5, 0.12), p(0.5, 0.66)]);
                 polyline(vec![p(0.28, 0.46), p(0.5, 0.68), p(0.72, 0.46)]);
-                polyline(vec![p(0.16, 0.74), p(0.16, 0.88), p(0.84, 0.88), p(0.84, 0.74)]);
+                polyline(vec![
+                    p(0.16, 0.74),
+                    p(0.16, 0.88),
+                    p(0.84, 0.88),
+                    p(0.84, 0.74),
+                ]);
             }
             Icon::HardDrive => {
                 painter.rect_stroke(
