@@ -3154,6 +3154,7 @@ mod tests {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
 
         send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
         assert!(state.shell.start.is_open());
@@ -3167,6 +3168,7 @@ mod tests {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
 
         send_shortcut(&ctx, &mut state, Key::Tab, Modifiers::CTRL);
 
@@ -3181,6 +3183,9 @@ mod tests {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        let admin = crate::auth::seed_auth_user(&state.store, now_millis()).expect("admin");
+        state.auth.user = Some(admin);
 
         send_shortcut(&ctx, &mut state, Key::F1, Modifiers::NONE);
 
