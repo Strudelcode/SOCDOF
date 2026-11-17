@@ -413,9 +413,8 @@ impl AuthState {
             self.error = Some("auth_recovery_invalid");
             return Ok(());
         }
-        let hash = hash_password(&self.recovery_new_password).map_err(|_| {
-            socdof_core::CoreError::Validation("auth_password_hash".to_string())
-        })?;
+        let hash = hash_password(&self.recovery_new_password)
+            .map_err(|_| socdof_core::CoreError::Validation("auth_password_hash".to_string()))?;
         store.set_password(user_id, &hash)?;
         // The core revokes every persisted session during a password reset. Clear the in-memory
         // session too, including when recovery was started from the locked screen.
@@ -766,7 +765,13 @@ pub fn auth(
         match state.view {
             AuthView::Login | AuthView::Setup if state.allow_exit => state.back = true,
             AuthView::Login | AuthView::Setup => {}
-            AuthView::Recover => state.show_login(),
+            AuthView::Recover => {
+                if state.session.is_some() {
+                    let _ = state.sign_out(store, now);
+                } else {
+                    state.show_login();
+                }
+            }
             AuthView::Unlocked => state.lock(now),
             AuthView::Locked => {}
         }
@@ -938,7 +943,11 @@ fn recovery_form(
     let mut reset = false;
     let mut cancel = false;
     card(ui, theme, |ui| {
-        ui.label(RichText::new(texts.get("auth_recovery_title")).size(22.0).strong());
+        ui.label(
+            RichText::new(texts.get("auth_recovery_title"))
+                .size(22.0)
+                .strong(),
+        );
         ui.label(
             RichText::new(texts.get("auth_recovery_subtitle"))
                 .size(FONT_SMALL)
@@ -988,20 +997,36 @@ fn recovery_form(
         messages(ui, theme, texts, state, now);
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if button(ui, theme, focus, texts.get("auth_recovery_cancel"), ButtonVariant::Ghost)
-                .activated
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("auth_recovery_cancel"),
+                ButtonVariant::Ghost,
+            )
+            .activated
             {
                 cancel = true;
             }
-            if button(ui, theme, focus, texts.get("auth_recovery_reset"), ButtonVariant::Primary)
-                .activated
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("auth_recovery_reset"),
+                ButtonVariant::Primary,
+            )
+            .activated
             {
                 reset = true;
             }
         });
     });
     if cancel {
-        state.show_login();
+        if state.session.is_some() {
+            let _ = state.sign_out(store, now);
+        } else {
+            state.show_login();
+        }
     } else if reset || submit {
         let _ = state.reset_password_with_recovery(store, now);
     }
@@ -1982,7 +2007,8 @@ mod tests {
         state.recovery_answer_two = "bolzano".to_string();
         state.recovery_new_password = "recovered-password-2026".to_string();
         state.recovery_confirm_password = state.recovery_new_password.clone();
-        state.reset_password_with_recovery(&store, now_millis())
+        state
+            .reset_password_with_recovery(&store, now_millis())
             .expect("wrong answer check");
         assert_eq!(state.error, Some("auth_recovery_invalid"));
         assert!(store
@@ -1991,7 +2017,8 @@ mod tests {
             .is_some());
 
         state.recovery_answer_one = "FLUFFY".to_string();
-        state.reset_password_with_recovery(&store, now_millis())
+        state
+            .reset_password_with_recovery(&store, now_millis())
             .expect("password reset");
         assert_eq!(state.view, AuthView::Login);
         assert_eq!(state.status, Some("auth_recovery_done"));
