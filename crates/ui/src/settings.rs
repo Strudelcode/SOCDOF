@@ -1602,7 +1602,7 @@ fn accent_swatch(
             Stroke::new(1.5_f32, theme.accent.base),
         );
     }
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::RadioButton, &preset.label));
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, &preset.label));
     if activated {
         *selected = id.to_owned();
     }
