@@ -466,3 +466,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the Settings screen reused compact form controls for high-impact appearance choices and did not repeat a clear section identity after navigation.
 - **Fix:** add a shared section heading with the section icon, localized title, subtitle and section position. Replace the theme dropdown with selectable Light/Dark/System preview cards and replace the accent dropdown with nine clickable color swatches. Existing persisted preference fields and save flow are unchanged.
 - **Verification:** committed; current-head Format, Linux/Windows tests, GUI smoke and desktop build must pass. The previous run's successful Linux tests do not verify this later UI commit.
+## RUST-UI-004 — Settings layout now adapts between desktop sidebar and compact navigation
+
+- **First observed:** visual review of the eleven-section Settings screen.
+- **Symptom:** a horizontally scrolling icon strip worked at compact widths but wasted horizontal space on desktop and made long settings sessions harder to navigate.
+- **Root cause:** one navigation layout was used for every window width.
+- **Fix:** desktop widths (at least 980 logical points) now use a fixed-width icon sidebar beside the section content; compact widths retain the horizontally scrolling icon tabs. The shared section header and all existing state/save handlers are reused, so navigation changes do not alter persisted settings.
+- **Regression coverage:** added dark-mode rendering checks for all eleven sections at 760 px and 1280 px and verifies that the selected accent preference round-trips through the existing preferences store.
+- **Verification:** committed; current-head Format, Linux/Windows tests, desktop builds and GUI smoke must pass before closure.
