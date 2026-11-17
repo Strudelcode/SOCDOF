@@ -796,7 +796,11 @@ fn shell_row(
         ui.painter().rect(
             rect,
             egui::Rounding::same(7.0),
-            if active { theme.accent.ring } else { theme.accent.light },
+            if active {
+                theme.accent.ring
+            } else {
+                theme.accent.light
+            },
             Stroke::NONE,
         );
     }
@@ -815,16 +819,28 @@ fn shell_row(
         icon.draw(
             ui.painter(),
             Rect::from_center_size(Pos2::new(left + 8.0, rect.center().y), Vec2::splat(15.0)),
-            if active || focused { theme.accent_text() } else { theme.palette.text_muted },
+            if active || focused {
+                theme.accent_text()
+            } else {
+                theme.palette.text_muted
+            },
             1.55,
         );
         left += 26.0;
     }
-    let family = if active { crate::theme::semibold() } else { egui::FontFamily::Proportional };
+    let family = if active {
+        crate::theme::semibold()
+    } else {
+        egui::FontFamily::Proportional
+    };
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
         FontId::new(FONT_BODY, family),
-        if active { theme.palette.text } else { theme.palette.text_muted },
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
     );
     ui.painter().galley(
         Pos2::new(left, rect.center().y - galley.size().y / 2.0),
