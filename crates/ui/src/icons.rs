@@ -539,7 +539,7 @@ impl Icon {
                 polyline(vec![p(0.76, 0.78), p(0.86, 0.68)]);
             }
             Icon::Database => {
-                painter.ellipse_stroke(p(0.5, 0.24), Vec2::new(rect.width() * 0.34, rect.height() * 0.12), stroke);
+                painter.circle_stroke(p(0.5, 0.24), rect.width() * 0.34, stroke);
                 polyline(vec![p(0.16, 0.24), p(0.16, 0.72)]);
                 polyline(vec![p(0.84, 0.24), p(0.84, 0.72)]);
                 polyline(vec![p(0.16, 0.48), p(0.24, 0.56), p(0.5, 0.6), p(0.76, 0.56), p(0.84, 0.48)]);
