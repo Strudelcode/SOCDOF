@@ -111,7 +111,14 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Install toolchain
+      - name: Install macOS-compatible Rust toolchain
+        if: matrix.platform == 'macos'
+        uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install Rust toolchain
+        if: matrix.platform != 'macos'
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache release cargo
