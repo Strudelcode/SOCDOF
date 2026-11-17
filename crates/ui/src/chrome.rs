@@ -46,7 +46,7 @@ pub fn tint(app: AppChrome) -> egui::Color32 {
 }
 
 /// Every application of the suite, in the order of the legacy app launcher.
-pub const APPS: [AppChrome; 18] = [
+pub const APPS: [AppChrome; 19] = [
     AppChrome {
         slug: "dashboard",
         title_key: "app_dashboard",
