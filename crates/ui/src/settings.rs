@@ -279,6 +279,7 @@ struct UserDraft {
     active: bool,
     must_change_password: bool,
     role_choice: usize,
+    account_type_choice: usize,
 }
 
 impl Default for UserDraft {
@@ -292,12 +293,13 @@ impl Default for UserDraft {
             active: true,
             must_change_password: true,
             role_choice: 1,
+            account_type_choice: 0,
         }
     }
 }
 
 impl UserDraft {
-    fn from_user(user: &User, roles: &[Role]) -> Self {
+    fn from_user(user: &User, roles: &[Role], account_type_choice: usize) -> Self {
         Self {
             id: Some(user.id),
             username: user.username.clone(),
@@ -307,6 +309,7 @@ impl UserDraft {
             active: user.active,
             must_change_password: user.must_change_password,
             role_choice: role_choice_for(user, roles),
+            account_type_choice,
         }
     }
 
@@ -468,6 +471,7 @@ pub struct SettingsState {
     startup_popup: PopupState,
     security_user_popup: PopupState,
     user_role_popup: PopupState,
+    user_account_type_popup: PopupState,
     update_channel_popup: PopupState,
     role_level_popups: Vec<PopupState>,
     error: Option<&'static str>,
@@ -512,6 +516,7 @@ impl Default for SettingsState {
             startup_popup: PopupState::default(),
             security_user_popup: PopupState::default(),
             user_role_popup: PopupState::default(),
+            user_account_type_popup: PopupState::default(),
             update_channel_popup: PopupState::default(),
             role_level_popups: vec![PopupState::default(); ALL_MODULES.len()],
             error: None,
@@ -745,9 +750,21 @@ impl SettingsState {
         self.status = None;
     }
 
-    fn edit_user(&mut self, id: Uuid) {
+    fn edit_user(&mut self, id: Uuid, store: &Store) {
         if let Some(user) = self.users.iter().find(|user| user.id == id) {
-            self.user_editor = Some(UserDraft::from_user(user, &self.roles));
+            let key = format!("account_type:{}", user.id);
+            let account_type = store
+                .get_setting(&key)
+                .ok()
+                .flatten()
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .unwrap_or_else(|| "personal".to_string());
+            let account_type_choice = usize::from(account_type == "business");
+            self.user_editor = Some(UserDraft::from_user(
+                user,
+                &self.roles,
+                account_type_choice,
+            ));
             self.error = None;
             self.status = None;
         }
@@ -774,6 +791,22 @@ impl SettingsState {
             store.insert_user(&user)
         };
         if result.is_err() {
+            self.error = Some("settings_error_user_save");
+            return false;
+        }
+        let account_type = if draft.account_type_choice == 1 {
+            "business"
+        } else {
+            "personal"
+        };
+        let account_type_key = format!("account_type:{}", user.id);
+        if store
+            .put_setting(
+                &account_type_key,
+                &serde_json::Value::String(account_type.to_string()),
+            )
+            .is_err()
+        {
             self.error = Some("settings_error_user_save");
             return false;
         }
@@ -834,6 +867,8 @@ impl SettingsState {
                 let result = store.delete_user(id);
                 if result.is_ok() {
                     let _ = settings_service::delete_preferences(store, id);
+                    let _ = store.remove_setting(&format!("account_type:{id}"));
+                    let _ = socdof_core::security_questions::delete_security_answers(store, id);
                 }
                 result
             }
@@ -2371,7 +2406,7 @@ fn users_tab(
         state.start_new_user();
     }
     if let Some(id) = edit {
-        state.edit_user(id);
+        state.edit_user(id, store);
     }
     if let Some(id) = delete {
         state.delete_target = Some(DeleteTarget::User(id));
@@ -2455,6 +2490,25 @@ fn user_form(
                 role_popup_id,
                 &mut draft.role_choice,
                 &role_labels,
+            );
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new(texts.get("settings_user_account_type"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            let account_types = [
+                texts.get("setup_account_type_personal"),
+                texts.get("setup_account_type_business"),
+            ];
+            columns_select(
+                ui,
+                theme,
+                focus,
+                &mut state.user_account_type_popup,
+                "settings-user-account-type",
+                &mut draft.account_type_choice,
+                &account_types,
             );
             ui.add_space(6.0);
             switch(
@@ -3156,6 +3210,39 @@ mod tests {
     }
 
     #[test]
+    fn user_account_type_round_trips_through_settings() {
+        let (store, mut state, _texts) = seeded();
+        state.start_new_user();
+        if let Some(draft) = state.user_editor.as_mut() {
+            draft.username = "business-user".to_string();
+            draft.display_name = "Business User".to_string();
+            draft.password = "business-password-2026".to_string();
+            draft.password_confirm = "business-password-2026".to_string();
+            draft.account_type_choice = 1;
+        }
+        assert!(state.save_user(&store, SAMPLE_NOW_MS));
+        let user = store
+            .find_user_by_username("business-user")
+            .expect("find user")
+            .expect("user exists");
+        let key = format!("account_type:{}", user.id);
+        assert_eq!(
+            store
+                .get_setting(&key)
+                .expect("account type")
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .as_deref(),
+            Some("business")
+        );
+
+        state.edit_user(user.id, &store);
+        assert_eq!(
+            state.user_editor.as_ref().map(|draft| draft.account_type_choice),
+            Some(1)
+        );
+    }
+
+    #[test]
     fn creates_edits_and_deletes_users() {
         let (store, mut state, _texts) = seeded();
         state.start_new_user();
@@ -3171,7 +3258,7 @@ mod tests {
             .find_user_by_username("neu")
             .expect("find")
             .expect("present");
-        state.edit_user(created.id);
+        state.edit_user(created.id, &store);
         if let Some(draft) = state.user_editor.as_mut() {
             draft.display_name = "Umbenannt".to_string();
         }
