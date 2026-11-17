@@ -1425,10 +1425,7 @@ fn settings_sidebar(
                 1.6,
             );
             ui.add_space(24.0);
-            ui.label(
-                RichText::new(texts.get("settings_title"))
-                    .family(crate::theme::semibold()),
-            );
+            ui.label(RichText::new(texts.get("settings_title")).family(crate::theme::semibold()));
         });
         ui.add_space(10.0);
         for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
@@ -1446,14 +1443,26 @@ fn settings_sidebar(
                 ui.painter().rect(
                     rect,
                     egui::Rounding::same(8.0),
-                    if active { theme.accent.light } else { theme.palette.surface_muted },
+                    if active {
+                        theme.accent.light
+                    } else {
+                        theme.palette.surface_muted
+                    },
                     Stroke::new(
                         if active { 1.0_f32 } else { 0.0_f32 },
-                        if active { theme.accent.border } else { egui::Color32::TRANSPARENT },
+                        if active {
+                            theme.accent.border
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        },
                     ),
                 );
             }
-            let color = if active { theme.accent_text() } else { theme.palette.text_muted };
+            let color = if active {
+                theme.accent_text()
+            } else {
+                theme.palette.text_muted
+            };
             tab_icon(tab).draw(
                 ui.painter(),
                 egui::Rect::from_center_size(
@@ -1467,14 +1476,26 @@ fn settings_sidebar(
                 label.to_owned(),
                 FontId::new(
                     FONT_SMALL,
-                    if active { crate::theme::semibold() } else { egui::FontFamily::Proportional },
+                    if active {
+                        crate::theme::semibold()
+                    } else {
+                        egui::FontFamily::Proportional
+                    },
                 ),
-                if active { theme.palette.text } else { theme.palette.text_muted },
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
             );
             ui.painter().galley(
                 egui::Pos2::new(rect.left() + 32.0, rect.center().y - galley.size().y / 2.0),
                 galley,
-                if active { theme.palette.text } else { theme.palette.text_muted },
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
             );
             if focused {
                 ui.painter().rect_stroke(
@@ -1510,16 +1531,12 @@ fn tab_icon(tab: SettingsTab) -> Icon {
 }
 
 /// Gives every settings section a consistent visual anchor and clear hierarchy.
-fn settings_section_heading(
-    ui: &mut egui::Ui,
-    theme: &Theme,
-    texts: &UiTexts,
-    tab: SettingsTab,
-) {
+fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, tab: SettingsTab) {
     card(ui, theme, |ui| {
         ui.horizontal(|ui| {
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
-            ui.painter().circle_filled(icon_rect.center(), 22.0, theme.accent.light);
+            ui.painter()
+                .circle_filled(icon_rect.center(), 22.0, theme.accent.light);
             tab_icon(tab).draw(
                 ui.painter(),
                 egui::Rect::from_center_size(icon_rect.center(), Vec2::splat(22.0)),
@@ -1582,13 +1599,21 @@ fn accent_swatch(
         preset.base,
         Stroke::new(
             if active { 2.0_f32 } else { 1.0_f32 },
-            if active { preset.base } else { theme.palette.border },
+            if active {
+                preset.base
+            } else {
+                theme.palette.border
+            },
         ),
     );
     let galley = ui.painter().layout_no_wrap(
         preset.label.clone(),
         egui::FontId::new(9.0, egui::FontFamily::Proportional),
-        if active { theme.palette.text } else { theme.palette.text_muted },
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
     );
     ui.painter().galley(
         egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 40.0),
@@ -1602,7 +1627,9 @@ fn accent_swatch(
             Stroke::new(1.5_f32, theme.accent.base),
         );
     }
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, &preset.label));
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, &preset.label)
+    });
     if activated {
         *selected = id.to_owned();
     }
@@ -2111,10 +2138,18 @@ fn theme_choice(
     ui.painter().rect(
         rect,
         egui::Rounding::same(12.0),
-        if active { theme.accent.light } else { theme.palette.surface },
+        if active {
+            preset.light
+        } else {
+            theme.palette.surface
+        },
         Stroke::new(
             if active { 1.5_f32 } else { 1.0_f32 },
-            if active { theme.accent.border } else { theme.palette.border },
+            if active {
+                theme.accent.border
+            } else {
+                theme.palette.border
+            },
         ),
     );
     icon.draw(
@@ -2123,12 +2158,23 @@ fn theme_choice(
             egui::Pos2::new(rect.center().x, rect.top() + 25.0),
             Vec2::splat(22.0),
         ),
-        if active { theme.accent_text() } else { theme.palette.text_muted },
+        if active {
+            theme.accent_text()
+        } else {
+            theme.palette.text_muted
+        },
         1.7,
     );
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
-        egui::FontId::new(FONT_SMALL, if active { crate::theme::semibold() } else { egui::FontFamily::Proportional }),
+        egui::FontId::new(
+            FONT_SMALL,
+            if active {
+                crate::theme::semibold()
+            } else {
+                egui::FontFamily::Proportional
+            },
+        ),
         if active { theme.palette.text } else { theme.palette.text_muted },
     );
     ui.painter().galley(
