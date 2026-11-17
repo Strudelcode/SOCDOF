@@ -45,21 +45,22 @@ rendered applications, not mockups.
 
 | View | Theme | Full pixel score | Window pixel score | Window SSIM | Close pixels ≤16/255 |
 |---|---|---:|---:|---:|---:|
-| Dashboard | light | 97.33 | **98.87** | **0.9491** | 97.06 % |
-| Dashboard | dark | 96.83 | **98.44** | **0.9310** | 96.43 % |
-| Invoices | light | 97.26 | **98.76** | **0.9041** | 96.57 % |
-| Invoices | dark | 96.76 | **98.33** | 0.8961 | 94.89 % |
-| Contacts | light | 97.32 | **98.85** | **0.9116** | 96.94 % |
-| Contacts | dark | 96.80 | **98.38** | 0.8979 | 93.65 % |
-| Settings | light | 95.38 | 95.92 | 0.7251 | 89.80 % |
-| Settings | dark | 94.85 | 95.42 | 0.7072 | 87.99 % |
-| Command Palette | light | 98.01 | 97.87 | **0.9011** | 94.72 % |
-| Command Palette | dark | 97.97 | 97.88 | 0.8778 | 95.05 % |
+| Dashboard | light | 97.31 | **98.87** | **0.9491** | 97.06 % |
+| Dashboard | dark | 96.80 | **98.44** | **0.9310** | 96.43 % |
+| Invoices | light | 97.23 | **98.76** | **0.9041** | 96.57 % |
+| Invoices | dark | 96.74 | **98.33** | 0.8961 | 94.89 % |
+| Contacts | light | 97.29 | **98.85** | **0.9116** | 96.94 % |
+| Contacts | dark | 96.78 | **98.38** | 0.8979 | 93.65 % |
+| Settings | light | 96.79 | **98.10** | 0.8499 | 94.37 % |
+| Settings | dark | 95.96 | 97.14 | 0.8393 | 93.05 % |
+| Command Palette | light | 97.59 | 97.94 | **0.9029** | 94.49 % |
+| Command Palette | dark | 97.11 | 96.91 | 0.8573 | 91.13 % |
 
-Bold values meet the target. Settings is the only pair below the 98.00 pixel target; its SSIM stays
-far below 0.90 because the TS icon set and text rendering differ throughout the sidebar and cards.
-The palette follows the TS module order exactly and now passes in light mode; the dark palette keeps
-the TS geometry but its backdrop and icon layer are still visibly different.
+Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). Seven of
+ten pairs meet the pixel target and five of ten meet the SSIM target. Settings dark and both command
+palette captures remain below the pixel target. Settings remains the largest structural mismatch:
+its text-glyph substitutes for the TypeScript outline icons and lighter label weight affect the
+sidebar and cards. The command palette still differs in its desktop backdrop and icon layer.
 
 ## Remaining differences
 
