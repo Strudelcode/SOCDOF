@@ -17,10 +17,15 @@
 - Values are trimmed, saved to a separate SQLite settings key and restored on reload.
 - Added DE/EN/FR/ES catalogues and a persistence regression test.
 
+## Explicit product scope decisions
+
+- Google account connections and Google Calendar synchronization are intentionally out of scope. Do not add Google OAuth, Google Calendar API clients, Google connection screens or background sync jobs as part of the native migration unless the product owner explicitly reopens this decision.
+- The local/native Calendar app remains a separate product feature; excluding Google sync does not mean removing the Calendar app.
+
 ## Explicitly not claimed as complete
 
-- Native display enumeration, monitor arrangement, virtual displays, primary-monitor switching, HDR and hardware night-light control require OS-specific Windows/Linux/macOS integrations. The current Display page does not pretend to control those OS features.
-- Letterhead metadata is persisted but is not yet wired into every invoice, PDF, DOCX, email and print renderer. That is the next document-rendering parity task.
+- Native display enumeration, monitor arrangement, virtual displays, primary-monitor switching, HDR and hardware night-light control require OS-specific Windows/Linux/macOS integrations. The current Display page persists only application scale and a night-light preference; it does not detect or rearrange monitors or change hardware/OS color temperature. The night-light switch must not be presented as an active hardware control until the OS integration exists.
+- Letterhead metadata is persisted but is not yet wired into every invoice, PDF, DOCX, email and print renderer. In particular, PDF/DIN 5008 rendering is not yet complete. That is the next document-rendering parity task.
 - TypeScript has additional Display fields and letterhead options; this commit is a functional native foundation, not a 95% parity sign-off.
 
 ## Verification gate
