@@ -106,6 +106,7 @@ mod tests {
         assert!(stored.answer_hashes[0].starts_with("$argon2id$"));
 
         assert!(verify_security_answer(&store, user, 0, "FIRST PET").expect("case-insensitive verify"));
+        assert!(verify_security_answer(&store, user, 0, "FIRST PET").expect("case-insensitive verify"));
         assert!(verify_security_answer(&store, user, 0, "first pet").expect("verify"));
         assert!(!verify_security_answer(&store, user, 0, "wrong").expect("verify"));
         assert!(!verify_security_answer(&store, user, 2, "first pet").expect("verify"));

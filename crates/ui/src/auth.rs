@@ -324,6 +324,8 @@ impl AuthState {
         self.username = user.username;
         self.password = password;
         self.password_confirm.clear();
+        self.recovery_answer_one.clear();
+        self.recovery_answer_two.clear();
         self.login(store, now)?;
         if self.view == AuthView::Unlocked {
             self.status = Some("auth_setup_done");
@@ -415,6 +417,12 @@ impl AuthState {
             socdof_core::CoreError::Validation("auth_password_hash".to_string())
         })?;
         store.set_password(user_id, &hash)?;
+        // The core revokes every persisted session during a password reset. Clear the in-memory
+        // session too, including when recovery was started from the locked screen.
+        self.user = None;
+        self.session = None;
+        self.token = None;
+        self.last_activity_ms = now;
         self.password.clear();
         self.password_confirm.clear();
         self.recovery_target = None;
@@ -425,7 +433,6 @@ impl AuthState {
         self.view = AuthView::Login;
         self.error = None;
         self.status = Some("auth_recovery_done");
-        let _ = now;
         Ok(())
     }
 
@@ -1422,6 +1429,7 @@ fn lock_screen(
 ) {
     let mut unlock = false;
     let mut sign_out = false;
+    let mut recover = false;
     // The legacy lock screen is a screen, not a form: a large clock, the date and the avatar of the
     // signed-in account above one password field.
     ui.add_space(10.0);
@@ -1526,7 +1534,7 @@ fn lock_screen(
         )
         .activated
         {
-            state.forgot_hint = !state.forgot_hint;
+            recover = true;
         }
         ui.label(
             RichText::new(if state.forgot_hint {
@@ -1538,6 +1546,21 @@ fn lock_screen(
             .color(theme.palette.text_muted),
         );
     });
+    if recover {
+        if let Some(user) = state.user.clone() {
+            let configured = socdof_core::security_questions::security_answers(store, user.id)
+                .map(|answers| answers.answer_hashes.len() >= 2 && answers.is_configured())
+                .unwrap_or(false);
+            if configured {
+                state.username = user.username;
+                state.begin_recovery(store);
+            } else {
+                state.forgot_hint = !state.forgot_hint;
+            }
+        } else {
+            state.forgot_hint = !state.forgot_hint;
+        }
+    }
     if !others.is_empty() {
         ui.add_space(12.0);
         ui.vertical_centered(|ui| {
@@ -1932,7 +1955,7 @@ mod tests {
             .expect("wrong answer check");
         assert_eq!(state.error, Some("auth_recovery_invalid"));
         assert!(store
-            .authenticate("admin", "sicheres-passwort")
+            .authenticate("admin", "Socdof2026!")
             .expect("old password")
             .is_some());
 
@@ -1941,6 +1964,8 @@ mod tests {
             .expect("password reset");
         assert_eq!(state.view, AuthView::Login);
         assert_eq!(state.status, Some("auth_recovery_done"));
+        assert!(state.user.is_none());
+        assert!(state.session.is_none());
         assert!(store
             .authenticate("admin", "recovered-password-2026")
             .expect("new password")
@@ -1951,6 +1976,13 @@ mod tests {
     fn renders_all_five_views_in_every_language_and_theme() {
         let store = store_with_admin();
         let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("admin").id;
+        socdof_core::security_questions::save_security_answers(
+            &store,
+            user_id,
+            &["first pet".to_string(), "childhood city".to_string()],
+        )
+        .expect("recovery answers");
         for language in [Language::De, Language::En, Language::Fr, Language::Es] {
             let texts = UiTexts::embedded(language).unwrap();
             for appearance in [
