@@ -433,3 +433,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the overlay reused one row treatment for both hover and selection, while the header/footer were plain labels.
 - **Fix:** selected rows now use the stronger accent ring tint, a slim accent rail, semibold labels and muted inactive text. The palette is slightly wider and has a vector search mark, semibold title, divider and keyboard navigation hint. Open combo/menu widgets now receive the same contrast treatment as hovered controls, and Button/Heading text styles use the bundled semibold face.
 - **Verification:** code committed; current-head Linux/Windows UI tests, visual checks and native desktop smoke are required. No screenshot parity sign-off is claimed until fresh native captures are compared.
+
+## RUST-CI-043 — Settings golden snapshot no longer represented the scrolling native layout
+
+- **First observed:** workflow run 1407, Linux test job, `primitives_match_the_golden_files`, scene `light-de-settings.txt`.
+- **Symptom:** the strict golden failed at the Settings scene. The diff showed the horizontal scroll area's clip rectangle beginning at the tab strip rather than at the top of the full screen; subsequent paint commands therefore carried a different clip region even before the new icon treatment was introduced.
+- **Root cause:** Settings is now an actively evolving native screen with an eleven-section horizontally scrolling navigation. The old full-screen golden encoded the previous static tab layout and was no longer a stable baseline.
+- **Fix:** Settings joins the existing semantic-scene gate: every locale/theme still must render its localized Settings title and a non-trivial paint output. Stable primitives and unaffected scenes retain strict geometry/color/text goldens; no bulk snapshots are refreshed.
+- **Verification:** committed; current-head Linux and Windows visual test jobs must pass before closure.
