@@ -181,7 +181,36 @@ jobs:
             target/x86_64-apple-darwin/release/socdof-ui-desktop \
             -output artifacts/socdof-ui-desktop-universal
           file artifacts/socdof-ui-desktop-universal
-          lipo -verify_arch arm64 x86_64 artifacts/socdof-ui-desktop-universal
+          lipo -verify_arch arm64 artifacts/socdof-ui-desktop-universal
+          lipo -verify_arch x86_64 artifacts/socdof-ui-desktop-universal
+
+          version='${{ steps.version.outputs.value }}'
+          app="artifacts/SOCDOF-${version}-macos-universal-native.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          cp artifacts/socdof-ui-desktop-universal "$app/Contents/MacOS/SOCDOF"
+          chmod +x "$app/Contents/MacOS/SOCDOF"
+          cat > "$app/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>SOCDOF</string>
+            <key>CFBundleDisplayName</key><string>SOCDOF</string>
+            <key>CFBundleIdentifier</key><string>com.strudelcode.socdof.native</string>
+            <key>CFBundleVersion</key><string>${version}</string>
+            <key>CFBundleShortVersionString</key><string>${version}</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleExecutable</key><string>SOCDOF</string>
+            <key>LSMinimumSystemVersion</key><string>11.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          plutil -lint "$app/Contents/Info.plist"
+          lipo -verify_arch arm64 "$app/Contents/MacOS/SOCDOF"
+          lipo -verify_arch x86_64 "$app/Contents/MacOS/SOCDOF"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
+          unzip -t "artifacts/SOCDOF-${version}-macos-universal-native.zip"
 
       - name: Build Tauri bundles
         working-directory: crates/app
@@ -432,6 +461,15 @@ jobs:
         with:
           name: SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
           path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-macos-universal.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload macOS native Rust app
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v6
+        with:
+          name: SOCDOF-${{ steps.version.outputs.value }}-macos-universal-native
+          path: artifacts/SOCDOF-${{ steps.version.outputs.value }}-macos-universal-native.zip
           if-no-files-found: error
           retention-days: 14
 
