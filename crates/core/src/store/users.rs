@@ -102,6 +102,26 @@ pub fn authenticate(conn: &Connection, username: &str, password: &str) -> CoreRe
 /// The password hash is not changed here; use [`set_password`] for that. The last administrator
 /// cannot be demoted or deactivated, so a broken role assignment cannot lock everybody out.
 pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
+    update_internal(conn, user, None)
+}
+
+/// Updates a user's own password while keeping the session used to authorize the change.
+///
+/// Every other session is revoked so a password change cannot leave older devices signed in.
+pub fn update_preserving_session(
+    conn: &Connection,
+    user: &User,
+    session_id: Uuid,
+    now: i64,
+) -> CoreResult<()> {
+    update_internal(conn, user, Some((session_id, now)))
+}
+
+fn update_internal(
+    conn: &Connection,
+    user: &User,
+    preserved_session: Option<(Uuid, i64)>,
+) -> CoreResult<()> {
     user.validate().map_err(CoreError::Validation)?;
 
     let existing: Option<(String, Option<String>, bool, String, String)> = conn
@@ -152,18 +172,27 @@ pub fn update(conn: &Connection, user: &User) -> CoreResult<()> {
     }
 
     // Sessions retain the permissions and identity from sign-in time. Revoke them whenever
-    // account access changes so an old desktop cannot keep using stale privileges.
+    // account access changes. A self-service password change may retain only its authorizing
+    // session; every other session is still revoked atomically with the account update.
     if role != user.role.as_str()
         || role_id != user.role_id
         || active != user.active
         || username != user.username.trim()
         || password_hash != user.password_hash
     {
-        transaction.execute(
-            "UPDATE auth_sessions SET revoked_at = ?2
-             WHERE user_id = ?1 AND revoked_at IS NULL",
-            params![user.id.to_string(), now_millis()],
-        )?;
+        if let Some((session_id, now)) = preserved_session {
+            transaction.execute(
+                "UPDATE auth_sessions SET revoked_at = ?2
+                 WHERE user_id = ?1 AND id <> ?3 AND revoked_at IS NULL",
+                params![user.id.to_string(), now, session_id.to_string()],
+            )?;
+        } else {
+            transaction.execute(
+                "UPDATE auth_sessions SET revoked_at = ?2
+                 WHERE user_id = ?1 AND revoked_at IS NULL",
+                params![user.id.to_string(), now_millis()],
+            )?;
+        }
     }
 
     transaction.commit()?;
