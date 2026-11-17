@@ -1084,7 +1084,8 @@ pub fn command_palette(
                 ui.set_width(460.0);
                 ui.horizontal(|ui| {
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::hover());
-                    ui.painter().circle_filled(icon_rect.center(), 14.0, theme.accent.light);
+                    ui.painter()
+                        .circle_filled(icon_rect.center(), 14.0, theme.accent.light);
                     Icon::Search.draw(
                         ui.painter(),
                         Rect::from_center_size(icon_rect.center(), Vec2::splat(16.0)),
