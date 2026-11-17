@@ -4039,12 +4039,38 @@ mod tests {
     }
 
     #[test]
+    fn escape_does_not_close_module_windows_while_first_run_onboarding_is_open() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.desktop_open = true;
+        state.desktop_windows.open(
+            Window::new(
+                AppId::new("fleet"),
+                "Fleet".to_owned(),
+                Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0)),
+            ),
+            1_000,
+        );
+
+        send_shortcut(&ctx, &mut state, Key::Escape, Modifiers::NONE);
+
+        assert!(state.shell.onboarding.is_open());
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+    }
+
+    #[test]
     fn escape_in_the_active_module_window_does_not_close_other_modules() {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
         state.desktop_open = true;
+        // The default shell state deliberately starts with first-run onboarding visible.
+        // Complete it here so this test exercises Escape on the focused app window, not
+        // the higher-priority onboarding modal.
+        state.shell.onboarding.finish();
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
 
         for (index, slug) in ["projects", "fleet"].into_iter().enumerate() {
