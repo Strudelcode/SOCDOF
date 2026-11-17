@@ -474,3 +474,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** desktop widths (at least 980 logical points) now use a fixed-width icon sidebar beside the section content; compact widths retain the horizontally scrolling icon tabs. The shared section header and all existing state/save handlers are reused, so navigation changes do not alter persisted settings.
 - **Regression coverage:** added dark-mode rendering checks for all eleven sections at 760 px and 1280 px and verifies that the selected accent preference round-trips through the existing preferences store.
 - **Verification:** committed; current-head Format, Linux/Windows tests, desktop builds and GUI smoke must pass before closure.
+## RUST-UI-005 — Settings categories reused generic icons instead of recognizable section glyphs
+
+- **First observed:** visual review of the new Settings sidebar and compact navigation.
+- **Symptom:** several categories shared generic symbols (for example, backup and updates both used refresh; users and company profile both used the person glyph), making the navigation less scannable.
+- **Root cause:** the original native vector icon catalogue had no dedicated glyphs for company, payment card, language, palette, key, database, multiple users, download, local drive or keyboard.
+- **Fix:** add ten crisp vector glyphs to the icon catalogue and map all eleven Settings categories to a distinct, semantically relevant icon. The icon gallery's `ALL_ICONS` test now exercises the new glyphs automatically.
+- **Verification:** committed; current-head Format, Clippy, Linux/Windows tests and native desktop builds must pass.
