@@ -1358,8 +1358,7 @@ fn settings_tabs(
                 },
             );
             let width = (galley.size().x + 42.0).max(94.0);
-            let (rect, response) =
-                ui.allocate_exact_size(Vec2::new(width, 38.0), Sense::click());
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 38.0), Sense::click());
             let focused = focus.register(response.id);
             if response.clicked() {
                 focus.set_focus(Some(response.id));
@@ -1396,10 +1395,7 @@ fn settings_tabs(
             );
             settings_tab_icon(tab).draw(ui.painter(), icon_rect, color, 1.55);
             ui.painter().galley(
-                egui::Pos2::new(
-                    rect.left() + 31.0,
-                    rect.center().y - galley.size().y / 2.0,
-                ),
+                egui::Pos2::new(rect.left() + 31.0, rect.center().y - galley.size().y / 2.0),
                 galley,
                 if active {
                     theme.palette.text
