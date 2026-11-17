@@ -178,6 +178,14 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 - `src/types.ts`
 - `src/vite-env.d.ts`
 
+## Settings native follow-up (2026-11-17)
+
+- Added native Display and Letterhead sections to the 13-section Settings navigation.
+- Display scaling (75–200%) is validated, stored in SQLite and applied to the egui context. Night-light preference and temperature are stored, but no OS hardware color-temperature control is claimed.
+- Letterhead logo path, subject, management/register details, four footer columns, background and DIN 5008 fold-mark preferences persist under separate versioned settings keys. Existing company profile, user preferences and database records are left intact.
+- DE/EN/FR/ES catalogue strings and a SQLite read-back regression test were added.
+- The native Display page does not yet implement monitor enumeration/arrangement, virtual monitors, HDR or OS-level night-light control. Letterhead values are not yet connected to all PDF/DOCX/invoice/print renderers. See [settings-rust-parity.md](settings-rust-parity.md); this is a functional foundation, not a 95% parity sign-off.
+
 ## Audits completed so far (partial, not parity sign-off)
 
 | Area | Comparison performed | Result | Still open |
