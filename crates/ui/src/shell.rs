@@ -1081,11 +1081,6 @@ pub fn command_palette(
                                 .size(FONT_HEADING)
                                 .family(crate::theme::semibold()),
                         );
-                        ui.label(
-                            RichText::new(texts.get("palette_hint"))
-                                .size(FONT_SMALL)
-                                .color(theme.palette.text_muted),
-                        );
                     });
                 });
                 ui.add_space(10.0);
