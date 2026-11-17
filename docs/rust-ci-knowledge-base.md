@@ -370,3 +370,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** this end-to-end test created the SQLite schema lazily inside the upload callback. On a cold Windows runner, schema initialization happened on the HTTP request path and exceeded the short response timeout.
 - **Fix:** initialize and close the test database before starting the HTTP gateway. The request still exercises the real upload callback and persistence path, but first-time schema migration is no longer mixed into the HTTP response timing.
 - **Verification:** pending the next Windows core integration run.
+
+
+## RUST-CI-038 — Settings tab strip expanded the native window beyond its viewport
+
+- **First observed:** workflow run 1380, Linux visual primitives test.
+- **Symptom:** the Settings golden scene expanded from the 1,000-point viewport to 1,243.76 points; the first tab row and following content were correspondingly wider. The visual gate correctly rejected the geometry drift.
+- **Root cause:** eleven translated Settings tabs were placed in an unbounded horizontal layout. Their intrinsic button widths propagated to the parent module instead of being constrained by the desktop window.
+- **Fix:** wrap the Settings-only tab strip in a horizontal egui scroll area. This preserves the single-row navigation and all tab actions while keeping the module width within the available viewport; other shorter tab bars are unchanged.
+- **Verification:** pending the next Linux/Windows visual test run. Do not refresh the golden snapshot unless the rendered geometry has been reviewed.
