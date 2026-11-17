@@ -271,6 +271,7 @@ pub const UI_KEYS: &[&str] = &[
     "appointments_view_day",
     "appointments_view_month",
     "appointments_view_week",
+    "auth_account_picker",
     "auth_auto_locked",
     "auth_back",
     "auth_brand",

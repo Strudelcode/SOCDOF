@@ -255,6 +255,7 @@
   "appointments_view_day": "Day",
   "appointments_view_month": "Month",
   "appointments_view_week": "Week",
+  "auth_account_picker": "Choose account",
   "auth_auto_locked": "Locked after inactivity",
   "auth_back": "Back to the gallery",
   "auth_brand": "SOCDOF",

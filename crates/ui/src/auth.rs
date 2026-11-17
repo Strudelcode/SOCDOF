@@ -887,6 +887,12 @@ fn login_form(
     now: i64,
     submit: bool,
 ) {
+    let users = store.list_users().unwrap_or_default();
+    let active_users: Vec<_> = users.iter().filter(|user| user.active).collect();
+    if state.username.is_empty() && active_users.len() == 1 {
+        state.username = active_users[0].username.clone();
+    }
+    let mut selected_username = None;
     let mut sign_in = false;
     let mut recover = false;
     card(ui, theme, |ui| {
@@ -901,6 +907,28 @@ fn login_form(
                 .color(theme.palette.text_muted),
         );
         ui.add_space(10.0);
+        if active_users.len() > 1 {
+            ui.label(
+                RichText::new(texts.get("auth_account_picker"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.horizontal_wrapped(|ui| {
+                for user in &active_users {
+                    let initial = user.display_name.chars().next().unwrap_or('•');
+                    let label = format!("{initial}  {}", user.display_name);
+                    let variant = if state.username == user.username {
+                        ButtonVariant::Primary
+                    } else {
+                        ButtonVariant::Secondary
+                    };
+                    if button(ui, theme, focus, &label, variant).activated {
+                        selected_username = Some(user.username.clone());
+                    }
+                }
+            });
+            ui.add_space(8.0);
+        }
         text_field(
             ui,
             theme,
@@ -950,6 +978,9 @@ fn login_form(
                 .color(theme.palette.text_muted),
         );
     });
+    if let Some(username) = selected_username {
+        state.begin_switch(&username);
+    }
     if sign_in || submit {
         let _ = state.login(store, now);
     }
