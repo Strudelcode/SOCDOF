@@ -753,6 +753,14 @@ impl SettingsState {
     }
 
     fn edit_user(&mut self, id: Uuid, store: &Store) {
+        // Saving a user invalidates the cached settings snapshot. Usually the next render
+        // refreshes it, but actions can reopen the editor before that frame (for example,
+        // keyboard-driven navigation). Reload here so a just-created account is editable
+        // immediately and account-scoped metadata is read from the same database snapshot.
+        if !self.loaded && self.refresh(store).is_err() {
+            self.error = Some("settings_error_user_load");
+            return;
+        }
         if let Some(user) = self.users.iter().find(|user| user.id == id) {
             let key = format!("account_type:{}", user.id);
             let account_type = store
@@ -3235,9 +3243,7 @@ mod tests {
             Some("business")
         );
 
-        // Saving invalidates the settings cache; the next UI frame reloads it from SQLite.
-        // Mirror that lifecycle before reopening the editor in this round-trip test.
-        state.refresh(&store).expect("reload users after save");
+        // Reopening immediately must reload the invalidated cache itself.
         state.edit_user(user.id, &store);
         assert_eq!(
             state
