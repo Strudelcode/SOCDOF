@@ -567,11 +567,16 @@ mod tests {
         state.draft.reference = "WH/IN/UI-002".to_string();
         state.create_open = true;
         state.save(&store, 10);
-        assert_eq!(store.find_product(product.id).expect("find").unwrap().stock, 8);
+        assert_eq!(
+            store.find_product(product.id).expect("find").unwrap().stock,
+            8
+        );
         assert_eq!(state.status, Some("stock_journal_saved"));
         assert!(!state.create_open);
 
+        state.draft.product_id = Some(product.id);
         state.draft.quantity = "0".to_string();
+        state.draft.reference = "WH/IN/UI-003".to_string();
         state.save(&store, 11);
         assert_eq!(state.error, Some("stock_journal_error_quantity"));
         assert_eq!(store.stock_journal_count().expect("count"), 1);
