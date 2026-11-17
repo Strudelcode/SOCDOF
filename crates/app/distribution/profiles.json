@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "productName": "SOCDOF",
+  "versionSource": [
+    "Cargo.toml",
+    "crates/app/package.json",
+    "crates/app/src-tauri/Cargo.toml",
+    "crates/app/src-tauri/tauri.conf.json"
+  ],
+  "dataContract": {
+    "directoryName": "SOCDOF",
+    "databaseFile": "SOCDOF.db",
+    "environmentVariable": "SOCDOF_DATA_DIR",
+    "commandLine": ["--data-dir", "--database"]
+  },
+  "profiles": [
+    {
+      "id": "native-windows",
+      "platform": "windows",
+      "runtime": "rust-native",
+      "installMode": "per-user-nsis",
+      "artifacts": ["SOCDOF-{version}-windows-x64-native-setup.exe"],
+      "dataPolicy": "shared-user-profile",
+      "updater": "manual-installer"
+    },
+    {
+      "id": "native-linux",
+      "platform": "linux",
+      "runtime": "rust-native",
+      "installMode": "portable-archive",
+      "artifacts": ["SOCDOF-{version}-linux-x86_64-native.tar.gz"],
+      "dataPolicy": "portable-folder-by-default",
+      "updater": "manual-download"
+    },
+    {
+      "id": "native-macos",
+      "platform": "macos",
+      "runtime": "rust-native",
+      "installMode": "universal-dmg",
+      "artifacts": ["SOCDOF-{version}-macos-universal-native.dmg"],
+      "dataPolicy": "shared-user-profile",
+      "updater": "manual-download"
+    },
+    {
+      "id": "tauri-windows-installer",
+      "platform": "windows",
+      "runtime": "tauri-transition",
+      "installMode": "nsis-and-msi",
+      "artifacts": [
+        "SOCDOF-{version}-windows-x64-setup.exe",
+        "SOCDOF-{version}-windows-x64.msi"
+      ],
+      "dataPolicy": "shared-user-profile",
+      "updater": "signed-tauri-updater"
+    },
+    {
+      "id": "tauri-windows-portable",
+      "platform": "windows",
+      "runtime": "tauri-transition",
+      "installMode": "portable-zip",
+      "artifacts": ["SOCDOF-{version}-windows-x64-portable.zip"],
+      "dataPolicy": "portable-folder-by-default",
+      "updater": "manual-download"
+    },
+    {
+      "id": "tauri-linux",
+      "platform": "linux",
+      "runtime": "tauri-transition",
+      "installMode": "appimage-and-deb",
+      "artifacts": [
+        "SOCDOF-{version}-linux-x86_64.AppImage",
+        "SOCDOF-{version}-linux-amd64.deb"
+      ],
+      "dataPolicy": "shared-user-profile",
+      "updater": "signed-appimage-updater"
+    },
+    {
+      "id": "tauri-macos",
+      "platform": "macos",
+      "runtime": "tauri-transition",
+      "installMode": "universal-dmg",
+      "artifacts": [
+        "SOCDOF-{version}-macos-universal.dmg",
+        "SOCDOF-{version}-macos-universal.app.tar.gz"
+      ],
+      "dataPolicy": "shared-user-profile",
+      "updater": "signed-tauri-updater"
+    },
+    {
+      "id": "web-wasm",
+      "platform": "web",
+      "runtime": "wasm",
+      "installMode": "browser-or-pwa",
+      "artifacts": ["web-bundle"],
+      "dataPolicy": "browser-origin-storage",
+      "updater": "web-deployment"
+    }
+  ]
+}

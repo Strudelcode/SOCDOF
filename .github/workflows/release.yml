@@ -70,6 +70,9 @@ jobs:
             exit 1
           fi
 
+      - name: Validate installable distribution profiles
+        run: node scripts/check-distribution.mjs
+
       - name: Extract release notes from CHANGELOG.md
         id: notes
         run: node scripts/release-notes.mjs "$RELEASE_TAG"
@@ -271,6 +274,10 @@ jobs:
           --version ${{ needs.prepare.outputs.version }}
           --bundle-dir ${{ matrix.bundle_dir }}
           --output-dir artifacts
+
+      - name: Write installable distribution manifest
+        if: matrix.platform == 'linux'
+        run: node scripts/check-distribution.mjs --write artifacts/distribution-manifest.json
 
       - name: Upload platform assets
         uses: actions/upload-artifact@v6

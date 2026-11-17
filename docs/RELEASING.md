@@ -6,6 +6,11 @@ section, updater signing key and Discord credentials are all present.
 
 ## What a release produces
 
+The authoritative list of installable runtimes and package/data policies lives in
+[`crates/app/distribution/profiles.json`](../crates/app/distribution/profiles.json).
+CI validates that registry and all four application version declarations match;
+the published `distribution-manifest.json` is generated from the same registry.
+
 - Linux: `SOCDOF-<version>-linux-x86_64.AppImage` (signed updater bundle) and
   `SOCDOF-<version>-linux-amd64.deb`.
 - Windows: `SOCDOF-<version>-windows-x64-setup.exe` (signed NSIS updater

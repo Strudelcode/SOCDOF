@@ -34,6 +34,9 @@ jobs:
         with:
           components: rustfmt
 
+      - name: Validate installable distribution profiles
+        run: node scripts/check-distribution.mjs
+
       - name: Format workspace
         run: cargo fmt --all -- --check
 
