@@ -127,6 +127,11 @@ fn uploads_a_fixture_payload_and_polls_it_back() {
     let _ = std::fs::remove_file(&database);
     let importing = database.clone();
 
+    // Run SQLite schema creation before the first HTTP request. On Windows the first migration
+    // can otherwise consume the gateway's short response timeout while the upload handler opens
+    // the database for the first time.
+    drop(Store::open(&database).expect("prepare mobile sync database"));
+
     let mut server = http::start_with(test_options(), move |payload| {
         match Store::open(&importing).and_then(|store| mobile_sync::import_value(&store, payload)) {
             Ok(_) => {}
