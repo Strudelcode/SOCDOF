@@ -795,29 +795,36 @@ fn shell_row(
     if active || response.hovered() || focused {
         ui.painter().rect(
             rect,
-            egui::Rounding::same(6.0),
-            theme.accent.light,
+            egui::Rounding::same(7.0),
+            if active { theme.accent.ring } else { theme.accent.light },
             Stroke::NONE,
+        );
+    }
+    if active {
+        ui.painter().rect_filled(
+            Rect::from_min_max(
+                Pos2::new(rect.left() + 1.0, rect.top() + 7.0),
+                Pos2::new(rect.left() + 3.0, rect.bottom() - 7.0),
+            ),
+            egui::Rounding::same(1.0),
+            theme.accent_text(),
         );
     }
     let mut left = rect.left() + 8.0;
     if let Some(icon) = icon {
         icon.draw(
             ui.painter(),
-            Rect::from_center_size(Pos2::new(left + 8.0, rect.center().y), Vec2::splat(14.0)),
-            if active || focused {
-                theme.accent_text()
-            } else {
-                theme.palette.text
-            },
-            1.4,
+            Rect::from_center_size(Pos2::new(left + 8.0, rect.center().y), Vec2::splat(15.0)),
+            if active || focused { theme.accent_text() } else { theme.palette.text_muted },
+            1.55,
         );
         left += 26.0;
     }
+    let family = if active { crate::theme::semibold() } else { egui::FontFamily::Proportional };
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
-        FontId::proportional(FONT_BODY),
-        theme.palette.text,
+        FontId::new(FONT_BODY, family),
+        if active { theme.palette.text } else { theme.palette.text_muted },
     );
     ui.painter().galley(
         Pos2::new(left, rect.center().y - galley.size().y / 2.0),
@@ -1058,13 +1065,32 @@ pub fn command_palette(
         .anchor(Align2::CENTER_TOP, Vec2::new(0.0, 96.0))
         .show(ctx, |ui| {
             panel_frame(theme).show(ui, |ui| {
-                ui.set_width(420.0);
-                ui.label(
-                    RichText::new(texts.get("palette_title"))
-                        .size(FONT_HEADING)
-                        .strong(),
-                );
-                ui.add_space(6.0);
+                ui.set_width(460.0);
+                ui.horizontal(|ui| {
+                    let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::hover());
+                    ui.painter().circle_filled(icon_rect.center(), 14.0, theme.accent.light);
+                    Icon::Search.draw(
+                        ui.painter(),
+                        Rect::from_center_size(icon_rect.center(), Vec2::splat(16.0)),
+                        theme.accent_text(),
+                        1.7,
+                    );
+                    ui.vertical(|ui| {
+                        ui.label(
+                            RichText::new(texts.get("palette_title"))
+                                .size(FONT_HEADING)
+                                .family(crate::theme::semibold()),
+                        );
+                        ui.label(
+                            RichText::new(texts.get("palette_hint"))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                    });
+                });
+                ui.add_space(10.0);
+                ui.separator();
+                ui.add_space(8.0);
                 search_field(
                     ui,
                     theme,
@@ -1121,11 +1147,18 @@ pub fn command_palette(
                     chosen = state.selected_action(texts);
                 }
                 ui.add_space(4.0);
-                ui.label(
-                    RichText::new(texts.get("palette_hint"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new("↑ ↓")
+                            .family(crate::theme::semibold())
+                            .color(theme.accent_text()),
+                    );
+                    ui.label(
+                        RichText::new(texts.get("palette_hint"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                });
             });
         });
     focus.collecting(false);
