@@ -212,6 +212,16 @@ fn restore_native_windows(
             "pos" => AppId::new("pos"),
             "therapy" => AppId::new("therapy"),
             "users" => AppId::new("users"),
+            "dashboard" => AppId::new("dashboard"),
+            "products" => AppId::new("products"),
+            "projects" => AppId::new("projects"),
+            "fleet" => AppId::new("fleet"),
+            "restaurant" => AppId::new("restaurant"),
+            "purchases" => AppId::new("purchases"),
+            "calendar" => AppId::new("calendar"),
+            "editor" => AppId::new("editor"),
+            "support" => AppId::new("support"),
+            "reports" => AppId::new("reports"),
             _ => continue,
         };
         let Some(title) = state.desktop_icons.label_of(app) else {
@@ -775,8 +785,13 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
         state.close_module_views();
         state.desktop_windows = WindowManager::new();
     }
-    if escape && desktop_ready && state.shell.overlay_open() {
-        state.shell.close_overlays();
+    if escape && desktop_ready {
+        if state.shell.overlay_open() {
+            state.shell.close_overlays();
+        } else if let Some(active) = state.desktop_windows.active() {
+            // Escape closes only the focused module window; other workspace windows remain open.
+            state.desktop_windows.close(active, now);
+        }
     }
 }
 
@@ -3068,9 +3083,15 @@ mod tests {
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.desktop_open = true;
-        state
-            .open_desktop_app(AppId::new("contacts"), now_millis())
-            .expect("open contacts");
+        let contacts = AppId::new("contacts");
+        state.desktop_windows.open(
+            Window::new(
+                contacts,
+                "Contacts",
+                Rect::from_min_size(Pos2::new(48.0, 48.0), Vec2::new(900.0, 600.0)),
+            ),
+            now_millis(),
+        );
         assert!(!state.desktop_windows.windows().is_empty());
         let session_id = state.auth.session.as_ref().expect("active session").id;
 
@@ -3762,6 +3783,10 @@ mod tests {
     fn desktop_restores_only_previously_open_native_windows() {
         let mut state =
             GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.desktop_icons = desktop_icons(
+            &state.texts,
+            &socdof_core::domain::permission::ALL_MODULES,
+        );
         let mut layout = settings_service::DesktopLayout::default();
         layout.window_states.insert(
             "contacts".to_string(),
@@ -3881,7 +3906,7 @@ mod tests {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
-        state.auth.view = crate::auth::AuthView::Login;
+        state.auth.view = crate::auth::AuthView::Unlocked;
         state.desktop_open = true;
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
 
