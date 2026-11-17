@@ -234,7 +234,8 @@ jobs:
           </dict>
           </plist>
           PLIST
-          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/SOCDOF"
+          lipo -verify_arch arm64 "$app/Contents/MacOS/SOCDOF"
+          lipo -verify_arch x86_64 "$app/Contents/MacOS/SOCDOF"
           ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
           test -s "artifacts/SOCDOF-${version}-macos-universal-native.zip"
 
