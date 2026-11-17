@@ -40,6 +40,17 @@
       "updater": "manual-download"
     },
     {
+      "id": "native-macos",
+      "platform": "macos",
+      "runtime": "rust-native",
+      "installMode": "universal-app-bundle",
+      "artifacts": [
+        "SOCDOF-{version}-macos-universal-native.zip"
+      ],
+      "dataPolicy": "shared-user-profile",
+      "updater": "manual-download"
+    },
+    {
       "id": "tauri-windows-installer",
       "platform": "windows",
       "runtime": "tauri-transition",
