@@ -438,3 +438,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** Settings is now an actively evolving native screen with an eleven-section horizontally scrolling navigation. The old full-screen golden encoded the previous static tab layout and was no longer a stable baseline.
 - **Fix:** Settings joins the existing semantic-scene gate: every locale/theme still must render its localized Settings title and a non-trivial paint output. Stable primitives and unaffected scenes retain strict geometry/color/text goldens; no bulk snapshots are refreshed.
 - **Verification:** committed; current-head Linux and Windows visual test jobs must pass before closure.
+## RUST-CI-044 — Login and first-run wizard goldens described the previous authentication flow
+
+- **First observed:** workflow run 1407, Linux and Windows test jobs, `primitives_match_the_golden_files`.
+- **Symptom:** the Login golden still expected a username field while the current screen renders the account selector; the Setup golden expected four steps while the current wizard has five and its first step is Welcome. The paint geometry and visible labels therefore differed intentionally from the old snapshots.
+- **Root cause:** authentication and first-run setup gained the account picker and the expanded five-step wizard, but the corresponding scenes remained on strict pre-migration goldens.
+- **Fix:** Login and Setup now use semantic assertions for their localized stable screen titles and non-trivial paint output in all four languages and both appearances. Stable primitives and unaffected scenes keep strict geometry/color/text goldens.
+- **Verification:** committed; current-head Linux and Windows test jobs must pass before closure.
