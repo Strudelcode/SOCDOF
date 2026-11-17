@@ -452,3 +452,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** hand-formatted chained calls and line wrapping did not match the workspace rustfmt version.
 - **Fix:** applied the exact formatter output; no UI behavior changed.
 - **Verification:** committed; the next current-head Format job must pass before closure.
+## RUST-CI-046 — Settings navigation failed Clippy's float-literal fallback lint
+
+- **First observed:** workflow run 1420, Linux and Windows test jobs, Clippy stage.
+- **Symptom:** `-D warnings` rejected the untyped `0.7` and `1.5` literals passed to egui's f32 stroke widths.
+- **Root cause:** the current Rust toolchain enables `float_literal_f32_fallback`; the old implicit fallback behavior is deprecated and treated as an error by the workspace's strict Clippy command.
+- **Fix:** annotate the three stroke-width literals explicitly as f32.
+- **Verification:** committed; the next current-head Clippy and test jobs must pass before closure.
