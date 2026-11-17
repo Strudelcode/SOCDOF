@@ -830,6 +830,7 @@ jobs:
               export XDG_DATA_HOME="$xdg"
               export SOCDOF_SMOKE_REPORT="$PWD/artifacts/keys-$label-report.json"
               export SOCDOF_SMOKE_IDLE=1
+              export SOCDOF_SMOKE_SHORTCUTS=1
               if [ "$locked" = "locked" ]; then
                 export SOCDOF_SMOKE_LOCKED=1
               fi
