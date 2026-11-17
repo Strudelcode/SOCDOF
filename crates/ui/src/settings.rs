@@ -49,7 +49,9 @@ pub enum SettingsTab {
     General,
     /// Bank, payment terminal and outbound mail configuration.
     Payments,
-    /// Language, theme, accent and start module.
+    /// Interface language.
+    Language,
+    /// Theme, accent and start module.
     Appearance,
     /// Passwords and sessions.
     Security,
@@ -69,9 +71,10 @@ pub enum SettingsTab {
 
 impl SettingsTab {
     /// Every tab in display order.
-    pub const ALL: [SettingsTab; 10] = [
+    pub const ALL: [SettingsTab; 11] = [
         SettingsTab::General,
         SettingsTab::Payments,
+        SettingsTab::Language,
         SettingsTab::Appearance,
         SettingsTab::Security,
         SettingsTab::Backup,
@@ -87,14 +90,15 @@ impl SettingsTab {
         match self {
             SettingsTab::General => 0,
             SettingsTab::Payments => 1,
-            SettingsTab::Appearance => 2,
-            SettingsTab::Security => 3,
-            SettingsTab::Backup => 4,
-            SettingsTab::Users => 5,
-            SettingsTab::Roles => 6,
-            SettingsTab::Updates => 7,
-            SettingsTab::Portable => 8,
-            SettingsTab::Shortcuts => 9,
+            SettingsTab::Language => 2,
+            SettingsTab::Appearance => 3,
+            SettingsTab::Security => 4,
+            SettingsTab::Backup => 5,
+            SettingsTab::Users => 6,
+            SettingsTab::Roles => 7,
+            SettingsTab::Updates => 8,
+            SettingsTab::Portable => 9,
+            SettingsTab::Shortcuts => 10,
         }
     }
 
@@ -108,7 +112,8 @@ impl SettingsTab {
         match self {
             SettingsTab::General => "settings_tab_general",
             SettingsTab::Payments => "settings_tab_payments",
-            SettingsTab::Appearance => "settings_tab_appearance",
+            SettingsTab::Language => "settings_tab_language",
+            SettingsTab::Appearance => "settings_tab_personalization",
             SettingsTab::Security => "settings_tab_security",
             SettingsTab::Backup => "settings_tab_backup",
             SettingsTab::Users => "settings_tab_users",
@@ -1241,6 +1246,7 @@ pub fn settings_content(
         match state.tab {
             SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
+            SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
             SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
             SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
@@ -1591,6 +1597,75 @@ fn shortcuts_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts) {
     });
 }
 
+fn language_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let active = state
+        .current_user()
+        .map(|user| user.display_name.clone())
+        .unwrap_or_default();
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_language_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(format!("{}: {active}", texts.get("settings_active_user")))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        if state.active_user.is_none() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("settings_error_no_user"),
+                texts.get("settings_users_empty_hint"),
+            );
+            return;
+        }
+        ui.add_space(8.0);
+        let languages = [
+            texts.get("language_de"),
+            texts.get("language_en"),
+            texts.get("language_fr"),
+            texts.get("language_es"),
+        ];
+        ui.label(
+            RichText::new(texts.get("settings_language"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        select(
+            ui,
+            theme,
+            focus,
+            &mut state.language_popup,
+            "settings-language",
+            &mut state.appearance.language,
+            &languages,
+        );
+        ui.add_space(8.0);
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("settings_save"),
+            ButtonVariant::Primary,
+        )
+        .activated
+        {
+            save = true;
+        }
+    });
+    if save {
+        state.save_appearance(store);
+    }
+}
+
 fn appearance_tab(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1623,28 +1698,6 @@ fn appearance_tab(
             return;
         }
         ui.columns(2, |columns| {
-            let languages: Vec<&str> = [
-                texts.get("language_de"),
-                texts.get("language_en"),
-                texts.get("language_fr"),
-                texts.get("language_es"),
-            ]
-            .to_vec();
-            columns[0].label(
-                RichText::new(texts.get("settings_language"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-            select(
-                &mut columns[0],
-                theme,
-                focus,
-                &mut state.language_popup,
-                "settings-language",
-                &mut state.appearance.language,
-                &languages,
-            );
-
             let themes = [
                 texts.get("settings_theme_light"),
                 texts.get("settings_theme_dark"),
