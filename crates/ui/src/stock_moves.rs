@@ -125,7 +125,9 @@ impl StockMovesState {
                 self.loaded = false;
                 self.refresh(store);
             }
-            Err(socdof_core::error::CoreError::Validation(code)) if code == "stock_insufficient" => {
+            Err(socdof_core::error::CoreError::Validation(code))
+                if code == "stock_insufficient" =>
+            {
                 self.error = Some("stock_journal_error_insufficient");
             }
             Err(_) => self.error = Some("stock_journal_error_save"),
