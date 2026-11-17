@@ -7,6 +7,8 @@
 use std::error::Error;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc::{self, Receiver, TryRecvError};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use eframe::egui;
@@ -19,7 +21,12 @@ use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::invoice_templates::native_asset_picker;
 use socdof_ui::theme::Appearance;
 
-struct DesktopApp {
+struct LoadedStore {
+    store: Store,
+    lock: InstanceLock,
+}
+
+struct DesktopRuntime {
     state: GalleryState,
     lock: InstanceLock,
     last_heartbeat: Instant,
@@ -27,43 +34,35 @@ struct DesktopApp {
     system_appearance: Option<Appearance>,
 }
 
+struct DesktopApp {
+    startup: Receiver<Result<LoadedStore, String>>,
+    startup_error: Option<String>,
+    runtime: Option<DesktopRuntime>,
+    splash_shown: bool,
+}
+
 impl DesktopApp {
-    fn new() -> Result<Self, Box<dyn Error>> {
-        let database = database_path()?;
-        let parent = database
-            .parent()
-            .filter(|path| !path.as_os_str().is_empty())
-            .unwrap_or_else(|| Path::new("."));
-        std::fs::create_dir_all(parent)?;
-
-        // Preserve databases created by earlier native builds. Hold the legacy instance lock
-        // while copying so an older running process cannot modify the database or its WAL.
-        let legacy_lock = if !database.exists() {
-            legacy_database_path(&database)
-                .filter(|legacy| legacy.exists())
-                .map(|legacy| {
-                    let legacy_parent = legacy
-                        .parent()
-                        .filter(|path| !path.as_os_str().is_empty())
-                        .unwrap_or_else(|| Path::new("."));
-                    InstanceLock::acquire(legacy_parent.join(LOCK_FILE_NAME))
-                        .map(|lock| (legacy, lock))
-                })
-                .transpose()?
-        } else {
-            None
-        };
-        if let Some((legacy, _)) = legacy_lock.as_ref() {
-            migrate_legacy_database(legacy, &database)?;
+    /// Creates the native window host without waiting for SQLite migrations or data recovery.
+    ///
+    /// The first frame is a real splash screen. Database creation, legacy migration, lock
+    /// acquisition and schema upgrades happen on a worker thread so a slow disk never leaves
+    /// the user staring at an unpainted window.
+    fn new() -> Self {
+        Self {
+            startup: start_store_loading(),
+            startup_error: None,
+            runtime: None,
+            splash_shown: false,
         }
+    }
 
-        let mut lock = InstanceLock::acquire(parent.join(LOCK_FILE_NAME))?;
-        // The new lock is active now; releasing the old lock closes the migration race.
-        drop(legacy_lock);
+    fn start_loading(&mut self) {
+        self.startup = start_store_loading();
+        self.startup_error = None;
+    }
 
-        let store = Store::open(&database)?;
-        let profile = store.company_profile()?;
-
+    fn finish_startup(&mut self, loaded: LoadedStore) -> Result<(), Box<dyn Error>> {
+        let profile = loaded.store.company_profile()?;
         let appearance = match profile.theme_mode {
             ThemeMode::Dark => Appearance::Dark,
             ThemeMode::Light | ThemeMode::System => Appearance::Light,
@@ -74,30 +73,113 @@ impl DesktopApp {
         } else {
             profile.accent_color.trim()
         };
-        let mut state = GalleryState::from_store(profile.language, appearance, accent, store)?;
+        let mut state =
+            GalleryState::from_store(profile.language, appearance, accent, loaded.store)?;
         state
             .invoices
             .templates
             .set_asset_picker(native_asset_picker());
-        lock.heartbeat(now_millis())?;
 
-        Ok(Self {
+        self.runtime = Some(DesktopRuntime {
             state,
-            lock,
+            lock: loaded.lock,
             last_heartbeat: Instant::now(),
             follow_system_theme,
             system_appearance: None,
-        })
+        });
+        self.startup_error = None;
+        Ok(())
     }
+}
+
+fn start_store_loading() -> Receiver<Result<LoadedStore, String>> {
+    let (sender, receiver) = mpsc::sync_channel(1);
+    thread::spawn(move || {
+        let result = load_store().map_err(|error| error.to_string());
+        let _ = sender.send(result);
+    });
+    receiver
+}
+
+fn load_store() -> Result<LoadedStore, Box<dyn Error>> {
+    let database = database_path()?;
+    let parent = database
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std::fs::create_dir_all(parent)?;
+
+    // Preserve databases created by earlier native builds. Hold the legacy instance lock
+    // while copying so an older running process cannot modify the database or its WAL.
+    let legacy_lock = if !database.exists() {
+        legacy_database_path(&database)
+            .filter(|legacy| legacy.exists())
+            .map(|legacy| {
+                let legacy_parent = legacy
+                    .parent()
+                    .filter(|path| !path.as_os_str().is_empty())
+                    .unwrap_or_else(|| Path::new("."));
+                InstanceLock::acquire(legacy_parent.join(LOCK_FILE_NAME))
+                    .map(|lock| (legacy, lock))
+            })
+            .transpose()?
+    } else {
+        None
+    };
+    if let Some((legacy, _)) = legacy_lock.as_ref() {
+        migrate_legacy_database(legacy, &database)?;
+    }
+
+    let lock = InstanceLock::acquire(parent.join(LOCK_FILE_NAME))?;
+    // The new lock is active now; releasing the old lock closes the migration race.
+    drop(legacy_lock);
+
+    let store = Store::open(&database)?;
+    let mut lock = lock;
+    lock.heartbeat(now_millis())?;
+    Ok(LoadedStore { store, lock })
 }
 
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if self.runtime.is_none() {
+            // Always paint one splash frame before accepting even an already-completed worker.
+            if !self.splash_shown {
+                self.splash_shown = true;
+                paint_startup(ctx, None);
+                ctx.request_repaint_after(Duration::from_millis(100));
+                return;
+            }
+
+            match self.startup.try_recv() {
+                Ok(Ok(loaded)) => {
+                    if let Err(error) = self.finish_startup(loaded) {
+                        self.startup_error = Some(error.to_string());
+                    }
+                }
+                Ok(Err(error)) => self.startup_error = Some(error),
+                Err(TryRecvError::Disconnected) => {
+                    self.startup_error
+                        .get_or_insert_with(|| "The startup worker stopped unexpectedly.".into());
+                }
+                Err(TryRecvError::Empty) => {}
+            }
+
+            if self.runtime.is_none() {
+                if paint_startup(ctx, self.startup_error.as_deref()) {
+                    self.start_loading();
+                }
+                ctx.request_repaint_after(Duration::from_millis(120));
+                return;
+            }
+        }
+
+        let runtime = self.runtime.as_mut().expect("runtime initialized above");
         // Login/setup screens are static while idle; repaint them less often. A temporary
         // lockout countdown still needs one-second updates. The active desktop has its own
         // ten-second repaint schedule in desktop_with_content.
-        let repaint_after = if self.state.auth_open {
-            if self.state.auth.locked_until.is_some() {
+        let repaint_after = if runtime.state.auth_open {
+            if runtime.state.auth.locked_until.is_some() {
                 Duration::from_secs(1)
             } else {
                 Duration::from_secs(15)
@@ -109,32 +191,67 @@ impl eframe::App for DesktopApp {
         // Capture the platform appearance before the SOCDOF theme is applied. Resolve the
         // active user's preference on every frame so changing Theme to System/Light/Dark takes
         // effect immediately, rather than inheriting the company profile forever.
-        let system_appearance = *self.system_appearance.get_or_insert_with(|| {
+        let system_appearance = *runtime.system_appearance.get_or_insert_with(|| {
             if ctx.style().visuals.dark_mode {
                 Appearance::Dark
             } else {
                 Appearance::Light
             }
         });
-        let user_follows_system = self
+        let user_follows_system = runtime
             .state
             .auth
             .user
             .as_ref()
-            .and_then(|user| settings_service::preferences(&self.state.store, user.id).ok())
+            .and_then(|user| settings_service::preferences(&runtime.state.store, user.id).ok())
             .map(|preferences| preferences.theme_mode == ThemeMode::System)
-            .unwrap_or(self.follow_system_theme);
+            .unwrap_or(runtime.follow_system_theme);
         if user_follows_system {
-            self.state.appearance = system_appearance;
+            runtime.state.appearance = system_appearance;
         }
-        if self.last_heartbeat.elapsed() >= Duration::from_secs(5) {
-            if let Err(error) = self.lock.heartbeat(now_millis()) {
+        if runtime.last_heartbeat.elapsed() >= Duration::from_secs(5) {
+            if let Err(error) = runtime.lock.heartbeat(now_millis()) {
                 eprintln!("SOCDOF lock heartbeat failed: {error}");
             }
-            self.last_heartbeat = Instant::now();
+            runtime.last_heartbeat = Instant::now();
         }
-        gallery(ctx, &mut self.state);
+        gallery(ctx, &mut runtime.state);
     }
+}
+
+fn paint_startup(ctx: &egui::Context, error: Option<&str>) -> bool {
+    let mut retry = false;
+    ctx.set_visuals(egui::Visuals::dark());
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none().fill(egui::Color32::from_rgb(9, 8, 28)))
+        .show(ctx, |ui| {
+            ui.vertical_centered(|ui| {
+                ui.add_space(ui.available_height() * 0.28);
+                ui.label(
+                    egui::RichText::new("SOCDOF")
+                        .size(36.0)
+                        .strong()
+                        .color(egui::Color32::from_rgb(220, 190, 255)),
+                );
+                ui.add_space(12.0);
+                if let Some(error) = error {
+                    ui.label(
+                        egui::RichText::new("SOCDOF konnte nicht gestartet werden")
+                            .size(16.0)
+                            .strong(),
+                    );
+                    ui.add_space(8.0);
+                    ui.label(error);
+                    ui.add_space(16.0);
+                    retry = ui.button("Erneut versuchen").clicked();
+                } else {
+                    ui.add_space(8.0);
+                    ui.spinner();
+                    ui.label("Arbeitsumgebung wird vorbereitet …");
+                }
+            });
+        });
+    retry
 }
 
 fn database_path() -> Result<PathBuf, Box<dyn Error>> {
@@ -255,7 +372,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
         return Ok(());
     }
-    let app = DesktopApp::new()?;
+    let app = DesktopApp::new();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
