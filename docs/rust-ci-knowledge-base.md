@@ -459,3 +459,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the current Rust toolchain enables `float_literal_f32_fallback`; the old implicit fallback behavior is deprecated and treated as an error by the workspace's strict Clippy command.
 - **Fix:** annotate the three stroke-width literals explicitly as f32.
 - **Verification:** committed; the next current-head Clippy and test jobs must pass before closure.
+## RUST-UI-003 — Settings needed consistent section hierarchy and direct appearance previews
+
+- **First observed:** visual review after the initial icon-tab implementation.
+- **Symptom:** section content began immediately after the horizontal tab strip, so long forms had weak context; theme and accent preferences were plain dropdowns with no visual preview.
+- **Root cause:** the Settings screen reused compact form controls for high-impact appearance choices and did not repeat a clear section identity after navigation.
+- **Fix:** add a shared section heading with the section icon, localized title, subtitle and section position. Replace the theme dropdown with selectable Light/Dark/System preview cards and replace the accent dropdown with nine clickable color swatches. Existing persisted preference fields and save flow are unchanged.
+- **Verification:** committed; current-head Format, Linux/Windows tests, GUI smoke and desktop build must pass. The previous run's successful Linux tests do not verify this later UI commit.
