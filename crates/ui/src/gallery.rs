@@ -843,19 +843,25 @@ impl GalleryState {
 /// The shortcuts are consumed here rather than by individual app screens, so they behave the
 /// same regardless of which module window currently owns keyboard focus.
 fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
-    let (fullscreen, palette, lock, escape) = ctx.input_mut(|input| {
+    let (fullscreen, help, palette, lock, start_menu, task_view, escape) = ctx.input_mut(|input| {
         (
             input.consume_key(Modifiers::NONE, Key::F11),
+            input.consume_key(Modifiers::NONE, Key::F1),
             input.consume_key(Modifiers::CTRL, Key::K),
             input.consume_key(Modifiers::CTRL, Key::L),
+            input.consume_key(Modifiers::CTRL, Key::Space),
+            input.consume_key(Modifiers::CTRL, Key::Tab)
+                || input.consume_key(Modifiers::ALT, Key::Tab),
             input.consume_key(Modifiers::NONE, Key::Escape),
         )
     });
-
     let desktop_ready = !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked;
     if fullscreen && desktop_ready {
         let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
         ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+    }
+    if help && desktop_ready {
+        let _ = state.open_desktop_app(AppId::new("documentation"), now);
     }
     if palette && desktop_ready {
         state.shell.open_palette();
@@ -868,11 +874,23 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
         state.close_module_views();
         state.desktop_windows = WindowManager::new();
     }
-    if escape && desktop_ready {
-        if state.shell.overlay_open() {
+    if start_menu && desktop_ready {
+        state.shell.toggle_start();
+    }
+    if task_view && desktop_ready {
+        if state.shell.task_view.is_open() {
+            state.shell.task_view.close();
+        } else {
             state.shell.close_overlays();
+            state.shell.task_view.open();
+        }
+    }
+    if escape && desktop_ready {
+        if state.shell.dismiss_top_overlay() {
+            // The topmost transient overlay owns Escape.
+        } else if state.shell.overlay_open() || state.shell.studio.is_open() {
+            // First-run onboarding and Studio retain their modal/focus behavior.
         } else if let Some(active) = state.desktop_windows.active() {
-            // Escape closes only the focused module window; other workspace windows remain open.
             state.desktop_windows.close(active, now);
         }
     }
@@ -3128,6 +3146,47 @@ mod tests {
     }
 
     #[test]
+    fn global_start_menu_shortcut_toggles_the_start_menu() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(state.shell.start.is_open());
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(!state.shell.start.is_open());
+    }
+
+    #[test]
+    fn global_task_view_shortcut_opens_the_window_overview() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        send_shortcut(&ctx, &mut state, Key::Tab, Modifiers::CTRL);
+        assert!(state.shell.task_view.is_open());
+        assert!(!state.shell.start.is_open());
+        assert!(!state.shell.palette.is_open());
+    }
+
+    #[test]
+    fn f1_opens_the_native_documentation_window() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.shell.onboarding.finish();
+        let admin = crate::auth::seed_auth_user(&state.store, socdof_core::now_millis())
+            .expect("admin");
+        state.auth.user = Some(admin);
+        send_shortcut(&ctx, &mut state, Key::F1, Modifiers::NONE);
+        assert!(state.desktop_windows.is_open(AppId::new("documentation")));
+        assert!(state.desktop_open);
+    }
+
+    #[test]
     fn global_command_palette_shortcut_works_from_the_native_desktop() {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
@@ -4039,12 +4098,35 @@ mod tests {
     }
 
     #[test]
+    fn escape_does_not_close_module_windows_while_first_run_onboarding_is_open() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+        state.desktop_open = true;
+        state.desktop_windows.open(
+            Window::new(
+                AppId::new("fleet"),
+                "Fleet".to_owned(),
+                Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0)),
+            ),
+            1_000,
+        );
+        send_shortcut(&ctx, &mut state, Key::Escape, Modifiers::NONE);
+        assert!(state.shell.onboarding.is_open());
+        assert!(state.desktop_windows.is_open(AppId::new("fleet")));
+    }
+
+    #[test]
     fn escape_in_the_active_module_window_does_not_close_other_modules() {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
         state.desktop_open = true;
+        // The default shell state deliberately starts with first-run onboarding visible.
+        // Complete it here so Escape tests the focused app window rather than the modal wizard.
+        state.shell.onboarding.finish();
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
 
         for (index, slug) in ["projects", "fleet"].into_iter().enumerate() {

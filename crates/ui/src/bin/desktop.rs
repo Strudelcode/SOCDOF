@@ -121,8 +121,7 @@ fn load_store() -> Result<LoadedStore, Box<dyn Error>> {
                     .parent()
                     .filter(|path| !path.as_os_str().is_empty())
                     .unwrap_or_else(|| Path::new("."));
-                InstanceLock::acquire(legacy_parent.join(LOCK_FILE_NAME))
-                    .map(|lock| (legacy, lock))
+                InstanceLock::acquire(legacy_parent.join(LOCK_FILE_NAME)).map(|lock| (legacy, lock))
             })
             .transpose()?
     } else {
@@ -382,7 +381,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
         return Ok(());
     }
-    if arguments.iter().any(|argument| argument == "--version" || argument == "-V") {
+    if arguments
+        .iter()
+        .any(|argument| argument == "--version" || argument == "-V")
+    {
         println!("SOCDOF {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
