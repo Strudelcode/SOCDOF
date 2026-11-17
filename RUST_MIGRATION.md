@@ -2386,3 +2386,14 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - The workflow now releases Alt, Super, Ctrl and Shift before and after each key sequence, then sends F11/F12 through the focused window.
 - **Verification state:** committed; next full CI run pending.
 - **Effort estimate:** approximately 0.3 hours for artifact download, event-marker diagnosis, workflow correction and documentation. CI runtime is excluded.
+
+
+## 2026-11-17 — Installable Rust desktop distribution foundation
+
+- Established one shared data contract for the native Rust host and the Tauri transition host: stable per-user database location, explicit database/data-directory overrides, environment override, and lock-protected migration of the former Tauri profile including SQLite WAL/SHM files.
+- Defined eight install/deployment profiles covering native Windows/Linux/macOS, Tauri transition installers/portable variants, and the WASM web build. Added a version consistency gate so Cargo, Tauri and frontend releases cannot silently diverge.
+- Added per-platform native package paths: Windows per-user NSIS installer, Linux portable archive with per-user install/uninstall scripts, and universal macOS DMG. Portable Windows and Linux builds keep isolated colocated data by default; installed builds use the standard per-user profile.
+- Added Linux install/uninstall smoke coverage proving the executable and desktop entry are removed while the user's database remains. Existing Windows installer smoke continues to verify custom install paths, shortcuts, upgrade preferences and data preservation. macOS packaging verifies both CPU architectures and the DMG container.
+- The native Rust host now shows a splash immediately and loads/migrates its database in the background, with a visible retry path if startup fails.
+- **Verification state:** implementation committed on PR #22; the latest full CI runs are queued behind an older long-running run. The new cross-platform build, package smoke and startup changes are not yet certified green.
+- **Still open before calling distribution production-ready:** native Windows code signing, macOS signing/notarization, native Rust self-update, and any requested Linux .deb/AppImage packaging. Tauri signed-updater packages remain the transition fallback.
