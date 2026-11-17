@@ -496,3 +496,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the UI no longer needed popup state for theme/accent, but the state struct/default initializer and test assertion were not updated alongside the visual control replacement.
 - **Fix:** remove the two unused popup fields and initializers, document `settings_content`, and assert the persisted `Preferences::accent_color` field. Apply the final rustfmt layout to the theme-card accessibility metadata.
 - **Verification:** run 1449 passed strict Clippy and Format on both Windows/Linux; 329 Linux tests and 329 Windows tests passed, including the responsive dark Settings rendering test.
+
+## RUST-CI-049 — New SettingsTab variants must be added to the standalone preview manifest
+
+- **First observed:** workflow run 1463, Windows/Linux Clippy and Linux performance frame-budget job.
+- **Symptom:** adding the Display and Letterhead Settings tabs made the two exhaustive mappings in `crates/ui/src/bin/preview.rs` non-exhaustive. This blocked Clippy and the performance test before they could run.
+- **Root cause:** the native Settings screen and responsive tests iterated `SettingsTab::ALL`, but the standalone PNG preview generator maintained its own exhaustive scene IDs and titles.
+- **Fix:** add stable `display` and `letterhead` IDs and titles to both preview mappings. Apply rustfmt to the new Settings and icon code; the previous commit had not run the formatter.
+- **Verification:** fix committed; run 1467 is the next current-head CI gate. Do not close until Windows/Linux Clippy, workspace format, all tests and the Linux frame-budget job pass.
