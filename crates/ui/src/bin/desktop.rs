@@ -246,6 +246,15 @@ mod tests {
 
 #[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 fn main() -> Result<(), Box<dyn Error>> {
+    if std::env::args_os()
+        .skip(1)
+        .any(|argument| argument == "--help" || argument == "-h")
+    {
+        println!(
+            "SOCDOF native desktop\\n\\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>]"
+        );
+        return Ok(());
+    }
     let app = DesktopApp::new()?;
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
