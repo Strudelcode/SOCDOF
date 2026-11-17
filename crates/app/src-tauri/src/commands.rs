@@ -1227,6 +1227,12 @@ pub fn smoke_idle() -> bool {
     std::env::var_os("SOCDOF_SMOKE_IDLE").is_some()
 }
 
+/// Whether the GUI smoke run should dispatch deterministic synthetic keyboard events.
+#[tauri::command]
+pub fn smoke_shortcuts() -> bool {
+    std::env::var_os("SOCDOF_SMOKE_SHORTCUTS").is_some()
+}
+
 /// Resolves one key event through [`socdof_app::shortcuts`] and performs window actions.
 ///
 /// The decision (binding, repeat, locked context) comes from the tested module; this command only
