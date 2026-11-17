@@ -1330,33 +1330,102 @@ fn settings_tab_icon(tab: SettingsTab) -> Icon {
 }
 
 /// Draws Settings navigation with vector icons and a clear selected state.
-fn settings_tabs(ui: &mut egui::Ui, theme: &Theme, focus: &mut FocusState, texts: &UiTexts, selected: &mut usize) -> bool {
+fn settings_tabs(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    selected: &mut usize,
+) -> bool {
     let mut changed = false;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 6.0;
         for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
             let active = index == *selected;
             let label = texts.get(tab.label_key());
-            let family = if active { crate::theme::semibold() } else { egui::FontFamily::Proportional };
-            let galley = ui.painter().layout_no_wrap(label.to_owned(), FontId::new(FONT_SMALL, family), if active { theme.palette.text } else { theme.palette.text_muted });
+            let family = if active {
+                crate::theme::semibold()
+            } else {
+                egui::FontFamily::Proportional
+            };
+            let galley = ui.painter().layout_no_wrap(
+                label.to_owned(),
+                FontId::new(FONT_SMALL, family),
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
             let width = (galley.size().x + 42.0).max(94.0);
-            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 38.0), Sense::click());
+            let (rect, response) =
+                ui.allocate_exact_size(Vec2::new(width, 38.0), Sense::click());
             let focused = focus.register(response.id);
-            if response.clicked() { focus.set_focus(Some(response.id)); }
+            if response.clicked() {
+                focus.set_focus(Some(response.id));
+            }
             let activated = response.clicked() || focus.activate(response.id);
-            let fill = if active { theme.accent.light } else if response.hovered() || focused { theme.palette.surface_muted } else { theme.palette.surface };
-            ui.painter().rect(rect, egui::Rounding::same(10.0), fill, Stroke::new(if active { 1.0 } else { 0.7 }, if active { theme.accent.border } else { theme.palette.border }));
-            let color = if active { theme.accent_text() } else { theme.palette.text_muted };
-            let icon_rect = egui::Rect::from_center_size(egui::Pos2::new(rect.left() + 17.0, rect.center().y), Vec2::splat(16.0));
+            let fill = if active {
+                theme.accent.light
+            } else if response.hovered() || focused {
+                theme.palette.surface_muted
+            } else {
+                theme.palette.surface
+            };
+            ui.painter().rect(
+                rect,
+                egui::Rounding::same(10.0),
+                fill,
+                Stroke::new(
+                    if active { 1.0 } else { 0.7 },
+                    if active {
+                        theme.accent.border
+                    } else {
+                        theme.palette.border
+                    },
+                ),
+            );
+            let color = if active {
+                theme.accent_text()
+            } else {
+                theme.palette.text_muted
+            };
+            let icon_rect = egui::Rect::from_center_size(
+                egui::Pos2::new(rect.left() + 17.0, rect.center().y),
+                Vec2::splat(16.0),
+            );
             settings_tab_icon(tab).draw(ui.painter(), icon_rect, color, 1.55);
-            ui.painter().galley(egui::Pos2::new(rect.left() + 31.0, rect.center().y - galley.size().y / 2.0), galley, if active { theme.palette.text } else { theme.palette.text_muted });
-            if focused { ui.painter().rect_stroke(rect.expand(1.5), egui::Rounding::same(11.0), Stroke::new(1.5, theme.accent.base)); }
-            response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label));
-            if activated && !active { *selected = index; changed = true; }
+            ui.painter().galley(
+                egui::Pos2::new(
+                    rect.left() + 31.0,
+                    rect.center().y - galley.size().y / 2.0,
+                ),
+                galley,
+                if active {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                },
+            );
+            if focused {
+                ui.painter().rect_stroke(
+                    rect.expand(1.5),
+                    egui::Rounding::same(11.0),
+                    Stroke::new(1.5, theme.accent.base),
+                );
+            }
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label)
+            });
+            if activated && !active {
+                *selected = index;
+                changed = true;
+            }
         }
     });
     changed
 }
+
 /// Renders the settings screen.
 /// Draws settings into an existing UI so it can be hosted inside a desktop window.
 pub fn settings_content(
