@@ -99,10 +99,14 @@ pub enum Icon {
     HardDrive,
     /// Keyboard keycaps.
     Keyboard,
+    /// Desktop monitor with stand.
+    Monitor,
+    /// Document page with folded corner and text lines.
+    FileText,
 }
 
 /// Every icon of the set, used by the gallery and the tests.
-pub const ALL_ICONS: [Icon; 45] = [
+pub const ALL_ICONS: [Icon; 47] = [
     Icon::Search,
     Icon::Plus,
     Icon::Edit,
@@ -148,6 +152,8 @@ pub const ALL_ICONS: [Icon; 45] = [
     Icon::Download,
     Icon::HardDrive,
     Icon::Keyboard,
+    Icon::Monitor,
+    Icon::FileText,
 ];
 
 impl Icon {
@@ -629,6 +635,22 @@ impl Icon {
                     }
                 }
                 polyline(vec![p(0.3, 0.66), p(0.7, 0.66)]);
+            }
+            Icon::Monitor => {
+                painter.rect_stroke(
+                    Rect::from_min_max(p(0.1, 0.14), p(0.9, 0.68)),
+                    egui::Rounding::same(rect.width() * 0.06),
+                    stroke,
+                );
+                polyline(vec![p(0.5, 0.68), p(0.5, 0.84)]);
+                polyline(vec![p(0.3, 0.86), p(0.7, 0.86)]);
+            }
+            Icon::FileText => {
+                polyline(vec![p(0.24, 0.12), p(0.62, 0.12), p(0.78, 0.28), p(0.78, 0.88), p(0.24, 0.88), p(0.24, 0.12)]);
+                polyline(vec![p(0.62, 0.12), p(0.62, 0.3), p(0.78, 0.3)]);
+                for y in [0.48, 0.62, 0.76] {
+                    polyline(vec![p(0.36, y), p(0.66, y)]);
+                }
             }
         }
     }
