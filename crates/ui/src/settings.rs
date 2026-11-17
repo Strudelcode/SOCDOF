@@ -37,7 +37,7 @@ use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
 use crate::theme::Theme;
-use crate::tokens::{preset_ids, FONT_SMALL};
+use crate::tokens::{preset_ids, AccentPreset, FONT_SMALL};
 
 /// Fixed timestamp used by the deterministic gallery data.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
@@ -1424,6 +1424,105 @@ fn settings_tabs(
 
 /// Renders the settings screen.
 /// Draws settings into an existing UI so it can be hosted inside a desktop window.
+/// Gives every settings section a consistent visual anchor and clear hierarchy.
+fn settings_section_heading(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    tab: SettingsTab,
+) {
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
+            ui.painter().circle_filled(icon_rect.center(), 22.0, theme.accent.light);
+            settings_tab_icon(tab).draw(
+                ui.painter(),
+                egui::Rect::from_center_size(icon_rect.center(), Vec2::splat(22.0)),
+                theme.accent_text(),
+                1.8,
+            );
+            ui.add_space(6.0);
+            ui.vertical(|ui| {
+                ui.label(
+                    RichText::new(texts.get(tab.label_key()))
+                        .size(crate::tokens::FONT_HEADING)
+                        .family(crate::theme::semibold()),
+                );
+                ui.label(
+                    RichText::new(texts.get("settings_subtitle"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                badge(
+                    ui,
+                    theme,
+                    &format!("{:02} / 11", tab.index() + 1),
+                    Tone::Accent,
+                );
+            });
+        });
+    });
+}
+
+/// Draws a selectable accent-color swatch with a high-contrast selected ring.
+fn accent_swatch(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    id: &str,
+    selected: &mut String,
+) {
+    let preset = AccentPreset::resolve(id);
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(72.0, 62.0), Sense::click());
+    let focused = focus.register(response.id);
+    if response.clicked() {
+        focus.set_focus(Some(response.id));
+    }
+    let activated = response.clicked() || focus.activate(response.id);
+    let active = selected == id;
+    let swatch = egui::Rect::from_center_size(
+        egui::Pos2::new(rect.center().x, rect.top() + 19.0),
+        Vec2::splat(25.0),
+    );
+    ui.painter().rect_filled(
+        swatch.expand(4.0),
+        egui::Rounding::same(10.0),
+        if active { theme.accent.light } else { theme.palette.surface },
+    );
+    ui.painter().rect(
+        swatch,
+        egui::Rounding::same(7.0),
+        preset.base,
+        Stroke::new(
+            if active { 2.0_f32 } else { 1.0_f32 },
+            if active { theme.accent_text() } else { theme.palette.border },
+        ),
+    );
+    let galley = ui.painter().layout_no_wrap(
+        preset.label.clone(),
+        egui::FontId::new(9.0, egui::FontFamily::Proportional),
+        if active { theme.palette.text } else { theme.palette.text_muted },
+    );
+    ui.painter().galley(
+        egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 40.0),
+        galley,
+        if active { theme.palette.text } else { theme.palette.text_muted },
+    );
+    if focused {
+        ui.painter().rect_stroke(
+            rect.expand(1.0),
+            egui::Rounding::same(8.0),
+            Stroke::new(1.5_f32, theme.accent.base),
+        );
+    }
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::RadioButton, &preset.label));
+    if activated {
+        *selected = id.to_owned();
+    }
+}
+
 pub fn settings_content(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1449,6 +1548,8 @@ pub fn settings_content(
                 }
             });
         ui.add_space(10.0);
+        settings_section_heading(ui, theme, texts, state.tab);
+        ui.add_space(12.0);
 
         match state.tab {
             SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
