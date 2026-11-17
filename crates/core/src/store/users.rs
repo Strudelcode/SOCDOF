@@ -316,14 +316,16 @@ mod tests {
         }
     }
 
-    fn add_session(conn: &Connection, user_id: Uuid) {
+    fn add_session(conn: &Connection, user_id: Uuid) -> Uuid {
+        let session_id = Uuid::new_v4();
         conn.execute(
             "INSERT INTO auth_sessions
              (id, user_id, token_hash, created_at, expires_at, last_seen_at, revoked_at)
              VALUES (?1, ?2, 'token-hash', 1, 999999999, 1, NULL)",
-            params![Uuid::new_v4().to_string(), user_id.to_string()],
+            params![session_id.to_string(), user_id.to_string()],
         )
         .expect("session");
+        session_id
     }
 
     fn active_sessions(conn: &Connection, user_id: Uuid) -> i64 {
@@ -382,6 +384,41 @@ mod tests {
             )
             .expect("stored password hash");
         assert_eq!(stored, "replacement-hash");
+    }
+
+    #[test]
+    fn self_service_password_change_preserves_only_the_authorizing_session() {
+        let conn = access_store();
+        let id = Uuid::new_v4();
+        let user = admin(id);
+        insert(&conn, &user).expect("insert user");
+        let current_session = add_session(&conn, id);
+        let other_session = add_session(&conn, id);
+
+        let mut changed = user;
+        changed.password_hash = "replacement-hash".to_string();
+        changed.must_change_password = false;
+        changed.updated_at = 2;
+        update_preserving_session(&conn, &changed, current_session, 2)
+            .expect("self-service password change");
+
+        assert_eq!(active_sessions(&conn, id), 1);
+        let current_revoked: Option<i64> = conn
+            .query_row(
+                "SELECT revoked_at FROM auth_sessions WHERE id = ?1",
+                params![current_session.to_string()],
+                |row| row.get(0),
+            )
+            .expect("current session");
+        let other_revoked: Option<i64> = conn
+            .query_row(
+                "SELECT revoked_at FROM auth_sessions WHERE id = ?1",
+                params![other_session.to_string()],
+                |row| row.get(0),
+            )
+            .expect("other session");
+        assert_eq!(current_revoked, None);
+        assert_eq!(other_revoked, Some(2));
     }
 
     #[test]
