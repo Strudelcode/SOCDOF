@@ -1376,7 +1376,7 @@ fn settings_tabs(
                 egui::Rounding::same(10.0),
                 fill,
                 Stroke::new(
-                    if active { 1.0 } else { 0.7 },
+                    if active { 1.0_f32 } else { 0.7_f32 },
                     if active {
                         theme.accent.border
                     } else {
@@ -1407,7 +1407,7 @@ fn settings_tabs(
                 ui.painter().rect_stroke(
                     rect.expand(1.5),
                     egui::Rounding::same(11.0),
-                    Stroke::new(1.5, theme.accent.base),
+                    Stroke::new(1.5_f32, theme.accent.base),
                 );
             }
             response.widget_info(|| {
