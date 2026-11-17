@@ -620,7 +620,7 @@ impl AuthState {
     /// Checks the persisted session as well as its local expiry. This catches revocation from
     /// another desktop, password reset, account deactivation or permission change.
     pub fn tick_with_store(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
-        if matches!(self.view, AuthView::Unlocked | AuthView::Locked) {
+        if matches!(self.view, AuthView::Unlocked | AuthView::Locked | AuthView::ChangePassword) {
             let active = match self.token.as_deref() {
                 Some(token) => match store.session_for_token(token, now) {
                     Ok(session) => session.is_some(),
@@ -2199,9 +2199,20 @@ mod tests {
         state.recovery_new_password = "A-new-strong-password-2026!".to_string();
         state.recovery_confirm_password = state.recovery_new_password.clone();
         state.recovery_answer_one = "First pet".to_string();
-        state.recovery_answer_two = "Birth city".to_string();
+        state.recovery_answer_two.clear();
         state
             .complete_forced_password_change(&store, NOW + 1)
+            .expect("validate forced password change");
+        assert_eq!(state.view, AuthView::ChangePassword);
+        assert_eq!(state.error, Some("auth_force_password_answers_required"));
+        assert!(store
+            .authenticate(&user.username, "Socdof2026!")
+            .expect("old password remains")
+            .is_some());
+
+        state.recovery_answer_two = "Birth city".to_string();
+        state
+            .complete_forced_password_change(&store, NOW + 2)
             .expect("complete forced password change");
 
         assert_eq!(state.view, AuthView::Unlocked);
@@ -2362,7 +2373,7 @@ mod tests {
     }
 
     #[test]
-    fn renders_all_five_views_in_every_language_and_theme() {
+    fn renders_all_six_views_in_every_language_and_theme() {
         let store = store_with_admin();
         let mut state = signed_in(&store);
         let user_id = state.user.as_ref().expect("admin").id;
@@ -2385,6 +2396,7 @@ mod tests {
                     AuthView::Setup,
                     AuthView::Unlocked,
                     AuthView::Recover,
+                    AuthView::ChangePassword,
                 ] {
                     match view {
                         AuthView::Login => state.show_login(),
@@ -2394,6 +2406,14 @@ mod tests {
                         AuthView::Recover => {
                             state.username = "admin".to_string();
                             state.begin_recovery(&store);
+                        }
+                        AuthView::ChangePassword => {
+                            state.user = store.find_user_by_username("admin").unwrap().clone();
+                            state.view = AuthView::ChangePassword;
+                            state.recovery_new_password = "temporary-password".to_string();
+                            state.recovery_confirm_password = state.recovery_new_password.clone();
+                            state.recovery_answer_one = "first pet".to_string();
+                            state.recovery_answer_two = "childhood city".to_string();
                         }
                     }
                     let ctx = crate::theme::headless_context();
