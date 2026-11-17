@@ -276,3 +276,11 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - First-run setup now follows the TypeScript five-step structure (welcome, account, appearance, apps, finish), offers personal/business account types and personal/business/practice/retail templates, and persists the initial account type in the per-user settings store.
 
 - The native login screen now offers an active-account picker when multiple accounts exist and preselects the sole active account when there is only one. Switching the selected account clears the prior password before login.
+
+
+## Authentication parity follow-up (2026-11-17)
+
+- Added the missing mandatory first-login password-change gate for accounts flagged by an administrator. A successful credential check now enters a dedicated screen instead of opening the desktop.
+- The user must choose a new password and configure both recovery answers before reaching the workspace. Password replacement clears the persisted must-change flag; recovery answers are stored only as Argon2id hashes through the existing core security-question service.
+- Added a cross-store regression test covering the required gate, successful password replacement, flag clearing and case-insensitive recovery-answer verification. DE/EN/FR/ES strings are registered in the source key list and generated locale inventory.
+- **Verification:** pending Linux/Windows tests and the macOS Tauri compatibility build.
