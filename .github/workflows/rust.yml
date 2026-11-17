@@ -200,7 +200,7 @@ jobs:
           Recommended: ./run-socdof.sh
           Direct launch: ./socdof-ui-desktop
           Optional data directory: ./run-socdof.sh --data-dir "$HOME/.local/share/SOCDOF"
-          Default database: $XDG_DATA_HOME/SOCDOF/SOCDOF.db or ~/.local/share/SOCDOF/SOCDOF.db
+          Default portable database: ./data/SOCDOF.db (set SOCDOF_DATA_DIR to override)
 
           This portable build requires the system GTK, Wayland/X11 and OpenGL libraries used by
           eframe/winit. Keep your SOCDOF database and backups when upgrading.

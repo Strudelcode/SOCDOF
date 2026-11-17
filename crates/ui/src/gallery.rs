@@ -771,7 +771,7 @@ impl GalleryState {
                 let title = self
                     .desktop_icons
                     .label_of(app)
-                    .unwrap_or_else(|| "Manual")
+                    .unwrap_or("Manual")
                     .to_owned();
                 let area = work_area(Rect::from_min_size(
                     egui::Pos2::ZERO,

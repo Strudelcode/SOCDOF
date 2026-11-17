@@ -170,7 +170,12 @@ mod tests {
     #[test]
     fn explicit_database_wins_over_data_directory_and_environment() {
         let paths = DataPaths::resolve(
-            args(&["--data-dir", "D:/portable", "--database", "E:/custom/main.db"]),
+            args(&[
+                "--data-dir",
+                "D:/portable",
+                "--database",
+                "E:/custom/main.db",
+            ]),
             PathBuf::from("unused"),
             Some(PathBuf::from("C:/profile/SOCDOF")),
         )
@@ -181,8 +186,8 @@ mod tests {
 
     #[test]
     fn missing_path_value_is_a_clear_error() {
-        let error = DataPaths::resolve(args(&["--data-dir"]), PathBuf::from("unused"), None)
-            .unwrap_err();
+        let error =
+            DataPaths::resolve(args(&["--data-dir"]), PathBuf::from("unused"), None).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 
