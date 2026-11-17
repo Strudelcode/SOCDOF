@@ -354,7 +354,7 @@ fn create_dialog(
                         .iter()
                         .find(|p| Some(p.id) == state.draft.product_id)
                         .map(|p| p.name.clone())
-                        .unwrap_or_else(|| texts.get("stock_journal_product")),
+                        .unwrap_or_else(|| texts.get("stock_journal_product").to_string()),
                 )
                 .show_ui(ui, |ui| {
                     for product in &products {
@@ -503,7 +503,7 @@ fn export_csv(state: &mut StockMovesState, _texts: &UiTexts, now: i64) {
     }
     #[cfg(not(feature = "dialogs"))]
     {
-        let _ = (entries, texts, now);
+        let _ = (entries, _texts, now);
         state.error = Some("stock_journal_error_export");
     }
 }
