@@ -416,3 +416,20 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** add a dedicated transactional `update_user_preserving_session` path. It retains only the exact session that authorized the password change and revokes every other session for that account. Administrator resets, account edits and recovery continue to use the existing all-session-revocation behavior.
 - **Regression coverage:** a core persistence test verifies that the authorizing session remains active and a second device's session is revoked; the existing UI test verifies the real forced-password flow.
 - **Verification:** implementation committed after run 1401. Do not mark resolved until current-head Format, Clippy, Linux/Windows tests, desktop builds and GUI smoke pass.
+
+
+## RUST-UI-001 — Settings navigation had no section icons and weak selected-state hierarchy
+
+- **First observed:** native egui Settings visual review on 2026-11-17.
+- **Symptom:** the eleven Settings sections were rendered as plain text tabs even though the native vector icon set existed. This removed the visual landmarks used by the TypeScript interface and made the selected section difficult to scan.
+- **Root cause:** the generic tab helper accepted labels only and had no per-tab icon mapping or selected-state presentation.
+- **Fix:** add an explicit SettingsTab-to-Icon mapping and a horizontally scrollable icon + label navigation renderer. Selected tabs use the accent surface and border with semibold text; inactive labels/icons are muted, and hover/keyboard-focus states remain visible.
+- **Verification:** code committed; current-head Format, Clippy, Linux/Windows UI tests and fresh native screenshots are required before closure.
+
+## RUST-UI-002 — Command palette selection and dark-mode contrast needed stronger hierarchy
+
+- **First observed:** native shell visual review on 2026-11-17.
+- **Symptom:** command palette hover and selection shared the same low-alpha tint, selected labels had no stronger weight, and the header had no clear visual anchor. The distinction was especially subtle against dark surfaces.
+- **Root cause:** the overlay reused one row treatment for both hover and selection, while the header/footer were plain labels.
+- **Fix:** selected rows now use the stronger accent ring tint, a slim accent rail, semibold labels and muted inactive text. The palette is slightly wider and has a vector search mark, semibold title, divider and keyboard navigation hint. Open combo/menu widgets now receive the same contrast treatment as hovered controls, and Button/Heading text styles use the bundled semibold face.
+- **Verification:** code committed; current-head Linux/Windows UI tests, visual checks and native desktop smoke are required. No screenshot parity sign-off is claimed until fresh native captures are compared.
