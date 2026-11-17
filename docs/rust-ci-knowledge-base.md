@@ -388,3 +388,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the new enum transition, session validity predicate and test assertions exceeded the workspace's preferred line width.
 - **Fix:** apply rustfmt's exact suggested line breaks; no behavior or assertions are removed.
 - **Verification:** pending the next current-head Format, Linux/Windows test and desktop build matrix.
+
+
+## RUST-CI-040 — Forced-password render fixture omitted the Option wrapper
+
+- **First observed:** workflow run 1393, Linux Clippy/test compile.
+- **Symptom:** the all-auth-views render fixture assigned a User directly to the optional authenticated-user field.
+- **Root cause:** the fixture helper returns a concrete User while AuthState stores Option<User>.
+- **Fix:** wrap the fixture account in Some; production authentication behavior is unchanged.
+- **Verification:** pending the next current-head Linux/Windows test run.
