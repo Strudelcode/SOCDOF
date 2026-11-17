@@ -3190,6 +3190,33 @@ mod tests {
     }
 
     #[test]
+    fn switching_settings_to_the_signed_in_user_loads_that_users_preferences() {
+        let (store, mut state, _texts) = seeded();
+        state.start_new_user();
+        if let Some(draft) = state.user_editor.as_mut() {
+            draft.username = "staff-user".to_string();
+            draft.display_name = "Staff User".to_string();
+            draft.password = "staff-password-2026".to_string();
+            draft.password_confirm = "staff-password-2026".to_string();
+        }
+        assert!(state.save_user(&store, SAMPLE_NOW_MS));
+        let staff = store
+            .find_user_by_username("staff-user")
+            .expect("find staff")
+            .expect("staff exists");
+
+        state.set_active_user(Some(staff.id));
+        state.refresh(&store).expect("refresh for signed-in user");
+
+        assert_eq!(state.current_user().map(|user| user.id), Some(staff.id));
+        assert_eq!(
+            state.appearance.language,
+            language_index(Language::De),
+            "new accounts use their own default preferences"
+        );
+    }
+
+    #[test]
     fn recovery_answers_are_saved_for_the_active_account() {
         let (store, mut state, _texts) = seeded();
         let active_user = state.active_user.expect("active account");

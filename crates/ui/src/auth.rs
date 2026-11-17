@@ -1931,6 +1931,37 @@ mod tests {
     }
 
     #[test]
+    fn first_admin_setup_persists_optional_recovery_answers() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AuthState::new(&store, now_millis()).expect("setup state");
+        state.display_name = "First Admin".to_string();
+        state.username = "first-admin".to_string();
+        state.password = "FirstAdminPassword2026!".to_string();
+        state.password_confirm = state.password.clone();
+        state.recovery_answer_one = "First pet".to_string();
+        state.recovery_answer_two = "Childhood city".to_string();
+
+        state
+            .create_first_admin(&store, now_millis())
+            .expect("create first admin");
+
+        let user = store
+            .find_user_by_username("first-admin")
+            .expect("find account")
+            .expect("account created");
+        let answers = socdof_core::security_questions::security_answers(&store, user.id)
+            .expect("recovery answers");
+        assert!(answers.is_configured());
+        assert!(socdof_core::security_questions::verify_security_answer(
+            &store,
+            user.id,
+            0,
+            "FIRST PET"
+        )
+        .expect("verify first answer"));
+    }
+
+    #[test]
     fn security_answers_recover_an_account_and_reset_its_password() {
         let store = store_with_admin();
         let mut state = signed_in(&store);
