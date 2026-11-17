@@ -394,8 +394,10 @@ impl Scene {
 
 fn settings_id(tab: SettingsTab) -> &'static str {
     match tab {
+        SettingsTab::Display => "display",
         SettingsTab::General => "general",
         SettingsTab::Payments => "payments",
+        SettingsTab::Letterhead => "letterhead",
         SettingsTab::Language => "language",
         SettingsTab::Appearance => "personalization",
         SettingsTab::Security => "security",
@@ -410,8 +412,10 @@ fn settings_id(tab: SettingsTab) -> &'static str {
 
 fn settings_title(tab: SettingsTab) -> &'static str {
     match tab {
+        SettingsTab::Display => "Display",
         SettingsTab::General => "General",
         SettingsTab::Payments => "Payments",
+        SettingsTab::Letterhead => "Letterhead",
         SettingsTab::Language => "Language",
         SettingsTab::Appearance => "Personalization",
         SettingsTab::Security => "Security",
