@@ -434,6 +434,7 @@ pub fn run() {
             commands::export_legacy_backup,
             commands::smoke_enabled,
             commands::smoke_idle,
+            commands::smoke_shortcuts,
             commands::smoke_options,
             commands::smoke_tray_run,
             commands::dispatch_shortcut,
