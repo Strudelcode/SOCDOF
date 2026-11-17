@@ -3042,7 +3042,10 @@ mod tests {
         assert!(!state.save_profile(&store));
         assert_eq!(state.error, Some("settings_error_smtp_port"));
         assert_eq!(
-            store.company_profile().expect("unchanged profile").smtp_port,
+            store
+                .company_profile()
+                .expect("unchanged profile")
+                .smtp_port,
             2525
         );
     }

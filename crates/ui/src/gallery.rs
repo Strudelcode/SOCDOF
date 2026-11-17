@@ -3178,8 +3178,8 @@ mod tests {
         state.auth_open = false;
         state.auth.view = crate::auth::AuthView::Unlocked;
         state.shell.onboarding.finish();
-        let admin = crate::auth::seed_auth_user(&state.store, socdof_core::now_millis())
-            .expect("admin");
+        let admin =
+            crate::auth::seed_auth_user(&state.store, socdof_core::now_millis()).expect("admin");
         state.auth.user = Some(admin);
         send_shortcut(&ctx, &mut state, Key::F1, Modifiers::NONE);
         assert!(state.desktop_windows.is_open(AppId::new("documentation")));
