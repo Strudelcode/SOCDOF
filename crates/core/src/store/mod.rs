@@ -21,7 +21,7 @@ use crate::domain::purchase::PurchaseOrder;
 use crate::domain::restaurant::{MenuItem, TableOrder};
 use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
-use crate::domain::stock::StockMove;
+use crate::domain::stock::{StockJournalEntry, StockMove};
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
 use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::domain::user::User;
@@ -47,13 +47,14 @@ pub mod restaurant;
 pub mod search;
 pub mod sessions;
 pub mod settings;
+pub mod stock_journal;
 pub mod support;
 pub mod therapy;
 pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 18;
+pub const SCHEMA_VERSION: i64 = 19;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -755,6 +756,10 @@ impl Store {
             self.conn.execute_batch(SCHEMA_V18)?;
             version = 18;
         }
+        if version < 19 {
+            self.conn.execute_batch(SCHEMA_V19)?;
+            version = 19;
+        }
 
         self.conn.pragma_update(None, "user_version", version)?;
 
@@ -1261,6 +1266,26 @@ impl Store {
     /// Records a stock movement and returns the resulting stock level.
     pub fn adjust_stock(&self, movement: &StockMove) -> CoreResult<i64> {
         products::adjust_stock(&self.conn, movement)
+    }
+
+    /// Books a double-entry journal movement and returns the resulting warehouse stock.
+    pub fn insert_stock_journal_entry(&self, entry: &StockJournalEntry) -> CoreResult<i64> {
+        stock_journal::insert(&self.conn, entry)
+    }
+
+    /// Lists the immutable double-entry stock journal, newest first.
+    pub fn list_stock_journal_entries(&self) -> CoreResult<Vec<StockJournalEntry>> {
+        stock_journal::list(&self.conn)
+    }
+
+    /// Searches journal rows by product, SKU, location, reference or note.
+    pub fn search_stock_journal_entries(&self, query: &str) -> CoreResult<Vec<StockJournalEntry>> {
+        stock_journal::search(&self.conn, query)
+    }
+
+    /// Number of double-entry stock journal rows.
+    pub fn stock_journal_count(&self) -> CoreResult<i64> {
+        stock_journal::count(&self.conn)
     }
 
     /// Number of products.
@@ -2130,6 +2155,31 @@ ALTER TABLE invoices ADD COLUMN tax_total_override_cents INTEGER;
 /// Schema v17: preserve grouped VAT totals on POS receipts.
 const SCHEMA_V17: &str = r#"
 ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
+"#;
+
+/// Schema v19: persist double-entry stock movements and backfill existing movement history.
+const SCHEMA_V19: &str = r#"
+CREATE TABLE IF NOT EXISTS stock_journal_entries (
+    id TEXT PRIMARY KEY,
+    product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    source_location TEXT NOT NULL,
+    dest_location TEXT NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    reference TEXT NOT NULL,
+    notes TEXT,
+    created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_stock_journal_product_created
+    ON stock_journal_entries(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_journal_created
+    ON stock_journal_entries(created_at DESC);
+INSERT OR IGNORE INTO stock_journal_entries
+    (id, product_id, source_location, dest_location, quantity, reference, notes, created_at)
+SELECT id, product_id,
+    CASE WHEN kind = 'in' THEN 'Virtual/Vendors' ELSE 'Physical/Warehouse' END,
+    CASE WHEN kind = 'in' THEN 'Physical/Warehouse' ELSE 'Virtual/Customers' END,
+    quantity, coalesce(nullif(reason, ''), 'Legacy stock movement'), reason, created_at
+FROM stock_moves;
 "#;
 
 /// Schema v18: persist the TherapyMileage logbook independently from treatment sessions.
