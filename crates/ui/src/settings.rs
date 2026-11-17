@@ -3497,16 +3497,25 @@ mod tests {
     }
 
     fn render(state: &mut SettingsState, store: &Store) -> String {
+        render_at_width(state, store, 1100.0, Appearance::Light)
+    }
+
+    fn render_at_width(
+        state: &mut SettingsState,
+        store: &Store,
+        width: f32,
+        appearance: Appearance,
+    ) -> String {
         let ctx = crate::theme::headless_context();
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
-        let theme = Theme::new(Appearance::Light, "indigo");
+        let theme = Theme::new(appearance, "indigo");
         let mut focus = FocusState::default();
         let mut output = None;
         for _ in 0..2 {
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
-                    egui::Vec2::new(1100.0, 2400.0),
+                    egui::Vec2::new(width, 2400.0),
                 )),
                 ..Default::default()
             };
@@ -3526,11 +3535,13 @@ mod tests {
 
         state.appearance.language = 3;
         state.appearance.theme = 1;
+        state.appearance.accent = "rose".to_string();
         assert!(state.save_appearance(&store));
         let prefs = settings_service::preferences(&store, state.active_user.expect("active user"))
             .expect("prefs");
         assert_eq!(prefs.language, Language::Es);
         assert_eq!(prefs.theme_mode, ThemeMode::Dark);
+        assert_eq!(prefs.accent, "rose");
         let applied = state
             .take_saved_preferences()
             .expect("saved preferences are returned to the desktop shell");
@@ -3783,6 +3794,18 @@ mod tests {
                 .data_folder,
             "/tmp/portable"
         );
+    }
+
+    #[test]
+    fn renders_every_tab_in_compact_and_wide_dark_layouts() {
+        let (store, mut state, texts) = seeded();
+        for tab in SettingsTab::ALL {
+            state.set_tab(tab);
+            let compact = render_at_width(&mut state, &store, 760.0, Appearance::Dark);
+            assert!(compact.contains(texts.get(tab.label_key())));
+            let wide = render_at_width(&mut state, &store, 1280.0, Appearance::Dark);
+            assert!(wide.contains(texts.get(tab.label_key())));
+        }
     }
 
     #[test]
