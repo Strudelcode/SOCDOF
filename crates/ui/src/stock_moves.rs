@@ -518,3 +518,70 @@ fn csv_escape(value: &str) -> String {
         value.to_string()
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use socdof_core::domain::product::Product;
+
+    #[test]
+    fn initial_refresh_loads_existing_rows_and_location_filter_is_applied() {
+        let store = Store::open_in_memory().expect("store");
+        let mut product = Product::new("Coffee", 1);
+        product.stock = 4;
+        store.insert_product(&product).expect("product");
+        let entry = StockJournalEntry {
+            id: Uuid::new_v4(),
+            product_id: product.id,
+            product_name: None,
+            product_sku: None,
+            quantity: 2,
+            source_location: StockLocation::Vendors,
+            dest_location: StockLocation::Warehouse,
+            reference: "WH/IN/UI-001".to_string(),
+            notes: None,
+            created_at: 2,
+        };
+        store.insert_stock_journal_entry(&entry).expect("entry");
+
+        let mut state = StockMovesState::default();
+        state.refresh(&store);
+        assert_eq!(state.entries.len(), 1);
+        state.location_filter = Some(StockLocation::Warehouse);
+        assert_eq!(state.visible_entries().len(), 1);
+        state.location_filter = Some(StockLocation::Scrap);
+        assert!(state.visible_entries().is_empty());
+    }
+
+    #[test]
+    fn save_updates_stock_and_keeps_validation_errors_visible() {
+        let store = Store::open_in_memory().expect("store");
+        let mut product = Product::new("Coffee", 1);
+        product.stock = 3;
+        store.insert_product(&product).expect("product");
+
+        let mut state = StockMovesState::default();
+        state.draft.product_id = Some(product.id);
+        state.draft.quantity = "5".to_string();
+        state.draft.reference = "WH/IN/UI-002".to_string();
+        state.create_open = true;
+        state.save(&store, 10);
+        assert_eq!(store.find_product(product.id).expect("find").unwrap().stock, 8);
+        assert_eq!(state.status, Some("stock_journal_saved"));
+        assert!(!state.create_open);
+
+        state.draft.quantity = "0".to_string();
+        state.save(&store, 11);
+        assert_eq!(state.error, Some("stock_journal_error_quantity"));
+        assert_eq!(store.stock_journal_count().expect("count"), 1);
+    }
+
+    #[test]
+    fn csv_export_escapes_delimiters_quotes_and_line_breaks() {
+        assert_eq!(csv_escape("plain"), "plain");
+        assert_eq!(csv_escape("two;columns"), "\"two;columns\"");
+        assert_eq!(csv_escape("a\"b"), "\"a\"\"b\"");
+        assert_eq!(csv_escape("line\nbreak"), "\"line\nbreak\"");
+    }
+}
