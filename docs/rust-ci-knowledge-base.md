@@ -406,3 +406,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** reusing the administrator/recovery reset primitive for a user-initiated first-login change would immediately invalidate the session that is required to complete the forced-change flow.
 - **Fix:** persist the changed user through Store::update_user, clearing must_change_password while preserving the active session. The regression test now verifies that the session token remains valid after the password and recovery answers are saved.
 - **Verification:** pending the next current-head Linux/Windows test run.
+
+
+## RUST-CI-042 — Forced password change revoked its own authenticated session
+
+- **First observed:** workflow run 1401 on head `8c66fb8186a765013c04687e97991b8ff08bbc86`, Linux and Windows UI test jobs.
+- **Symptom:** `auth::tests::administrator_password_reset_requires_new_password_and_recovery_answers_before_desktop` failed after the forced password change because the session token used to authorize the change was revoked.
+- **Root cause:** the generic `Store::update_user` path correctly revokes every session when a password hash changes. Reusing it for a user-initiated first-login password change contradicted the TypeScript self-service flow, which keeps the current session alive.
+- **Fix:** add a dedicated transactional `update_user_preserving_session` path. It retains only the exact session that authorized the password change and revokes every other session for that account. Administrator resets, account edits and recovery continue to use the existing all-session-revocation behavior.
+- **Regression coverage:** a core persistence test verifies that the authorizing session remains active and a second device's session is revoked; the existing UI test verifies the real forced-password flow.
+- **Verification:** implementation committed after run 1401. Do not mark resolved until current-head Format, Clippy, Linux/Windows tests, desktop builds and GUI smoke pass.
