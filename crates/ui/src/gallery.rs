@@ -843,11 +843,15 @@ impl GalleryState {
 /// The shortcuts are consumed here rather than by individual app screens, so they behave the
 /// same regardless of which module window currently owns keyboard focus.
 fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
-    let (fullscreen, palette, lock, escape) = ctx.input_mut(|input| {
+    let (fullscreen, help, palette, lock, start_menu, task_view, escape) = ctx.input_mut(|input| {
         (
             input.consume_key(Modifiers::NONE, Key::F11),
+            input.consume_key(Modifiers::NONE, Key::F1),
             input.consume_key(Modifiers::CTRL, Key::K),
             input.consume_key(Modifiers::CTRL, Key::L),
+            input.consume_key(Modifiers::CTRL, Key::Space),
+            input.consume_key(Modifiers::CTRL, Key::Tab)
+                || input.consume_key(Modifiers::ALT, Key::Tab),
             input.consume_key(Modifiers::NONE, Key::Escape),
         )
     });
@@ -856,6 +860,10 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
     if fullscreen && desktop_ready {
         let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
         ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+    }
+    if help && desktop_ready {
+        // Match the TypeScript desktop's F1 shortcut: open the integrated documentation window.
+        let _ = state.open_desktop_app(AppId::new("documentation"), now);
     }
     if palette && desktop_ready {
         state.shell.open_palette();
@@ -868,9 +876,22 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
         state.close_module_views();
         state.desktop_windows = WindowManager::new();
     }
-    if escape && desktop_ready {
-        if state.shell.overlay_open() {
+    if start_menu && desktop_ready {
+        state.shell.toggle_start();
+    }
+    if task_view && desktop_ready {
+        if state.shell.task_view.is_open() {
+            state.shell.task_view.close();
+        } else {
             state.shell.close_overlays();
+            state.shell.task_view.open();
+        }
+    }
+    if escape && desktop_ready {
+        if state.shell.dismiss_top_overlay() {
+            // The topmost dismissible overlay owns Escape; leave the remaining shell state intact.
+        } else if state.shell.overlay_open() || state.shell.studio.is_open() {
+            // First-run onboarding is intentionally modal and cannot be dismissed with Escape.
         } else if let Some(active) = state.desktop_windows.active() {
             // Escape closes only the focused module window; other workspace windows remain open.
             state.desktop_windows.close(active, now);
@@ -3125,6 +3146,46 @@ mod tests {
         let _ = ctx.run(input, |ctx| {
             handle_global_shortcuts(ctx, state, now_millis())
         });
+    }
+
+    #[test]
+    fn global_start_menu_shortcut_toggles_the_start_menu() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(state.shell.start.is_open());
+        send_shortcut(&ctx, &mut state, Key::Space, Modifiers::CTRL);
+        assert!(!state.shell.start.is_open());
+    }
+
+    #[test]
+    fn global_task_view_shortcut_opens_the_window_overview() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+
+        send_shortcut(&ctx, &mut state, Key::Tab, Modifiers::CTRL);
+
+        assert!(state.shell.task_view.is_open());
+        assert!(!state.shell.start.is_open());
+        assert!(!state.shell.palette.is_open());
+    }
+
+    #[test]
+    fn f1_opens_the_native_documentation_window() {
+        let ctx = crate::theme::headless_context();
+        let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.auth_open = false;
+        state.auth.view = crate::auth::AuthView::Unlocked;
+
+        send_shortcut(&ctx, &mut state, Key::F1, Modifiers::NONE);
+
+        assert!(state.desktop_windows.is_open(AppId::new("documentation")));
+        assert!(state.desktop_open);
     }
 
     #[test]

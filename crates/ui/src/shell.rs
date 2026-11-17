@@ -664,6 +664,27 @@ impl ShellState {
         self.overflow.close();
     }
 
+    /// Dismisses the highest-priority transient overlay without disturbing other shell state.
+    ///
+    /// First-run onboarding is intentionally modal and is not dismissed by Escape.
+    /// The order mirrors the TypeScript desktop's task-view, palette, start-menu and flyout flow.
+    pub fn dismiss_top_overlay(&mut self) -> bool {
+        if self.task_view.is_open() {
+            self.task_view.close();
+        } else if self.palette.is_open() {
+            self.palette.close();
+        } else if self.start.is_open() {
+            self.start.close();
+        } else if self.tray.is_open() {
+            self.tray.close();
+        } else if self.overflow.is_open() {
+            self.overflow.close();
+        } else {
+            return false;
+        }
+        true
+    }
+
     /// Whether any overlay is visible.
     pub fn overlay_open(&self) -> bool {
         self.onboarding.is_open()
@@ -1440,6 +1461,16 @@ mod tests {
         assert!(!shell.tray.is_open());
         shell.onboarding.restart();
         assert!(shell.overlay_open());
+    }
+
+    #[test]
+    fn escape_dismisses_only_the_topmost_transient_overlay() {
+        let mut shell = ShellState::new();
+        shell.task_view.open();
+        shell.palette.open();
+        assert!(shell.dismiss_top_overlay());
+        assert!(!shell.task_view.is_open());
+        assert!(shell.palette.is_open());
     }
 
     #[test]
