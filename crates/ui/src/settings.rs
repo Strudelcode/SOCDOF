@@ -1434,8 +1434,9 @@ fn settings_sidebar(
         for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
             let active = index == *selected;
             let label = texts.get(tab.label_key());
+            let row_width = ui.available_width();
             let (rect, response) =
-                ui.allocate_exact_size(Vec2::new(ui.available_width(), 36.0), Sense::click());
+                ui.allocate_exact_size(Vec2::new(row_width, 36.0), Sense::click());
             let focused = focus.register(response.id);
             if response.clicked() {
                 focus.set_focus(Some(response.id));
