@@ -46,14 +46,20 @@ impl Default for StockMoveDraft {
 /// Search, filters, draft and result state for the stock journal.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct StockMovesState {
+    /// Current free-text query.
     pub query: String,
+    /// Optional location filter applied to both movement endpoints.
     pub location_filter: Option<StockLocation>,
+    /// Journal entries matching the current query.
     pub entries: Vec<StockJournalEntry>,
+    /// Whether the create-movement dialog is open.
     pub create_open: bool,
     draft: StockMoveDraft,
     loaded_query: String,
     loaded: bool,
+    /// Translation key for the most recent validation or persistence error.
     pub error: Option<&'static str>,
+    /// Translation key for the most recent successful operation.
     pub status: Option<&'static str>,
 }
 
@@ -139,6 +145,7 @@ impl StockMovesState {
 }
 
 /// Renders the stock journal. Returns true when the user requests the Products list.
+#[allow(clippy::too_many_arguments)]
 pub fn stock_moves_window(
     ctx: &Context,
     ui: &mut Ui,
@@ -508,6 +515,7 @@ fn export_csv(state: &mut StockMovesState, _texts: &UiTexts, now: i64) {
     }
 }
 
+#[cfg(feature = "dialogs")]
 fn csv_escape(value: &str) -> String {
     if value
         .chars()
@@ -519,8 +527,7 @@ fn csv_escape(value: &str) -> String {
     }
 }
 
-
-#[cfg(test)]
+#[cfg(all(test, feature = "dialogs"))]
 mod tests {
     use super::*;
     use socdof_core::domain::product::Product;
