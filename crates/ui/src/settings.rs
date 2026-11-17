@@ -1974,6 +1974,64 @@ fn language_tab(
     }
 }
 
+/// A compact, previewable appearance-mode card.
+fn theme_choice(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    selected: &mut usize,
+    index: usize,
+    label: &str,
+    icon: Icon,
+) {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(112.0, 72.0), Sense::click());
+    let focused = focus.register(response.id);
+    if response.clicked() {
+        focus.set_focus(Some(response.id));
+    }
+    let activated = response.clicked() || focus.activate(response.id);
+    let active = *selected == index;
+    ui.painter().rect(
+        rect,
+        egui::Rounding::same(12.0),
+        if active { theme.accent.light } else { theme.palette.surface },
+        Stroke::new(
+            if active { 1.5_f32 } else { 1.0_f32 },
+            if active { theme.accent.border } else { theme.palette.border },
+        ),
+    );
+    icon.draw(
+        ui.painter(),
+        egui::Rect::from_center_size(
+            egui::Pos2::new(rect.center().x, rect.top() + 25.0),
+            Vec2::splat(22.0),
+        ),
+        if active { theme.accent_text() } else { theme.palette.text_muted },
+        1.7,
+    );
+    let galley = ui.painter().layout_no_wrap(
+        label.to_owned(),
+        egui::FontId::new(FONT_SMALL, if active { crate::theme::semibold() } else { egui::FontFamily::Proportional }),
+        if active { theme.palette.text } else { theme.palette.text_muted },
+    );
+    ui.painter().galley(
+        egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 48.0),
+        galley,
+        if active { theme.palette.text } else { theme.palette.text_muted },
+    );
+    if focused {
+        ui.painter().rect_stroke(
+            rect.expand(1.5),
+            egui::Rounding::same(13.0),
+            Stroke::new(1.5_f32, theme.accent.base),
+        );
+    }
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::RadioButton, label));
+    if activated {
+        *selected = index;
+    }
+}
+
 fn appearance_tab(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -2006,48 +2064,53 @@ fn appearance_tab(
             return;
         }
         ui.columns(2, |columns| {
-            let themes = [
-                texts.get("settings_theme_light"),
-                texts.get("settings_theme_dark"),
-                texts.get("settings_theme_system"),
-            ];
-            columns[1].label(
-                RichText::new(texts.get("settings_theme"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-            select(
-                &mut columns[1],
-                theme,
-                focus,
-                &mut state.theme_popup,
-                "settings-theme",
-                &mut state.appearance.theme,
-                &themes,
-            );
-
-            let accents: Vec<&str> = preset_ids().collect();
-            let accent_index = accents
-                .iter()
-                .position(|id| *id == state.appearance.accent)
-                .unwrap_or(0);
-            let mut selected_accent = accent_index;
             columns[0].label(
                 RichText::new(texts.get("settings_accent"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
-            if select(
-                &mut columns[0],
-                theme,
-                focus,
-                &mut state.accent_popup,
-                "settings-accent",
-                &mut selected_accent,
-                &accents,
-            ) {
-                state.appearance.accent = accents[selected_accent].to_string();
-            }
+            columns[0].add_space(6.0);
+            columns[0].horizontal_wrapped(|ui| {
+                for id in preset_ids() {
+                    accent_swatch(ui, theme, focus, id, &mut state.appearance.accent);
+                }
+            });
+
+            columns[1].label(
+                RichText::new(texts.get("settings_theme"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            columns[1].add_space(6.0);
+            columns[1].horizontal_wrapped(|ui| {
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    0,
+                    texts.get("settings_theme_light"),
+                    Icon::Sun,
+                );
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    1,
+                    texts.get("settings_theme_dark"),
+                    Icon::Moon,
+                );
+                theme_choice(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.appearance.theme,
+                    2,
+                    texts.get("settings_theme_system"),
+                    Icon::Settings,
+                );
+            });
 
             let startup: Vec<&str> = std::iter::once(texts.get("settings_startup_dashboard"))
                 .chain(
@@ -2057,6 +2120,7 @@ fn appearance_tab(
                         .map(|module| texts.get(module_label_key(*module))),
                 )
                 .collect();
+            columns[1].add_space(12.0);
             columns[1].label(
                 RichText::new(texts.get("settings_startup"))
                     .size(FONT_SMALL)
