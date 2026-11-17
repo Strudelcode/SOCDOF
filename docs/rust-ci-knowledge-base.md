@@ -337,3 +337,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** first-admin setup can configure two recovery answers; login opens a recovery view, verifies both answers case-insensitively, validates the new password and resets it through the core store, revoking old sessions.
 - **Tests:** wrong answers preserve the old password; correct answers replace it; all five auth views are rendered in every locale/theme.
 - **Verification:** pending current-head CI.
+## RUST-CI-034 — Payment settings UI keys missing from the Rust catalogue (2026-11-17)
+
+- **First observed:** run 1370, unit-test job on Linux.
+- **Symptom:** `every_literal_key_in_the_sources_is_declared` reported the new Payments and Shortcuts labels in `settings.rs` missing from `UI_KEYS`.
+- **Root cause:** the native Payments section had been added to Settings before its full key set was restored to the central key inventory and all locale packs.
+- **Fix:** add the missing bank, SMTP, card-terminal and shortcut-title keys to `UI_KEYS`, the committed catalogue inventory and all four embedded locale packs.
+- **Verification:** pending current-head CI.
+
