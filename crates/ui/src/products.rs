@@ -42,6 +42,8 @@ pub enum ProductsView {
     Detail,
     /// Create or edit form.
     Form,
+    /// Double-entry movement journal and location filters.
+    Journal,
 }
 
 impl ProductsView {
@@ -51,6 +53,7 @@ impl ProductsView {
             ProductsView::List => "products_title",
             ProductsView::Detail => "products_detail_title",
             ProductsView::Form => "products_form_title",
+            ProductsView::Journal => "stock_journal_title",
         }
     }
 }
@@ -229,6 +232,8 @@ pub struct ProductsState {
     pub reorder_note: Option<String>,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
+    /// Double-entry stock journal state.
+    pub stock_moves: crate::stock_moves::StockMovesState,
     /// Catalogue key of the validation or storage error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last success message.
@@ -258,6 +263,7 @@ impl Default for ProductsState {
             reorder_fixed: "5".to_string(),
             reorder_note: None,
             confirm_delete: false,
+            stock_moves: crate::stock_moves::StockMovesState::default(),
             error: None,
             status: None,
             back: false,
@@ -583,6 +589,7 @@ pub fn products_window(
             ProductsView::List => state.back = true,
             ProductsView::Detail => state.view = ProductsView::List,
             ProductsView::Form => state.cancel_edit(),
+            ProductsView::Journal => state.view = ProductsView::List,
         }
     }
 
@@ -594,6 +601,20 @@ pub fn products_window(
         ProductsView::List => list_view(ui, theme, texts, focus, state),
         ProductsView::Detail => detail_view(ui, theme, texts, focus, state, store, now),
         ProductsView::Form => form_view(ui, theme, texts, focus, state, store, now),
+        ProductsView::Journal => {
+            if crate::stock_moves::stock_moves_window(
+                ctx,
+                ui,
+                theme,
+                texts,
+                focus,
+                &mut state.stock_moves,
+                store,
+                now,
+            ) {
+                state.view = ProductsView::List;
+            }
+        }
     });
 
     let mut open = state.confirm_delete;
@@ -1157,7 +1178,8 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut create = false;
-    ui.horizontal(|ui| {
+    let mut open_journal = false;
+    ui.horizontal_wrapped(|ui| {
         search_field_reserved(
             ui,
             theme,
@@ -1177,7 +1199,22 @@ fn list_view(
         {
             create = true;
         }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("stock_journal_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            open_journal = true;
+        }
     });
+    if open_journal {
+        state.view = ProductsView::Journal;
+        return;
+    }
     if create {
         state.start_new();
         return;
