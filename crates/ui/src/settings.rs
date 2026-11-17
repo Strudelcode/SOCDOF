@@ -1574,7 +1574,7 @@ fn accent_swatch(
     ui.painter().rect_filled(
         swatch.expand(4.0),
         egui::Rounding::same(10.0),
-        if active { theme.accent.light } else { theme.palette.surface },
+        if active { preset.light } else { theme.palette.surface },
     );
     ui.painter().rect(
         swatch,
@@ -1582,7 +1582,7 @@ fn accent_swatch(
         preset.base,
         Stroke::new(
             if active { 2.0_f32 } else { 1.0_f32 },
-            if active { theme.accent_text() } else { theme.palette.border },
+            if active { preset.base } else { theme.palette.border },
         ),
     );
     let galley = ui.painter().layout_no_wrap(
