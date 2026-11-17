@@ -312,20 +312,41 @@ fn restore_native_windows(
 /// Trims the desktop to the layout template chosen in the wizard.
 fn apply_setup_template(state: &mut GalleryState) {
     let apps: &[&str] = match state.auth.template_choice {
-        SetupTemplate::Sales => &[
-            "dashboard",
-            "pos",
-            "invoices",
-            "products",
-            "reports",
-            "settings",
-        ],
-        SetupTemplate::Office => &[
+        SetupTemplate::Personal => &[
             "dashboard",
             "contacts",
             "calendar",
-            "support",
-            "editor",
+            "documentation",
+            "settings",
+        ],
+        SetupTemplate::Business => &[
+            "dashboard",
+            "invoices",
+            "accounting",
+            "contacts",
+            "products",
+            "purchases",
+            "calendar",
+            "reports",
+            "settings",
+        ],
+        SetupTemplate::Practice => &[
+            "dashboard",
+            "therapy",
+            "contacts",
+            "calendar",
+            "invoices",
+            "accounting",
+            "settings",
+        ],
+        SetupTemplate::Retail => &[
+            "dashboard",
+            "pos",
+            "products",
+            "purchases",
+            "accounting",
+            "contacts",
+            "invoices",
             "settings",
         ],
         SetupTemplate::All => return,

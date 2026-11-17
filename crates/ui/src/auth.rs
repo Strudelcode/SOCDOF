@@ -27,25 +27,50 @@ use crate::tokens::{FONT_SMALL, FONT_TITLE};
 pub const DEFAULT_IDLE_TIMEOUT_MS: i64 = 5 * 60 * 1000;
 
 /// Number of steps in the first-run wizard.
-pub const SETUP_STEPS: usize = 4;
+pub const SETUP_STEPS: usize = 5;
 
 /// Catalogue keys of the wizard steps, in order.
 const SETUP_STEP_KEYS: [&str; SETUP_STEPS] = [
-    "setup_step_language",
+    "setup_step_welcome",
     "setup_step_account",
     "setup_step_appearance",
     "setup_step_apps",
+    "setup_step_finish",
 ];
+
+/// Account type selected during first-run setup.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum SetupAccountType {
+    /// Personal workspace without business-only modules.
+    #[default]
+    Personal,
+    /// Business workspace with accounting and commerce modules.
+    Business,
+}
+
+impl SetupAccountType {
+    /// Stable storage value shared with the TypeScript account model.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Personal => "personal",
+            Self::Business => "business",
+        }
+    }
+}
 
 /// Desktop layout a first-run account can start with.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SetupTemplate {
-    /// Point of sale, invoices, products and reports.
+    /// Personal workspace.
     #[default]
-    Sales,
-    /// Contacts, calendar, appointments and support.
-    Office,
-    /// Every app.
+    Personal,
+    /// General business workspace.
+    Business,
+    /// Practice and therapy workspace.
+    Practice,
+    /// Retail and point-of-sale workspace.
+    Retail,
+    /// Every installed app.
     All,
 }
 
@@ -106,6 +131,8 @@ pub struct AuthState {
     pub appearance_choice: Option<crate::theme::Appearance>,
     /// Accent chosen in the wizard; the host applies it after setup.
     pub accent_choice: Option<String>,
+    /// Account type chosen in the wizard.
+    pub account_type: SetupAccountType,
     /// Desktop layout chosen in the wizard.
     pub template_choice: SetupTemplate,
     /// Whether the lock screen shows the password recovery hint.
@@ -299,6 +326,7 @@ impl AuthState {
             });
             return Ok(());
         }
+        store.put_setting(user.id, "account_type", &self.account_type.as_str())?;
         if has_first_answer {
             socdof_core::security_questions::save_security_answers(
                 store,
@@ -312,6 +340,7 @@ impl AuthState {
         if store.insert_first_admin(&user).is_err() {
             if has_first_answer {
                 let _ = socdof_core::security_questions::delete_security_answers(store, user.id);
+                let _ = store.delete_setting(user.id, "account_type");
             }
             self.error = Some(if store.user_count().unwrap_or(0) > 0 {
                 "auth_error_setup_exists"
@@ -1081,7 +1110,7 @@ fn setup_form(
             }
         });
         ui.add_space(12.0);
-        if state.setup_step + 1 == SETUP_STEPS {
+        if state.setup_step == 3 {
             ui.label(RichText::new(texts.get("setup_step_import")).strong());
             state.import_pending |=
                 crate::migration::migration_step(ui, theme, texts, &mut state.migration);
@@ -1089,6 +1118,13 @@ fn setup_form(
         }
         match state.setup_step {
             0 => {
+                ui.label(RichText::new(texts.get("setup_wizard_welcome_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("setup_wizard_welcome_body"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(10.0);
                 ui.vertical(|ui| {
                     for language in socdof_core::i18n::EMBEDDED_LANGUAGES {
                         let selected = state.language_choice == Some(language);
@@ -1104,6 +1140,27 @@ fn setup_form(
                 });
             }
             1 => {
+                ui.label(RichText::new(texts.get("setup_account_type_title")).strong());
+                ui.horizontal(|ui| {
+                    for (account_type, key) in [
+                        (SetupAccountType::Personal, "setup_account_type_personal"),
+                        (SetupAccountType::Business, "setup_account_type_business"),
+                    ] {
+                        let variant = if state.account_type == account_type {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        };
+                        if button(ui, theme, focus, texts.get(key), variant).activated {
+                            state.account_type = account_type;
+                            state.template_choice = match account_type {
+                                SetupAccountType::Personal => SetupTemplate::Personal,
+                                SetupAccountType::Business => SetupTemplate::Business,
+                            };
+                        }
+                    }
+                });
+                ui.add_space(8.0);
                 text_field(
                     ui,
                     theme,
@@ -1311,20 +1368,28 @@ fn setup_form(
                         .color(theme.palette.text_muted),
                 );
             }
-            _ => {
-                ui.vertical(|ui| {
-                    for (template, key) in [
-                        (SetupTemplate::Sales, "setup_template_sales"),
-                        (SetupTemplate::Office, "setup_template_office"),
+            3 => {
+                let templates: &[(SetupTemplate, &str)] = match state.account_type {
+                    SetupAccountType::Personal => &[
+                        (SetupTemplate::Personal, "setup_template_personal"),
+                        (SetupTemplate::Practice, "setup_template_practice"),
                         (SetupTemplate::All, "setup_template_all"),
-                    ] {
-                        let variant = if state.template_choice == template {
+                    ],
+                    SetupAccountType::Business => &[
+                        (SetupTemplate::Business, "setup_template_business"),
+                        (SetupTemplate::Retail, "setup_template_retail"),
+                        (SetupTemplate::All, "setup_template_all"),
+                    ],
+                };
+                ui.vertical(|ui| {
+                    for (template, key) in templates {
+                        let variant = if state.template_choice == *template {
                             ButtonVariant::Primary
                         } else {
                             ButtonVariant::Secondary
                         };
                         if button(ui, theme, focus, texts.get(key), variant).activated {
-                            state.template_choice = template;
+                            state.template_choice = *template;
                         }
                     }
                 });
@@ -1335,6 +1400,30 @@ fn setup_form(
                         .color(theme.palette.text_muted),
                 );
             }
+            4 => {
+                ui.label(RichText::new(texts.get("setup_wizard_finish_title")).strong());
+                ui.label(
+                    RichText::new(texts.get("setup_wizard_finish_body"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.add_space(10.0);
+                ui.label(format!("{}: {}", texts.get("auth_display_name"), state.display_name));
+                ui.label(format!("{}: {}", texts.get("auth_username"), state.username));
+                let template_key = match state.template_choice {
+                    SetupTemplate::Personal => "setup_template_personal",
+                    SetupTemplate::Business => "setup_template_business",
+                    SetupTemplate::Practice => "setup_template_practice",
+                    SetupTemplate::Retail => "setup_template_retail",
+                    SetupTemplate::All => "setup_template_all",
+                };
+                ui.label(format!(
+                    "{}: {}",
+                    texts.get("setup_template_label"),
+                    texts.get(template_key)
+                ));
+            }
+            _ => {}
         }
         messages(ui, theme, texts, state, now);
         ui.add_space(8.0);

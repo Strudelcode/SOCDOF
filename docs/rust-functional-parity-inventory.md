@@ -272,3 +272,5 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - Still open: per-user selectable recovery questions for all managed accounts, recovery configuration after first setup, user avatars/account type, and the remaining profile/workstation parity.
 
 - Added a native recovery setup path for the first administrator and a self-service recovery editor in Settings → Security. Settings now loads preferences and recovery status for the signed-in account, not the first administrator.
+
+- First-run setup now follows the TypeScript five-step structure (welcome, account, appearance, apps, finish), offers personal/business account types and personal/business/practice/retail templates, and persists the initial account type in the per-user settings store.
