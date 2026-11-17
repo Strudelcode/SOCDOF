@@ -301,6 +301,18 @@ mod tests {
             ctx.style().visuals.override_text_color,
             Some(theme.palette.text)
         );
+        assert_eq!(
+            ctx.style().visuals.widgets.open.bg_fill,
+            theme.palette.surface
+        );
+        assert_eq!(
+            ctx.style().visuals.widgets.open.bg_stroke.color,
+            theme.accent.border
+        );
+        assert_eq!(
+            ctx.style().text_styles[&TextStyle::Button].family,
+            FontFamily::Name("Semibold".into())
+        );
         assert_eq!(theme.accent_text(), theme.accent.dark_text);
 
         let light = Theme::new(Appearance::Light, "#0d9488");
