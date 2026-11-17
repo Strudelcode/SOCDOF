@@ -138,67 +138,24 @@ impl eframe::App for DesktopApp {
 }
 
 fn database_path() -> Result<PathBuf, Box<dyn Error>> {
-    database_path_from_args(std::env::args_os().skip(1), default_data_root()?)
+    let paths = socdof_core::data_paths::DataPaths::resolve(
+        std::env::args_os().skip(1),
+        default_data_root()?,
+        std::env::var_os(socdof_core::data_paths::DATA_DIRECTORY_ENV).map(PathBuf::from),
+    )?;
+    Ok(paths.database)
 }
 
 fn database_path_from_args<I>(args: I, default_root: PathBuf) -> Result<PathBuf, Box<dyn Error>>
 where
     I: IntoIterator<Item = OsString>,
 {
-    let mut args = args.into_iter();
-    let mut data_dir = None;
-    while let Some(argument) = args.next() {
-        if argument == "--database" {
-            let value = args.next().ok_or("--database requires a path")?;
-            return Ok(PathBuf::from(value));
-        }
-        if argument == "--data-dir" {
-            let value = args.next().ok_or("--data-dir requires a path")?;
-            data_dir = Some(PathBuf::from(value));
-            continue;
-        }
-        if argument == "--help" || argument == "-h" {
-            println!(
-                "SOCDOF native desktop\n\nUsage: socdof-ui-desktop [--database <path>] [--data-dir <folder>]"
-            );
-            std::process::exit(0);
-        }
-        return Err(format!("unknown argument: {}", argument.to_string_lossy()).into());
-    }
-
-    if let Some(data_dir) = data_dir {
-        return Ok(data_dir.join("SOCDOF.db"));
-    }
-    if let Some(data_dir) = std::env::var_os("SOCDOF_DATA_DIR") {
-        return Ok(PathBuf::from(data_dir).join("SOCDOF.db"));
-    }
-    Ok(default_root.join("SOCDOF").join("SOCDOF.db"))
+    let paths = socdof_core::data_paths::DataPaths::resolve(args, default_root, None)?;
+    Ok(paths.database)
 }
 
 fn default_data_root() -> Result<PathBuf, Box<dyn Error>> {
-    #[cfg(target_os = "windows")]
-    let root = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .unwrap_or(std::env::current_dir()?);
-
-    #[cfg(target_os = "macos")]
-    let root = std::env::var_os("HOME")
-        .map(PathBuf::from)
-        .unwrap_or(std::env::current_dir()?)
-        .join("Library")
-        .join("Application Support");
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let root = std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME")
-                .map(PathBuf::from)
-                .map(|home| home.join(".local").join("share"))
-        })
-        .unwrap_or(std::env::current_dir()?);
-
-    Ok(root)
+    Ok(socdof_core::data_paths::default_data_root()?)
 }
 
 fn legacy_database_path(database: &Path) -> Option<PathBuf> {

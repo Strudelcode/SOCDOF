@@ -11,6 +11,7 @@ pub mod barcode;
 pub mod contact_import_export;
 pub mod csv;
 pub mod date;
+pub mod data_paths;
 pub mod document_layout;
 pub mod docx;
 pub mod domain;
