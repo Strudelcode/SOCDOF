@@ -1679,6 +1679,7 @@ pub const UI_KEYS: &[&str] = &[
     "settings_title",
     "settings_update_channel",
     "settings_updates_title",
+    "settings_user_account_type",
     "settings_user_active",
     "settings_user_deleted",
     "settings_user_edit_title",

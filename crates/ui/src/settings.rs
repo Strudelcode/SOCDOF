@@ -745,6 +745,8 @@ impl SettingsState {
     }
 
     fn start_new_user(&mut self) {
+        self.user_account_type_popup = PopupState::default();
+        self.user_role_popup = PopupState::default();
         self.user_editor = Some(UserDraft::default());
         self.error = None;
         self.status = None;
@@ -759,7 +761,9 @@ impl SettingsState {
                 .flatten()
                 .and_then(|value| value.as_str().map(str::to_owned))
                 .unwrap_or_else(|| "personal".to_string());
-            let account_type_choice = usize::from(account_type == "business");
+            let account_type_choice = if account_type == "business" { 1 } else { 0 };
+            self.user_account_type_popup = PopupState::default();
+            self.user_role_popup = PopupState::default();
             self.user_editor = Some(UserDraft::from_user(
                 user,
                 &self.roles,
