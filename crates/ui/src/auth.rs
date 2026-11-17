@@ -2408,7 +2408,7 @@ mod tests {
                             state.begin_recovery(&store);
                         }
                         AuthView::ChangePassword => {
-                            state.user = store.find_user_by_username("admin").unwrap().clone();
+                            state.user = store.find_user_by_username("admin").unwrap().expect("admin");
                             state.view = AuthView::ChangePassword;
                             state.recovery_new_password = "temporary-password".to_string();
                             state.recovery_confirm_password = state.recovery_new_password.clone();
