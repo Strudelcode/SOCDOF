@@ -157,6 +157,13 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
             app.icon,
         ));
     }
+    // The App Store is a desktop utility rather than a permission-controlled business module.
+    let app = crate::chrome::app_chrome("app-store");
+    icons.push(DesktopIcon::new(
+        AppId::new(app.slug),
+        texts.get(app.title_key),
+        app.icon,
+    ));
     IconGrid::new(icons)
 }
 
@@ -222,6 +229,7 @@ fn restore_native_windows(
             "editor" => AppId::new("editor"),
             "support" => AppId::new("support"),
             "reports" => AppId::new("reports"),
+            "app-store" => AppId::new("app-store"),
             _ => continue,
         };
         let Some(title) = state.desktop_icons.label_of(app) else {
@@ -3067,6 +3075,10 @@ mod tests {
     fn global_command_palette_shortcut_works_from_the_native_desktop() {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
+        state.desktop_icons = desktop_icons(
+            &state.texts,
+            &socdof_core::domain::permission::ALL_MODULES,
+        );
         state.auth_open = false;
         state.desktop_open = true;
 
@@ -3812,7 +3824,23 @@ mod tests {
                 z_order: 1,
             },
         );
-        for (slug, z_order) in [("accounting", 0), ("pos", 3), ("therapy", 4), ("users", 5)] {
+        for (slug, z_order) in [
+            ("accounting", 0),
+            ("pos", 3),
+            ("therapy", 4),
+            ("users", 5),
+            ("projects", 6),
+            ("fleet", 7),
+            ("restaurant", 8),
+            ("products", 9),
+            ("purchases", 10),
+            ("calendar", 11),
+            ("editor", 12),
+            ("app-store", 13),
+            ("support", 14),
+            ("reports", 15),
+            ("dashboard", 16),
+        ] {
             layout.window_states.insert(
                 slug.to_string(),
                 settings_service::DesktopWindowLayout {
