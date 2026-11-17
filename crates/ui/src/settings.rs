@@ -45,11 +45,15 @@ pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
 /// Settings tab.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SettingsTab {
-    /// Company profile.
+    /// Native display scaling and display preferences.
     #[default]
+    Display,
+    /// Company profile.
     General,
     /// Bank, payment terminal and outbound mail configuration.
     Payments,
+    /// Letterhead and DIN 5008 document details.
+    Letterhead,
     /// Interface language.
     Language,
     /// Theme, accent and start module.
@@ -72,9 +76,11 @@ pub enum SettingsTab {
 
 impl SettingsTab {
     /// Every tab in display order.
-    pub const ALL: [SettingsTab; 11] = [
+    pub const ALL: [SettingsTab; 13] = [
+        SettingsTab::Display,
         SettingsTab::General,
         SettingsTab::Payments,
+        SettingsTab::Letterhead,
         SettingsTab::Language,
         SettingsTab::Appearance,
         SettingsTab::Security,
@@ -89,17 +95,19 @@ impl SettingsTab {
     /// Position in the tab bar.
     pub fn index(self) -> usize {
         match self {
-            SettingsTab::General => 0,
-            SettingsTab::Payments => 1,
-            SettingsTab::Language => 2,
-            SettingsTab::Appearance => 3,
-            SettingsTab::Security => 4,
-            SettingsTab::Backup => 5,
-            SettingsTab::Users => 6,
-            SettingsTab::Roles => 7,
-            SettingsTab::Updates => 8,
-            SettingsTab::Portable => 9,
-            SettingsTab::Shortcuts => 10,
+            SettingsTab::Display => 0,
+            SettingsTab::General => 1,
+            SettingsTab::Payments => 2,
+            SettingsTab::Letterhead => 3,
+            SettingsTab::Language => 4,
+            SettingsTab::Appearance => 5,
+            SettingsTab::Security => 6,
+            SettingsTab::Backup => 7,
+            SettingsTab::Users => 8,
+            SettingsTab::Roles => 9,
+            SettingsTab::Updates => 10,
+            SettingsTab::Portable => 11,
+            SettingsTab::Shortcuts => 12,
         }
     }
 
@@ -111,8 +119,10 @@ impl SettingsTab {
     /// Catalogue key of the tab label.
     pub fn label_key(self) -> &'static str {
         match self {
+            SettingsTab::Display => "settings_tab_display",
             SettingsTab::General => "settings_tab_general",
             SettingsTab::Payments => "settings_tab_payments",
+            SettingsTab::Letterhead => "settings_tab_letterhead",
             SettingsTab::Language => "settings_tab_language",
             SettingsTab::Appearance => "settings_tab_personalization",
             SettingsTab::Security => "settings_tab_security",
@@ -269,6 +279,50 @@ impl AppearanceDraft {
     }
 }
 
+/// Persisted native display preferences. These settings affect the SOCDOF window, not OS monitor hardware.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct DisplayDraft {
+    scale_percent: String,
+    night_light_enabled: bool,
+    night_light_temperature: String,
+}
+impl Default for DisplayDraft {
+    fn default() -> Self {
+        Self { scale_percent: "100".to_string(), night_light_enabled: false, night_light_temperature: "3400".to_string() }
+    }
+}
+impl DisplayDraft {
+    fn validate(&self) -> Result<(), &'static str> {
+        let scale = self.scale_percent.trim().parse::<u32>().map_err(|_| "settings_error_display")?;
+        let temperature = self.night_light_temperature.trim().parse::<u32>().map_err(|_| "settings_error_display")?;
+        if !(75..=200).contains(&scale) || !(1000..=6500).contains(&temperature) {
+            return Err("settings_error_display");
+        }
+        Ok(())
+    }
+}
+/// Letterhead metadata retained independently of the company profile for backward compatibility.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+struct LetterheadDraft {
+    logo_path: String,
+    default_subject: String,
+    managing_director: String,
+    commercial_register: String,
+    footer_lines: [String; 4],
+    show_background: bool,
+    show_fold_marks: bool,
+}
+impl Default for LetterheadDraft {
+    fn default() -> Self {
+        Self {
+            logo_path: String::new(), default_subject: String::new(), managing_director: String::new(),
+            commercial_register: String::new(), footer_lines: std::array::from_fn(|_| String::new()),
+            show_background: false, show_fold_marks: true,
+        }
+    }
+}
 /// Editable user account.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct UserDraft {
@@ -444,6 +498,8 @@ pub struct SettingsState {
     tab: SettingsTab,
     profile: ProfileDraft,
     appearance: AppearanceDraft,
+    display: DisplayDraft,
+    letterhead: LetterheadDraft,
     users: Vec<User>,
     roles: Vec<Role>,
     active_user: Option<Uuid>,
@@ -487,6 +543,8 @@ impl Default for SettingsState {
             tab: SettingsTab::General,
             profile: ProfileDraft::default(),
             appearance: AppearanceDraft::default(),
+            display: DisplayDraft::default(),
+            letterhead: LetterheadDraft::default(),
             users: Vec::new(),
             roles: Vec::new(),
             active_user: None,
@@ -597,6 +655,10 @@ impl SettingsState {
             None => Preferences::default(),
         };
         self.appearance = AppearanceDraft::from_preferences(&preferences);
+        self.display = store.get_setting("native_display_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
+        self.letterhead = store.get_setting("native_letterhead_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok()).unwrap_or_default();
         self.update_settings = settings_service::update_settings(store)?;
         self.portable_settings = settings_service::portable_settings(store)?;
         self.restore_target = if self.portable_settings.enabled {
@@ -655,6 +717,35 @@ impl SettingsState {
                 self.error = Some("settings_error_preferences");
                 false
             }
+        }
+    }
+
+    fn save_display(&mut self, store: &Store) -> bool {
+        if let Err(key) = self.display.validate() {
+            self.error = Some(key);
+            return false;
+        }
+        match serde_json::to_value(&self.display)
+            .map_err(socdof_core::CoreError::from)
+            .and_then(|value| store.put_setting("native_display_settings_v1", &value))
+        {
+            Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
+            Err(_) => { self.error = Some("settings_error_display"); false }
+        }
+    }
+
+    fn save_letterhead(&mut self, store: &Store) -> bool {
+        for value in [&mut self.letterhead.logo_path, &mut self.letterhead.default_subject,
+            &mut self.letterhead.managing_director, &mut self.letterhead.commercial_register] {
+            *value = value.trim().to_string();
+        }
+        for value in &mut self.letterhead.footer_lines { *value = value.trim().to_string(); }
+        match serde_json::to_value(&self.letterhead)
+            .map_err(socdof_core::CoreError::from)
+            .and_then(|value| store.put_setting("native_letterhead_settings_v1", &value))
+        {
+            Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
+            Err(_) => { self.error = Some("settings_error_letterhead"); false }
         }
     }
 
@@ -1512,8 +1603,10 @@ fn settings_sidebar(
 /// Returns the section icon used by both the compact tab strip and desktop sidebar.
 fn tab_icon(tab: SettingsTab) -> Icon {
     match tab {
+        SettingsTab::Display => Icon::Grid,
         SettingsTab::General => Icon::Building,
         SettingsTab::Payments => Icon::CreditCard,
+        SettingsTab::Letterhead => Icon::Book,
         SettingsTab::Language => Icon::Languages,
         SettingsTab::Appearance => Icon::Palette,
         SettingsTab::Security => Icon::Key,
@@ -1649,6 +1742,9 @@ pub fn settings_content(
     store: &Store,
     now: i64,
 ) {
+    if let Ok(scale) = state.display.scale_percent.trim().parse::<f32>() {
+        ui.ctx().set_zoom_factor((scale / 100.0).clamp(0.75, 2.0));
+    }
     egui::ScrollArea::vertical().show(ui, |ui| {
         header(ui, theme, texts, focus, state);
         ui.add_space(8.0);
@@ -1703,8 +1799,10 @@ fn settings_active_content(
     now: i64,
 ) {
     match state.tab {
+        SettingsTab::Display => display_tab(ui, theme, texts, focus, state, store),
         SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Letterhead => letterhead_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
@@ -1793,6 +1891,49 @@ pub fn settings(
 
     delete_modal(ctx, theme, texts, focus, state, store);
     restore_modal(ctx, theme, texts, focus, state);
+}
+
+fn display_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, focus: &mut FocusState, state: &mut SettingsState, store: &Store) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_display_title")).strong());
+        ui.add_space(4.0);
+        ui.label(RichText::new(texts.get("settings_display_hint")).size(FONT_SMALL).color(theme.palette.text_muted));
+        ui.add_space(8.0);
+        text_field(ui, theme, focus, &mut state.display.scale_percent, texts.get("settings_display_scale"), texts.get("settings_display_scale_hint"), None);
+        ui.add_space(6.0);
+        switch(ui, theme, focus, &mut state.display.night_light_enabled, texts.get("settings_display_night_light"));
+        text_field(ui, theme, focus, &mut state.display.night_light_temperature, texts.get("settings_display_night_temp"), texts.get("settings_display_night_temp_hint"), None);
+        ui.add_space(8.0);
+        if button(ui, theme, focus, texts.get("settings_save"), ButtonVariant::Primary).activated { save = true; }
+    });
+    if save { state.save_display(store); }
+}
+
+fn letterhead_tab(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, focus: &mut FocusState, state: &mut SettingsState, store: &Store) {
+    let mut save = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_letterhead_title")).strong());
+        ui.add_space(4.0);
+        ui.label(RichText::new(texts.get("settings_letterhead_hint")).size(FONT_SMALL).color(theme.palette.text_muted));
+        ui.add_space(8.0);
+        text_field(ui, theme, focus, &mut state.letterhead.logo_path, texts.get("settings_letterhead_logo"), texts.get("settings_letterhead_logo_hint"), None);
+        text_field(ui, theme, focus, &mut state.letterhead.default_subject, texts.get("settings_letterhead_subject"), texts.get("settings_letterhead_subject_hint"), None);
+        ui.columns(2, |columns| {
+            text_field(&mut columns[0], theme, focus, &mut state.letterhead.managing_director, texts.get("settings_letterhead_director"), "", None);
+            text_field(&mut columns[1], theme, focus, &mut state.letterhead.commercial_register, texts.get("settings_letterhead_register"), "", None);
+        });
+        ui.add_space(6.0);
+        for index in 0..4 {
+            text_field(ui, theme, focus, &mut state.letterhead.footer_lines[index], texts.get(["settings_letterhead_footer1", "settings_letterhead_footer2", "settings_letterhead_footer3", "settings_letterhead_footer4"][index]), texts.get("settings_letterhead_footer_hint"), None);
+        }
+        ui.add_space(6.0);
+        switch(ui, theme, focus, &mut state.letterhead.show_background, texts.get("settings_letterhead_show_bg"));
+        switch(ui, theme, focus, &mut state.letterhead.show_fold_marks, texts.get("settings_letterhead_fold_marks"));
+        ui.add_space(8.0);
+        if button(ui, theme, focus, texts.get("settings_save"), ButtonVariant::Primary).activated { save = true; }
+    });
+    if save { state.save_letterhead(store); }
 }
 
 fn general_tab(
@@ -3889,6 +4030,27 @@ mod tests {
                 .data_folder,
             "/tmp/portable"
         );
+    }
+
+    #[test]
+    fn persists_native_display_and_letterhead_settings() {
+        let (store, mut state, _texts) = seeded();
+        state.display.scale_percent = "125".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "4200".to_string();
+        assert!(state.save_display(&store));
+        let display: DisplayDraft = serde_json::from_value(store.get_setting("native_display_settings_v1").expect("read").expect("saved")).expect("decode");
+        assert_eq!(display.scale_percent, "125");
+        assert!(display.night_light_enabled);
+
+        state.letterhead.default_subject = "Angebot".to_string();
+        state.letterhead.footer_lines[0] = "IBAN: DE00".to_string();
+        state.letterhead.show_fold_marks = false;
+        assert!(state.save_letterhead(&store));
+        let letterhead: LetterheadDraft = serde_json::from_value(store.get_setting("native_letterhead_settings_v1").expect("read").expect("saved")).expect("decode");
+        assert_eq!(letterhead.default_subject, "Angebot");
+        assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
+        assert!(!letterhead.show_fold_marks);
     }
 
     #[test]
