@@ -725,10 +725,11 @@ impl SettingsState {
             self.error = Some(key);
             return false;
         }
-        match serde_json::to_value(&self.display)
-            .map_err(socdof_core::CoreError::from)
-            .and_then(|value| store.put_setting("native_display_settings_v1", &value))
-        {
+        let value = match serde_json::to_value(&self.display) {
+            Ok(value) => value,
+            Err(_) => { self.error = Some("settings_error_display"); return false; }
+        };
+        match store.put_setting("native_display_settings_v1", &value) {
             Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
             Err(_) => { self.error = Some("settings_error_display"); false }
         }
@@ -740,10 +741,11 @@ impl SettingsState {
             *value = value.trim().to_string();
         }
         for value in &mut self.letterhead.footer_lines { *value = value.trim().to_string(); }
-        match serde_json::to_value(&self.letterhead)
-            .map_err(socdof_core::CoreError::from)
-            .and_then(|value| store.put_setting("native_letterhead_settings_v1", &value))
-        {
+        let value = match serde_json::to_value(&self.letterhead) {
+            Ok(value) => value,
+            Err(_) => { self.error = Some("settings_error_letterhead"); return false; }
+        };
+        match store.put_setting("native_letterhead_settings_v1", &value) {
             Ok(()) => { self.error = None; self.status = Some("settings_saved"); true }
             Err(_) => { self.error = Some("settings_error_letterhead"); false }
         }
