@@ -146,6 +146,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Users, "users"),
         (AppModule::Settings, "settings"),
         (AppModule::Editor, "editor"),
+        (AppModule::Documentation, "documentation"),
     ] {
         if !active.contains(&module) {
             continue;
@@ -187,6 +188,7 @@ fn startup_app(module: &str) -> Option<AppId> {
         "users" => AppId::new("users"),
         "settings" => AppId::new("settings"),
         "editor" => AppId::new("editor"),
+        "documentation" => AppId::new("documentation"),
         _ => return None,
     })
 }
@@ -211,6 +213,7 @@ const NATIVE_WINDOW_SLUGS: &[&str] = &[
     "app-store",
     "support",
     "reports",
+    "documentation",
 ];
 
 /// Replaces the saved open-window set with the windows that are actually open now.
@@ -284,6 +287,7 @@ fn restore_native_windows(
             "support" => AppId::new("support"),
             "reports" => AppId::new("reports"),
             "app-store" => AppId::new("app-store"),
+            "documentation" => AppId::new("documentation"),
             _ => continue,
         };
         let Some(title) = state.desktop_icons.label_of(app) else {
@@ -440,6 +444,8 @@ pub struct GalleryState {
     pub editor: EditorState,
     /// Whether the editor screen is shown instead of the gallery.
     pub editor_open: bool,
+    /// Searchable local documentation manual.
+    pub documentation: crate::documentation::DocumentationState,
     /// App Store module state.
     pub app_store: AppStoreState,
     /// Whether the App Store screen is shown instead of the gallery.
@@ -628,6 +634,7 @@ impl GalleryState {
             users: users_state,
             users_open: false,
             editor: editor_state,
+            documentation: crate::documentation::DocumentationState::default(),
             editor_open: false,
             app_store: app_store_state,
             app_store_open: false,
@@ -762,6 +769,24 @@ impl GalleryState {
                 self.settings.reset_for_open();
                 self.settings.refresh(&self.store)?;
                 self.settings_open = true;
+            }
+            "documentation" => {
+                let title = self
+                    .desktop_icons
+                    .label_of(app)
+                    .unwrap_or_else(|| "Manual")
+                    .to_owned();
+                let area = work_area(Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::Vec2::new(1280.0, 800.0),
+                ));
+                let rect = crate::desktop::default_window_rect(
+                    area,
+                    self.desktop_windows.windows().len(),
+                );
+                self.desktop_windows.open(Window::new(app, title, rect), now);
+                self.desktop_open = true;
+                return Ok(());
             }
             "editor" => {
                 self.editor.reset_for_open(&self.store)?;
@@ -1162,6 +1187,18 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     let back = state.appointments.back;
                     state.appointments.back = false;
                     back
+                }
+                "documentation" => {
+                    crate::documentation::documentation_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.documentation,
+                    );
+                    false
                 }
                 "editor" => {
                     crate::editor::editor_window(
@@ -3915,6 +3952,7 @@ mod tests {
             ("support", 14),
             ("reports", 15),
             ("dashboard", 16),
+            ("documentation", 17),
         ] {
             layout.window_states.insert(
                 slug.to_string(),
@@ -3963,6 +4001,7 @@ mod tests {
         assert!(state.desktop_windows.is_open(AppId::new("projects")));
         assert!(state.desktop_windows.is_open(AppId::new("fleet")));
         assert!(state.desktop_windows.is_open(AppId::new("restaurant")));
+        assert!(state.desktop_windows.is_open(AppId::new("documentation")));
         for slug in [
             "products",
             "purchases",
@@ -4086,6 +4125,7 @@ mod tests {
             "support",
             "reports",
             "dashboard",
+            "documentation",
         ]
         .into_iter()
         .enumerate()
@@ -4135,6 +4175,10 @@ mod tests {
         assert!(
             painted.contains(state.texts.get("restaurant_title")),
             "restaurant window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("docs_title")),
+            "documentation window content was not drawn; painted={painted:?}"
         );
         for key in [
             "products_title",

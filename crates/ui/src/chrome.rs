@@ -132,6 +132,12 @@ pub const APPS: [AppChrome; 18] = [
         tint: 0x2563eb,
     },
     AppChrome {
+        slug: "documentation",
+        title_key: "app_documentation",
+        icon: Icon::Info,
+        tint: 0x0f766e,
+    },
+    AppChrome {
         slug: "app-store",
         title_key: "app_app_store",
         icon: Icon::Grid,

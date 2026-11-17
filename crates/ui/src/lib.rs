@@ -32,6 +32,7 @@ pub mod components;
 pub mod contacts;
 pub mod controls;
 pub mod dashboard;
+pub mod documentation;
 pub mod desktop;
 pub mod editor;
 pub mod fleet;
