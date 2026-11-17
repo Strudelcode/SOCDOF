@@ -293,7 +293,10 @@ fn desktop_commands_report_schema_and_write_backup() {
     // A second session cannot take the lock the state holds. Keep the concrete error in
     // the assertion so platform-specific lock regressions are diagnosable from CI logs.
     let lock_path = dir.join(socdof_core::lock::LOCK_FILE_NAME);
-    assert!(lock_path.exists(), "the active session lock file must exist");
+    assert!(
+        lock_path.exists(),
+        "the active session lock file must exist"
+    );
     match DesktopState::open(database.clone()) {
         Err(CoreError::Validation(code)) if code == "lock_busy" => {}
         Err(error) => panic!("second desktop start returned the wrong lock error: {error:?}"),

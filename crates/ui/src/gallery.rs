@@ -220,10 +220,7 @@ const NATIVE_WINDOW_SLUGS: &[&str] = &[
 ///
 /// Clearing every known slug first is important: otherwise a window closed during this session
 /// remains marked as open in the previous layout and unexpectedly reappears on the next login.
-fn capture_native_windows(
-    layout: &mut settings_service::DesktopLayout,
-    windows: &WindowManager,
-) {
+fn capture_native_windows(layout: &mut settings_service::DesktopLayout, windows: &WindowManager) {
     for slug in NATIVE_WINDOW_SLUGS {
         let saved = layout.window_states.entry((*slug).to_string()).or_default();
         saved.open = false;
@@ -3135,10 +3132,8 @@ mod tests {
     fn global_command_palette_shortcut_works_from_the_native_desktop() {
         let ctx = crate::theme::headless_context();
         let mut state = GalleryState::new(Language::En, Appearance::Dark, "indigo").expect("state");
-        state.desktop_icons = desktop_icons(
-            &state.texts,
-            &socdof_core::domain::permission::ALL_MODULES,
-        );
+        state.desktop_icons =
+            desktop_icons(&state.texts, &socdof_core::domain::permission::ALL_MODULES);
         state.auth_open = false;
         state.desktop_open = true;
 
@@ -3347,13 +3342,8 @@ mod tests {
         assert!(painted.contains("Buchhaltung"), "modules missing");
         assert_eq!(
             state.desktop_icons.icons().len(),
-            socdof_core::domain::permission::ALL_MODULES
-                .iter()
-                .filter(|module| !matches!(
-                    module,
-                    socdof_core::domain::permission::AppModule::Documentation
-                ))
-                .count()
+            socdof_core::domain::permission::ALL_MODULES.len() + 1,
+            "every permission module and the always-available App Store must have a desktop tile"
         );
     }
 
@@ -3885,20 +3875,28 @@ mod tests {
 
         capture_native_windows(&mut layout, &windows);
 
-        let projects_state = layout.window_states.get("projects").expect("projects state");
+        let projects_slug = String::from("projects");
+        let projects_state = layout
+            .window_states
+            .get(&projects_slug)
+            .expect("projects state");
         assert!(projects_state.open);
         assert_eq!(projects_state.x, 120);
         assert_eq!(projects_state.y, 90);
         assert_eq!(projects_state.width, 920);
         assert_eq!(projects_state.height, 640);
         assert_eq!(projects_state.z_order, 0);
-        let fleet_state = layout.window_states.get("fleet").expect("fleet state");
+        let fleet_slug = String::from("fleet");
+        let fleet_state = layout.window_states.get(&fleet_slug).expect("fleet state");
         assert!(fleet_state.open);
         assert!(fleet_state.minimized);
         assert_eq!(fleet_state.z_order, 1);
         for slug in ["contacts", "invoices", "app-store", "support", "reports"] {
             let saved = layout.window_states.get(slug).expect("known window state");
-            assert!(!saved.open, "closed {slug} window stayed open in the saved layout");
+            assert!(
+                !saved.open,
+                "closed {slug} window stayed open in the saved layout"
+            );
             assert!(!saved.minimized);
         }
     }
@@ -4073,6 +4071,9 @@ mod tests {
             ..Default::default()
         };
         let _ = ctx.run(initial, |ctx| gallery(ctx, &mut state));
+        // The first desktop frame may leave a shell overlay focused; isolate the module-window
+        // Escape behavior so the shortcut does not merely dismiss that overlay.
+        state.shell.close_overlays();
         let escape = egui::RawInput {
             screen_rect: Some(screen),
             events: vec![egui::Event::Key {
