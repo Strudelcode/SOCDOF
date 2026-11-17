@@ -1312,23 +1312,6 @@ fn messages(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &SettingsS
     }
 }
 
-/// Icon paired with each Settings section, in the same order as the tab catalogue.
-fn settings_tab_icon(tab: SettingsTab) -> Icon {
-    match tab {
-        SettingsTab::General => Icon::User,
-        SettingsTab::Payments => Icon::Receipt,
-        SettingsTab::Language => Icon::Book,
-        SettingsTab::Appearance => Icon::Sun,
-        SettingsTab::Security => Icon::Shield,
-        SettingsTab::Backup => Icon::Refresh,
-        SettingsTab::Users => Icon::User,
-        SettingsTab::Roles => Icon::Shield,
-        SettingsTab::Updates => Icon::Refresh,
-        SettingsTab::Portable => Icon::Folder,
-        SettingsTab::Shortcuts => Icon::Grid,
-    }
-}
-
 /// Draws Settings navigation with vector icons and a clear selected state.
 fn settings_tabs(
     ui: &mut egui::Ui,
@@ -1393,7 +1376,7 @@ fn settings_tabs(
                 egui::Pos2::new(rect.left() + 17.0, rect.center().y),
                 Vec2::splat(16.0),
             );
-            settings_tab_icon(tab).draw(ui.painter(), icon_rect, color, 1.55);
+            tab_icon(tab).draw(ui.painter(), icon_rect, color, 1.55);
             ui.painter().galley(
                 egui::Pos2::new(rect.left() + 31.0, rect.center().y - galley.size().y / 2.0),
                 galley,
