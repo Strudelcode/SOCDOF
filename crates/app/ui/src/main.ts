@@ -4046,6 +4046,21 @@ function installShortcutDispatch(): void {
     }).catch(() => {
       /* the window keeps working without the shortcut layer */
     });
+  }, true);
+
+  // X11 window managers can reserve F11 before a webview receives it. Exercise the
+  // exact same DOM listener and Tauri command path with synthetic events in CI smoke mode.
+  void invoke<boolean>("smoke_shortcuts").then((enabled) => {
+    if (!enabled) return;
+    for (const key of ["F11", "F12"]) {
+      window.dispatchEvent(new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      }));
+    }
+  }).catch(() => {
+    /* older/standalone web previews do not expose the smoke command */
   });
 }
 
