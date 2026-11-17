@@ -445,3 +445,10 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** authentication and first-run setup gained the account picker and the expanded five-step wizard, but the corresponding scenes remained on strict pre-migration goldens.
 - **Fix:** Login and Setup now use semantic assertions for their localized stable screen titles and non-trivial paint output in all four languages and both appearances. Stable primitives and unaffected scenes keep strict geometry/color/text goldens.
 - **Verification:** committed; current-head Linux and Windows test jobs must pass before closure.
+## RUST-CI-045 — New Settings and command palette UI needed exact rustfmt layout
+
+- **First observed:** workflow run 1420, Format job.
+- **Symptom:** `cargo fmt --all -- --check` reported three formatting-only differences in the new Settings tab renderer and command-palette header.
+- **Root cause:** hand-formatted chained calls and line wrapping did not match the workspace rustfmt version.
+- **Fix:** applied the exact formatter output; no UI behavior changed.
+- **Verification:** committed; the next current-head Format job must pass before closure.
