@@ -1424,6 +1424,107 @@ fn settings_tabs(
 
 /// Renders the settings screen.
 /// Draws settings into an existing UI so it can be hosted inside a desktop window.
+/// Desktop-width Settings navigation: a compact sidebar with selected and keyboard states.
+fn settings_sidebar(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    selected: &mut usize,
+) -> bool {
+    let mut changed = false;
+    card(ui, theme, |ui| {
+        ui.horizontal(|ui| {
+            Icon::Settings.draw(
+                ui.painter(),
+                egui::Rect::from_min_size(ui.cursor().min, Vec2::splat(18.0)),
+                theme.accent_text(),
+                1.6,
+            );
+            ui.add_space(24.0);
+            ui.label(
+                RichText::new(texts.get("settings_title"))
+                    .family(crate::theme::semibold()),
+            );
+        });
+        ui.add_space(10.0);
+        for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
+            let active = index == *selected;
+            let label = texts.get(tab.label_key());
+            let (rect, response) =
+                ui.allocate_exact_size(Vec2::new(ui.available_width(), 36.0), Sense::click());
+            let focused = focus.register(response.id);
+            if response.clicked() {
+                focus.set_focus(Some(response.id));
+            }
+            let activated = response.clicked() || focus.activate(response.id);
+            if active || response.hovered() || focused {
+                ui.painter().rect(
+                    rect,
+                    egui::Rounding::same(8.0),
+                    if active { theme.accent.light } else { theme.palette.surface_muted },
+                    Stroke::new(
+                        if active { 1.0_f32 } else { 0.0_f32 },
+                        if active { theme.accent.border } else { egui::Color32::TRANSPARENT },
+                    ),
+                );
+            }
+            let color = if active { theme.accent_text() } else { theme.palette.text_muted };
+            tab_icon(tab).draw(
+                ui.painter(),
+                egui::Rect::from_center_size(
+                    egui::Pos2::new(rect.left() + 17.0, rect.center().y),
+                    Vec2::splat(16.0),
+                ),
+                color,
+                1.5,
+            );
+            let galley = ui.painter().layout_no_wrap(
+                label.to_owned(),
+                FontId::new(
+                    FONT_SMALL,
+                    if active { crate::theme::semibold() } else { egui::FontFamily::Proportional },
+                ),
+                if active { theme.palette.text } else { theme.palette.text_muted },
+            );
+            ui.painter().galley(
+                egui::Pos2::new(rect.left() + 32.0, rect.center().y - galley.size().y / 2.0),
+                galley,
+                if active { theme.palette.text } else { theme.palette.text_muted },
+            );
+            if focused {
+                ui.painter().rect_stroke(
+                    rect.expand(1.0),
+                    egui::Rounding::same(9.0),
+                    Stroke::new(1.5_f32, theme.accent.base),
+                );
+            }
+            if activated && !active {
+                *selected = index;
+                changed = true;
+            }
+        }
+    });
+    changed
+}
+
+/// Returns the section icon used by both the compact tab strip and desktop sidebar.
+fn tab_icon(tab: SettingsTab) -> Icon {
+    match tab {
+        SettingsTab::General => Icon::User,
+        SettingsTab::Payments => Icon::Receipt,
+        SettingsTab::Language => Icon::Book,
+        SettingsTab::Appearance => Icon::Sun,
+        SettingsTab::Security => Icon::Shield,
+        SettingsTab::Backup => Icon::Refresh,
+        SettingsTab::Users => Icon::User,
+        SettingsTab::Roles => Icon::Grid,
+        SettingsTab::Updates => Icon::Refresh,
+        SettingsTab::Portable => Icon::Folder,
+        SettingsTab::Shortcuts => Icon::Grid,
+    }
+}
+
 /// Gives every settings section a consistent visual anchor and clear hierarchy.
 fn settings_section_heading(
     ui: &mut egui::Ui,
@@ -1538,41 +1639,45 @@ pub fn settings_content(
         messages(ui, theme, texts, state);
         ui.add_space(6.0);
 
+        let wide_layout = ui.available_width() >= 980.0;
         let mut selected = state.tab.index();
-        // The icon + label navigation scrolls horizontally on narrow windows.
-        egui::ScrollArea::horizontal()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                if settings_tabs(ui, theme, focus, texts, &mut selected) {
-                    state.set_tab(SettingsTab::from_index(selected));
-                }
+        if wide_layout {
+            ui.horizontal(|ui| {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(214.0, 560.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        if settings_sidebar(ui, theme, focus, texts, &mut selected) {
+                            state.set_tab(SettingsTab::from_index(selected));
+                        }
+                    },
+                );
+                ui.add_space(12.0);
+                ui.vertical(|ui| {
+                    settings_section_heading(ui, theme, texts, state.tab);
+                    ui.add_space(12.0);
+                    settings_active_content(ui, theme, texts, focus, state, store, now);
+                });
             });
-        ui.add_space(10.0);
-        settings_section_heading(ui, theme, texts, state.tab);
-        ui.add_space(12.0);
-
-        match state.tab {
-            SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
-            SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
-            SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
-            SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
-            SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
-            SettingsTab::Shortcuts => shortcuts_tab(ui, theme, texts),
+        } else {
+            egui::ScrollArea::horizontal()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    if settings_tabs(ui, theme, focus, texts, &mut selected) {
+                        state.set_tab(SettingsTab::from_index(selected));
+                    }
+                });
+            ui.add_space(10.0);
+            settings_section_heading(ui, theme, texts, state.tab);
+            ui.add_space(12.0);
+            settings_active_content(ui, theme, texts, focus, state, store, now);
         }
     });
 }
 
-/// Renders the full-screen settings workflow, including refresh and destructive-action dialogs.
-/// Renders settings in a native desktop window, including refresh and confirmation dialogs.
+/// Renders the selected Settings section without owning the surrounding navigation.
 #[allow(clippy::too_many_arguments)]
-pub fn settings_window(
-    ctx: &Context,
-    active: bool,
+fn settings_active_content(
     ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
@@ -1581,27 +1686,19 @@ pub fn settings_window(
     store: &Store,
     now: i64,
 ) {
-    if active && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
-        if state.restore_confirm {
-            state.restore_confirm = false;
-        } else if state.delete_target.is_some() {
-            state.delete_target = None;
-        } else if state.user_editor.is_some() {
-            state.user_editor = None;
-        } else if state.role_editor.is_some() {
-            state.role_editor = None;
-        } else {
-            state.back = true;
-        }
+    match state.tab {
+        SettingsTab::General => general_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Payments => payments_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Roles => roles_tab(ui, theme, texts, focus, state, store, now),
+        SettingsTab::Updates => updates_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Portable => portable_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Shortcuts => shortcuts_tab(ui, theme, texts),
     }
-
-    if state.refresh(store).is_err() {
-        state.error = Some("settings_error_load");
-    }
-
-    settings_content(ui, theme, texts, focus, state, store, now);
-    delete_modal(ctx, theme, texts, focus, state, store);
-    restore_modal(ctx, theme, texts, focus, state);
 }
 
 /// Renders the full-screen settings workflow.
