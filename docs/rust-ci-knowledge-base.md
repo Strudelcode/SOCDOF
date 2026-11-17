@@ -504,3 +504,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** the native Settings screen and responsive tests iterated `SettingsTab::ALL`, but the standalone PNG preview generator maintained its own exhaustive scene IDs and titles.
 - **Fix:** add stable `display` and `letterhead` IDs and titles to both preview mappings. Apply rustfmt to the new Settings and icon code; the previous commit had not run the formatter.
 - **Verification:** fix committed; run 1467 is the next current-head CI gate. Do not close until Windows/Linux Clippy, workspace format, all tests and the Linux frame-budget job pass.
+
+## RUST-CI-050 — macOS universal Rust build needed a compatible compiler and correct lipo argument order
+
+- **First observed:** workflow run 1474, macOS native desktop build.
+- **Symptom:** the macOS runner's Rust 1.100.0 failed inside the legacy `objc2 0.4.1` dependency pulled by egui/eframe 0.27. The first compatibility pin to Rust 1.90.0 resolved that compiler error, but the universal-binary validation still failed because Apple's `lipo` expects the input file before the `-verify_arch` command.
+- **Root cause:** this workspace intentionally retains egui/eframe 0.27 for its UI/API baseline; its transitive Objective-C bindings are not compatible with the runner's newer Rust 1.100 compiler. Separately, the lipo verification commands placed the architecture/file arguments in the wrong order.
+- **Fix:** pin only the macOS native build and release jobs to Rust 1.90.0; keep Linux and Windows on stable. Verify universal executables with `lipo <input-file> -verify_arch arm64 x86_64`. The PR workflow now assembles a native `.app`, validates its plist and both Mach-O slices, creates a ZIP, and uploads it as a build artifact.
+- **Verification:** implementation committed. Run 1480 is the current full CI gate; do not close this entry or merge until its macOS build, app packaging, Linux/Windows tests, desktop builds and GUI smoke jobs pass.
