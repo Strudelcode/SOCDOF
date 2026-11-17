@@ -116,7 +116,7 @@ Fertige Builds und Übergangsvarianten gibt es auf den [GitHub Releases](https:/
 
 1. **Native Rust Windows-Installation** (`SOCDOF-<Version>-windows-x64-native-setup.exe`): benutzerbezogen unter `%LOCALAPPDATA%\\Programs\\SOCDOF`, mit Startmenü, Desktop-Verknüpfung und optionalem Autostart.
 2. **Native Linux-Version** (`SOCDOF-<Version>-linux-x86_64-native.tar.gz`): portable Rust-Desktop-Version mit eigenem Datenordner; optional per `install-linux.sh` benutzerbezogen in `~/.local` installieren.
-3. **Native macOS-Version** (`SOCDOF-<Version>-macos-universal-native.dmg`): universelle Rust-App für Apple Silicon und Intel.
+3. **macOS-Desktop-Version** (`SOCDOF-<Version>-macos-universal.dmg`): universelle Tauri-Übergangsversion für Apple Silicon und Intel; der native egui-Host wird nach Behebung eines Upstream-Abhängigkeitsfehlers ergänzt.
 4. **Tauri-Übergangsinstaller und MSI/DMG/AppImage**: bleiben als Rückfalloption verfügbar.
 5. **Portable Windows-Version**: ZIP ohne Setup, mit eigenem `data`-Ordner und Launcher.
 6. **Web-App**: im Browser ausführen oder als statische Progressive Web App (PWA) bereitstellen.

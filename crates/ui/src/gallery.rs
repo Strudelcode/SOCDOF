@@ -4073,6 +4073,7 @@ mod tests {
         // The first desktop frame may leave a shell overlay focused; isolate the module-window
         // Escape behavior so the shortcut does not merely dismiss that overlay.
         state.shell.close_overlays();
+        state.shell.studio.close();
         let escape = egui::RawInput {
             screen_rect: Some(screen),
             events: vec![egui::Event::Key {

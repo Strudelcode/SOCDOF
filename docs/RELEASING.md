@@ -79,7 +79,7 @@ inline announcement failed, start that fallback manually with the tag.
 | Linux x86_64 | AppImage | `.deb` installations do not self-update; download the new package. |
 | Windows x64 | NSIS setup | The MSI is a manual installer and is not used by the updater. |
 | macOS universal | Tauri `.app.tar.gz` | Signed updater archive; the app must also be signed/notarized for normal distribution. |
-| Native Rust desktop | Windows NSIS / Linux portable tarball / macOS universal DMG | Installed separately from the Tauri transition build. Native Rust self-update is not yet enabled; download and install the matching native package. |
+| Native Rust desktop | Windows NSIS / Linux portable tarball | Installed separately from the Tauri transition build. Native Rust self-update is not yet enabled; download and install the matching native package. macOS currently uses the Tauri universal build until the native eframe dependency chain is compatible. |
 
 The native Rust packages are published alongside the Tauri transition packages so each platform has an installable native desktop build. The native Linux archive uses a colocated `data` directory by default; the Windows native installer uses the per-user `%APPDATA%\\SOCDOF` profile; the macOS native app uses `~/Library/Application Support/SOCDOF`. All support `SOCDOF_DATA_DIR` for an explicitly selected profile. Native packages preserve this data directory on uninstall or replacement.
 
