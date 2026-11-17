@@ -39,6 +39,7 @@ struct DesktopApp {
     startup_error: Option<String>,
     runtime: Option<DesktopRuntime>,
     splash_shown: bool,
+    system_appearance: Option<Appearance>,
 }
 
 impl DesktopApp {
@@ -53,6 +54,7 @@ impl DesktopApp {
             startup_error: None,
             runtime: None,
             splash_shown: false,
+            system_appearance: None,
         }
     }
 
@@ -85,7 +87,7 @@ impl DesktopApp {
             lock: loaded.lock,
             last_heartbeat: Instant::now(),
             follow_system_theme,
-            system_appearance: None,
+            system_appearance: self.system_appearance,
         });
         self.startup_error = None;
         Ok(())
@@ -142,6 +144,13 @@ fn load_store() -> Result<LoadedStore, Box<dyn Error>> {
 
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.system_appearance.get_or_insert_with(|| {
+            if ctx.style().visuals.dark_mode {
+                Appearance::Dark
+            } else {
+                Appearance::Light
+            }
+        });
         if self.runtime.is_none() {
             // Always paint one splash frame before accepting even an already-completed worker.
             if !self.splash_shown {
