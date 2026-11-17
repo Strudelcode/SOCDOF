@@ -764,11 +764,7 @@ impl SettingsState {
             let account_type_choice = if account_type == "business" { 1 } else { 0 };
             self.user_account_type_popup = PopupState::default();
             self.user_role_popup = PopupState::default();
-            self.user_editor = Some(UserDraft::from_user(
-                user,
-                &self.roles,
-                account_type_choice,
-            ));
+            self.user_editor = Some(UserDraft::from_user(user, &self.roles, account_type_choice));
             self.error = None;
             self.status = None;
         }
@@ -3241,7 +3237,10 @@ mod tests {
 
         state.edit_user(user.id, &store);
         assert_eq!(
-            state.user_editor.as_ref().map(|draft| draft.account_type_choice),
+            state
+                .user_editor
+                .as_ref()
+                .map(|draft| draft.account_type_choice),
             Some(1)
         );
     }
