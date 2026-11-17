@@ -191,6 +191,60 @@ fn startup_app(module: &str) -> Option<AppId> {
     })
 }
 
+/// Slugs whose native window state is managed by the desktop window manager.
+const NATIVE_WINDOW_SLUGS: &[&str] = &[
+    "contacts",
+    "invoices",
+    "settings",
+    "accounting",
+    "pos",
+    "therapy",
+    "users",
+    "dashboard",
+    "products",
+    "projects",
+    "fleet",
+    "restaurant",
+    "purchases",
+    "calendar",
+    "editor",
+    "app-store",
+    "support",
+    "reports",
+];
+
+/// Replaces the saved open-window set with the windows that are actually open now.
+///
+/// Clearing every known slug first is important: otherwise a window closed during this session
+/// remains marked as open in the previous layout and unexpectedly reappears on the next login.
+fn capture_native_windows(
+    layout: &mut settings_service::DesktopLayout,
+    windows: &WindowManager,
+) {
+    for slug in NATIVE_WINDOW_SLUGS {
+        let saved = layout.window_states.entry((*slug).to_string()).or_default();
+        saved.open = false;
+        saved.minimized = false;
+    }
+
+    for (z_order, window) in windows.windows().iter().enumerate() {
+        let rect = window.normal_rect();
+        layout.window_states.insert(
+            window.app().as_str().to_string(),
+            settings_service::DesktopWindowLayout {
+                x: rect.min.x.round() as i32,
+                y: rect.min.y.round() as i32,
+                width: rect.width().round().max(320.0) as u32,
+                height: rect.height().round().max(220.0) as u32,
+                maximized: window.is_maximized(),
+                open: true,
+                minimized: window.is_minimized(),
+                z_order: z_order as u32,
+            },
+        );
+    }
+}
+
 /// Restores only native windows that were open for this account at the previous exit.
 fn restore_native_windows(
     state: &mut GalleryState,
@@ -1268,38 +1322,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 .collect();
                         }
                         if outcome.window_layout_changed {
-                            for slug in [
-                                "contacts",
-                                "invoices",
-                                "settings",
-                                "accounting",
-                                "pos",
-                                "therapy",
-                                "users",
-                            ] {
-                                let saved =
-                                    layout.window_states.entry(slug.to_string()).or_default();
-                                saved.open = false;
-                                saved.minimized = false;
-                            }
-                            for (z_order, window) in
-                                state.desktop_windows.windows().iter().enumerate()
-                            {
-                                let rect = window.normal_rect();
-                                layout.window_states.insert(
-                                    window.app().as_str().to_string(),
-                                    settings_service::DesktopWindowLayout {
-                                        x: rect.min.x.round() as i32,
-                                        y: rect.min.y.round() as i32,
-                                        width: rect.width().round().max(320.0) as u32,
-                                        height: rect.height().round().max(220.0) as u32,
-                                        maximized: window.is_maximized(),
-                                        open: true,
-                                        minimized: window.is_minimized(),
-                                        z_order: z_order as u32,
-                                    },
-                                );
-                            }
+                            capture_native_windows(&mut layout, &state.desktop_windows);
                         }
                         if let Err(error) =
                             settings_service::save_desktop_layout(&state.store, user_id, &layout)
@@ -3789,6 +3812,58 @@ mod tests {
             state.auth.session.is_some(),
             "locking revoked the active session"
         );
+    }
+
+    #[test]
+    fn saving_window_layout_clears_closed_windows_and_preserves_open_geometry() {
+        let mut layout = settings_service::DesktopLayout::default();
+        for slug in NATIVE_WINDOW_SLUGS {
+            layout.window_states.insert(
+                (*slug).to_string(),
+                settings_service::DesktopWindowLayout {
+                    x: 10,
+                    y: 20,
+                    width: 800,
+                    height: 600,
+                    maximized: false,
+                    open: true,
+                    minimized: true,
+                    z_order: 99,
+                },
+            );
+        }
+        let mut windows = WindowManager::new();
+        let projects = AppId::new("projects");
+        let rect = Rect::from_min_size(Pos2::new(120.0, 90.0), Vec2::new(920.0, 640.0));
+        windows.open(Window::new(projects, "Projects", rect), 1_000);
+        windows.open(
+            Window::new(
+                AppId::new("fleet"),
+                "Fleet",
+                Rect::from_min_size(Pos2::new(80.0, 70.0), Vec2::new(820.0, 560.0)),
+            ),
+            1_001,
+        );
+        windows.minimize(AppId::new("fleet"));
+
+        capture_native_windows(&mut layout, &windows);
+
+        let projects_state = layout.window_states.get("projects").expect("projects state");
+        assert!(projects_state.open);
+        assert_eq!(projects_state.x, 120);
+        assert_eq!(projects_state.y, 90);
+        assert_eq!(projects_state.width, 920);
+        assert_eq!(projects_state.height, 640);
+        assert_eq!(projects_state.z_order, 0);
+        let fleet_state = layout.window_states.get("fleet").expect("fleet state");
+        assert!(fleet_state.open);
+        assert!(fleet_state.minimized);
+        assert_eq!(fleet_state.z_order, 1);
+        for slug in ["contacts", "invoices", "app-store", "support", "reports"] {
+            let saved = layout.window_states.get(slug).expect("known window state");
+            assert!(!saved.open, "closed {slug} window stayed open in the saved layout");
+            assert!(!saved.minimized);
+        }
     }
 
     #[test]
