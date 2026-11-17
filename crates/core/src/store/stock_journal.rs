@@ -222,7 +222,9 @@ mod tests {
             2,
         );
         assert_eq!(
-            store.insert_stock_journal_entry(&transfer).expect("transfer"),
+            store
+                .insert_stock_journal_entry(&transfer)
+                .expect("transfer"),
             4
         );
         assert_eq!(
