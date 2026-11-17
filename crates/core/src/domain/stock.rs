@@ -110,8 +110,12 @@ impl StockJournalEntry {
     /// Signed change to the physical warehouse balance.
     pub fn stock_delta(&self) -> i64 {
         match (self.source_location, self.dest_location) {
-            (source, StockLocation::Warehouse) if source != StockLocation::Warehouse => self.quantity,
-            (StockLocation::Warehouse, destination) if destination != StockLocation::Warehouse => -self.quantity,
+            (source, StockLocation::Warehouse) if source != StockLocation::Warehouse => {
+                self.quantity
+            }
+            (StockLocation::Warehouse, destination) if destination != StockLocation::Warehouse => {
+                -self.quantity
+            }
             _ => 0,
         }
     }

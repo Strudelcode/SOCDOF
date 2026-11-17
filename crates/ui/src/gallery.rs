@@ -777,11 +777,10 @@ impl GalleryState {
                     egui::Pos2::ZERO,
                     egui::Vec2::new(1280.0, 800.0),
                 ));
-                let rect = crate::desktop::default_window_rect(
-                    area,
-                    self.desktop_windows.windows().len(),
-                );
-                self.desktop_windows.open(Window::new(app, title, rect), now);
+                let rect =
+                    crate::desktop::default_window_rect(area, self.desktop_windows.windows().len());
+                self.desktop_windows
+                    .open(Window::new(app, title, rect), now);
                 self.desktop_open = true;
                 return Ok(());
             }

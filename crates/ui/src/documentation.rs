@@ -18,7 +18,11 @@ pub struct DocumentationState {
 const TOPICS: [(&str, [&str; 3]); 4] = [
     (
         "docs_quickstart_title",
-        ["docs_quickstart_1", "docs_quickstart_2", "docs_quickstart_3"],
+        [
+            "docs_quickstart_1",
+            "docs_quickstart_2",
+            "docs_quickstart_3",
+        ],
     ),
     (
         "docs_modules_title",
@@ -45,7 +49,11 @@ pub fn documentation_window(
     state: &mut DocumentationState,
 ) {
     ui.vertical(|ui| {
-        ui.label(RichText::new(texts.get("docs_title")).size(FONT_TITLE).strong());
+        ui.label(
+            RichText::new(texts.get("docs_title"))
+                .size(FONT_TITLE)
+                .strong(),
+        );
         ui.label(RichText::new(texts.get("docs_subtitle")).color(theme.palette.text_muted));
         ui.add_space(10.0);
         ui.horizontal(|ui| {
@@ -66,7 +74,11 @@ pub fn documentation_window(
             }
             visible += 1;
             card(ui, theme, |ui| {
-                ui.label(RichText::new(texts.get(title_key)).size(FONT_TITLE).strong());
+                ui.label(
+                    RichText::new(texts.get(title_key))
+                        .size(FONT_TITLE)
+                        .strong(),
+                );
                 ui.add_space(8.0);
                 for paragraph_key in paragraph_keys {
                     ui.label(texts.get(paragraph_key));
