@@ -1340,6 +1340,16 @@ impl Store {
         users::update(&self.conn, user)
     }
 
+    /// Updates the signed-in user's own password while retaining only the authorizing session.
+    pub fn update_user_preserving_session(
+        &self,
+        user: &User,
+        session_id: uuid::Uuid,
+        now: i64,
+    ) -> CoreResult<()> {
+        users::update_preserving_session(&self.conn, user, session_id, now)
+    }
+
     /// Deletes a user account; protects the last administrator.
     pub fn delete_user(&self, user_id: uuid::Uuid) -> CoreResult<()> {
         users::delete(&self.conn, user_id)
