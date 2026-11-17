@@ -1591,7 +1591,11 @@ fn accent_swatch(
     ui.painter().rect_filled(
         swatch.expand(4.0),
         egui::Rounding::same(10.0),
-        if active { preset.light } else { theme.palette.surface },
+        if active {
+            preset.light
+        } else {
+            theme.palette.surface
+        },
     );
     ui.painter().rect(
         swatch,
@@ -1618,7 +1622,11 @@ fn accent_swatch(
     ui.painter().galley(
         egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 40.0),
         galley,
-        if active { theme.palette.text } else { theme.palette.text_muted },
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
     );
     if focused {
         ui.painter().rect_stroke(
@@ -2139,7 +2147,7 @@ fn theme_choice(
         rect,
         egui::Rounding::same(12.0),
         if active {
-            preset.light
+            theme.accent.light
         } else {
             theme.palette.surface
         },
@@ -2175,7 +2183,11 @@ fn theme_choice(
                 egui::FontFamily::Proportional
             },
         ),
-        if active { theme.palette.text } else { theme.palette.text_muted },
+        if active {
+            theme.palette.text
+        } else {
+            theme.palette.text_muted
+        },
     );
     ui.painter().galley(
         egui::Pos2::new(rect.center().x - galley.size().x / 2.0, rect.top() + 48.0),
@@ -2189,7 +2201,9 @@ fn theme_choice(
             Stroke::new(1.5_f32, theme.accent.base),
         );
     }
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::RadioButton, label));
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label)
+    });
     if activated {
         *selected = index;
     }
