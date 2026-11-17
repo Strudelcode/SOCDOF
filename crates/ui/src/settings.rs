@@ -30,7 +30,7 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field, tabs, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
