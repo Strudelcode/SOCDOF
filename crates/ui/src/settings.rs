@@ -1333,9 +1333,16 @@ pub fn settings_content(
             .iter()
             .map(|tab| texts.get(tab.label_key()))
             .collect();
-        if tabs(ui, theme, focus, &labels, &mut selected) {
-            state.set_tab(SettingsTab::from_index(selected));
-        }
+        // The Settings catalogue is wider than a standard desktop window. Keep the module
+        // content width bounded and let the tab strip scroll horizontally instead of allowing
+        // long translated labels to expand the entire Settings surface.
+        egui::ScrollArea::horizontal()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                if tabs(ui, theme, focus, &labels, &mut selected) {
+                    state.set_tab(SettingsTab::from_index(selected));
+                }
+            });
         ui.add_space(10.0);
 
         match state.tab {
