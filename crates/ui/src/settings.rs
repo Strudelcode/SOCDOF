@@ -623,6 +623,26 @@ impl SettingsState {
         self.tab
     }
 
+    /// Returns the native night-light tint to paint above the desktop, if enabled.
+    ///
+    /// The alpha follows the TypeScript edition's 1000K–6500K warmth curve. The tint affects only
+    /// SOCDOF's own window; it does not claim to change the operating system's global night light.
+    pub fn night_light_overlay(&self) -> Option<egui::Color32> {
+        if !self.display.night_light_enabled {
+            return None;
+        }
+        let temperature = self
+            .display
+            .night_light_temperature
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(3400)
+            .clamp(1000, 6500);
+        let warmth = (6500 - temperature) as f32 / 5500.0;
+        let alpha = (warmth * 62.0).round() as u8;
+        Some(egui::Color32::from_rgba_unmultiplied(255, 172, 82, alpha))
+    }
+
     /// Takes appearance preferences after a successful save so the desktop shell can apply them.
     pub fn take_saved_preferences(&mut self) -> Option<Preferences> {
         self.saved_preferences.take()
