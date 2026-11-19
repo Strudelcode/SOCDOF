@@ -519,7 +519,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** The Rust UI summary used a different interpretation of the double-entry journal than the reference screen.
 - **Fix:** `crates/ui/src/stock_moves.rs` now derives four summary values from the currently visible rows: total movements, inbound quantity, outbound-to-customers quantity, and adjustment quantity. The summary intentionally uses the complete journal collection, independent of table search/location filters, matching the TypeScript `stats` calculation over the unfiltered `stockMoves` prop.
 - **Regression coverage:** Added a mixed-location test that checks the exact totals, including warehouse-to-loss, warehouse-to-scrap and virtual-only transfers.
-- **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the locale catalogue.
+- **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the UI_KEYS source list and committed locale catalogue inventory.
 - **Verification:** Committed on `feature/rust-stock-journal-parity`; CI has not yet run on this branch. Do not mark this fix CI-verified until the new PR workflow passes.
 
 
@@ -546,3 +546,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** The desktop host installed its custom theme/fonts from the first app update. On the first native frame, epaint could resolve a Semibold RichText family before the custom font atlas had been rebuilt.
 - **Fix:** The eframe creation callback now applies the initial theme to `creation.egui_ctx` before the first frame is rendered. Normal per-account theme application remains in the gallery update path.
 - **Verification:** Added to the current PR head; Linux GUI smoke rerun is pending. The startup screen and native window visibility checks remain enabled.
+
+
+## RUST-CI-019 — Locale catalogue key inventory drift (2026-11-19)
+
+- **Symptom:** UI tests reported that the embedded catalogue contained two more labels than `UI_KEYS`; the committed catalogue inventory also differed from the source key list.
+- **Root cause:** The Stock Journal KPI labels had been added to the four JSON locale packs and the committed JSON inventory, but not to the authoritative `UI_KEYS` list in `crates/ui/src/i18n.rs`. The subsequent purchase validation labels also needed to be registered there.
+- **Fix:** Register `stock_journal_adjustment`, `stock_journal_total`, `purchases_error_line_total_overflow` and `purchases_error_order_total_overflow` in sorted order in `UI_KEYS`; the four locale packs and `catalogue-keys.json` now contain the same keys.
+- **Regression coverage:** Existing tests `every_embedded_language_defines_all_ui_keys`, `a_missing_pack_folder_keeps_the_embedded_texts` and `the_committed_key_inventory_matches_the_catalogue` verify the full key set and counts.
+- **Verification:** Fix is committed on the PR branch; full workspace tests are pending on the latest head.
