@@ -292,3 +292,11 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - The user must choose a new password and configure both recovery answers before reaching the workspace. Password replacement clears the persisted must-change flag; recovery answers are stored only as Argon2id hashes through the existing core security-question service.
 - Added a cross-store regression test covering the required gate, successful password replacement, flag clearing and case-insensitive recovery-answer verification. DE/EN/FR/ES strings are registered in the source key list and generated locale inventory.
 - **Verification:** pending Linux/Windows tests and the macOS Tauri compatibility build.
+
+
+### Native display discovery (2026-11-19)
+
+- The Rust Settings → Display screen can query physical displays from the active OS and shows their names, current pixel dimensions, primary marker and desktop coordinates in a read-only layout preview.
+- Windows uses the native .NET screen collection exposed by PowerShell, macOS reads `system_profiler SPDisplaysDataType`, and Linux reads `xrandr --listmonitors`.
+- Detection is explicit/on-demand; no monitor data is fabricated when the platform API or utility is unavailable. Linux reports the missing `xrandr` dependency rather than silently presenting a fake 1920×1080 monitor.
+- This is detection and layout visualization only. Changing hardware resolution, orientation, primary monitor or physical OS placement remains out of scope until a safe platform-specific write API is implemented.
