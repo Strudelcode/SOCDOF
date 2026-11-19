@@ -299,4 +299,5 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - The Rust Settings → Display screen can query physical displays from the active OS and shows their names, current pixel dimensions, primary marker and desktop coordinates in a read-only layout preview.
 - Windows uses the native .NET screen collection exposed by PowerShell, macOS reads `system_profiler SPDisplaysDataType`, and Linux reads `xrandr --listmonitors`.
 - Detection is explicit/on-demand; no monitor data is fabricated when the platform API or utility is unavailable. Linux reports the missing `xrandr` dependency rather than silently presenting a fake 1920×1080 monitor.
+- The configured UI scale is applied to the native egui context, and the persisted night-light temperature produces an amber tint over SOCDOF's own window. Neither setting claims to alter OS-wide display configuration.
 - This is detection and layout visualization only. Changing hardware resolution, orientation, primary monitor or physical OS placement remains out of scope until a safe platform-specific write API is implemented.
