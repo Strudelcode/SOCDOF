@@ -1,4 +1,4 @@
-//! Settings screen with eleven sections, including company, payments, appearance, security,
+//! Settings screen with thirteen sections, including display discovery, company, payments, appearance, security,
 //! backup, users, roles, updates, portable mode and keyboard shortcuts.
 //!
 //! The screen is a thin presentation layer over the core services. The company profile is read and
@@ -33,6 +33,7 @@ use crate::components::{
     badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
+use crate::display::{detect_connected_monitors, DisplayMonitor};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
@@ -515,6 +516,8 @@ pub struct SettingsState {
     profile: ProfileDraft,
     appearance: AppearanceDraft,
     display: DisplayDraft,
+    display_monitors: Vec<DisplayMonitor>,
+    display_scan_error: Option<String>,
     letterhead: LetterheadDraft,
     users: Vec<User>,
     roles: Vec<Role>,
@@ -560,6 +563,8 @@ impl Default for SettingsState {
             profile: ProfileDraft::default(),
             appearance: AppearanceDraft::default(),
             display: DisplayDraft::default(),
+            display_monitors: Vec::new(),
+            display_scan_error: None,
             letterhead: LetterheadDraft::default(),
             users: Vec::new(),
             roles: Vec::new(),
@@ -1950,6 +1955,7 @@ fn display_tab(
     store: &Store,
 ) {
     let mut save = false;
+    let mut scan_displays = false;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("settings_display_title")).strong());
         ui.add_space(4.0);
@@ -1958,6 +1964,54 @@ fn display_tab(
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
         );
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_display_detect"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                scan_displays = true;
+            }
+            ui.label(
+                RichText::new(texts.get("settings_display_detect_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        });
+        if state.display_monitors.is_empty() {
+            ui.label(
+                RichText::new(texts.get("settings_display_no_monitors"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        } else {
+            for (index, monitor) in state.display_monitors.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    badge(
+                        ui,
+                        theme,
+                        format!("{} {}", index + 1, if monitor.primary { texts.get("settings_display_primary") } else { "" }),
+                        if monitor.primary { Tone::Success } else { Tone::Neutral },
+                    );
+                    ui.label(format!(
+                        "{} · {} × {} px · {:+}, {:+}",
+                        monitor.label, monitor.width, monitor.height, monitor.x, monitor.y
+                    ));
+                });
+            }
+        }
+        if let Some(error) = &state.display_scan_error {
+            ui.label(
+                RichText::new(error)
+                    .size(FONT_SMALL)
+                    .color(theme.palette.danger),
+            );
+        }
         ui.add_space(8.0);
         text_field(
             ui,
@@ -1998,6 +2052,18 @@ fn display_tab(
             save = true;
         }
     });
+    if scan_displays {
+        match detect_connected_monitors() {
+            Ok(monitors) => {
+                state.display_monitors = monitors;
+                state.display_scan_error = None;
+            }
+            Err(error) => {
+                state.display_monitors.clear();
+                state.display_scan_error = Some(error);
+            }
+        }
+    }
     if save {
         state.save_display(store);
     }
