@@ -471,14 +471,14 @@ mod tests {
         invalid.next_inspection_due = "2026-02-31".to_string();
         assert!(invalid.validate().is_err());
 
-        let mut trip = trip(Uuid::nil(), Uuid::nil(), "business", 30);
-        assert!(trip.validate().is_ok());
-        trip.end_km = trip.start_km;
-        trip.distance_km = 0;
-        assert!(trip.validate().is_err());
-        trip.distance_km = 10;
-        trip.purpose = "holiday".to_string();
-        assert!(trip.validate().is_err());
+        let mut entry = trip(Uuid::nil(), Uuid::nil(), "business", 30);
+        assert!(entry.validate().is_ok());
+        entry.end_km = entry.start_km;
+        entry.distance_km = 0;
+        assert!(entry.validate().is_err());
+        entry.distance_km = 10;
+        entry.purpose = "holiday".to_string();
+        assert!(entry.validate().is_err());
 
         let mut inconsistent = trip(Uuid::new_v4(), Uuid::new_v4(), "business", 30);
         inconsistent.distance_km = 29;
