@@ -2023,7 +2023,7 @@ fn display_tab(
         } else {
             for (index, monitor) in state.display_monitors.iter().enumerate() {
                 ui.horizontal(|ui| {
-                    let label = if monitor.primary {
+                    let label = if monitor.primary == Some(true) {
                         format!("{} · {}", index + 1, texts.get("settings_display_primary"))
                     } else {
                         (index + 1).to_string()
@@ -2032,7 +2032,7 @@ fn display_tab(
                         ui,
                         theme,
                         &label,
-                        if monitor.primary { Tone::Success } else { Tone::Neutral },
+                        if monitor.primary == Some(true) { Tone::Success } else { Tone::Neutral },
                     );
                     ui.label(format!(
                         "{} · {} × {} px · {:+}, {:+}",
@@ -2171,12 +2171,12 @@ fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayM
             ),
             Vec2::new(monitor.width as f32 * scale, monitor.height as f32 * scale),
         );
-        let fill = if monitor.primary {
+        let fill = if monitor.primary == Some(true) {
             theme.accent.base
         } else {
             theme.palette.surface
         };
-        let text = if monitor.primary {
+        let text = if monitor.primary == Some(true) {
             egui::Color32::WHITE
         } else {
             theme.palette.text
