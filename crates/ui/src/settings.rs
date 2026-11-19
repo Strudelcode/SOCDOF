@@ -2032,7 +2032,11 @@ fn display_tab(
                         ui,
                         theme,
                         &label,
-                        if monitor.primary == Some(true) { Tone::Success } else { Tone::Neutral },
+                        if monitor.primary == Some(true) {
+                            Tone::Success
+                        } else {
+                            Tone::Neutral
+                        },
                     );
                     ui.label(format!(
                         "{} · {} × {} px · {:+}, {:+}",
@@ -2110,20 +2114,20 @@ fn display_tab(
 
 /// Draws a read-only layout preview using the coordinates reported by the OS.
 fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayMonitor]) {
-    let (canvas, _) = ui.allocate_exact_size(
-        Vec2::new(ui.available_width(), 176.0),
-        Sense::hover(),
-    );
+    let (canvas, _) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 176.0), Sense::hover());
     let painter = ui.painter();
     painter.rect(
         canvas,
         egui::Rounding::same(10.0),
         theme.palette.surface_muted,
-        Stroke::new(1.0, theme.palette.border),
+        Stroke::new(1.0_f32, theme.palette.border),
     );
 
     let same_origin = monitors.len() > 1
-        && monitors.iter().all(|monitor| monitor.x == monitors[0].x && monitor.y == monitors[0].y);
+        && monitors
+            .iter()
+            .all(|monitor| monitor.x == monitors[0].x && monitor.y == monitors[0].y);
     let mut origins = Vec::with_capacity(monitors.len());
     let mut next_x = 0_i32;
     for monitor in monitors {
@@ -2142,13 +2146,21 @@ fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayM
     let max_x = origins
         .iter()
         .zip(monitors)
-        .map(|(origin, monitor)| origin.0.saturating_add(monitor.width.min(i32::MAX as u32) as i32))
+        .map(|(origin, monitor)| {
+            origin
+                .0
+                .saturating_add(monitor.width.min(i32::MAX as u32) as i32)
+        })
         .max()
         .unwrap_or(1);
     let max_y = origins
         .iter()
         .zip(monitors)
-        .map(|(origin, monitor)| origin.1.saturating_add(monitor.height.min(i32::MAX as u32) as i32))
+        .map(|(origin, monitor)| {
+            origin
+                .1
+                .saturating_add(monitor.height.min(i32::MAX as u32) as i32)
+        })
         .max()
         .unwrap_or(1);
     let total_width = max_x.saturating_sub(min_x).max(1) as f32;
@@ -2185,7 +2197,7 @@ fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayM
             rect,
             egui::Rounding::same(7.0),
             fill,
-            Stroke::new(1.2, theme.palette.border),
+            Stroke::new(1.2_f32, theme.palette.border),
         );
         if rect.width() >= 56.0 && rect.height() >= 36.0 {
             painter.text(
