@@ -148,9 +148,10 @@ fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
 }
 
 #[cfg(any(target_os = "macos", test))]
-fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
-    const RESOLUTION_KEY: &str = "spdisplays_resolution";
+const SYSTEM_PROFILER_RESOLUTION_KEY: &str = "spdisplays_resolution";
 
+#[cfg(any(target_os = "macos", test))]
+fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     fn collect(value: &serde_json::Value, monitors: &mut Vec<DisplayMonitor>) {
         match value {
             serde_json::Value::Array(items) => {
