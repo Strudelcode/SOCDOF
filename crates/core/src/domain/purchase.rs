@@ -76,7 +76,10 @@ pub struct PurchaseOrderLine {
 impl PurchaseOrderLine {
     /// Net amount of this position.
     pub fn net(&self) -> Money {
-        Money::from_cents(self.unit_cost.cents() * self.quantity_milli / 1_000)
+        // Use a wide intermediate: both operands are persisted i64 values and their
+        // product can overflow long before the final per-unit division.
+        let cents = self.unit_cost.cents() as i128 * self.quantity_milli as i128 / 1_000;
+        Money::from_cents(cents as i64)
     }
 
     /// Tax amount of this position.
@@ -170,6 +173,8 @@ impl PurchaseOrder {
         if self.lines.is_empty() {
             return Err("lines_required".to_string());
         }
+        let mut total_net = 0_i128;
+        let mut total_tax = 0_i128;
         for line in &self.lines {
             if line.description.trim().is_empty() {
                 return Err("line_description_required".to_string());
@@ -183,6 +188,23 @@ impl PurchaseOrder {
             if !(0..=10_000).contains(&line.tax_rate_bp) {
                 return Err("line_tax_rate_out_of_range".to_string());
             }
+
+            let net = line.unit_cost.cents() as i128 * line.quantity_milli as i128 / 1_000;
+            let tax_raw = net * line.tax_rate_bp as i128;
+            let tax = (tax_raw + 5_000) / 10_000;
+            total_net += net;
+            total_tax += tax;
+            if net > i64::MAX as i128 || tax > i64::MAX as i128 {
+                return Err("line_total_overflow".to_string());
+            }
+        }
+        // The public totals use Money(i64), so validate aggregate values before they are
+        // accepted and later summed by list, invoice and print views.
+        if total_net > i64::MAX as i128
+            || total_tax > i64::MAX as i128
+            || total_net + total_tax > i64::MAX as i128
+        {
+            return Err("order_total_overflow".to_string());
         }
         Ok(())
     }
@@ -348,6 +370,21 @@ mod tests {
         let mut order = sample();
         order.number = "  ".to_string();
         assert_eq!(order.validate(), Err("number_required".to_string()));
+    }
+
+    #[test]
+    fn rejects_line_and_order_totals_that_do_not_fit_money_storage() {
+        let mut order = sample();
+        order.lines[0].unit_cost = Money::from_cents(i64::MAX);
+        order.lines[0].quantity_milli = 2_000;
+        assert_eq!(order.validate(), Err("line_total_overflow".to_string()));
+
+        let mut order = sample();
+        order.lines[0].unit_cost = Money::from_cents(i64::MAX / 2);
+        order.lines[0].quantity_milli = 1_000;
+        order.lines[1].unit_cost = Money::from_cents(i64::MAX / 2);
+        order.lines[1].quantity_milli = 1_000;
+        assert_eq!(order.validate(), Err("order_total_overflow".to_string()));
     }
 
     #[test]
