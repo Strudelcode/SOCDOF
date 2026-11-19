@@ -1627,32 +1627,37 @@ mod tests {
             "BE-2026-0011",
             PurchaseOrderStatus::Ordered,
             SAMPLE_NOW_MS,
-            vec![
-                PurchaseOrderLine {
-                    product_id: Some(existing.id),
-                    description: "Vorhandenes Produkt".to_string(),
-                    quantity_milli: 2_000,
-                    unit_cost: Money::from_cents(500),
-                    tax_rate_bp: 700,
-                },
-                PurchaseOrderLine {
-                    product_id: Some(Uuid::new_v4()),
-                    description: "Nicht vorhandenes Produkt".to_string(),
-                    quantity_milli: 1_000,
-                    unit_cost: Money::from_cents(300),
-                    tax_rate_bp: 700,
-                },
-            ],
+            vec![PurchaseOrderLine {
+                product_id: Some(existing.id),
+                description: "Vorhandenes Produkt".to_string(),
+                quantity_milli: 2_000,
+                unit_cost: Money::from_cents(500),
+                tax_rate_bp: 700,
+            }],
             None,
         );
         store.insert_purchase_order(&order).expect("insert");
 
+        let movements = vec![
+            socdof_core::domain::stock::StockMove {
+                id: Uuid::new_v4(),
+                product_id: existing.id,
+                kind: socdof_core::domain::stock::StockMoveKind::In,
+                quantity: 2,
+                reason: Some(order.number.clone()),
+                created_at: SAMPLE_NOW_MS + 1,
+            },
+            socdof_core::domain::stock::StockMove {
+                id: Uuid::new_v4(),
+                product_id: Uuid::new_v4(),
+                kind: socdof_core::domain::stock::StockMoveKind::In,
+                quantity: 1,
+                reason: Some(order.number.clone()),
+                created_at: SAMPLE_NOW_MS + 1,
+            },
+        ];
         let error = store
-            .receive_purchase_order(
-                order.id,
-                &order.stock_moves(SAMPLE_NOW_MS + 1),
-                SAMPLE_NOW_MS + 1,
-            )
+            .receive_purchase_order(order.id, &movements, SAMPLE_NOW_MS + 1)
             .expect_err("unknown product must abort the receipt");
         assert!(matches!(error, socdof_core::CoreError::NotFound(_)));
         assert_eq!(
