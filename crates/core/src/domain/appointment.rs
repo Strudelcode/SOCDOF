@@ -117,6 +117,116 @@ impl Appointment {
     }
 }
 
+/// Exports local appointments as an RFC 5545 iCalendar file.
+///
+/// Timestamps are serialized in UTC because appointments are stored as Unix milliseconds. Text
+/// properties are escaped and folded to the 75-octet line limit required by iCalendar clients.
+pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i64) -> String {
+    let mut output = String::from(
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SOCDOF//Local Calendar//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nX-WR-CALNAME:SOCDOF\r\n",
+    );
+    let mut ordered = appointments.iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|appointment| (appointment.starts_at, appointment.id));
+
+    for appointment in ordered {
+        push_ical_line(&mut output, "BEGIN:VEVENT");
+        push_ical_line(&mut output, &format!("UID:{}@socdof", appointment.id));
+        push_ical_line(
+            &mut output,
+            &format!("DTSTAMP:{}", ical_datetime(generated_at_ms)),
+        );
+        push_ical_line(
+            &mut output,
+            &format!("DTSTART:{}", ical_datetime(appointment.starts_at)),
+        );
+        push_ical_line(
+            &mut output,
+            &format!("DTEND:{}", ical_datetime(appointment.ends_at)),
+        );
+        push_ical_line(
+            &mut output,
+            &format!("CREATED:{}", ical_datetime(appointment.created_at)),
+        );
+        push_ical_line(
+            &mut output,
+            &format!(
+                "LAST-MODIFIED:{}",
+                ical_datetime(appointment.updated_at.max(appointment.created_at))
+            ),
+        );
+        push_ical_line(
+            &mut output,
+            &format!("SUMMARY:{}", escape_ical_text(&appointment.title)),
+        );
+        if let Some(location) = appointment.location.as_deref().filter(|value| !value.trim().is_empty()) {
+            push_ical_line(
+                &mut output,
+                &format!("LOCATION:{}", escape_ical_text(location)),
+            );
+        }
+        if let Some(notes) = appointment.notes.as_deref().filter(|value| !value.trim().is_empty()) {
+            push_ical_line(
+                &mut output,
+                &format!("DESCRIPTION:{}", escape_ical_text(notes)),
+            );
+        }
+        let status = match appointment.status {
+            AppointmentStatus::Scheduled => "TENTATIVE",
+            AppointmentStatus::Confirmed | AppointmentStatus::Completed | AppointmentStatus::NoShow => {
+                "CONFIRMED"
+            }
+            AppointmentStatus::Cancelled => "CANCELLED",
+        };
+        push_ical_line(&mut output, &format!("STATUS:{status}"));
+        push_ical_line(&mut output, "END:VEVENT");
+    }
+
+    output.push_str("END:VCALENDAR\r\n");
+    output
+}
+
+fn ical_datetime(timestamp_ms: i64) -> String {
+    let (year, month, day) = crate::date::civil_from_millis(timestamp_ms);
+    let millis_of_day = timestamp_ms.rem_euclid(86_400_000);
+    let hours = millis_of_day / 3_600_000;
+    let minutes = (millis_of_day % 3_600_000) / 60_000;
+    let seconds = (millis_of_day % 60_000) / 1_000;
+    format!("{year:04}{month:02}{day:02}T{hours:02}{minutes:02}{seconds:02}Z")
+}
+
+fn escape_ical_text(value: &str) -> String {
+    let normalized = value.replace("\r\n", "\n").replace('\r', "\n");
+    let mut escaped = String::with_capacity(normalized.len());
+    for character in normalized.chars() {
+        match character {
+            '\\' => escaped.push_str("\\\\"),
+            ';' => escaped.push_str("\\;"),
+            ',' => escaped.push_str("\\,"),
+            '\n' => escaped.push_str("\\n"),
+            _ => escaped.push(character),
+        }
+    }
+    escaped
+}
+
+fn push_ical_line(output: &mut String, line: &str) {
+    let mut current = String::new();
+    let mut octets = 0;
+    for character in line.chars() {
+        let width = character.len_utf8();
+        if octets + width > 75 {
+            output.push_str(&current);
+            output.push_str("\r\n ");
+            current.clear();
+            octets = 1;
+        }
+        current.push(character);
+        octets += width;
+    }
+    output.push_str(&current);
+    output.push_str("\r\n");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -134,6 +244,41 @@ mod tests {
             created_at: 0,
             updated_at: 0,
         }
+    }
+
+    #[test]
+    fn exports_valid_utc_icalendar_with_escaped_text_and_status() {
+        let mut appointment = sample();
+        appointment.title = "Review, project; release\\\nNext".to_string();
+        appointment.location = Some("Room 2, north".to_string());
+        appointment.notes = Some("Bring slides\\\nand notes".to_string());
+        appointment.status = AppointmentStatus::Cancelled;
+        let ics = export_appointments_ics(&[appointment.clone()], 1_700_000_000_000);
+
+        assert!(ics.starts_with("BEGIN:VCALENDAR\\r\\nVERSION:2.0"));
+        assert!(ics.contains("DTSTAMP:20231114T221320Z"));
+        assert!(ics.contains("DTSTART:20231114T221320Z"));
+        assert!(ics.contains("SUMMARY:Review\\\\, project\\\\; release\\\\\\\\\\\\nNext"));
+        assert!(ics.contains("LOCATION:Room 2\\\\, north"));
+        assert!(ics.contains("DESCRIPTION:Bring slides\\\\\\\\\\\\n and notes") == false);
+        assert!(ics.contains("STATUS:CANCELLED"));
+        assert!(ics.ends_with("END:VCALENDAR\\r\\n"));
+    }
+
+    #[test]
+    fn sorts_ical_events_and_folds_long_utf8_lines() {
+        let mut later = sample();
+        later.title = "Ä".repeat(80);
+        later.starts_at += 86_400_000;
+        later.ends_at += 86_400_000;
+        let earlier = sample();
+        let ics = export_appointments_ics(&[later, earlier], 1_700_000_000_000);
+        let first_event = ics.find("DTSTART:").expect("first start");
+        let second_event = ics[first_event + 1..].find("DTSTART:").expect("second start")
+            + first_event + 1;
+        assert!(ics[first_event..].starts_with("DTSTART:20231114"));
+        assert!(ics[second_event..].starts_with("DTSTART:20231115"));
+        assert!(ics.lines().all(|line| line.len() <= 75));
     }
 
     #[test]
