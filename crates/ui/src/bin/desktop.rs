@@ -30,6 +30,7 @@ struct DesktopRuntime {
     state: GalleryState,
     lock: InstanceLock,
     last_heartbeat: Instant,
+    last_system_theme_check: Instant,
     follow_system_theme: bool,
     system_appearance: Option<Appearance>,
 }
@@ -86,6 +87,7 @@ impl DesktopApp {
             state,
             lock: loaded.lock,
             last_heartbeat: Instant::now(),
+            last_system_theme_check: Instant::now(),
             follow_system_theme,
             system_appearance: self.system_appearance,
         });
@@ -198,9 +200,15 @@ impl eframe::App for DesktopApp {
             Duration::from_secs(10)
         };
         ctx.request_repaint_after(repaint_after);
-        // Capture the platform appearance before the SOCDOF theme is applied. Resolve the
-        // active user's preference on every frame so changing Theme to System/Light/Dark takes
-        // effect immediately, rather than inheriting the company profile forever.
+        // Refresh the OS preference occasionally, not on every immediate-mode frame.
+        if runtime.last_system_theme_check.elapsed() >= Duration::from_secs(10) {
+            if let Some(appearance) = socdof_ui::theme::detect_system_appearance() {
+                runtime.system_appearance = Some(appearance);
+            }
+            runtime.last_system_theme_check = Instant::now();
+        }
+        // Resolve the active user's preference on every frame so changing Theme to
+        // System/Light/Dark takes effect immediately, rather than inheriting the company profile.
         let system_appearance = *runtime.system_appearance.get_or_insert_with(|| {
             socdof_ui::theme::detect_system_appearance().unwrap_or_else(|| {
                 if ctx.style().visuals.dark_mode {
