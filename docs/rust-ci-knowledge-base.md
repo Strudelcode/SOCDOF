@@ -521,3 +521,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression coverage:** Added a mixed-location test that checks the exact totals, including warehouse-to-loss, warehouse-to-scrap and virtual-only transfers.
 - **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the locale catalogue.
 - **Verification:** Committed on `feature/rust-stock-journal-parity`; CI has not yet run on this branch. Do not mark this fix CI-verified until the new PR workflow passes.
+
+
+## RUST-CI-016 — Purchase-order quantity and total overflow (2026-11-19)
+
+- **Symptom:** Large but syntactically valid purchase quantities could overflow while rounding fractional units into whole stock units. Purchase line multiplication could also overflow signed 64-bit cents before division, and a direct status update could mark an order as received without booking stock.
+- **Root cause:** The stock conversion added 999 before division; monetary line totals multiplied two i64 values; and the generic status setter accepted Received even though the atomic goods-receipt operation is the only path that updates inventory.
+- **Fix:** Stock quantities now divide first and add a remainder flag, avoiding addition overflow. Purchase line net arithmetic uses an i128 intermediate, and order validation rejects line or aggregate net/tax/gross values that cannot fit the Money(i64) representation. The generic status setter rejects Received so the status can only be changed by the transaction that applies stock movements.
+- **Regression coverage:** Added an i64::MAX stock-rounding boundary test, line/order amount overflow validation tests, and a purchase lifecycle assertion that direct Received status changes fail without altering the Ordered state.
+- **Translations:** Added dedicated DE/EN/FR/ES messages for oversized line and order totals and mapped the new validation codes in the native purchase screen.
+- **Verification:** Changes are committed to the PR branch. CI must pass on the latest PR head before this entry is marked verified.
