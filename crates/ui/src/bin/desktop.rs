@@ -144,11 +144,13 @@ fn load_store() -> Result<LoadedStore, Box<dyn Error>> {
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.system_appearance.get_or_insert_with(|| {
-            if ctx.style().visuals.dark_mode {
-                Appearance::Dark
-            } else {
-                Appearance::Light
-            }
+            socdof_ui::theme::detect_system_appearance().unwrap_or_else(|| {
+                if ctx.style().visuals.dark_mode {
+                    Appearance::Dark
+                } else {
+                    Appearance::Light
+                }
+            })
         });
         if self.runtime.is_none() {
             // Always paint one splash frame before accepting even an already-completed worker.
@@ -200,11 +202,13 @@ impl eframe::App for DesktopApp {
         // active user's preference on every frame so changing Theme to System/Light/Dark takes
         // effect immediately, rather than inheriting the company profile forever.
         let system_appearance = *runtime.system_appearance.get_or_insert_with(|| {
-            if ctx.style().visuals.dark_mode {
-                Appearance::Dark
-            } else {
-                Appearance::Light
-            }
+            socdof_ui::theme::detect_system_appearance().unwrap_or_else(|| {
+                if ctx.style().visuals.dark_mode {
+                    Appearance::Dark
+                } else {
+                    Appearance::Light
+                }
+            })
         });
         let user_follows_system = runtime
             .state
