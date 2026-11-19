@@ -623,6 +623,17 @@ impl SettingsState {
         self.tab
     }
 
+    /// Returns the persisted UI scale as an egui zoom factor.
+    pub fn ui_scale_factor(&self) -> f32 {
+        self.display
+            .scale_percent
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(100)
+            .clamp(75, 200) as f32
+            / 100.0
+    }
+
     /// Returns the native night-light tint to paint above the desktop, if enabled.
     ///
     /// The alpha follows the TypeScript edition's 1000K–6500K warmth curve. The tint affects only
@@ -4423,6 +4434,24 @@ mod tests {
         assert_eq!(letterhead.default_subject, "Angebot");
         assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
         assert!(!letterhead.show_fold_marks);
+    }
+
+    #[test]
+    fn display_effects_resolve_scale_and_night_light_strength() {
+        let (_store, mut state, _texts) = seeded();
+        assert_eq!(state.ui_scale_factor(), 1.0);
+        assert!(state.night_light_overlay().is_none());
+
+        state.display.scale_percent = "150".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "1000".to_string();
+        assert_eq!(state.ui_scale_factor(), 1.5);
+        assert_eq!(state.night_light_overlay().expect("night light").a(), 62);
+
+        state.display.night_light_temperature = "6500".to_string();
+        assert_eq!(state.night_light_overlay().expect("daylight").a(), 0);
+        state.display.night_light_enabled = false;
+        assert!(state.night_light_overlay().is_none());
     }
 
     #[test]
