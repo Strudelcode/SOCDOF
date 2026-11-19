@@ -569,8 +569,10 @@ impl GalleryState {
             pos_state.refresh(&store)?;
             appointments_state.refresh(&store)?;
             users_state.refresh(&store)?;
-            settings_state.refresh(&store)?;
         }
+        // Display scaling and night-light are global native-window preferences. Load them even
+        // before the user opens Settings so the saved values apply from the first signed-in frame.
+        settings_state.refresh(&store)?;
         let auth_state = if seed_demo_data {
             AuthState::signed_in(&store, "admin", "Socdof2026!", now_millis())?
         } else {
