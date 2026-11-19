@@ -306,7 +306,7 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 ### Native appearance and display effects (2026-11-19)
 
 - ThemeMode::System now reads the native Windows AppsUseLightTheme registry value, macOS AppleInterfaceStyle preference, or GNOME color-scheme, KDE ColorScheme or GTK_THEME preference on Linux, with the window backend's initial appearance as fallback.
-- The running desktop rechecks the OS preference every ten seconds, but only applies it to accounts whose theme mode is System.
+- The running desktop rechecks the OS preference every 60 seconds, but only applies it to accounts whose theme mode is System. Display preferences are loaded through a lightweight startup read rather than hydrating the full Settings workspace.
 - The native display screen applies the persisted UI zoom and a per-window warm night-light tint; neither changes the operating system's global display settings.
 
 
