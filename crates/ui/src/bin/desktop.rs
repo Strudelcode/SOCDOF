@@ -224,6 +224,14 @@ impl eframe::App for DesktopApp {
             runtime.last_heartbeat = Instant::now();
         }
         gallery(ctx, &mut runtime.state);
+        if let Some(tint) = runtime.state.settings.night_light_overlay() {
+            let layer = egui::LayerId::new(
+                egui::Order::Foreground,
+                egui::Id::new("socdof-native-night-light"),
+            );
+            ctx.layer_painter(layer)
+                .rect_filled(ctx.screen_rect(), 0.0, tint);
+        }
     }
 }
 
