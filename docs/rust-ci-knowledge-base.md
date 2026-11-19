@@ -512,3 +512,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** this workspace intentionally retains egui/eframe 0.27 for its UI/API baseline; its transitive Objective-C bindings are not compatible with the runner's newer Rust 1.100 compiler. Separately, the lipo verification commands placed the architecture/file arguments in the wrong order.
 - **Fix:** pin only the macOS native build and release jobs to Rust 1.90.0; keep Linux and Windows on stable. Verify universal executables with `lipo <input-file> -verify_arch arm64 x86_64`. The PR workflow now assembles a native `.app`, validates its plist and both Mach-O slices, creates a ZIP, and uploads it as a build artifact.
 - **Verification:** implementation committed. Run 1480 is the current full CI gate; do not close this entry or merge until its macOS build, app packaging, Linux/Windows tests, desktop builds and GUI smoke jobs pass.
+
+## RUST-CI-015 — Stock journal KPI parity (2026-11-19)
+
+- **Symptom:** The native Products → Journal summary did not match the TypeScript `StockMovesModule` summary. Rust counted warehouse-originating movements as outbound and reported virtual transfers as a count; TypeScript classifies outbound quantity by the destination `Virtual/Customers` and adjustment quantity by `Virtual/Inventory-Loss` / `Virtual/Scrap`.
+- **Root cause:** The Rust UI summary used a different interpretation of the double-entry journal than the reference screen.
+- **Fix:** `crates/ui/src/stock_moves.rs` now derives four summary values from the currently visible rows: total movements, inbound quantity, outbound-to-customers quantity, and adjustment quantity. The location filter is applied before the summary, matching the filtered TypeScript view.
+- **Regression coverage:** Added a mixed-location test that checks the exact totals, including warehouse-to-loss, warehouse-to-scrap and virtual-only transfers.
+- **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the locale catalogue.
+- **Verification:** Committed on `feature/rust-stock-journal-parity`; CI has not yet run on this branch. Do not mark this fix CI-verified until the new PR workflow passes.
