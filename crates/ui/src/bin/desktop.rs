@@ -223,6 +223,7 @@ impl eframe::App for DesktopApp {
             }
             runtime.last_heartbeat = Instant::now();
         }
+        ctx.set_zoom_factor(runtime.state.settings.ui_scale_factor());
         gallery(ctx, &mut runtime.state);
         if let Some(tint) = runtime.state.settings.night_light_overlay() {
             let layer = egui::LayerId::new(
