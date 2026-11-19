@@ -24,7 +24,7 @@ pub struct DisplayMonitor {
 
 /// Detects connected displays using the current operating system's read-only display API.
 ///
-/// On Linux, `xrandr` must be installed and available on PATH. Windows uses
+/// On Linux, `xrandr` (X11) or `wlr-randr` (Wayland) must be installed and available on PATH. Windows uses
 /// `System.Windows.Forms.Screen`; macOS uses `system_profiler`. Unsupported or unavailable
 /// detection tools return an error instead of fabricating a 1920×1080 display.
 pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
