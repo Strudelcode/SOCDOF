@@ -76,7 +76,7 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
     }
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", test))]
 fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     let value: serde_json::Value = serde_json::from_str(output.trim())
         .map_err(|error| format!("Windows display response was invalid: {error}"))?;
@@ -103,7 +103,7 @@ fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", test))]
 fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     fn collect(value: &serde_json::Value, monitors: &mut Vec<DisplayMonitor>) {
         match value {
@@ -231,6 +231,30 @@ mod tests {
         assert!(parse_xrandr_monitors("Monitors: 1\n").is_err());
         assert_eq!(parse_xrandr_geometry("1920x1080+0+0"), Some((1920, 1080, 0, 0)));
         assert_eq!(parse_xrandr_geometry("0x1080+0+0"), None);
+    }
+
+    #[test]
+    fn parses_windows_screen_json_for_single_and_multiple_displays() {
+        let single = r#"{"id":"\\\\.\\DISPLAY1","label":"\\\\.\\DISPLAY1","x":0,"y":0,"width":1920,"height":1080,"primary":true}"#;
+        let monitor = parse_windows_monitors(single).expect("single monitor");
+        assert_eq!(monitor.len(), 1);
+        assert!(monitor[0].primary);
+        assert_eq!((monitor[0].width, monitor[0].height), (1920, 1080));
+
+        let multiple = r#"[{"id":"DISPLAY1","label":"DISPLAY1","x":0,"y":0,"width":1920,"height":1080,"primary":true},{"id":"DISPLAY2","label":"DISPLAY2","x":1920,"y":0,"width":2560,"height":1440,"primary":false}]"#;
+        let monitors = parse_windows_monitors(multiple).expect("multiple monitors");
+        assert_eq!(monitors.len(), 2);
+        assert_eq!(monitors[1].x, 1920);
+    }
+
+    #[test]
+    fn parses_macos_system_profiler_display_records() {
+        let json = r#"{"SPDisplaysDataType":[{"spdisplays_ndrvs":[{"_name":"Built-in Display","spdisplays_resolution":"3024 x 1964","spdisplays_display":"Built-in Retina Display"}]}]}"#;
+        let monitors = parse_system_profiler_monitors(json).expect("macOS monitor");
+        assert_eq!(monitors.len(), 1);
+        assert_eq!(monitors[0].label, "Built-in Retina Display");
+        assert_eq!((monitors[0].width, monitors[0].height), (3024, 1964));
+        assert!(monitors[0].primary);
     }
 
     #[test]
