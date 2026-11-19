@@ -1648,7 +1648,11 @@ mod tests {
         store.insert_purchase_order(&order).expect("insert");
 
         let error = store
-            .receive_purchase_order(order.id, &order.stock_moves(SAMPLE_NOW_MS + 1), SAMPLE_NOW_MS + 1)
+            .receive_purchase_order(
+                order.id,
+                &order.stock_moves(SAMPLE_NOW_MS + 1),
+                SAMPLE_NOW_MS + 1,
+            )
             .expect_err("unknown product must abort the receipt");
         assert!(matches!(error, socdof_core::CoreError::NotFound(_)));
         assert_eq!(
