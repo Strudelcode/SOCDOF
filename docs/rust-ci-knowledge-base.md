@@ -592,3 +592,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Privacy/scope:** No Google sign-in, OAuth, network sync or external calendar connection is used.
 - **Tests:** Added core tests for escaping, UTC timestamps, deterministic ordering and UTF-8 line folding, plus UI file-export coverage.
 - **Verification:** Native dialogs, Linux/Windows/macOS builds and the full workspace tests must pass before this feature is considered released.
+
+
+## RUST-CI-024 — Native GUI idle CPU budget after system-theme integration (2026-11-19)
+
+- **Symptom:** The Linux Xvfb smoke test opened the native window successfully and passed the idle RAM budget (121,896 / 122,880 KiB), but idle CPU measured 1.07% against the 0.5% ceiling.
+- **Root cause:** The first implementation spawned the OS theme query every ten seconds during the desktop's idle repaint cycle and fully hydrated users/roles/preferences in Settings during startup, even though only the small global display record was needed before login.
+- **Fix:** Poll the OS theme every 60 seconds instead of every ten seconds. Add `SettingsState::refresh_display_preferences` and call it during startup, leaving the full Settings workspace lazy-loaded until the user opens it.
+- **Expected effect:** Avoid repeated child-process wakeups during the 30-second idle CPU sample and reduce startup state hydration. This is a targeted budget fix, not a relaxed threshold.
+- **Verification:** The next latest-head Linux GUI smoke must pass both the 122,880 KiB idle RAM ceiling and the 0.5% idle CPU ceiling; do not waive either check.
