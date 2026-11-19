@@ -210,12 +210,10 @@ impl FleetFuel {
         if units_milli <= 0 {
             return 0;
         }
-        {
-            let numerator = i128::from(total_cost_cents)
-                .saturating_mul(10_000)
-                .saturating_add(i128::from(units_milli / 2));
-            (numerator / i128::from(units_milli)).clamp(0, i128::from(i64::MAX)) as i64
-        }
+        let numerator = i128::from(total_cost_cents)
+            .saturating_mul(10_000)
+            .saturating_add(i128::from(units_milli / 2));
+        (numerator / i128::from(units_milli)).clamp(0, i128::from(i64::MAX)) as i64
     }
 
     /// Validates the fields of the receipt modal.
@@ -482,7 +480,10 @@ mod tests {
 
         let mut inconsistent = trip(Uuid::new_v4(), Uuid::new_v4(), "business", 30);
         inconsistent.distance_km = 29;
-        assert!(inconsistent.validate().is_err(), "stored distance must match odometer readings");
+        assert!(
+            inconsistent.validate().is_err(),
+            "stored distance must match odometer readings"
+        );
     }
 
     #[test]
@@ -546,6 +547,11 @@ mod tests {
         assert_eq!(saturated.total_km, i64::MAX);
         assert_eq!(saturated.business_km, i64::MAX);
         assert_eq!(saturated.tax_allowance_cents, i64::MAX);
+
+        let mut huge_fuel = fuel[0].clone();
+        huge_fuel.total_cost_cents = i64::MAX;
+        let saturated_fuel = metrics(&[], &[huge_fuel.clone(), huge_fuel], &[]);
+        assert_eq!(saturated_fuel.fuel_cost_cents, i64::MAX);
 
         let csv = csv(&trips);
         assert!(csv.starts_with("\u{feff}Datum;Uhrzeit;Fahrzeug"));
