@@ -122,6 +122,13 @@ pub struct PurchaseOrder {
     pub updated_at: i64,
 }
 
+/// Converts a positive thousandths quantity to whole stock units without overflowing.
+fn round_quantity_up_to_whole_units(quantity_milli: i64) -> i64 {
+    let whole_units = quantity_milli / 1_000;
+    let remainder = if quantity_milli % 1_000 == 0 { 0 } else { 1 };
+    whole_units + remainder
+}
+
 impl PurchaseOrder {
     /// Sum of all net position amounts.
     pub fn total_net(&self) -> Money {
@@ -151,9 +158,7 @@ impl PurchaseOrder {
                     id: Uuid::new_v4(),
                     product_id,
                     kind: StockMoveKind::In,
-                    // Divide before adding the remainder so even i64::MAX cannot overflow.
-                    quantity: line.quantity_milli / 1_000
-                        + (if line.quantity_milli % 1_000 != 0 { 1 } else { 0 }),
+                    quantity: round_quantity_up_to_whole_units(line.quantity_milli),
                     reason: Some(self.number.clone()),
                     created_at,
                 })
