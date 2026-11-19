@@ -301,3 +301,10 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - Detection is explicit/on-demand; no monitor data is fabricated when the platform API or utility is unavailable. Linux reports the missing `xrandr` dependency rather than silently presenting a fake 1920×1080 monitor.
 - The configured UI scale is applied to the native egui context, and the persisted night-light temperature produces an amber tint over SOCDOF's own window. Neither setting claims to alter OS-wide display configuration.
 - This is detection and layout visualization only. Changing hardware resolution, orientation, primary monitor or physical OS placement remains out of scope until a safe platform-specific write API is implemented.
+
+
+### Native appearance and display effects (2026-11-19)
+
+- ThemeMode::System now reads the native Windows AppsUseLightTheme registry value, macOS AppleInterfaceStyle preference, or GNOME color-scheme/GTK_THEME preference on Linux, with the window backend's initial appearance as fallback.
+- The running desktop rechecks the OS preference every ten seconds, but only applies it to accounts whose theme mode is System.
+- The native display screen applies the persisted UI zoom and a per-window warm night-light tint; neither changes the operating system's global display settings.
