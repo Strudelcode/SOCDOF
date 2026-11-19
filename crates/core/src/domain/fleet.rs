@@ -515,17 +515,17 @@ mod tests {
             notes: String::new(),
             created_at: 0,
         }];
-        let metrics = metrics(&trips, &fuel, std::slice::from_ref(&vehicle));
-        assert_eq!(metrics.total_km, 100);
-        assert_eq!(metrics.business_km, 30);
-        assert_eq!(metrics.private_km, 10);
-        assert_eq!(metrics.commute_km, 60);
-        assert_eq!(metrics.business_pct, 30);
-        assert_eq!(metrics.private_pct, 10);
-        assert_eq!(metrics.commute_pct, 60);
-        assert_eq!(metrics.fuel_cost_cents, 8_000);
-        assert_eq!(metrics.tax_allowance_cents, 900);
-        assert_eq!(metrics.active_vehicles, 1);
+        let computed = metrics(&trips, &fuel, std::slice::from_ref(&vehicle));
+        assert_eq!(computed.total_km, 100);
+        assert_eq!(computed.business_km, 30);
+        assert_eq!(computed.private_km, 10);
+        assert_eq!(computed.commute_km, 60);
+        assert_eq!(computed.business_pct, 30);
+        assert_eq!(computed.private_pct, 10);
+        assert_eq!(computed.commute_pct, 60);
+        assert_eq!(computed.fuel_cost_cents, 8_000);
+        assert_eq!(computed.tax_allowance_cents, 900);
+        assert_eq!(computed.active_vehicles, 1);
         assert_eq!(FleetFuel::price_per_unit(8_000, 40_000), 2_000);
         assert_eq!(FleetFuel::price_per_unit(1, 20_000), 1);
         assert_eq!(FleetFuel::price_per_unit(8_000, 0), 0);
