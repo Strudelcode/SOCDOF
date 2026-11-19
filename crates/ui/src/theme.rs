@@ -253,7 +253,6 @@ pub fn headless_context() -> Context {
 /// TypeScript edition loads from `index.html`, so both editions set type the same way. The egui
 /// defaults stay behind it as glyph fallback. Semibold lives in its own family because egui has no
 /// synthetic bold.
-pub(crate) /// Installs the bundled font families before the first frame is rendered.
 pub fn install_fonts(ctx: &Context) {
     let key = egui::Id::new("socdof-fonts");
     if ctx.data(|data| data.get_temp::<bool>(key).unwrap_or(false)) {
