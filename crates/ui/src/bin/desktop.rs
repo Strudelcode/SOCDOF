@@ -19,7 +19,7 @@ use socdof_core::settings_service;
 use socdof_core::store::Store;
 use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::invoice_templates::native_asset_picker;
-use socdof_ui::theme::Appearance;
+use socdof_ui::theme::{Appearance, Theme};
 
 struct LoadedStore {
     store: Store,
@@ -388,13 +388,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("SOCDOF {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
-    let app = DesktopApp::new();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([760.0, 560.0]),
         ..Default::default()
     };
-    eframe::run_native("SOCDOF", options, Box::new(move |_creation| Box::new(app)))?;
+    eframe::run_native(
+        "SOCDOF",
+        options,
+        Box::new(move |creation| {
+            // Install the bundled font families before the first egui frame. Applying the
+            // theme only from Gallery::update is too late on some native backends: the
+            // first frame can resolve RichText against the custom Semibold family before
+            // epaint has rebuilt its font atlas.
+            Theme::new(Appearance::Dark, "indigo").apply(&creation.egui_ctx);
+            Box::new(DesktopApp::new())
+        }),
+    )?;
     Ok(())
 }
