@@ -1992,10 +1992,15 @@ fn display_tab(
         } else {
             for (index, monitor) in state.display_monitors.iter().enumerate() {
                 ui.horizontal(|ui| {
+                    let label = if monitor.primary {
+                        format!("{} · {}", index + 1, texts.get("settings_display_primary"))
+                    } else {
+                        (index + 1).to_string()
+                    };
                     badge(
                         ui,
                         theme,
-                        format!("{} {}", index + 1, if monitor.primary { texts.get("settings_display_primary") } else { "" }),
+                        &label,
                         if monitor.primary { Tone::Success } else { Tone::Neutral },
                     );
                     ui.label(format!(
