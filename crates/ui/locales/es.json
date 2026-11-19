@@ -2250,5 +2250,7 @@
   "window_reopen_cancel": "Cancelar",
   "window_reopen_confirm": "Abrir",
   "window_reopen_title": "¿Volver a abrir?",
-  "window_restore": "Restaurar"
+  "window_restore": "Restaurar",
+  "purchases_error_line_total_overflow": "El importe de la línea supera el límite de almacenamiento.",
+  "purchases_error_order_total_overflow": "El total del pedido es demasiado elevado."
 }
