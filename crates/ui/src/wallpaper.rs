@@ -1,8 +1,8 @@
 //! Desktop wallpapers: the plain accent gradient and the bundled images.
 //!
 //! The default desktop of the legacy app carries no image at all: it is the accent color washed into
-//! white. [`Wallpaper::Plain`] paints exactly that, band by band, so the Rust desktop starts on the
-//! same lavender surface instead of a photo.
+//! a blurred accent glow. [`Wallpaper::Plain`] paints exactly that, so the Rust desktop starts on the
+//! same slate surface instead of a photo.
 //!
 //! The two photographic wallpapers stay available. They ship inside the binary through
 //! `include_bytes!` and are decoded once per context into an egui texture. The texture is drawn
@@ -22,7 +22,7 @@ const DUSK_PNG: &[u8] = include_bytes!("../assets/wallpaper-dusk.png");
 /// Selectable desktop wallpapers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Wallpaper {
-    /// The legacy default: the accent color washed into white, no image.
+    /// The legacy default: a slate gradient lit by two blurred accent glows, no image.
     #[default]
     Plain,
     /// Night sky with green aurora bands and stars.
@@ -191,21 +191,116 @@ pub fn blend(a: Color32, b: Color32, t: f32) -> Color32 {
     )
 }
 
-/// Paints the legacy plain desktop: the accent color washed into white, brightest at the bottom.
+/// Paints the legacy plain desktop: the reference gradient with the accent as ambient light.
 ///
-/// A vertical wash alone looks flat, so a soft accent glow sits in the upper left corner, exactly
-/// where the legacy gradient starts.
-pub fn paint_plain(ui: &Ui, rect: Rect, accent: Color32) {
-    let painter = ui.painter().with_clip_rect(rect);
-    let top = blend(accent, Color32::WHITE, 0.80);
-    let bottom = blend(accent, Color32::WHITE, 0.96);
-    // A vertical mesh starts white at the bottom and keeps the accent at the top; a second mesh adds
-    // the accent wash of the upper left corner and fades to transparent. Two vertex gradients cost
-    // eight vertices and leave no banding, which a stack of rectangles cannot avoid.
-    painter.add(gradient_mesh(rect, top, top, bottom, bottom));
-    let corner = crate::tokens::with_alpha(accent, 7);
-    let clear = Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 0);
-    painter.add(gradient_mesh(rect, corner, clear, clear, corner));
+/// The reference desktop is `bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100` (dark:
+/// `from-slate-950 via-slate-900 to-slate-950`) with two accent circles blurred into it
+/// (`DesktopWindowWorkspace.tsx:2558–2578`): a 650 point disc anchored at a third of the width and a
+/// quarter of the height at 25 % opacity, and a 550 point disc at three quarters of the width and a
+/// third of the height at 20 % opacity. Both use a 64 point blur, so each disc keeps a large solid
+/// core and only fades along its rim, which is what makes the reference surface read as ambient
+/// light rather than as blobs.
+pub fn paint_plain(ui: &Ui, rect: Rect, accent: Color32, dark: bool) {
+    let ctx = ui.ctx();
+    let size = [
+        rect.width().round().max(1.0) as usize,
+        rect.height().round().max(1.0) as usize,
+    ];
+    let id = Id::new(("socdof-plain-wallpaper", size, accent.to_array(), dark));
+    let texture = if let Some(handle) = ctx.data(|data| data.get_temp::<TextureHandle>(id)) {
+        handle
+    } else {
+        let handle = ctx.load_texture(
+            "plain-wallpaper",
+            plain_image(size[0], size[1], accent, dark),
+            TextureOptions::LINEAR,
+        );
+        ctx.data_mut(|data| data.insert_temp(id, handle.clone()));
+        handle
+    };
+    let target = Rect::from_min_size(rect.min, Vec2::new(size[0] as f32, size[1] as f32));
+    ui.painter().with_clip_rect(rect).image(
+        texture.id(),
+        target,
+        Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+        Color32::WHITE,
+    );
+}
+
+/// Renders the plain desktop pixel by pixel.
+///
+/// The legacy surface is the slate diagonal gradient with two accent discs blurred into it
+/// (`DesktopWindowWorkspace.tsx:2558–2578`). Compositing them into a texture keeps the rim exactly
+/// as soft as the CSS blur and avoids the seams a triangle fan shows on a surface this large.
+fn plain_image(width: usize, height: usize, accent: Color32, dark: bool) -> ColorImage {
+    let (near, mid) = if dark {
+        (Color32::from_rgb(2, 6, 23), Color32::from_rgb(15, 23, 42))
+    } else {
+        (
+            Color32::from_rgb(241, 245, 249),
+            Color32::from_rgb(248, 250, 252),
+        )
+    };
+    let (width_f, height_f) = (
+        (width.saturating_sub(1)).max(1) as f32,
+        (height.saturating_sub(1)).max(1) as f32,
+    );
+    // `w-[650px] h-[650px] left-1/3 top-1/4`, `w-[550px] h-[550px] right-1/4 bottom-1/3`; the blur
+    // leaves the middle of each disc at its full opacity.
+    let discs = [
+        (
+            width as f32 / 3.0 + 325.0,
+            height as f32 / 4.0 + 325.0,
+            325.0_f32,
+            0.25_f32,
+            accent,
+        ),
+        (
+            width as f32 * 0.75 - 275.0,
+            height as f32 * 2.0 / 3.0 - 275.0,
+            275.0_f32,
+            0.20_f32,
+            crate::tokens::adjust(accent, -12),
+        ),
+    ];
+    let mut rgb = Vec::with_capacity(width * height * 3);
+    for y in 0..height {
+        for x in 0..width {
+            let along = (x as f32 / width_f + y as f32 / height_f) * 0.5;
+            let mut color = two_stop(near, mid, along);
+            for (cx, cy, radius, opacity, tint) in discs {
+                let distance = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
+                let alpha = opacity * disc_falloff(distance, radius);
+                if alpha > 0.0 {
+                    color = blend(color, tint, alpha);
+                }
+            }
+            rgb.extend_from_slice(&[color.r(), color.g(), color.b()]);
+        }
+    }
+    ColorImage::from_rgb([width, height], &rgb)
+}
+
+/// Coverage of a solid disc of `radius` blurred with the legacy `blur-3xl` radius.
+///
+/// A 64 point gaussian turns the hard edge into a smooth ramp across two blur radii on either side;
+/// a smoothstep across that band matches the curve closely at a fraction of the cost.
+fn disc_falloff(distance: f32, radius: f32) -> f32 {
+    const BLUR: f32 = 64.0;
+    let inner = (radius - 2.0 * BLUR).max(0.0);
+    let outer = radius + 2.0 * BLUR;
+    let t = ((distance - inner) / (outer - inner).max(1.0)).clamp(0.0, 1.0);
+    1.0 - t * t * (3.0 - 2.0 * t)
+}
+
+/// Color at `t` along `from-… to-…` with the middle stop at the halfway point (`via-…`).
+fn two_stop(start: Color32, middle: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    if t < 0.5 {
+        blend(start, middle, t * 2.0)
+    } else {
+        blend(middle, start, (t - 0.5) * 2.0)
+    }
 }
 
 /// Builds a rectangle whose four corners carry the given colors.
@@ -234,13 +329,20 @@ pub(crate) fn gradient_mesh(
 }
 
 /// Paints the selected wallpaper into `rect`, clipped to the desktop area.
-pub fn paint(ctx: &Context, ui: &Ui, rect: Rect, state: &WallpaperState, accent: Color32) {
+pub fn paint(
+    ctx: &Context,
+    ui: &Ui,
+    rect: Rect,
+    state: &WallpaperState,
+    accent: Color32,
+    dark: bool,
+) {
     if let Some(custom) = &state.custom {
         paint_custom(ctx, ui, rect, custom);
         return;
     }
     if !state.wallpaper.is_image() {
-        paint_plain(ui, rect, accent);
+        paint_plain(ui, rect, accent, dark);
         return;
     }
     let texture = texture(ctx, state.wallpaper);

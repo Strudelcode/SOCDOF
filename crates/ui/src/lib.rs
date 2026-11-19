@@ -26,8 +26,11 @@ pub mod accounting;
 pub mod app_store;
 pub mod appointments;
 pub mod auth;
+pub mod auth_kit;
+pub mod auth_screens;
+pub mod calculator;
 pub mod calendar;
-pub mod chrome;
+mod chrome;
 pub mod components;
 pub mod contacts;
 pub mod controls;
@@ -59,6 +62,8 @@ pub mod snapshot;
 pub mod stock_moves;
 pub mod studio;
 pub mod support;
+pub mod textwerk;
+pub mod textwerk_io;
 pub mod theme;
 pub mod therapie;
 pub mod tokens;
@@ -76,6 +81,7 @@ pub use appointments::{
     AppointmentsView,
 };
 pub use auth::{auth, AuthState, AuthView, DEFAULT_IDLE_TIMEOUT_MS};
+pub use calculator::{calculator_window, CalcMode, CalculatorWindow, HistoryEntry};
 pub use calendar::CalendarState;
 pub use chrome::{
     app_chrome, app_frame, app_title_bar, app_window, module_header, AppChrome, WindowAction, APPS,
@@ -96,9 +102,9 @@ pub use dashboard::{
     dashboard, DashboardAction, DashboardData, DashboardState, Period, SAMPLE_NOW_MS,
 };
 pub use desktop::{
-    default_window_rect, desktop, desktop_with_content, format_clock, work_area, AppId,
-    DesktopFrame, DesktopIcon, DesktopOutcome, IconGrid, OpenOutcome, SnapEdge, Window,
-    WindowManager,
+    default_window_rect, desktop, desktop_with_content, format_clock, format_clock_12h,
+    format_clock_seconds, work_area, AppId, DesktopFrame, DesktopIcon, DesktopOutcome, IconGrid,
+    OpenOutcome, SnapEdge, Window, WindowManager,
 };
 pub use editor::{
     editor, seed_documents, DocumentDraft, EditorState, SAMPLE_NOW_MS as EDITOR_SAMPLE_NOW_MS,

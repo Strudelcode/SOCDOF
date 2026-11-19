@@ -25,8 +25,8 @@ use crate::controls::{
 };
 use crate::dashboard::{dashboard, DashboardData, DashboardState};
 use crate::desktop::{
-    default_window_rect, desktop, work_area, AppId, DesktopFrame, DesktopIcon, IconGrid, Window,
-    WindowManager,
+    default_window_rect, desktop, desktop_with_content, work_area, AppId, DesktopFrame,
+    DesktopIcon, IconGrid, Window, WindowManager,
 };
 use crate::editor::{editor, seed_documents, EditorState};
 use crate::focus::FocusState;
@@ -106,6 +106,12 @@ pub enum SnapshotVariant {
     Reports,
     /// The therapy module with its sample practice.
     Therapie,
+    /// The desktop with the calculator module window open.
+    DesktopCalculator,
+    /// The desktop with the widgets module window open.
+    DesktopWidgets,
+    /// The desktop with the text editor module window open.
+    DesktopEditor,
     /// The text editor with its seeded documents.
     Editor,
     /// The text editor showing the formatted preview.
@@ -256,6 +262,9 @@ pub fn capture(
             | SnapshotVariant::Tray
             | SnapshotVariant::Onboarding
             | SnapshotVariant::Wallpaper
+            | SnapshotVariant::DesktopCalculator
+            | SnapshotVariant::DesktopWidgets
+            | SnapshotVariant::DesktopEditor
     ) {
         return capture_desktop(language, appearance, variant);
     }
@@ -1061,6 +1070,28 @@ fn capture_desktop(
         store.save_company_profile(&profile).expect("profile");
         store
     };
+    // The module windows of the compact chrome scenes fill the desktop like the reference
+    // captures do, so the measured chrome and ribbon geometry is frozen by the goldens.
+    let module_app = match variant {
+        SnapshotVariant::DesktopCalculator => Some(("calculator", "app_calculator")),
+        SnapshotVariant::DesktopWidgets => Some(("widgets", "app_widgets")),
+        SnapshotVariant::DesktopEditor => Some(("editor", "app_editor")),
+        _ => None,
+    };
+    if let Some((app, title_key)) = module_app {
+        let bottom = match variant {
+            SnapshotVariant::DesktopEditor => screen.max.y - crate::desktop::TASKBAR_HEIGHT,
+            _ => screen.max.y - 5.0,
+        };
+        windows.open(
+            Window::new(
+                AppId::new(app),
+                texts.get(title_key),
+                Rect::from_min_max(screen.min, Pos2::new(screen.max.x, bottom)),
+            ),
+            2_000,
+        );
+    }
     let mut shell = ShellState::new();
     shell.onboarding = Onboarding::restore(true);
     match variant {
@@ -1102,6 +1133,11 @@ fn capture_desktop(
         }
         _ => {}
     }
+    // The module chrome scenes render the real window content, so the measured title bar,
+    // content origin, ribbon and page geometry of the reference are frozen by their goldens.
+    let mut calculator = crate::calculator::CalculatorWindow::new();
+    let mut widget_layer = crate::widgets::WidgetLayer::new();
+    let mut textwerk = crate::textwerk::TextwerkState::new();
     let mut output = None;
     for _ in 0..2 {
         let input = RawInput {
@@ -1112,20 +1148,71 @@ fn capture_desktop(
         output = Some(ctx.run(input, |ctx| {
             focus.begin_frame(ctx);
             theme.apply(ctx);
-            desktop(
-                ctx,
-                DesktopFrame {
-                    theme: &theme,
-                    texts: &texts,
-                    shell: &mut shell,
-                    store: &store,
-                    current_user: None,
-                },
-                &mut focus,
-                &mut icons,
-                &mut windows,
-                1_000,
-            );
+            if module_app.is_some() {
+                desktop_with_content(
+                    ctx,
+                    DesktopFrame {
+                        theme: &theme,
+                        texts: &texts,
+                        shell: &mut shell,
+                        store: &store,
+                        current_user: None,
+                    },
+                    &mut focus,
+                    &mut icons,
+                    &mut windows,
+                    1_000,
+                    |app, active, ui, ctx, theme, texts, focus, _store, now| {
+                        match app.as_str() {
+                            "calculator" => crate::calculator::calculator_window(
+                                ctx,
+                                active,
+                                ui,
+                                theme,
+                                texts,
+                                focus,
+                                &mut calculator,
+                            ),
+                            "widgets" => {
+                                crate::widgets::widgets_app(
+                                    ui,
+                                    theme,
+                                    texts,
+                                    focus,
+                                    &mut widget_layer,
+                                    now,
+                                );
+                            }
+                            "editor" => crate::textwerk::textwerk_window(
+                                ctx,
+                                active,
+                                ui,
+                                theme,
+                                texts,
+                                focus,
+                                &mut textwerk,
+                            ),
+                            _ => {}
+                        }
+                        false
+                    },
+                );
+            } else {
+                desktop(
+                    ctx,
+                    DesktopFrame {
+                        theme: &theme,
+                        texts: &texts,
+                        shell: &mut shell,
+                        store: &store,
+                        current_user: None,
+                    },
+                    &mut focus,
+                    &mut icons,
+                    &mut windows,
+                    1_000,
+                );
+            }
             focus.finish_frame();
         }));
     }

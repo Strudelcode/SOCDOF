@@ -11,12 +11,12 @@
 //! reachable through the same [`FocusState`] as every other control.
 
 use egui::{
-    Align2, Color32, Context, FontId, Id, Key, Pos2, Rect, RichText, Rounding, Sense, Stroke, Ui,
-    Vec2, WidgetInfo, WidgetType,
+    Align2, Color32, ColorImage, Context, FontId, Id, Key, Pos2, Rect, RichText, Rounding, Sense,
+    Stroke, TextureHandle, TextureOptions, Ui, Vec2, WidgetInfo, WidgetType,
 };
 use socdof_core::store::Store as SocdofStore;
 
-use crate::components::{button, icon_button, modal, ButtonVariant};
+use crate::components::{button, modal, ButtonVariant};
 use crate::focus::{focus_ring, FocusState};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
@@ -48,6 +48,38 @@ type DesktopWindowRenderer<'a> = dyn FnMut(
 pub const TASKBAR_HEIGHT: f32 = 48.0;
 /// Height of a window title bar, matching the legacy window chrome.
 pub const TITLE_BAR_HEIGHT: f32 = 40.0;
+
+/// Content offset below the title bar of the windows matched against the reference. The
+/// measured reference chrome is 40 pt tall; the calculator and the widgets workspace start
+/// 20 pt below it, the editor ribbon starts 12 pt below it. Every other window keeps the
+/// shared 12 pt offset.
+const COMPACT_CONTENT_OFFSET: f32 = 20.0;
+const EDITOR_CONTENT_OFFSET: f32 = 12.0;
+const CONTENT_OFFSET: f32 = 12.0;
+
+/// Whether a window uses the measured reference content origin and badge.
+pub fn compact_chrome(app: &str) -> bool {
+    matches!(app, "calculator" | "widgets" | "editor")
+}
+
+/// Content offset below the title bar, scoped by app.
+pub fn content_offset(app: &str) -> f32 {
+    match app {
+        "editor" => EDITOR_CONTENT_OFFSET,
+        _ if compact_chrome(app) => COMPACT_CONTENT_OFFSET,
+        _ => CONTENT_OFFSET,
+    }
+}
+
+/// Accent tile of the compact windows, mirroring the module badges of the reference.
+fn compact_badge(app: &str) -> Option<(Icon, Color32)> {
+    match app {
+        "calculator" => Some((Icon::Calculator, Color32::from_rgb(0x05, 0x96, 0x69))),
+        "widgets" => Some((Icon::Widgets, Color32::from_rgb(0x7c, 0x3a, 0xed))),
+        "editor" => Some((Icon::PenLine, Color32::from_rgb(0x4f, 0x46, 0xe5))),
+        _ => None,
+    }
+}
 /// Smallest width a window can be resized to.
 pub const WINDOW_MIN_WIDTH: f32 = 320.0;
 /// Smallest height a window can be resized to.
@@ -56,24 +88,35 @@ pub const WINDOW_MIN_HEIGHT: f32 = 220.0;
 pub const RESIZE_GRIP: f32 = 16.0;
 /// How long reopening an app after closing it needs a confirmation.
 pub const CLOSE_COOLDOWN_MS: i64 = 3_000;
-/// Size of one icon cell: a 48 pixel tile plus its wrapped label.
-pub const ICON_CELL: Vec2 = Vec2::new(96.0, 104.0);
-/// Vertical distance between two icon rows.
-pub const ICON_ROW_STEP: f32 = 114.0;
-/// Edge length of an app tile on the desktop.
+/// Size of one icon cell: a 48 pixel tile plus its wrapped label (`w-24 min-h-[96px]`).
+pub const ICON_CELL: Vec2 = Vec2::new(96.0, 108.0);
+/// Horizontal distance between two icon columns, from the legacy desktop grid.
+pub const ICON_STEP_X: f32 = 104.0;
+/// Vertical distance between two icon rows, from the legacy desktop grid.
+pub const ICON_STEP_Y: f32 = 116.0;
+/// Icons per column before the grid continues in the next column, like Windows.
+pub const ICON_ROWS: u32 = 6;
+/// Edge length of an app tile on the desktop (`w-12 h-12`).
 pub const ICON_TILE: f32 = 48.0;
-/// Edge length of the glyph inside a desktop tile.
+/// Edge length of the glyph inside a desktop tile (`w-6 h-6`).
 pub const ICON_GLYPH: f32 = 24.0;
-/// Width the desktop icon label wraps at, so long names use two lines.
-pub const ICON_LABEL_WIDTH: f32 = 90.0;
-/// Widest icon grid the window manager tracks positions for.
-pub const ICON_COLUMNS: u32 = 6;
-/// Narrowest icon grid: three columns below 440 points, like the legacy desktop.
-pub const ICON_MIN_COLUMNS: u32 = 3;
+/// Wrap width of the icon captions.
+///
+/// The legacy caption is `text-xs font-semibold ... max-w-[90px]`
+/// (`DesktopWindowWorkspace.tsx:2914`), so "Taschenrechner" breaks into two lines while shorter
+/// names stay on one.
+pub const ICON_LABEL_WIDTH: f32 = 86.0;
 /// Distance between the desktop edge and the first icon cell.
-pub const DESKTOP_MARGIN: f32 = 16.0;
+pub const DESKTOP_MARGIN: f32 = 24.0;
+/// Height of the desktop window control bar in the top right corner (`h-8`).
+pub const DESKTOP_CONTROL_HEIGHT: f32 = 32.0;
+/// Width of one desktop window control (`w-10`).
+pub const DESKTOP_CONTROL_WIDTH: f32 = 40.0;
 /// Taskbar width from which the search pill is shown.
 pub const TASKBAR_SEARCH_MIN_WIDTH: f32 = 640.0;
+/// Module buttons the legacy taskbar shows next to the start button on narrow screens; the rest
+/// moves behind the overflow button so the bar keeps the reference silhouette.
+pub const TASKBAR_COMPACT_APPS: usize = 4;
 /// Taskbar width from which the version pill is shown.
 pub const TASKBAR_STATUS_MIN_WIDTH: f32 = 700.0;
 
@@ -538,13 +581,31 @@ pub struct IconGrid {
     selected: usize,
 }
 
+/// Breakpoint below which the desktop switches to the compact icon grid (`grid-cols-3`).
+pub const COMPACT_DESKTOP_WIDTH: f32 = 640.0;
+/// Columns of the compact grid.
+pub const COMPACT_COLUMNS: u32 = 3;
+/// Row pitch of the compact grid (`const offsetY = 16 + row * 114`, `DesktopWindowWorkspace.tsx:893`).
+pub const COMPACT_STEP_Y: f32 = 114.0;
+/// Top inset of the first compact row, measured to the icon button (`offsetY` starts at 16).
+pub const COMPACT_ORIGIN_Y: f32 = 16.0;
+/// Side inset the compact columns are distributed inside (`screenW - 24`).
+pub const COMPACT_INSET_X: f32 = 12.0;
+/// Width of one compact item before the remaining column width is split around it (`itemWidth`).
+pub const COMPACT_ITEM_WIDTH: f32 = 80.0;
+
+/// Reports whether a desktop is narrow enough for the compact icon grid.
+pub fn compact(desktop: Rect) -> bool {
+    desktop.width() < COMPACT_DESKTOP_WIDTH
+}
+
 impl IconGrid {
     /// Builds a grid and assigns every icon a free cell in reading order.
     pub fn new(icons: Vec<DesktopIcon>) -> Self {
         let mut grid = Self { icons, selected: 0 };
         let mut taken = std::collections::BTreeSet::new();
         for icon in &mut grid.icons {
-            let mut cell = (icon.cell.0.min(ICON_COLUMNS - 1), icon.cell.1);
+            let mut cell = (icon.cell.0, icon.cell.1.min(ICON_ROWS - 1));
             while taken.contains(&cell) {
                 cell = Self::next_cell(cell);
             }
@@ -552,6 +613,26 @@ impl IconGrid {
             icon.cell = cell;
         }
         grid
+    }
+
+    /// Grid of the given apps only, in that order, with fresh cells.
+    ///
+    /// The legacy desktop draws `pinnedDesktop` (`DesktopWindowWorkspace.tsx:2780`), not every
+    /// installed module; this view keeps the full grid for the start menu and window titles.
+    pub fn pinned(&self, apps: &'static [&'static str]) -> Self {
+        let icons = apps
+            .iter()
+            .filter_map(|slug| {
+                let app = AppId::new(slug);
+                self.icons.iter().find(|icon| icon.app == app).cloned()
+            })
+            .map(|mut icon| {
+                icon.cell = (0, 0);
+                icon.pos = None;
+                icon
+            })
+            .collect();
+        Self::new(icons)
     }
 
     /// Icons in reading order.
@@ -593,68 +674,88 @@ impl IconGrid {
         let current = self.selected as i32;
         let next = match (dx, dy) {
             (0, 0) => current,
-            (_, 0) => (current + dx).rem_euclid(count),
-            (0, _) => (current + dy * ICON_COLUMNS as i32).rem_euclid(count),
+            (_, 0) => {
+                let columns = count.min(ICON_ROWS as i32).max(1);
+                (current + dx * columns).rem_euclid(count)
+            }
+            (0, _) => (current + dy).rem_euclid(count),
             _ => current,
         };
         self.selected = next as usize;
     }
 
-    /// Cell that follows the given one in reading order, wrapping after the last column.
+    /// Cell that follows the given one: down the column first, then the next column.
     pub fn next_cell(cell: (u32, u32)) -> (u32, u32) {
-        if cell.0 + 1 >= ICON_COLUMNS {
-            (0, cell.1 + 1)
+        if cell.1 + 1 < ICON_ROWS {
+            (cell.0, cell.1 + 1)
         } else {
-            (cell.0 + 1, cell.1)
+            (cell.0 + 1, 0)
         }
+    }
+
+    /// Icon columns that fit on a desktop of this width.
+    pub fn columns(desktop: Rect) -> u32 {
+        if compact(desktop) {
+            return COMPACT_COLUMNS;
+        }
+        (((desktop.width() - 2.0 * DESKTOP_MARGIN) / ICON_STEP_X).floor() as u32).max(1)
     }
 
     /// Rectangle of a grid cell inside a desktop rectangle.
     ///
-    /// The legacy desktop lays its icons out in a responsive grid: three columns below 440 points,
-    /// four below 768 and one column per 136 points above that. Each cell is centered on the cell
-    /// width, which is what gives the reference screenshot its airy spacing.
-    pub fn columns(desktop: Rect) -> u32 {
-        let width = desktop.width();
-        if width < 768.0 {
-            if width < 440.0 {
-                ICON_MIN_COLUMNS
-            } else {
-                4
-            }
-        } else {
-            (((width - 24.0) / 136.0).floor() as u32).clamp(ICON_MIN_COLUMNS, ICON_COLUMNS)
-        }
-    }
-
-    /// Rectangle of a grid cell inside a desktop rectangle.
+    /// The legacy desktop keeps a fixed 104 × 116 point pitch from a 24 point origin and fills six
+    /// rows per column before it starts the next column, so the icons stay in a left-aligned column
+    /// block instead of spreading over the whole width.
     pub fn cell_rect(desktop: Rect, cell: (u32, u32)) -> Rect {
-        let columns = Self::columns(desktop);
-        let column_width = (desktop.width() - 24.0) / columns as f32;
-        let left = desktop.min.x
-            + 12.0
-            + cell.0 as f32 * column_width
-            + ((column_width - 80.0) / 2.0).max(0.0);
-        let top = desktop.min.y + DESKTOP_MARGIN + cell.1 as f32 * ICON_ROW_STEP;
+        if compact(desktop) {
+            // Narrow desktops use the responsive branch of the legacy shell
+            // (`DesktopWindowWorkspace.tsx:884–894`): three columns of `(width - 24) / 3` points,
+            // each item centred in its column, filled row by row from a 16 point top inset.
+            let index = cell.1 + cell.0 * ICON_ROWS;
+            let column = index % COMPACT_COLUMNS;
+            let row = index / COMPACT_COLUMNS;
+            let column_width = ((desktop.width() - 2.0 * COMPACT_INSET_X) / COMPACT_COLUMNS as f32)
+                .floor()
+                .max(ICON_CELL.x);
+            let left = desktop.min.x
+                + COMPACT_INSET_X
+                + column_width * column as f32
+                + ((column_width - COMPACT_ITEM_WIDTH) * 0.5).floor().max(0.0);
+            let top = desktop.min.y + COMPACT_ORIGIN_Y + row as f32 * COMPACT_STEP_Y;
+            return Rect::from_min_size(Pos2::new(left, top), ICON_CELL);
+        }
+        let left = desktop.min.x + DESKTOP_MARGIN + cell.0 as f32 * ICON_STEP_X;
+        let top = desktop.min.y + DESKTOP_MARGIN + cell.1 as f32 * ICON_STEP_Y;
         Rect::from_min_size(Pos2::new(left, top), ICON_CELL)
     }
 
-    /// Cell under a screen point, clamped to the grid columns.
+    /// Cell under a screen point, clamped to the visible grid.
     pub fn cell_at(&self, desktop: Rect, point: Pos2) -> (u32, u32) {
-        let columns = Self::columns(desktop);
-        let column_width = (desktop.width() - 24.0) / columns as f32;
-        let column = ((point.x - desktop.min.x - 12.0) / column_width).floor();
-        let row = ((point.y - desktop.min.y - DESKTOP_MARGIN) / ICON_ROW_STEP).floor();
+        if compact(desktop) {
+            let column_width = ((desktop.width() - 2.0 * COMPACT_INSET_X) / COMPACT_COLUMNS as f32)
+                .floor()
+                .max(ICON_CELL.x);
+            let inset = ((column_width - COMPACT_ITEM_WIDTH) * 0.5).floor().max(0.0);
+            let column =
+                ((point.x - desktop.min.x - COMPACT_INSET_X - inset) / column_width).floor();
+            let row = ((point.y - desktop.min.y - COMPACT_ORIGIN_Y) / COMPACT_STEP_Y).floor();
+            let column = (column.max(0.0) as u32).min(COMPACT_COLUMNS - 1);
+            let row = (row.max(0.0) as u32).min(ICON_ROWS - 1);
+            let index = row * COMPACT_COLUMNS + column;
+            return (index / ICON_ROWS, index % ICON_ROWS);
+        }
+        let column = ((point.x - desktop.min.x - DESKTOP_MARGIN) / ICON_STEP_X).floor();
+        let row = ((point.y - desktop.min.y - DESKTOP_MARGIN) / ICON_STEP_Y).floor();
         (
-            (column.max(0.0) as u32).min(columns - 1),
-            row.max(0.0) as u32,
+            (column.max(0.0) as u32).min(Self::columns(desktop).saturating_sub(1)),
+            (row.max(0.0) as u32).min(ICON_ROWS - 1),
         )
     }
 
     /// Moves an icon to a cell; a taken cell moves it to the next free one.
     pub fn move_to(&mut self, app: AppId, cell: (u32, u32)) -> Option<(u32, u32)> {
         let index = self.index_of(app)?;
-        let mut target = (cell.0.min(ICON_COLUMNS - 1), cell.1);
+        let mut target = (cell.0, cell.1.min(ICON_ROWS - 1));
         let mut guard = 0;
         while self
             .icons
@@ -688,7 +789,7 @@ impl IconGrid {
         let mut icons = std::mem::take(&mut self.icons);
         icons.retain(|icon| apps.contains(&icon.app.as_str()));
         for (index, icon) in icons.iter_mut().enumerate() {
-            icon.cell = (index as u32 % ICON_COLUMNS, index as u32 / ICON_COLUMNS);
+            icon.cell = (index as u32 / ICON_ROWS, index as u32 % ICON_ROWS);
             icon.pos = None;
         }
         *self = Self::new(icons);
@@ -705,7 +806,7 @@ impl IconGrid {
     /// Applies persisted cell positions; unknown apps are ignored.
     pub fn restore_positions(&mut self, positions: &[(AppId, (u32, u32))]) {
         for (app, cell) in positions {
-            let safe_cell = (cell.0.min(ICON_COLUMNS - 1), cell.1.min(254));
+            let safe_cell = (cell.0.min(12), cell.1.min(ICON_ROWS - 1));
             let _ = self.move_to(*app, safe_cell);
         }
     }
@@ -768,6 +869,141 @@ pub fn work_area(screen: Rect) -> Rect {
     )
 }
 
+/// Rectangle of the desktop window control bar in the top right corner.
+///
+/// The reference desktop keeps one control cluster for the whole desktop instead of per app window
+/// chrome: minimize, fullscreen and close, tucked into the corner with a rounded bottom left edge.
+pub fn controls_rect(screen: Rect) -> Rect {
+    let size = Vec2::new(DESKTOP_CONTROL_WIDTH * 3.0, DESKTOP_CONTROL_HEIGHT);
+    Rect::from_min_size(Pos2::new(screen.right() - size.x, screen.top()), size)
+}
+
+/// Switches the native window between fullscreen and windowed, like the F11 shortcut.
+pub fn toggle_fullscreen(ctx: &Context) {
+    let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+    ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+}
+
+/// What the desktop window controls asked for in one frame.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct ControlAction {
+    fullscreen: bool,
+    minimize: bool,
+    close: bool,
+}
+
+/// Draws the desktop window controls and reports which one was activated.
+fn desktop_controls(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    screen: Rect,
+) -> ControlAction {
+    let mut action = ControlAction::default();
+    let bar = controls_rect(screen);
+    let fullscreen = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+    let entries = [
+        (
+            Icon::Minimize,
+            texts.get("desktop_minimize_app").to_owned(),
+            false,
+        ),
+        (
+            if fullscreen {
+                Icon::Restore
+            } else {
+                Icon::Maximize
+            },
+            if fullscreen {
+                texts.get("desktop_exit_fullscreen").to_owned()
+            } else {
+                texts.get("desktop_enter_fullscreen").to_owned()
+            },
+            false,
+        ),
+        (Icon::Close, texts.get("desktop_close_app").to_owned(), true),
+    ];
+    egui::Area::new(Id::new("socdof-desktop-controls"))
+        .order(egui::Order::Foreground)
+        .fixed_pos(bar.min)
+        .show(ctx, |ui| {
+            let (rect, _) = ui.allocate_exact_size(bar.size(), Sense::hover());
+            let painter = ui.painter().clone();
+            painter.rect(
+                rect,
+                Rounding {
+                    nw: 0.0,
+                    ne: 0.0,
+                    sw: 16.0,
+                    se: 0.0,
+                },
+                with_alpha(theme.palette.surface, 190),
+                Stroke::new(1.0_f32, theme.palette.border),
+            );
+            for (index, (icon, label, danger)) in entries.into_iter().enumerate() {
+                let button = Rect::from_min_size(
+                    Pos2::new(
+                        rect.left() + index as f32 * DESKTOP_CONTROL_WIDTH,
+                        rect.top(),
+                    ),
+                    Vec2::new(DESKTOP_CONTROL_WIDTH, rect.height()),
+                );
+                let id = Id::new(("socdof-desktop-control", index));
+                let focused = focus.register(id);
+                let response = ui.interact(button, id, Sense::click());
+                if response.clicked() {
+                    focus.set_focus(Some(id));
+                }
+                let hovered = response.hovered() || focused;
+                let close_hover = danger && hovered;
+                let fill = if close_hover {
+                    theme.palette.danger
+                } else if hovered {
+                    with_alpha(theme.palette.text, 12)
+                } else {
+                    Color32::TRANSPARENT
+                };
+                if fill != Color32::TRANSPARENT {
+                    painter.rect(button, Rounding::ZERO, fill, Stroke::NONE);
+                }
+                let color = if close_hover {
+                    theme.palette.accent_on
+                } else if hovered {
+                    theme.palette.text
+                } else {
+                    theme.palette.text_muted
+                };
+                icon.draw(
+                    &painter,
+                    Rect::from_center_size(button.center(), Vec2::splat(14.0)),
+                    color,
+                    1.4,
+                );
+                if focused {
+                    focus_ring(ui, theme, button.shrink(2.0));
+                }
+                response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label.as_str()));
+                let clicked = response.on_hover_text(label.clone()).clicked() || focus.activate(id);
+                if clicked {
+                    match index {
+                        0 => action.minimize = true,
+                        1 => action.fullscreen = true,
+                        _ => action.close = true,
+                    }
+                }
+            }
+        });
+    action
+}
+
+/// Apps pinned to the taskbar, in legacy order.
+///
+/// The shell shows the persisted taskbar pins (`pinnedTaskbar`,
+/// `SOCDOF - TS/src/components/shell/DesktopWindowWorkspace.tsx:178–180`, `:4143`), not every desktop
+/// icon; the personal setup installs only the first three of the default list.
+pub const PINNED_TASKBAR: [&str; 3] = ["dashboard", "contacts", "calendar"];
+
 /// Default rectangle of the `index`th window opened on a work area.
 pub fn default_window_rect(work_area: Rect, index: usize) -> Rect {
     let size = Vec2::new(
@@ -788,6 +1024,227 @@ pub fn format_clock(millis: i64) -> String {
     let hours = total_minutes.div_euclid(60).rem_euclid(24);
     let minutes = total_minutes.rem_euclid(60);
     format!("{hours:02}:{minutes:02}")
+}
+
+/// Formats a millisecond timestamp the way the legacy runtime prints the clock.
+///
+/// `formatSystemTime` (`SOCDOF - TS/src/lib/i18n.ts:13020`) calls
+/// `toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })`, so the
+/// runtime locale decides between 12 and 24 hours; the reference desktop shows the 12 hour form
+/// with a leading zero hour and an uppercase meridiem (`03:43:05 PM`). `seconds` adds the seconds,
+/// which the taskbar keeps on (`time_show_seconds !== false`) while the sign-in clock leaves them
+/// off (`time_show_seconds === true`).
+fn clock_label(millis: i64, seconds: bool) -> String {
+    let total_seconds = millis.div_euclid(1_000);
+    let hour = total_seconds.div_euclid(3_600).rem_euclid(24);
+    let minute = total_seconds.div_euclid(60).rem_euclid(60);
+    let second = total_seconds.rem_euclid(60);
+    let meridiem = if hour < 12 { "AM" } else { "PM" };
+    let hour = match hour % 12 {
+        0 => 12,
+        other => other,
+    };
+    if seconds {
+        format!("{hour:02}:{minute:02}:{second:02} {meridiem}")
+    } else {
+        format!("{hour:02}:{minute:02} {meridiem}")
+    }
+}
+
+/// Twelve hour clock label without seconds, for the sign-in screen (`03:41 PM`).
+pub fn format_clock_12h(millis: i64) -> String {
+    clock_label(millis, false)
+}
+
+/// Twelve hour clock label with seconds, for the taskbar (`03:43:05 PM`).
+pub fn format_clock_seconds(millis: i64) -> String {
+    clock_label(millis, true)
+}
+
+/// Short weekday of the desktop clock, in the English form the legacy tile shows
+/// (`toLocaleDateString(undefined, { weekday: 'short' })` on an English system).
+fn weekday_short(millis: i64) -> &'static str {
+    const NAMES: [&str; 7] = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    let days = millis.div_euclid(86_400_000);
+    NAMES[(days + 4).rem_euclid(7) as usize]
+}
+
+/// Day of the month of the desktop clock, from the same epoch the clock label uses.
+fn day_of_month(millis: i64) -> u32 {
+    // Civil date from days since the epoch (Howard Hinnant's `civil_from_days`).
+    let z = millis.div_euclid(86_400_000) + 719_468;
+    let day_of_era = z.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_index = (5 * day_of_year + 2) / 153;
+    (day_of_year - (153 * month_index + 2) / 5 + 1) as u32
+}
+
+/// Paints the live calendar tile of the legacy desktop (`DynamicCalendarIcon.tsx`).
+///
+/// The tile is a white card with a blue weekday band, the day number in a heavy face and a small
+/// accent dot at the bottom; the taskbar uses it at 24 points, the desktop at 48.
+fn calendar_tile(painter: &egui::Painter, rect: Rect, theme: &Theme, millis: i64, compact: bool) {
+    // `sm` is `rounded-lg` (8 points), `lg` is `rounded-2xl` (16 points).
+    let rounding = if compact { 8.0 } else { 16.0 };
+    let card = if theme.appearance.is_dark() {
+        Color32::from_rgb(0x0f, 0x17, 0x2a)
+    } else {
+        Color32::WHITE
+    };
+    painter.rect(
+        rect,
+        Rounding::same(rounding),
+        card,
+        Stroke::new(1.0_f32, theme.palette.border),
+    );
+    let band_height = if compact { rect.height() * 0.34 } else { 14.0 };
+    painter.rect(
+        Rect::from_min_size(rect.min, Vec2::new(rect.width(), band_height)),
+        Rounding {
+            nw: rounding,
+            ne: rounding,
+            sw: 0.0,
+            se: 0.0,
+        },
+        Color32::from_rgb(0x25, 0x63, 0xeb),
+        Stroke::NONE,
+    );
+    painter.text(
+        band(rect, band_height).center(),
+        Align2::CENTER_CENTER,
+        weekday_short(millis),
+        FontId::new(if compact { 6.0 } else { 8.5 }, crate::theme::heavy()),
+        Color32::WHITE,
+    );
+    painter.text(
+        Pos2::new(
+            rect.center().x,
+            rect.top() + band_height + (rect.height() - band_height) * 0.42,
+        ),
+        Align2::CENTER_CENTER,
+        day_of_month(millis).to_string(),
+        FontId::new(if compact { 10.0 } else { 20.0 }, crate::theme::heavy()),
+        theme.palette.text,
+    );
+    painter.rect(
+        Rect::from_center_size(
+            Pos2::new(rect.center().x, rect.bottom() - 3.0),
+            Vec2::new(8.0, 2.0),
+        ),
+        Rounding::same(1.0),
+        crate::tokens::with_alpha(Color32::from_rgb(0x3b, 0x82, 0xf6), 40),
+        Stroke::NONE,
+    );
+}
+
+/// Rectangle of the weekday band of a calendar tile.
+fn band(rect: Rect, height: f32) -> Rect {
+    Rect::from_min_size(rect.min, Vec2::new(rect.width(), height))
+}
+
+/// Soft `shadow-lg` below a desktop tile.
+///
+/// The legacy tile drops `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)`
+/// (`DesktopWindowWorkspace.tsx:2913`): a black halo that sits below the tile. Stacking a few
+/// rounded rectangles with small alpha reproduces it without a blur pass.
+///
+/// Stacking translucent rings leaves visible steps at 48 points, so the shadow is rasterized once
+/// into a texture whose edge follows the gaussian the CSS blur describes, and then reused for every
+/// tile.
+fn tile_shadow(ctx: &Context, painter: &egui::Painter, tile: Rect, rounding: f32) {
+    const PAD_LEFT: f32 = 24.0;
+    const PAD_TOP: f32 = 24.0;
+    const PAD_BOTTOM: f32 = 40.0;
+    let size = Vec2::new(
+        tile.width() + PAD_LEFT * 2.0,
+        tile.height() + PAD_TOP + PAD_BOTTOM,
+    );
+    let key = Id::new((
+        "socdof-tile-shadow",
+        tile.width().to_bits(),
+        tile.height().to_bits(),
+        rounding.to_bits(),
+    ));
+    let texture = ctx
+        .data(|data| data.get_temp::<TextureHandle>(key))
+        .unwrap_or_else(|| {
+            let image = shadow_image(tile.size(), rounding, PAD_LEFT, PAD_TOP, size);
+            let handle = ctx.load_texture("socdof-tile-shadow", image, TextureOptions::LINEAR);
+            ctx.data_mut(|data| data.insert_temp(key, handle.clone()));
+            handle
+        });
+    painter.image(
+        texture.id(),
+        Rect::from_min_size(
+            Pos2::new(tile.left() - PAD_LEFT, tile.top() - PAD_TOP),
+            size,
+        ),
+        Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+        Color32::WHITE,
+    );
+}
+
+/// Rasterizes the two layers of the legacy `shadow-lg` into one premultiplied transparent image.
+fn shadow_image(tile: Vec2, rounding: f32, pad_left: f32, pad_top: f32, size: Vec2) -> ColorImage {
+    let width = size.x.round().max(1.0) as usize;
+    let height = size.y.round().max(1.0) as usize;
+    let mut pixels = vec![Color32::TRANSPARENT; width * height];
+    // The layer functions are centred on the tile, so the sampling offset includes half the tile.
+    let center = Vec2::new(pad_left + tile.x * 0.5, pad_top + tile.y * 0.5);
+    for y in 0..height {
+        for x in 0..width {
+            let px = x as f32 + 0.5 - center.x;
+            let py = y as f32 + 0.5 - center.y;
+            let wide = shadow_layer(px, py, tile, rounding, 3.0, 10.0, 7.5) * 0.1;
+            let tight = shadow_layer(px, py, tile, rounding, 4.0, 4.0, 3.0) * 0.1;
+            let alpha = (wide + tight * (1.0 - wide)).clamp(0.0, 1.0);
+            pixels[y * width + x] =
+                Color32::from_rgba_unmultiplied(0, 0, 0, (alpha * 255.0).round() as u8);
+        }
+    }
+    ColorImage {
+        size: [width, height],
+        pixels,
+    }
+}
+
+/// Coverage of one blurred, offset rounded rectangle at a point of the tile coordinate system.
+fn shadow_layer(
+    x: f32,
+    y: f32,
+    tile: Vec2,
+    rounding: f32,
+    spread: f32,
+    offset_y: f32,
+    sigma: f32,
+) -> f32 {
+    let half = Vec2::new(
+        (tile.x * 0.5 - spread).max(0.0),
+        (tile.y * 0.5 - spread).max(0.0),
+    );
+    let radius = (rounding - spread).max(0.0);
+    let qx = x.abs() - (half.x - radius);
+    let qy = (y - offset_y).abs() - (half.y - radius);
+    let distance = qx.max(0.0).hypot(qy.max(0.0)) + qx.max(qy).min(0.0) - radius;
+    // Gaussian blur of a straight edge: 0.5 * erfc(d / (sigma * sqrt 2)).
+    0.5 * erfc(distance / (sigma * std::f32::consts::SQRT_2))
+}
+
+/// Complementary error function, Abramowitz and Stegun 7.1.26 (maximum error 1.5e-7).
+fn erfc(x: f32) -> f32 {
+    let z = x.abs();
+    let t = 1.0 / (1.0 + 0.327_591_1 * z);
+    let poly = t
+        * (0.254_829_6
+            + t * (-0.284_496_74 + t * (1.421_413_7 + t * (-1.453_152 + t * 1.061_405_4))));
+    let erf = 1.0 - poly * (-z * z).exp();
+    if x >= 0.0 {
+        1.0 - erf
+    } else {
+        1.0 + erf
+    }
 }
 
 /// Draws the desktop shell and reports what the host should do next.
@@ -881,7 +1338,14 @@ fn desktop_impl(
         .frame(egui::Frame::none().fill(theme.palette.background))
         .show(ctx, |ui| {
             ui.set_min_size(area.size());
-            paint_wallpaper(ctx, ui, area, &shell.wallpaper, theme.accent.base);
+            paint_wallpaper(
+                ctx,
+                ui,
+                area,
+                &shell.wallpaper,
+                theme.accent.base,
+                theme.appearance.is_dark(),
+            );
             let mut blocked =
                 windows.dialog_open() || shell.overlay_open() || shell.studio.is_open();
 
@@ -968,7 +1432,9 @@ fn desktop_impl(
                         }
                     }
                 }
-                let selected = icons.selected() == index;
+                // The legacy grid only highlights the focused icon; a fresh desktop shows the
+                // plain tiles (`DesktopWindowWorkspace.tsx:2886`).
+                let selected = icons.selected() == index && focused;
                 let hovered = response.hovered() || focused;
                 let open = windows.is_open(icon.app());
                 let painter = ui.painter().clone();
@@ -992,45 +1458,30 @@ fn desktop_impl(
                     );
                 }
                 let tile = Rect::from_center_size(
-                    Pos2::new(rect.center().x, rect.top() + 10.0 + ICON_TILE / 2.0),
+                    Pos2::new(rect.center().x, rect.top() + 8.0 + ICON_TILE / 2.0),
                     Vec2::splat(ICON_TILE),
                 );
-                let app = crate::chrome::app_chrome(icon.app().as_str());
-                let tint = crate::chrome::tint(app);
-                // The legacy tile shadow is the accent at low alpha, not the app colour, so the
-                // tiles stay distinguishable without glowing in their own hue.
-                for layer in crate::tokens::shadow_layers(
-                    tile,
-                    RADIUS_CARD,
-                    crate::tokens::ShadowStrength::Card,
-                    theme.accent.base,
-                ) {
-                    painter.rect(
-                        layer.rect,
-                        Rounding::same(layer.rounding),
-                        layer.color,
-                        Stroke::NONE,
+                let tile_rounding = 16.0;
+                tile_shadow(ctx, &painter, tile, tile_rounding);
+                if icon.app().as_str() == "calendar" {
+                    // The calendar shortcut is a live date tile, not an app gradient
+                    // (`DesktopWindowWorkspace.tsx:2901`).
+                    calendar_tile(&painter, tile, theme, now, false);
+                } else {
+                    let app = crate::chrome::app_chrome(icon.app().as_str());
+                    crate::tokens::gradient_round_rect(
+                        &painter,
+                        tile,
+                        tile_rounding,
+                        &crate::chrome::tint_stops(app),
+                    );
+                    icon.icon().draw(
+                        &painter,
+                        Rect::from_center_size(tile.center(), Vec2::splat(ICON_GLYPH)),
+                        Color32::WHITE,
+                        2.0,
                     );
                 }
-                painter.add(crate::wallpaper::gradient_mesh(
-                    tile,
-                    crate::tokens::adjust(tint, 12),
-                    crate::tokens::adjust(tint, 12),
-                    crate::tokens::adjust(tint, -18),
-                    crate::tokens::adjust(tint, -18),
-                ));
-                painter.rect(
-                    tile,
-                    Rounding::same(RADIUS_CARD),
-                    Color32::TRANSPARENT,
-                    Stroke::new(1.0_f32, crate::tokens::adjust(tint, 22)),
-                );
-                icon.icon().draw(
-                    &painter,
-                    Rect::from_center_size(tile.center(), Vec2::splat(ICON_GLYPH)),
-                    Color32::WHITE,
-                    1.6,
-                );
                 if open {
                     painter.rect(
                         Rect::from_min_size(
@@ -1042,19 +1493,23 @@ fn desktop_impl(
                         Stroke::NONE,
                     );
                 }
+                // `text-slate-800 dark:text-white` on the legacy caption
+                // (`DesktopWindowWorkspace.tsx:2914`).
+                let caption = if theme.appearance.is_dark() {
+                    Color32::WHITE
+                } else {
+                    Color32::from_rgb(0x1e, 0x29, 0x3b)
+                };
                 let galley = painter.layout(
                     icon.label().to_owned(),
-                    FontId::proportional(FONT_SMALL),
-                    theme.palette.text,
+                    FontId::new(12.0, crate::theme::semibold()),
+                    caption,
                     ICON_LABEL_WIDTH,
                 );
                 painter.galley(
-                    Pos2::new(
-                        rect.center().x - galley.size().x / 2.0,
-                        tile.bottom() + if open { 10.0 } else { 4.0 },
-                    ),
+                    Pos2::new(rect.center().x - galley.size().x / 2.0, tile.bottom() + 8.0),
                     galley,
-                    theme.palette.text,
+                    caption,
                 );
                 if focused {
                     focus_ring(ui, theme, tile);
@@ -1069,7 +1524,17 @@ fn desktop_impl(
                 }
             }
 
-            widgets(ui, theme, texts, now, &mut shell.widgets);
+            // The window controls own the top right corner, so the widget card starts below them
+            // instead of sharing their strip. Narrow desktops keep the icon grid free, the legacy
+            // desktop has no widget layer at all.
+            if area.width() >= 900.0 {
+                let widget_area = Rect::from_min_max(
+                    Pos2::new(area.min.x, area.min.y + DESKTOP_CONTROL_HEIGHT),
+                    area.max,
+                );
+                let mut widget_ui = ui.child_ui(widget_area, *ui.layout());
+                widgets(&mut widget_ui, theme, texts, now, &mut shell.widgets);
+            }
         });
 
     if ctx.input(|input| input.modifiers.command && input.key_pressed(Key::K)) {
@@ -1105,8 +1570,9 @@ fn desktop_impl(
             .fixed_pos(rect.min)
             .show(ctx, |ui| {
                 let (frame, _) = ui.allocate_exact_size(rect.size(), Sense::hover());
-                let bar =
-                    Rect::from_min_size(frame.min, Vec2::new(frame.width(), TITLE_BAR_HEIGHT));
+                let bar_height = TITLE_BAR_HEIGHT;
+                let compact = compact_chrome(app.as_str());
+                let bar = Rect::from_min_size(frame.min, Vec2::new(frame.width(), bar_height));
                 let bar_response = ui.interact(
                     bar,
                     Id::new(("socdof-window-bar", app.as_str())),
@@ -1141,29 +1607,54 @@ fn desktop_impl(
                         sw: 0.0,
                         se: 0.0,
                     },
-                    if is_active {
+                    // The reference keeps the title bar dark in the dark theme and only tints it
+                    // in the light theme, where an active window shows the accent wash.
+                    if is_active && theme.appearance == crate::theme::Appearance::Light {
                         theme.accent.light
                     } else {
                         theme.palette.surface_muted
                     },
                     Stroke::NONE,
                 );
+                let mut title_left = bar.left() + 12.0;
+                if let Some((icon, badge)) = compact_badge(app.as_str()) {
+                    let tile = Rect::from_center_size(
+                        Pos2::new(title_left + 9.0, bar.center().y),
+                        Vec2::splat(18.0),
+                    );
+                    painter.rect(tile, Rounding::same(5.0), badge, Stroke::NONE);
+                    icon.draw(
+                        &painter,
+                        Rect::from_center_size(tile.center(), Vec2::splat(11.0)),
+                        Color32::WHITE,
+                        1.7,
+                    );
+                    title_left += 26.0;
+                }
                 let title_galley = painter.layout_no_wrap(
                     title.clone(),
-                    FontId::proportional(FONT_BODY),
+                    FontId::new(
+                        if compact { 12.5 } else { FONT_BODY },
+                        if compact {
+                            crate::theme::semibold()
+                        } else {
+                            egui::FontFamily::Proportional
+                        },
+                    ),
                     theme.palette.text,
                 );
                 painter.galley(
-                    Pos2::new(
-                        bar.left() + 12.0,
-                        bar.center().y - title_galley.size().y / 2.0,
-                    ),
+                    Pos2::new(title_left, bar.center().y - title_galley.size().y / 2.0),
                     title_galley,
                     theme.palette.text,
                 );
                 if let Some(render_window) = render_window.as_deref_mut() {
+                    // Both chromes keep the content at the same origin: 40 + 12 == 32 + 20.
                     let content_rect = Rect::from_min_max(
-                        Pos2::new(frame.left() + 12.0, bar.bottom() + 8.0),
+                        Pos2::new(
+                            frame.left() + 12.0,
+                            frame.top() + bar_height + content_offset(app.as_str()),
+                        ),
                         Pos2::new(frame.right() - 12.0, frame.bottom() - 12.0),
                     );
                     ui.allocate_ui_at_rect(content_rect, |ui| {
@@ -1177,26 +1668,28 @@ fn desktop_impl(
                         theme.palette.text_muted,
                     );
                     painter.galley(
-                        Pos2::new(frame.left() + 16.0, frame.top() + TITLE_BAR_HEIGHT + 16.0),
+                        Pos2::new(frame.left() + 16.0, frame.top() + bar_height + 16.0),
                         hint,
                         theme.palette.text_muted,
                     );
                 }
 
-                let mut right = bar.right() - 8.0;
+                // The compact chrome uses the smaller reference controls, spaced tighter.
+                let (control, step) = if compact { (24.0, 28.0) } else { (32.0, 36.0) };
+                let mut right = bar.right() - if compact { 6.0 } else { 8.0 };
                 let close_rect = Rect::from_center_size(
-                    Pos2::new(right - 16.0, bar.center().y),
-                    Vec2::splat(32.0),
+                    Pos2::new(right - control * 0.5, bar.center().y),
+                    Vec2::splat(control),
                 );
-                right -= 36.0;
+                right -= step;
                 let max_rect = Rect::from_center_size(
-                    Pos2::new(right - 16.0, bar.center().y),
-                    Vec2::splat(32.0),
+                    Pos2::new(right - control * 0.5, bar.center().y),
+                    Vec2::splat(control),
                 );
-                right -= 36.0;
+                right -= step;
                 let min_rect = Rect::from_center_size(
-                    Pos2::new(right - 16.0, bar.center().y),
-                    Vec2::splat(32.0),
+                    Pos2::new(right - control * 0.5, bar.center().y),
+                    Vec2::splat(control),
                 );
                 if chrome_button(
                     ui,
@@ -1331,13 +1824,22 @@ fn desktop_impl(
         }
     }
 
-    let apps: Vec<(AppId, String, Icon)> = icons
-        .icons()
+    // The taskbar lists the pinned taskbar apps, not every desktop icon
+    // (`SOCDOF - TS/src/components/shell/DesktopWindowWorkspace.tsx:178–180`, `:4143`).
+    let apps: Vec<(AppId, String, Icon)> = PINNED_TASKBAR
         .iter()
-        .map(|icon| (icon.app(), icon.label().to_owned(), icon.icon()))
+        .filter_map(|slug| {
+            icons
+                .icons()
+                .iter()
+                .find(|icon| icon.app().as_str() == *slug)
+                .map(|icon| (icon.app(), icon.label().to_owned(), icon.icon()))
+        })
         .collect();
     let mut hidden: Vec<(AppId, String)> = Vec::new();
     let mut launched: Option<AppId> = None;
+    // The legacy taskbar follows the appearance: `bg-slate-900/90` in the dark theme,
+    // `bg-white/90` with slate text in the light one.
     egui::Area::new(Id::new("socdof-taskbar"))
         .order(egui::Order::Foreground)
         .anchor(Align2::LEFT_BOTTOM, Vec2::ZERO)
@@ -1351,12 +1853,24 @@ fn desktop_impl(
                 with_alpha(theme.palette.surface, 84),
                 Stroke::new(1.0_f32, theme.palette.border),
             );
-            painter.text(
-                Pos2::new(bar.right() - 16.0, bar.center().y),
-                Align2::RIGHT_CENTER,
-                format_clock(now),
-                FontId::proportional(FONT_SMALL),
-                theme.palette.text_muted,
+            // The legacy tray prints the time in bold monospace with seconds on (`text-[13px]
+            // font-mono font-bold`, `time_show_seconds !== false`); the date stays hidden below the
+            // small breakpoint, which a compact bar never reaches.
+            let clock_color = if theme.appearance.is_dark() {
+                Color32::from_rgb(0xe2, 0xe8, 0xf0)
+            } else {
+                Color32::from_rgb(0x1e, 0x29, 0x3b)
+            };
+            let clock = painter.layout_no_wrap(
+                format_clock_seconds(now),
+                FontId::new(13.0, crate::theme::mono_bold()),
+                clock_color,
+            );
+            let clock_left = bar.right() - 14.0 - clock.size().x;
+            painter.galley(
+                Pos2::new(clock_left, bar.center().y - clock.size().y / 2.0),
+                clock,
+                clock_color,
             );
 
             let start_rect = Rect::from_min_size(
@@ -1371,6 +1885,7 @@ fn desktop_impl(
                     id: Id::new("socdof-taskbar-start"),
                     rect: start_rect,
                     icon: Icon::Grid,
+                    logo: true,
                     label: texts.get("start_title"),
                     active: shell.start.is_open(),
                 },
@@ -1378,7 +1893,14 @@ fn desktop_impl(
                 shell.toggle_start();
             }
 
+            // The legacy bar puts the task view right behind the logo and paints it there
+            // (`DesktopWindowWorkspace.tsx:4090`), before the app buttons.
             let mut x = start_rect.right() + 4.0;
+            let task_view_rect = Rect::from_min_size(
+                Pos2::new(x, bar.top() + 6.0),
+                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
+            );
+            x += crate::tokens::TASKBAR_BUTTON + 4.0;
             if bar.width() >= TASKBAR_SEARCH_MIN_WIDTH {
                 let search_rect = Rect::from_min_size(
                     Pos2::new(x, bar.top() + 6.0),
@@ -1389,12 +1911,31 @@ fn desktop_impl(
                 }
                 x += 136.0;
             }
-            // The tray, the Studio button and the clock always keep their place on the right; app
+            // The right cluster is laid out from the clock inwards, exactly like the legacy bar:
+            // the tray and task view always stay, the Studio button and the version pill only from
+            // the search breakpoint up, and the overflow button only while apps are hidden. App
             // buttons that no longer fit are dropped instead of pushing the clock off the bar.
-            let right_limit =
-                bar.right() - 12.0 - 66.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 36.0 - 4.0 - 32.0 - 8.0;
-            for (app, label, icon) in &apps {
-                if x + crate::tokens::TASKBAR_BUTTON > right_limit {
+            let wide = bar.width() >= TASKBAR_SEARCH_MIN_WIDTH;
+            let mut reserve = crate::tokens::TASKBAR_BUTTON + 4.0; // tray
+            if wide {
+                reserve += crate::tokens::TASKBAR_BUTTON + 4.0; // Studio
+            }
+            if bar.width() >= TASKBAR_STATUS_MIN_WIDTH {
+                reserve += 90.0; // version pill
+            }
+            // The legacy bar always keeps the more button below the search breakpoint, where the
+            // tray cluster collapses into the quick settings menu (`DesktopWindowWorkspace.tsx:4369`).
+            if !wide || apps.len() > TASKBAR_COMPACT_APPS {
+                reserve += 28.0 + 4.0; // overflow
+            }
+            let right_limit = clock_left - 10.0 - reserve;
+            let max_apps = if wide {
+                apps.len()
+            } else {
+                TASKBAR_COMPACT_APPS
+            };
+            for (index, (app, label, icon)) in apps.iter().enumerate() {
+                if index >= max_apps || x + crate::tokens::TASKBAR_BUTTON > right_limit {
                     hidden.push((*app, label.clone()));
                     continue;
                 }
@@ -1423,19 +1964,34 @@ fn desktop_impl(
                     },
                     Stroke::NONE,
                 );
-                icon.draw(
-                    &painter,
-                    Rect::from_center_size(
-                        Pos2::new(rect.center().x, rect.center().y - 2.0),
-                        Vec2::splat(20.0),
-                    ),
-                    if active {
-                        theme.accent_text()
-                    } else {
-                        theme.palette.text
-                    },
-                    1.5,
-                );
+                if app.as_str() == "calendar" {
+                    // `DynamicCalendarIcon size="sm"` in the legacy taskbar
+                    // (`DesktopWindowWorkspace.tsx:4252`).
+                    calendar_tile(
+                        &painter,
+                        Rect::from_center_size(
+                            Pos2::new(rect.center().x, rect.center().y - 2.0),
+                            Vec2::splat(24.0),
+                        ),
+                        theme,
+                        now,
+                        true,
+                    );
+                } else {
+                    icon.draw(
+                        &painter,
+                        Rect::from_center_size(
+                            Pos2::new(rect.center().x, rect.center().y - 2.0),
+                            Vec2::splat(16.0),
+                        ),
+                        if active {
+                            theme.accent_text()
+                        } else {
+                            theme.palette.text_muted
+                        },
+                        1.8,
+                    );
+                }
                 if open {
                     painter.rect(
                         Rect::from_min_size(
@@ -1461,49 +2017,52 @@ fn desktop_impl(
                 }
             }
 
-            let studio_rect = Rect::from_min_size(
-                Pos2::new(bar.right() - 154.0, bar.top() + 6.0),
-                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
-            );
-            if taskbar_button(
-                ui,
-                theme,
-                focus,
-                TaskbarButton {
-                    id: Id::new("socdof-taskbar-studio"),
-                    rect: studio_rect,
-                    icon: Icon::Settings,
-                    label: texts.get("studio_title"),
-                    active: shell.studio.is_open(),
-                },
-            ) {
-                shell.studio.toggle(store);
+            let mut cursor = clock_left - 10.0;
+            let tray_rect = taskbar_slot(&mut cursor, crate::tokens::TASKBAR_BUTTON, bar);
+            let studio_rect =
+                wide.then(|| taskbar_slot(&mut cursor, crate::tokens::TASKBAR_BUTTON, bar));
+            let overflow_rect = if !hidden.is_empty() || !wide {
+                Some(taskbar_slot(&mut cursor, 28.0, bar))
+            } else {
+                None
+            };
+            if let Some(studio_rect) = studio_rect {
+                if taskbar_button(
+                    ui,
+                    theme,
+                    focus,
+                    TaskbarButton {
+                        id: Id::new("socdof-taskbar-studio"),
+                        rect: studio_rect,
+                        icon: Icon::Settings,
+                        logo: false,
+                        label: texts.get("studio_title"),
+                        active: shell.studio.is_open(),
+                    },
+                ) {
+                    shell.studio.toggle(store);
+                }
             }
 
-            let tray_rect = Rect::from_min_size(
-                Pos2::new(bar.right() - 114.0, bar.top() + 6.0),
-                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
-            );
-            if taskbar_button(
-                ui,
-                theme,
-                focus,
-                TaskbarButton {
-                    id: Id::new("socdof-taskbar-tray"),
-                    rect: tray_rect,
-                    icon: Icon::Bell,
-                    label: texts.get("tray_title"),
-                    active: shell.tray.is_open(),
-                },
-            ) {
+            if wide
+                && taskbar_button(
+                    ui,
+                    theme,
+                    focus,
+                    TaskbarButton {
+                        id: Id::new("socdof-taskbar-tray"),
+                        rect: tray_rect,
+                        icon: Icon::Bell,
+                        logo: false,
+                        label: texts.get("tray_title"),
+                        active: shell.tray.is_open(),
+                    },
+                )
+            {
                 shell.toggle_tray();
             }
 
-            if !hidden.is_empty() {
-                let overflow_rect = Rect::from_min_size(
-                    Pos2::new(bar.right() - 236.0, bar.top() + 6.0),
-                    Vec2::new(28.0, crate::tokens::TASKBAR_BUTTON),
-                );
+            if let Some(overflow_rect) = overflow_rect {
                 let overflow_id = Id::new("socdof-taskbar-overflow");
                 let overflow_focused = focus.register(overflow_id);
                 let overflow_response = ui.interact(overflow_rect, overflow_id, Sense::click());
@@ -1537,13 +2096,18 @@ fn desktop_impl(
                 });
                 let overflow_response = overflow_response.on_hover_text(texts.get("taskbar_more"));
                 if overflow_response.clicked() || focus.activate(overflow_id) {
-                    shell.toggle_overflow();
+                    if hidden.is_empty() {
+                        // Nothing is hidden, so the button stands for the collapsed tray cluster.
+                        shell.toggle_tray();
+                    } else {
+                        shell.toggle_overflow();
+                    }
                 }
             }
 
             if bar.width() >= TASKBAR_STATUS_MIN_WIDTH {
                 let pill = Rect::from_min_size(
-                    Pos2::new(bar.right() - 290.0, bar.top() + 12.0),
+                    Pos2::new(right_limit + 3.0, bar.top() + 12.0),
                     Vec2::new(84.0, 24.0),
                 );
                 painter.rect(
@@ -1569,10 +2133,6 @@ fn desktop_impl(
                     .on_hover_text(texts.get("taskbar_status"));
             }
 
-            let task_view_rect = Rect::from_min_size(
-                Pos2::new(bar.right() - 194.0, bar.top() + 6.0),
-                Vec2::splat(crate::tokens::TASKBAR_BUTTON),
-            );
             let task_view_id = Id::new("socdof-taskbar-taskview");
             let task_view_focused = focus.register(task_view_id);
             let task_view_response = ui.interact(task_view_rect, task_view_id, Sense::click());
@@ -1589,26 +2149,44 @@ fn desktop_impl(
                 },
                 Stroke::NONE,
             );
-            // Two overlapping window outlines, the glyph the legacy task view button uses.
-            let glyph = Rect::from_center_size(task_view_rect.center(), Vec2::new(18.0, 12.0));
-            for (offset, size) in [
-                (Vec2::new(0.0, 3.0), Vec2::new(11.0, 9.0)),
-                (Vec2::new(7.0, 0.0), Vec2::new(11.0, 9.0)),
-            ] {
-                painter.rect(
-                    Rect::from_min_size(glyph.min + offset, size),
-                    Rounding::same(2.0),
+            // Two 12 point squares in a 16 point box, exactly the overlapping rectangles of the
+            // legacy task view icon (`DesktopWindowWorkspace.tsx:4120`): translucent back, solid
+            // front.
+            let glyph = Rect::from_center_size(task_view_rect.center(), Vec2::splat(16.0));
+            let (back_stroke, back_fill, front_stroke, front_fill) = if task_view_active {
+                (
+                    theme.accent_text(),
                     Color32::TRANSPARENT,
-                    Stroke::new(
-                        1.3_f32,
-                        if task_view_active {
-                            theme.accent_text()
-                        } else {
-                            theme.palette.text
-                        },
-                    ),
-                );
-            }
+                    theme.accent_text(),
+                    Color32::TRANSPARENT,
+                )
+            } else if theme.appearance.is_dark() {
+                (
+                    Color32::from_white_alpha(128),
+                    Color32::from_white_alpha(26),
+                    Color32::WHITE,
+                    Color32::from_rgb(0x1e, 0x29, 0x3b),
+                )
+            } else {
+                (
+                    Color32::from_rgb(0x64, 0x74, 0x8b).linear_multiply(0.7),
+                    Color32::from_rgb(0x94, 0xa3, 0xb8).linear_multiply(0.2),
+                    Color32::from_rgb(0x1e, 0x29, 0x3b),
+                    Color32::from_rgb(0xe2, 0xe8, 0xf0).linear_multiply(0.9),
+                )
+            };
+            painter.rect(
+                Rect::from_min_size(glyph.min, Vec2::splat(12.0)),
+                Rounding::same(3.0),
+                back_fill,
+                Stroke::new(1.5_f32, back_stroke),
+            );
+            painter.rect(
+                Rect::from_min_size(glyph.min + Vec2::splat(4.0), Vec2::splat(12.0)),
+                Rounding::same(3.0),
+                front_fill,
+                Stroke::new(1.5_f32, front_stroke),
+            );
             if task_view_focused {
                 focus_ring(ui, theme, task_view_rect);
             }
@@ -1749,6 +2327,31 @@ fn desktop_impl(
                 outcome.window_layout_changed = true;
             }
             shell.task_view.close();
+        }
+    }
+
+    if !shell.overlay_open() && !shell.studio.is_open() && !windows.dialog_open() {
+        // The reference desktop owns one window control cluster for the whole screen: minimizing
+        // reduces the focused module window, fullscreen toggles the native window and closing locks
+        // the session, which is the reference's standby state.
+        let control = desktop_controls(ctx, theme, texts, focus, screen);
+        if control.fullscreen {
+            toggle_fullscreen(ctx);
+        }
+        if control.minimize {
+            let fullscreen = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+            if fullscreen {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+            } else if let Some(active) = windows.active() {
+                if windows.minimize(active) {
+                    outcome.window_layout_changed = true;
+                }
+            } else {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+            }
+        }
+        if control.close {
+            outcome.lock = true;
         }
     }
 
@@ -1901,15 +2504,8 @@ fn desktop_impl(
         shell.studio.set_tab(tab);
     }
 
-    egui::Area::new(Id::new("socdof-desktop-back"))
-        .order(egui::Order::Foreground)
-        .anchor(Align2::RIGHT_TOP, Vec2::new(-12.0, 12.0))
-        .show(ctx, |ui| {
-            if icon_button(ui, theme, focus, Icon::Close, texts.get("desktop_back")).activated {
-                outcome.back = true;
-            }
-        });
-
+    // The legacy desktop has no floating back button: Escape and the start menu's "close desktop"
+    // entry leave the desktop, and the top right corner belongs to the window controls.
     if !dialog && !shell.overlay_open() && focus.escape() {
         outcome.back = true;
     }
@@ -2045,8 +2641,23 @@ struct TaskbarButton<'a> {
     id: Id,
     rect: Rect,
     icon: Icon,
+    /// Draws the SOCDOF mark instead of `icon`, like the start button of the legacy taskbar.
+    logo: bool,
     label: &'a str,
     active: bool,
+}
+
+/// Reserves one button of the right taskbar cluster, laying the cluster out from right to left.
+///
+/// The legacy bar anchors tray, task view and clock to the right edge and lets the app row shrink,
+/// so the buttons are reserved from the clock inwards instead of using fixed offsets.
+fn taskbar_slot(cursor: &mut f32, width: f32, bar: Rect) -> Rect {
+    let rect = Rect::from_min_size(
+        Pos2::new(*cursor - width, bar.top() + 6.0),
+        Vec2::new(width, crate::tokens::TASKBAR_BUTTON),
+    );
+    *cursor = rect.left() - 4.0;
+    rect
 }
 
 /// Draws one taskbar button (start menu, tray) and reports whether it was activated.
@@ -2060,6 +2671,7 @@ fn taskbar_button(
         id,
         rect,
         icon,
+        logo,
         label,
         active,
     } = button;
@@ -2081,16 +2693,23 @@ fn taskbar_button(
         },
         Stroke::NONE,
     );
-    icon.draw(
-        ui.painter(),
-        Rect::from_center_size(rect.center(), Vec2::splat(20.0)),
-        if active {
-            theme.accent_text()
-        } else {
-            theme.palette.text
-        },
-        1.5,
-    );
+    if logo {
+        crate::icons::draw_logo(
+            ui.painter(),
+            Rect::from_center_size(rect.center(), Vec2::splat(28.0)),
+        );
+    } else {
+        icon.draw(
+            ui.painter(),
+            Rect::from_center_size(rect.center(), Vec2::splat(20.0)),
+            if active {
+                theme.accent_text()
+            } else {
+                theme.palette.text
+            },
+            1.5,
+        );
+    }
     if focused {
         focus_ring(ui, theme, rect);
     }
@@ -2179,7 +2798,7 @@ mod tests {
             .collect();
         assert_eq!(apps, vec!["pos", "contacts"]);
         assert_eq!(grid.icons()[0].cell(), (0, 0));
-        assert_eq!(grid.icons()[1].cell(), (1, 0));
+        assert_eq!(grid.icons()[1].cell(), (0, 1));
     }
     use crate::shell::Onboarding;
     use socdof_core::domain::settings::Language;
@@ -2442,8 +3061,8 @@ mod tests {
             DesktopIcon::new(AppId::new("invoices"), "Rechnungen", Icon::Calendar),
         ]);
         assert_eq!(grid.icons()[0].cell(), (0, 0));
-        assert_eq!(grid.icons()[1].cell(), (1, 0));
-        assert_eq!(grid.icons()[2].cell(), (2, 0));
+        assert_eq!(grid.icons()[1].cell(), (0, 1));
+        assert_eq!(grid.icons()[2].cell(), (0, 2));
     }
 
     #[test]
@@ -2453,7 +3072,7 @@ mod tests {
             DesktopIcon::new(AppId::new("products"), "Produkte", Icon::Folder),
         ]);
         let target = grid.move_to(AppId::new("products"), (0, 0));
-        assert_eq!(target, Some((1, 0)));
+        assert_eq!(target, Some((0, 1)));
         assert_ne!(grid.icons()[0].cell(), grid.icons()[1].cell());
 
         grid.restore_positions(&[(AppId::new("contacts"), (3, 2))]);
@@ -2462,7 +3081,7 @@ mod tests {
             grid.positions(),
             vec![
                 (AppId::new("contacts"), (3, 2)),
-                (AppId::new("products"), (1, 0))
+                (AppId::new("products"), (0, 1))
             ]
         );
     }
@@ -2478,8 +3097,8 @@ mod tests {
             (AppId::new("products"), (5, 255)),
         ]);
 
-        assert_eq!(grid.icons()[0].cell(), (5, 254));
-        assert_eq!(grid.icons()[1].cell(), (0, 255));
+        assert_eq!(grid.icons()[0].cell(), (12, 5));
+        assert_eq!(grid.icons()[1].cell(), (5, 5));
         assert_ne!(grid.icons()[0].cell(), grid.icons()[1].cell());
     }
 
@@ -2489,15 +3108,57 @@ mod tests {
             DesktopIcon::new(AppId::new("a"), "a", Icon::User),
             DesktopIcon::new(AppId::new("b"), "b", Icon::User),
             DesktopIcon::new(AppId::new("c"), "c", Icon::User),
+            DesktopIcon::new(AppId::new("d"), "d", Icon::User),
+            DesktopIcon::new(AppId::new("e"), "e", Icon::User),
+            DesktopIcon::new(AppId::new("f"), "f", Icon::User),
+            DesktopIcon::new(AppId::new("g"), "g", Icon::User),
+            DesktopIcon::new(AppId::new("h"), "h", Icon::User),
         ]);
-        grid.step(-1, 0);
-        assert_eq!(grid.selected(), 2);
+        // Down moves to the next row, right to the same row of the next column.
         grid.step(0, 1);
-        assert_eq!(grid.selected(), 2);
+        assert_eq!(grid.selected(), 1);
         grid.step(1, 0);
+        assert_eq!(grid.selected(), 7);
+        grid.step(0, -1);
+        assert_eq!(grid.selected(), 6);
+        grid.step(-1, 0);
         assert_eq!(grid.selected(), 0);
+        grid.step(0, -1);
+        assert_eq!(grid.selected(), 7);
         grid.select(99);
-        assert_eq!(grid.selected(), 2);
+        assert_eq!(grid.selected(), 7);
+    }
+
+    #[test]
+    fn the_compact_grid_matches_the_legacy_phone_layout() {
+        let desktop = Rect::from_min_size(Pos2::ZERO, Vec2::new(432.0, 723.0));
+        let first = IconGrid::cell_rect(desktop, (0, 0));
+        assert_eq!((first.left(), first.top()), (40.0, 16.0));
+        assert_eq!(first.center().x, 88.0, "tile centre of the first column");
+        assert_eq!(IconGrid::cell_rect(desktop, (0, 1)).left(), 176.0);
+        assert_eq!(IconGrid::cell_rect(desktop, (0, 2)).left(), 312.0);
+        let second_row = IconGrid::cell_rect(desktop, (0, 3));
+        assert_eq!((second_row.left(), second_row.top()), (40.0, 130.0));
+        let grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("a"), "a", Icon::User),
+            DesktopIcon::new(AppId::new("b"), "b", Icon::User),
+            DesktopIcon::new(AppId::new("c"), "c", Icon::User),
+            DesktopIcon::new(AppId::new("d"), "d", Icon::User),
+        ]);
+        assert_eq!(grid.cell_at(desktop, Pos2::new(88.0, 40.0)), (0, 0));
+        assert_eq!(grid.cell_at(desktop, Pos2::new(224.0, 40.0)), (0, 1));
+        assert_eq!(grid.cell_at(desktop, Pos2::new(88.0, 154.0)), (0, 3));
+        assert_eq!(IconGrid::columns(desktop), COMPACT_COLUMNS);
+    }
+
+    #[test]
+    fn the_calendar_tile_shows_the_legacy_date() {
+        // 2026-11-19T15:00:00Z, the Thursday the reference tile shows as "THU 19".
+        let millis = 1_795_100_400_000;
+        assert_eq!(day_of_month(millis), 19);
+        assert_eq!(weekday_short(millis), "THU");
+        assert_eq!(day_of_month(0), 1, "the epoch is a first of the month");
+        assert_eq!(weekday_short(0), "THU");
     }
 
     #[test]
@@ -2511,7 +3172,7 @@ mod tests {
             assert_eq!(grid.cell_at(area(), center), cell);
         }
         let columns = IconGrid::columns(area());
-        assert!((ICON_MIN_COLUMNS..=ICON_COLUMNS).contains(&columns));
+        assert!(columns >= 2);
         assert_eq!(
             grid.cell_at(area(), Pos2::new(5_000.0, 5_000.0)).0,
             columns - 1
@@ -2519,10 +3180,72 @@ mod tests {
     }
 
     #[test]
+    fn a_legacy_row_first_layout_restores_into_the_column_grid() {
+        use socdof_core::settings_service::{self, DESKTOP_LAYOUT_PREFIX};
+        let store = SocdofStore::open_in_memory().expect("store");
+        let user = uuid::Uuid::new_v4();
+        let legacy = serde_json::json!({
+            "icon_positions": {
+                "contacts": [0, 0],
+                "products": [1, 0],
+                "invoices": [2, 0],
+                "settings": [0, 1]
+            }
+        });
+        store
+            .put_setting(&format!("{DESKTOP_LAYOUT_PREFIX}{user}"), &legacy)
+            .expect("legacy layout stored");
+        let layout = settings_service::desktop_layout(&store, user).expect("layout");
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("contacts"), "Kontakte", Icon::User),
+            DesktopIcon::new(AppId::new("products"), "Produkte", Icon::Folder),
+            DesktopIcon::new(AppId::new("invoices"), "Rechnungen", Icon::Calendar),
+            DesktopIcon::new(AppId::new("settings"), "Einstellungen", Icon::Settings),
+        ]);
+        let positions = grid
+            .icons()
+            .iter()
+            .filter_map(|icon| {
+                layout
+                    .icon_positions
+                    .get(icon.app().as_str())
+                    .map(|cell| (icon.app(), *cell))
+            })
+            .collect::<Vec<_>>();
+        grid.restore_positions(&positions);
+        // Row-first cells transpose into the column-first grid: the reading order survives and no
+        // icon ends up outside the six row column block.
+        assert_eq!(grid.icons()[0].cell(), (0, 0));
+        assert_eq!(grid.icons()[1].cell(), (0, 1));
+        assert_eq!(grid.icons()[2].cell(), (0, 2));
+        assert_eq!(grid.icons()[3].cell(), (1, 0));
+        for icon in grid.icons() {
+            assert!(icon.cell().1 < ICON_ROWS);
+        }
+    }
+
+    #[test]
+    fn the_window_controls_sit_in_the_top_right_corner() {
+        let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
+        let bar = controls_rect(screen);
+        assert_eq!(bar.right(), screen.right());
+        assert_eq!(bar.top(), screen.top());
+        assert_eq!(bar.width(), DESKTOP_CONTROL_WIDTH * 3.0);
+        assert_eq!(bar.height(), DESKTOP_CONTROL_HEIGHT);
+        assert!(bar.max.y <= TASKBAR_HEIGHT.max(bar.max.y));
+    }
+
+    #[test]
     fn the_clock_is_a_stable_utc_label() {
         assert_eq!(format_clock(0), "00:00");
         assert_eq!(format_clock(1_000_000_000), "13:46");
         assert_eq!(format_clock(86_399_000), "23:59");
+        assert_eq!(format_clock_12h(0), "12:00 AM");
+        assert_eq!(format_clock_12h(1_000_000_000), "01:46 PM");
+        assert_eq!(format_clock_12h(86_399_000), "11:59 PM");
+        assert_eq!(format_clock_seconds(0), "12:00:00 AM");
+        assert_eq!(format_clock_seconds(1_000_000_000), "01:46:40 PM");
+        assert_eq!(format_clock_seconds(13_200_000), "03:40:00 AM");
     }
 
     #[test]

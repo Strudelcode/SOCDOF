@@ -32,134 +32,210 @@ pub struct AppChrome {
     pub title_key: &'static str,
     /// Glyph painted into the application tile.
     pub icon: Icon,
-    /// Tile color of the app on the desktop, as `0xrrggbb`.
+    /// Top left stop of the tile gradient on the desktop, as `0xrrggbb`.
     pub tint: u32,
+    /// Middle stop of the tile gradient, for the tiles the legacy app paints with three stops.
+    pub tint_mid: Option<u32>,
+    /// Bottom right stop of the tile gradient, as `0xrrggbb`.
+    pub tint_to: u32,
+}
+
+/// Decodes one `0xrrggbb` tile stop.
+fn stop(value: u32) -> egui::Color32 {
+    egui::Color32::from_rgb(
+        (value >> 16) as u8,
+        ((value >> 8) & 0xff) as u8,
+        (value & 0xff) as u8,
+    )
 }
 
 /// Tile color of an app on the desktop, matching the legacy app launcher.
 pub fn tint(app: AppChrome) -> egui::Color32 {
-    egui::Color32::from_rgb(
-        (app.tint >> 16) as u8,
-        ((app.tint >> 8) & 0xff) as u8,
-        (app.tint & 0xff) as u8,
-    )
+    stop(app.tint)
+}
+
+/// Gradient stops of an app tile, top left to bottom right.
+///
+/// The legacy desktop tiles are `bg-gradient-to-br from-… via-… to-…`; the stops below are the
+/// Tailwind palette entries those classes resolve to.
+pub fn tint_stops(app: AppChrome) -> Vec<egui::Color32> {
+    let mut stops = vec![stop(app.tint)];
+    if let Some(middle) = app.tint_mid {
+        stops.push(stop(middle));
+    }
+    stops.push(stop(app.tint_to));
+    stops
 }
 
 /// Every application of the suite, in the order of the legacy app launcher.
-pub const APPS: [AppChrome; 19] = [
+pub const APPS: [AppChrome; 21] = [
     AppChrome {
         slug: "dashboard",
         title_key: "app_dashboard",
-        icon: Icon::Chart,
-        tint: 0x4f46e5,
+        icon: Icon::Dashboard,
+        tint: 0xa855f7,
+        tint_mid: None,
+        tint_to: 0x4f46e5,
     },
     AppChrome {
         slug: "contacts",
         title_key: "app_contacts",
-        icon: Icon::User,
-        tint: 0x0d9488,
+        icon: Icon::Users,
+        tint: 0x14b8a6,
+        tint_mid: None,
+        tint_to: 0x0891b2,
     },
     AppChrome {
         slug: "products",
         title_key: "app_products",
-        icon: Icon::Folder,
-        tint: 0xd97706,
+        icon: Icon::Package,
+        tint: 0x3b82f6,
+        tint_mid: None,
+        tint_to: 0x4f46e5,
     },
     AppChrome {
         slug: "invoices",
         title_key: "app_invoices",
         icon: Icon::Receipt,
-        tint: 0x7c3aed,
+        tint: 0x6366f1,
+        tint_mid: None,
+        tint_to: 0x2563eb,
     },
     AppChrome {
         slug: "accounting",
         title_key: "app_accounting",
         icon: Icon::Chart,
-        tint: 0x059669,
+        tint: 0x10b981,
+        tint_mid: None,
+        tint_to: 0x0d9488,
     },
     AppChrome {
         slug: "purchases",
         title_key: "app_purchases",
         icon: Icon::Cart,
-        tint: 0xc2410c,
+        tint: 0xf97316,
+        tint_mid: None,
+        tint_to: 0xd97706,
     },
     AppChrome {
         slug: "pos",
         title_key: "app_pos",
         icon: Icon::Bag,
-        tint: 0xe11d48,
+        tint: 0x8b5cf6,
+        tint_mid: None,
+        tint_to: 0x4f46e5,
     },
     AppChrome {
         slug: "calendar",
         title_key: "app_calendar",
         icon: Icon::Calendar,
-        tint: 0x0284c7,
+        tint: 0x3b82f6,
+        tint_mid: None,
+        tint_to: 0x0284c7,
     },
     AppChrome {
         slug: "support",
         title_key: "app_support",
         icon: Icon::Bell,
-        tint: 0x0891b2,
+        tint: 0x06b6d4,
+        tint_mid: None,
+        tint_to: 0x2563eb,
     },
     AppChrome {
         slug: "reports",
         title_key: "app_reports",
         icon: Icon::Chart,
-        tint: 0x7e22ce,
+        tint: 0xf97316,
+        tint_mid: Some(0xf59e0b),
+        tint_to: 0xf43f5e,
     },
     AppChrome {
         slug: "therapy",
         title_key: "app_therapy",
         icon: Icon::Sun,
-        tint: 0xdb2777,
+        tint: 0x2563eb,
+        tint_mid: None,
+        tint_to: 0x4338ca,
     },
     AppChrome {
         slug: "users",
         title_key: "app_users",
         icon: Icon::Shield,
         tint: 0x6d28d9,
+        tint_mid: None,
+        tint_to: 0x6d28d9,
     },
     AppChrome {
         slug: "settings",
         title_key: "app_settings",
         icon: Icon::Settings,
         tint: 0x475569,
+        tint_mid: None,
+        tint_to: 0x334155,
     },
     AppChrome {
         slug: "editor",
         title_key: "app_editor",
-        icon: Icon::Book,
+        icon: Icon::PenLine,
         tint: 0x2563eb,
+        tint_mid: None,
+        tint_to: 0x0369a1,
     },
     AppChrome {
         slug: "documentation",
         title_key: "app_documentation",
-        icon: Icon::Info,
-        tint: 0x0f766e,
+        icon: Icon::BookOpen,
+        tint: 0x0ea5e9,
+        tint_mid: None,
+        tint_to: 0x2563eb,
     },
     AppChrome {
         slug: "app-store",
         title_key: "app_app_store",
-        icon: Icon::Grid,
-        tint: 0x714b67,
+        icon: Icon::Package,
+        tint: 0xd946ef,
+        tint_mid: None,
+        tint_to: 0xdb2777,
     },
     AppChrome {
         slug: "projects",
         title_key: "app_projects",
         icon: Icon::Folder,
         tint: 0x7c3aed,
+        tint_mid: None,
+        tint_to: 0x7c3aed,
     },
     AppChrome {
         slug: "fleet",
         title_key: "app_fleet",
         icon: Icon::Car,
         tint: 0x0d9488,
+        tint_mid: None,
+        tint_to: 0x0d9488,
+    },
+    AppChrome {
+        slug: "calculator",
+        title_key: "app_calculator",
+        icon: Icon::Calculator,
+        tint: 0x10b981,
+        tint_mid: None,
+        tint_to: 0x0f766e,
+    },
+    AppChrome {
+        slug: "widgets",
+        title_key: "app_widgets",
+        icon: Icon::Widgets,
+        tint: 0x8b5cf6,
+        tint_mid: None,
+        tint_to: 0x9333ea,
     },
     AppChrome {
         slug: "restaurant",
         title_key: "app_restaurant",
         icon: Icon::Bag,
-        tint: 0xea580c,
+        tint: 0xf59e0b,
+        tint_mid: None,
+        tint_to: 0xea580c,
     },
 ];
 

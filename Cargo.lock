@@ -3333,6 +3333,7 @@ dependencies = [
  "egui",
  "png",
  "rfd",
+ "serde",
  "serde_json",
  "socdof-core",
  "uuid",

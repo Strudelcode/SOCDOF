@@ -17,7 +17,7 @@ use socdof_core::settings_service::{self, Preferences};
 use crate::accounting::{accounting, seed_accounting, AccountingState};
 use crate::app_store::{app_store as app_store_screen, AppStoreState};
 use crate::appointments::{appointments, seed_appointments, AppointmentsState};
-use crate::auth::{auth, AuthState, SetupTemplate};
+use crate::auth::{auth, AuthState};
 use crate::calendar::CalendarState;
 use crate::components::{
     badge, button, card, empty_state, icon_button, modal, search_field, sort_header, tabs,
@@ -122,6 +122,23 @@ fn app_label(texts: &UiTexts, app: AppId) -> String {
     crate::chrome::app_title(texts, crate::chrome::app_chrome(app.as_str()))
 }
 
+/// Apps the legacy shell pins to the desktop after the personal first-run setup.
+///
+/// The setup stores `SETUP_CORE_MODULES` plus the personal template as `odoo_pinned_desktop`
+/// (`SOCDOF - TS/src/components/auth/AuthGate.tsx:173–178, 973–991`), and the desktop renders
+/// exactly that list (`DesktopWindowWorkspace.tsx:323–340, 2780`) instead of every installed
+/// module.
+pub const PINNED_DESKTOP: [&str; 8] = [
+    "dashboard",
+    "app-store",
+    "documentation",
+    "settings",
+    "contacts",
+    "calendar",
+    "calculator",
+    "widgets",
+];
+
 /// Desktop and start-menu icons of the modules that are currently enabled.
 ///
 /// Every enabled module gets its own tile with the icon and color of the legacy app launcher, so the
@@ -158,13 +175,16 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
             app.icon,
         ));
     }
-    // The App Store is a desktop utility rather than a permission-controlled business module.
-    let app = crate::chrome::app_chrome("app-store");
-    icons.push(DesktopIcon::new(
-        AppId::new(app.slug),
-        texts.get(app.title_key),
-        app.icon,
-    ));
+    // App Store, calculator and widgets are desktop utilities rather than permission-controlled
+    // business modules, so they are always available on the desktop and in the start menu.
+    for slug in ["app-store", "calculator", "widgets"] {
+        let app = crate::chrome::app_chrome(slug);
+        icons.push(DesktopIcon::new(
+            AppId::new(app.slug),
+            texts.get(app.title_key),
+            app.icon,
+        ));
+    }
     IconGrid::new(icons)
 }
 
@@ -309,49 +329,23 @@ fn restore_native_windows(
     }
 }
 
-/// Trims the desktop to the layout template chosen in the wizard.
+/// Trims the desktop to the template and the apps chosen in the wizard.
 fn apply_setup_template(state: &mut GalleryState) {
-    let apps: &[&str] = match state.auth.template_choice {
-        SetupTemplate::Personal => &[
-            "dashboard",
-            "contacts",
-            "calendar",
-            "documentation",
-            "settings",
-        ],
-        SetupTemplate::Business => &[
-            "dashboard",
-            "invoices",
-            "accounting",
-            "contacts",
-            "products",
-            "purchases",
-            "calendar",
-            "reports",
-            "settings",
-        ],
-        SetupTemplate::Practice => &[
-            "dashboard",
-            "therapy",
-            "contacts",
-            "calendar",
-            "invoices",
-            "accounting",
-            "settings",
-        ],
-        SetupTemplate::Retail => &[
-            "dashboard",
-            "pos",
-            "products",
-            "purchases",
-            "accounting",
-            "contacts",
-            "invoices",
-            "settings",
-        ],
-        SetupTemplate::All => return,
+    let mut apps: Vec<&str> = if state.auth.setup_apps.is_empty() {
+        crate::auth_screens::template_apps(state.auth.template_choice)
+    } else {
+        state.auth.setup_apps.iter().map(String::as_str).collect()
     };
-    state.desktop_icons.retain_apps(apps);
+    if apps.is_empty() {
+        return;
+    }
+    for required in ["dashboard", "settings"] {
+        if !apps.contains(&required) {
+            apps.push(required);
+        }
+    }
+    state.desktop_icons.retain_apps(&apps);
+    state.desktop_pinned = state.desktop_icons.pinned(&PINNED_DESKTOP);
 }
 
 /// State of the gallery screen.
@@ -402,6 +396,11 @@ pub struct GalleryState {
     pub desktop_open: bool,
     /// Desktop icon grid with cell positions and selection.
     pub desktop_icons: IconGrid,
+    /// Desktop surface: only the pinned apps, while `desktop_icons` keeps every installed module
+    /// for the start menu and window titles.
+    pub desktop_pinned: IconGrid,
+    /// Display, memory and mode of the calculator window.
+    pub calculator: crate::calculator::CalculatorWindow,
     /// Open windows, z-order and focus of the desktop.
     pub desktop_windows: WindowManager,
     /// Shell overlays, wallpaper and widgets of the desktop and gallery.
@@ -460,6 +459,8 @@ pub struct GalleryState {
     pub users_open: bool,
     /// Text editor module state.
     pub editor: EditorState,
+    /// Ribbon text editor window of the desktop.
+    pub textwerk: crate::textwerk::TextwerkState,
     /// Whether the editor screen is shown instead of the gallery.
     pub editor_open: bool,
     /// Searchable local documentation manual.
@@ -585,6 +586,7 @@ impl GalleryState {
             active_modules = socdof_core::domain::permission::ALL_MODULES.to_vec();
         }
         let desktop_icons = desktop_icons(&texts, &active_modules);
+        let desktop_pinned = desktop_icons.pinned(&PINNED_DESKTOP);
         let dashboard_data = if seed_demo_data {
             DashboardData::sample(&texts)
         } else {
@@ -623,6 +625,8 @@ impl GalleryState {
             drop_hovering: false,
             desktop_open: false,
             desktop_icons,
+            desktop_pinned,
+            calculator: crate::calculator::CalculatorWindow::new(),
             desktop_windows: WindowManager::default(),
             shell: ShellState::new(),
             dashboard,
@@ -652,6 +656,7 @@ impl GalleryState {
             users: users_state,
             users_open: false,
             editor: editor_state,
+            textwerk: Default::default(),
             documentation: crate::documentation::DocumentationState::default(),
             editor_open: false,
             app_store: app_store_state,
@@ -678,6 +683,7 @@ impl GalleryState {
         ];
         self.form.relabel(&labels);
         self.desktop_icons.relabel(|app| app_label(&texts, app));
+        self.desktop_pinned.relabel(|app| app_label(&texts, app));
         self.desktop_windows
             .relabel_titles(|app| app_label(&texts, app));
         self.texts = texts;
@@ -790,6 +796,25 @@ impl GalleryState {
                 self.settings.refresh(&self.store)?;
                 self.settings_open = true;
             }
+            // Calculator and widgets are windowed desktop utilities: the legacy shell opens a
+            // floating window and keeps the desktop visible (`DesktopWindowWorkspace.tsx:4830`).
+            "calculator" | "widgets" => {
+                let title = self
+                    .desktop_icons
+                    .label_of(app)
+                    .unwrap_or_default()
+                    .to_owned();
+                let area = work_area(Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::Vec2::new(1280.0, 800.0),
+                ));
+                let rect =
+                    crate::desktop::default_window_rect(area, self.desktop_windows.windows().len());
+                self.desktop_windows
+                    .open(Window::new(app, title, rect), now);
+                self.desktop_open = true;
+                return Ok(());
+            }
             "documentation" => {
                 let title = self
                     .desktop_icons
@@ -857,6 +882,7 @@ impl GalleryState {
         }
         self.dashboard.set_active_modules(active.clone());
         self.desktop_icons = desktop_icons(&self.texts, &active);
+        self.desktop_pinned = self.desktop_icons.pinned(&PINNED_DESKTOP);
         Ok(())
     }
 }
@@ -880,8 +906,7 @@ fn handle_global_shortcuts(ctx: &Context, state: &mut GalleryState, now: i64) {
     });
     let desktop_ready = !state.auth_open && state.auth.view == crate::auth::AuthView::Unlocked;
     if fullscreen && desktop_ready {
-        let current = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
-        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!current));
+        crate::desktop::toggle_fullscreen(ctx);
     }
     if help && desktop_ready {
         let _ = state.open_desktop_app(AppId::new("documentation"), now);
@@ -973,6 +998,15 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if let Some(appearance) = state.auth.appearance_choice.take() {
             state.appearance = appearance;
         }
+        let wizard_theme = state.auth.theme_mode_choice;
+        if let Some(mode) = wizard_theme {
+            state.appearance = match mode {
+                ThemeMode::Light => Appearance::Light,
+                ThemeMode::Dark => Appearance::Dark,
+                // System keeps whatever the host resolved for the running desktop.
+                ThemeMode::System => state.appearance,
+            };
+        }
         if let Some(accent) = state.auth.accent_choice.take() {
             state.accent_id = accent;
         }
@@ -993,11 +1027,11 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 let preferences = if wizard_completed {
                     Preferences {
                         language: state.language,
-                        theme_mode: if state.appearance.is_dark() {
+                        theme_mode: wizard_theme.unwrap_or(if state.appearance.is_dark() {
                             ThemeMode::Dark
                         } else {
                             ThemeMode::Light
-                        },
+                        }),
                         accent_color: state.accent_id.clone(),
                         ..Preferences::default()
                     }
@@ -1067,6 +1101,9 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     }
 
     if state.desktop_open {
+        // The desktop frame borrows the whole shell, so the widgets panel edits a copy of the
+        // widget layer and hands it back after the frame.
+        let mut widget_layer = state.shell.widgets.clone();
         let outcome = desktop_with_content(
             ctx,
             DesktopFrame {
@@ -1077,10 +1114,26 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 current_user: state.auth.user.as_ref().map(|user| user.id),
             },
             &mut state.focus,
-            &mut state.desktop_icons,
+            &mut state.desktop_pinned,
             &mut state.desktop_windows,
             now,
             |app, active, ui, ctx, theme, texts, focus, store, now| match app.as_str() {
+                "calculator" => {
+                    crate::calculator::calculator_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.calculator,
+                    );
+                    false
+                }
+                "widgets" => {
+                    crate::widgets::widgets_app(ui, theme, texts, focus, &mut widget_layer, now);
+                    false
+                }
                 "contacts" => {
                     crate::contacts::contacts_window(
                         ctx,
@@ -1238,20 +1291,16 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     false
                 }
                 "editor" => {
-                    crate::editor::editor_window(
+                    crate::textwerk::textwerk_window(
                         ctx,
                         active,
                         ui,
                         theme,
                         texts,
                         focus,
-                        &mut state.editor,
-                        store,
-                        now,
+                        &mut state.textwerk,
                     );
-                    let back = state.editor.back;
-                    state.editor.back = false;
-                    back
+                    false
                 }
                 "app-store" => {
                     crate::app_store::app_store_window(
@@ -1383,6 +1432,7 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
             },
         );
+        state.shell.widgets = widget_layer;
         if outcome.icon_positions_changed || outcome.window_layout_changed {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
                 match settings_service::desktop_layout(&state.store, user_id) {
@@ -3152,6 +3202,32 @@ mod tests {
         assert_eq!(state.app_store.modules.len(), 18);
     }
 
+    #[test]
+    fn the_desktop_utilities_open_windows_and_keep_the_desktop_visible() {
+        let ctx = crate::theme::headless_context();
+        let mut state =
+            GalleryState::new(Language::De, Appearance::Light, "indigo").expect("state");
+        state.auth_open = false;
+        state.desktop_open = true;
+        let now = now_millis();
+        for slug in ["calculator", "widgets"] {
+            state
+                .open_desktop_app(AppId::new(slug), now)
+                .expect("open desktop utility");
+            assert!(state.desktop_open, "{slug} keeps the desktop visible");
+            assert!(
+                state.desktop_windows.is_open(AppId::new(slug)),
+                "{slug} opens a window"
+            );
+        }
+        // Both windows paint inside one desktop frame without panicking.
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(Pos2::ZERO, Vec2::new(432.0, 771.0))),
+            ..Default::default()
+        };
+        let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
+    }
+
     fn send_shortcut(ctx: &Context, state: &mut GalleryState, key: Key, modifiers: Modifiers) {
         let input = egui::RawInput {
             events: vec![egui::Event::Key {
@@ -3420,11 +3496,19 @@ mod tests {
         );
         let painted = crate::snapshot::signature(&output).join("\n");
         assert!(painted.contains("Kontakte"), "desktop labels missing");
-        assert!(painted.contains("Buchhaltung"), "modules missing");
+        assert!(
+            painted.contains("Dashboard"),
+            "pinned dashboard tile missing"
+        );
+        assert_eq!(
+            state.desktop_pinned.icons().len(),
+            PINNED_DESKTOP.len(),
+            "the desktop draws the pinned apps only"
+        );
         assert_eq!(
             state.desktop_icons.icons().len(),
-            socdof_core::domain::permission::ALL_MODULES.len() + 1,
-            "every permission module and the always-available App Store must have a desktop tile"
+            socdof_core::domain::permission::ALL_MODULES.len() + 3,
+            "the start menu keeps every permission module and the always-available utilities"
         );
     }
 

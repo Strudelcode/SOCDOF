@@ -296,6 +296,86 @@ pub fn shadow_layers(
     layers
 }
 
+/// Blends two colors, `t` being the weight of `b`.
+pub fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    let channel = |x: u8, y: u8| (f32::from(x) * (1.0 - t) + f32::from(y) * t).round() as u8;
+    Color32::from_rgb(
+        channel(a.r(), b.r()),
+        channel(a.g(), b.g()),
+        channel(a.b(), b.b()),
+    )
+}
+
+/// Color at `t` along a gradient with two or three stops.
+pub fn gradient_color(stops: &[Color32], t: f32) -> Color32 {
+    let t = t.clamp(0.0, 1.0);
+    match stops {
+        [] => Color32::TRANSPARENT,
+        [only] => *only,
+        [first, second] => mix(*first, *second, t),
+        [first, middle, last, ..] => {
+            if t < 0.5 {
+                mix(*first, *middle, t * 2.0)
+            } else {
+                mix(*middle, *last, (t - 0.5) * 2.0)
+            }
+        }
+    }
+}
+
+/// Paints a rounded rectangle filled with a diagonal gradient, top left to bottom right.
+///
+/// egui has no gradient brush, so the surface is a triangle fan: centre and rounded outline carry
+/// the stop colors, which keeps the corners rounded and the blend smooth without an image. Two
+/// stops blend once, three honour the middle one like the legacy `from-… via-… to-…` tiles.
+pub fn gradient_round_rect(painter: &egui::Painter, rect: Rect, rounding: f32, stops: &[Color32]) {
+    /// Arc segments per corner; enough for a smooth outline at tile size.
+    const ARC_STEPS: usize = 6;
+    let radius = rounding.max(0.0).min(rect.width().min(rect.height()) * 0.5);
+    let diagonal = (rect.width() + rect.height()).max(1.0);
+    let color_at = |pos: Pos2| {
+        gradient_color(
+            stops,
+            ((pos.x - rect.min.x) + (pos.y - rect.min.y)) / diagonal,
+        )
+    };
+    let mut mesh = egui::Mesh::default();
+    mesh.vertices.push(egui::epaint::Vertex {
+        pos: rect.center(),
+        uv: egui::epaint::WHITE_UV,
+        color: gradient_color(stops, 0.5),
+    });
+    let corners = [
+        (
+            Pos2::new(rect.min.x + radius, rect.min.y + radius),
+            180.0_f32,
+        ),
+        (Pos2::new(rect.max.x - radius, rect.min.y + radius), 270.0),
+        (Pos2::new(rect.max.x - radius, rect.max.y - radius), 0.0),
+        (Pos2::new(rect.min.x + radius, rect.max.y - radius), 90.0),
+    ];
+    for (center, start) in corners {
+        for step in 0..=ARC_STEPS {
+            let angle = (start + 90.0 * step as f32 / ARC_STEPS as f32).to_radians();
+            let pos = Pos2::new(
+                center.x + radius * angle.cos(),
+                center.y + radius * angle.sin(),
+            );
+            mesh.vertices.push(egui::epaint::Vertex {
+                pos,
+                uv: egui::epaint::WHITE_UV,
+                color: color_at(pos),
+            });
+        }
+    }
+    let rim = (mesh.vertices.len() - 1) as u32;
+    for index in 0..rim {
+        mesh.add_triangle(0, 1 + index, 1 + (index + 1) % rim);
+    }
+    painter.add(egui::Shape::mesh(mesh));
+}
+
 /// Hue of a color in degrees, rounded like the legacy helper.
 pub fn hue(color: Color32) -> u16 {
     let r = f32::from(color.r()) / 255.0;

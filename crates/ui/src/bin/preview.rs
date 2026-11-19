@@ -26,6 +26,10 @@ use socdof_ui::shell::Onboarding;
 use socdof_ui::theme::Appearance;
 use socdof_ui::wallpaper::{Wallpaper, WallpaperFit};
 
+/// Reference viewport of the compact desktop (the TS app at a 432 × 771 window).
+const COMPACT_WIDTH: f32 = 432.0;
+const COMPACT_HEIGHT: f32 = 771.0;
+
 const LANGUAGES: [Language; 4] = [Language::De, Language::En, Language::Fr, Language::Es];
 const APPEARANCES: [Appearance; 2] = [Appearance::Light, Appearance::Dark];
 
@@ -65,9 +69,16 @@ enum Scene {
     Therapie,
     AuthLogin,
     AuthLocked,
+    AuthLanguage,
+    AuthWelcome,
     AuthSetup,
+    AuthAppearance,
+    AuthApps,
     AuthUnlocked,
     Settings(SettingsTab),
+    DesktopCalculator,
+    DesktopWidgets,
+    DesktopEditor,
 }
 
 impl Scene {
@@ -77,6 +88,9 @@ impl Scene {
             Scene::Desktop => "desktop".to_string(),
             Scene::DesktopOverflow => "desktop-overflow".to_string(),
             Scene::DesktopFree => "desktop-free".to_string(),
+            Scene::DesktopCalculator => "desktop-calculator".to_string(),
+            Scene::DesktopWidgets => "desktop-widgets".to_string(),
+            Scene::DesktopEditor => "desktop-editor".to_string(),
             Scene::StartMenu => "start-menu".to_string(),
             Scene::StartMenuPower => "start-menu-power".to_string(),
             Scene::Palette => "palette".to_string(),
@@ -107,7 +121,11 @@ impl Scene {
             Scene::Therapie => "therapy".to_string(),
             Scene::AuthLogin => "auth-login".to_string(),
             Scene::AuthLocked => "auth-locked".to_string(),
+            Scene::AuthLanguage => "auth-language".to_string(),
+            Scene::AuthWelcome => "auth-welcome".to_string(),
             Scene::AuthSetup => "auth-setup".to_string(),
+            Scene::AuthAppearance => "auth-appearance".to_string(),
+            Scene::AuthApps => "auth-apps".to_string(),
             Scene::AuthUnlocked => "auth-unlocked".to_string(),
             Scene::Settings(tab) => format!("settings-{}", settings_id(tab)),
         }
@@ -149,9 +167,16 @@ impl Scene {
             Scene::Therapie => "Therapy · Client detail".to_string(),
             Scene::AuthLogin => "Login".to_string(),
             Scene::AuthLocked => "Lock screen".to_string(),
-            Scene::AuthSetup => "First-run setup".to_string(),
+            Scene::AuthLanguage => "First-run language".to_string(),
+            Scene::AuthWelcome => "First-run welcome".to_string(),
+            Scene::AuthSetup => "First-run account".to_string(),
+            Scene::AuthAppearance => "First-run appearance".to_string(),
+            Scene::AuthApps => "First-run apps".to_string(),
             Scene::AuthUnlocked => "Signed in".to_string(),
             Scene::Settings(tab) => format!("Settings · {}", settings_title(tab)),
+            Scene::DesktopCalculator => "Desktop · Calculator window".to_string(),
+            Scene::DesktopWidgets => "Desktop · Widgets window".to_string(),
+            Scene::DesktopEditor => "Desktop · Text editor window".to_string(),
         }
     }
 
@@ -174,8 +199,13 @@ impl Scene {
             Scene::Settings(_) => (1180.0, 2050.0),
             Scene::Users => (1180.0, 1500.0),
             Scene::UserDetail => (1180.0, 1900.0),
-            Scene::AuthLogin | Scene::AuthLocked | Scene::AuthSetup | Scene::AuthUnlocked => {
-                (900.0, 820.0)
+            Scene::AuthLogin | Scene::AuthLocked | Scene::AuthUnlocked => (900.0, 820.0),
+            Scene::AuthLanguage => (900.0, 780.0),
+            Scene::AuthWelcome => (900.0, 620.0),
+            Scene::AuthSetup | Scene::AuthAppearance => (900.0, 1000.0),
+            Scene::AuthApps => (900.0, 1400.0),
+            Scene::DesktopCalculator | Scene::DesktopWidgets | Scene::DesktopEditor => {
+                (COMPACT_WIDTH, COMPACT_HEIGHT)
             }
             _ => (1180.0, 1500.0),
         }
@@ -231,6 +261,32 @@ impl Scene {
         match self {
             Scene::Gallery => {}
             Scene::Desktop => state.desktop_open = true,
+            Scene::DesktopCalculator | Scene::DesktopWidgets | Scene::DesktopEditor => {
+                state.desktop_open = true;
+                let (app, title_key) = match self {
+                    Scene::DesktopCalculator => ("calculator", "app_calculator"),
+                    Scene::DesktopWidgets => ("widgets", "app_widgets"),
+                    _ => ("editor", "app_editor"),
+                };
+                let screen = egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::Vec2::new(COMPACT_WIDTH, COMPACT_HEIGHT),
+                );
+                // The calculator and widgets windows sit over the taskbar and end 5 px above
+                // the viewport bottom; the measured editor window ends on the taskbar edge.
+                let bottom = match self {
+                    Scene::DesktopEditor => screen.max.y - socdof_ui::desktop::TASKBAR_HEIGHT,
+                    _ => screen.max.y - 5.0,
+                };
+                let rect =
+                    egui::Rect::from_min_max(screen.min, egui::Pos2::new(screen.max.x, bottom));
+                let window = socdof_ui::desktop::Window::new(
+                    socdof_ui::desktop::AppId::new(app),
+                    state.texts.get(title_key),
+                    rect,
+                );
+                let _ = state.desktop_windows.open(window, 0);
+            }
             Scene::DesktopOverflow => {
                 state.desktop_open = true;
                 state.shell.toggle_overflow();
@@ -239,11 +295,11 @@ impl Scene {
                 state.desktop_open = true;
                 state.desktop_icons.place_at(
                     socdof_ui::desktop::AppId::new("contacts"),
-                    egui::Pos2::new(250.0, 420.0),
+                    egui::Pos2::new(460.0, 250.0),
                 );
                 state.desktop_icons.place_at(
                     socdof_ui::desktop::AppId::new("products"),
-                    egui::Pos2::new(40.0, 470.0),
+                    egui::Pos2::new(460.0, 400.0),
                 );
             }
             Scene::StartMenu => {
@@ -363,9 +419,40 @@ impl Scene {
                 state.auth.lock(socdof_core::now_millis());
                 state.auth_open = true;
             }
+            Scene::AuthLanguage => {
+                state.auth.show_setup();
+                state.auth.setup_step = 0;
+                state.auth_open = true;
+            }
+            Scene::AuthWelcome => {
+                state.auth.show_setup();
+                state.auth.setup_step = 1;
+                state.auth_open = true;
+            }
             Scene::AuthSetup => {
                 state.auth.show_setup();
                 state.auth.setup_step = 2;
+                state.auth_open = true;
+            }
+            Scene::AuthAppearance => {
+                state.auth.show_setup();
+                state.auth.setup_step = 3;
+                state.auth.theme_mode_choice =
+                    Some(socdof_core::domain::settings::ThemeMode::System);
+                state.auth.accent_choice = Some("indigo".to_string());
+                state.auth_open = true;
+            }
+            Scene::AuthApps => {
+                state.auth.show_setup();
+                state.auth.setup_step = 4;
+                state.auth.account_type = socdof_ui::auth::SetupAccountType::Business;
+                state.auth.template_choice = socdof_ui::auth::SetupTemplate::Business;
+                state.auth.setup_apps = socdof_ui::auth_screens::template_apps(
+                    socdof_ui::auth::SetupTemplate::Business,
+                )
+                .iter()
+                .map(|slug| (*slug).to_owned())
+                .collect();
                 state.auth_open = true;
             }
             Scene::AuthUnlocked => {
@@ -434,6 +521,9 @@ fn scenes() -> Vec<Scene> {
         Scene::Desktop,
         Scene::DesktopOverflow,
         Scene::DesktopFree,
+        Scene::DesktopCalculator,
+        Scene::DesktopWidgets,
+        Scene::DesktopEditor,
         Scene::StartMenu,
         Scene::StartMenuPower,
         Scene::Palette,
@@ -464,7 +554,11 @@ fn scenes() -> Vec<Scene> {
         Scene::Therapie,
         Scene::AuthLogin,
         Scene::AuthLocked,
+        Scene::AuthLanguage,
+        Scene::AuthWelcome,
         Scene::AuthSetup,
+        Scene::AuthAppearance,
+        Scene::AuthApps,
         Scene::AuthUnlocked,
     ];
     scenes.extend(SettingsTab::ALL.into_iter().map(Scene::Settings));
@@ -547,7 +641,10 @@ fn apply_textures(textures: &mut HashMap<TextureId, Texture>, delta: &egui::Text
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let out = PathBuf::from("target/ui-preview");
+    // `SOCDOF_PREVIEW_OUT` keeps parity renders apart from the regular catalogue images.
+    let out = PathBuf::from(
+        std::env::var("SOCDOF_PREVIEW_OUT").unwrap_or_else(|_| "target/ui-preview".to_string()),
+    );
     let images = out.join("images");
     fs::create_dir_all(&images)?;
 

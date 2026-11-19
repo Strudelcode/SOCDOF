@@ -46,8 +46,8 @@ whole class of TypeScript/JavaScript dependencies the user wants gone.
   are focus-trapping overlays; the wallpaper is a decoded PNG texture, not a tint.
 - Tables with thousands of rows are virtualized by the screen that owns the data (egui paints what
   is visible); the kit provides the header, sorting state and row primitives.
-- Text rendering uses the bundled egui fonts for now. A later step bundles the same UI font the
-  legacy app used, so printed previews and screen typography stay consistent.
+- Text rendering uses the same UI font the legacy app loads, Plus Jakarta Sans, bundled as static
+  Regular and SemiBold instances, so printed previews and screen typography stay consistent.
 
 ## Removing the TypeScript frontend
 

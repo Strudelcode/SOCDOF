@@ -224,6 +224,21 @@ pub fn semibold() -> FontFamily {
     FontFamily::Name("Semibold".into())
 }
 
+/// Family of the bundled Light weight, for the oversized clock of the sign-in screen.
+pub fn light() -> FontFamily {
+    FontFamily::Name("Light".into())
+}
+
+/// Bold JetBrains Mono, for the taskbar clock and other run-in monospace labels.
+pub fn mono_bold() -> FontFamily {
+    FontFamily::Name("MonoBold".into())
+}
+
+/// Extra bold face for the `font-extrabold` and `font-black` text of the legacy app.
+pub fn heavy() -> FontFamily {
+    FontFamily::Name("Heavy".into())
+}
+
 /// Context with the bundled fonts installed, used by the headless renders and the tests.
 pub fn headless_context() -> Context {
     let ctx = Context::default();
@@ -233,9 +248,11 @@ pub fn headless_context() -> Context {
 
 /// Installs the bundled Source Sans 3 faces once per context.
 ///
-/// egui cannot read system fonts, so the legacy `system-ui` stack is matched with a bundled face of
-/// the same neutral, slightly humanist proportions; the egui defaults stay behind it as glyph
-/// fallback. Semibold lives in its own family because egui has no synthetic bold.
+/// egui cannot read system fonts, so the legacy face is bundled as static instances of the
+/// variable font: the interface ships Plus Jakarta Sans Regular and SemiBold, the exact family the
+/// TypeScript edition loads from `index.html`, so both editions set type the same way. The egui
+/// defaults stay behind it as glyph fallback. Semibold lives in its own family because egui has no
+/// synthetic bold.
 pub(crate) fn install_fonts(ctx: &Context) {
     let key = egui::Id::new("socdof-fonts");
     if ctx.data(|data| data.get_temp::<bool>(key).unwrap_or(false)) {
@@ -243,24 +260,77 @@ pub(crate) fn install_fonts(ctx: &Context) {
     }
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
-        "source-sans".to_owned(),
-        egui::FontData::from_static(include_bytes!("../assets/fonts/SourceSans3-Regular.ttf")),
+        "jakarta".to_owned(),
+        egui::FontData::from_static(include_bytes!(
+            "../assets/fonts/PlusJakartaSans-Regular.ttf"
+        )),
     );
     fonts.font_data.insert(
-        "source-sans-semibold".to_owned(),
-        egui::FontData::from_static(include_bytes!("../assets/fonts/SourceSans3-Semibold.ttf")),
+        "jakarta-semibold".to_owned(),
+        egui::FontData::from_static(include_bytes!(
+            "../assets/fonts/PlusJakartaSans-SemiBold.ttf"
+        )),
     );
-    let proportional = fonts
-        .families
-        .get_mut(&FontFamily::Proportional)
-        .expect("egui ships a proportional family");
-    proportional.insert(0, "source-sans".to_owned());
-    let fallback = proportional.clone();
-    let mut semibold_family = vec!["source-sans-semibold".to_owned(), "source-sans".to_owned()];
-    semibold_family.extend(fallback);
+    fonts.font_data.insert(
+        "jakarta-light".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/PlusJakartaSans-Light.ttf")),
+    );
+    // `font-extrabold` and `font-black` are part of the legacy type scale
+    // (`index.html:55` loads Plus Jakarta Sans up to 800).
+    fonts.font_data.insert(
+        "jakarta-extrabold".to_owned(),
+        egui::FontData::from_static(include_bytes!(
+            "../assets/fonts/PlusJakartaSans-ExtraBold.ttf"
+        )),
+    );
+    fonts.font_data.insert(
+        "jetbrains".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf")),
+    );
+    fonts.font_data.insert(
+        "jetbrains-bold".to_owned(),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/JetBrainsMono-Bold.ttf")),
+    );
+    let fallback = {
+        let proportional = fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .expect("egui ships a proportional family");
+        proportional.insert(0, "jakarta".to_owned());
+        proportional.clone()
+    };
+    let mut semibold_family = vec!["jakarta-semibold".to_owned(), "jakarta".to_owned()];
+    semibold_family.extend(fallback.clone());
     fonts
         .families
         .insert(FontFamily::Name("Semibold".into()), semibold_family);
+    let mut light_family = vec!["jakarta-light".to_owned(), "jakarta".to_owned()];
+    light_family.extend(fallback.clone());
+    fonts
+        .families
+        .insert(FontFamily::Name("Light".into()), light_family);
+    let mut heavy_family = vec![
+        "jakarta-extrabold".to_owned(),
+        "jakarta-semibold".to_owned(),
+        "jakarta".to_owned(),
+    ];
+    heavy_family.extend(fallback);
+    fonts
+        .families
+        .insert(FontFamily::Name("Heavy".into()), heavy_family);
+    // The legacy app sets slugs, clocks and shortcuts in JetBrains Mono, so the monospace family
+    // starts with it instead of egui's default face.
+    let monospace = fonts
+        .families
+        .get_mut(&FontFamily::Monospace)
+        .expect("egui ships a monospace family");
+    monospace.insert(0, "jetbrains".to_owned());
+    let mono_fallback = monospace.clone();
+    let mut mono_bold = vec!["jetbrains-bold".to_owned(), "jetbrains".to_owned()];
+    mono_bold.extend(mono_fallback);
+    fonts
+        .families
+        .insert(FontFamily::Name("MonoBold".into()), mono_bold);
     ctx.set_fonts(fonts);
     ctx.data_mut(|data| data.insert_temp(key, true));
 }

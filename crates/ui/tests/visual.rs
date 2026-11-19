@@ -38,8 +38,8 @@ fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
         SnapshotVariant::Accounting => Some("accounting_title"),
         SnapshotVariant::Pos => Some("pos_title"),
         SnapshotVariant::Therapie => Some("therapie_title"),
-        SnapshotVariant::Login => Some("auth_login_title"),
-        SnapshotVariant::Setup => Some("auth_setup_title"),
+        SnapshotVariant::Login => Some("auth_forgot_password"),
+        SnapshotVariant::Setup => Some("setup_language_title"),
         SnapshotVariant::Locked => Some("auth_unlock_password"),
         SnapshotVariant::Onboarding => Some("onboarding_title"),
         SnapshotVariant::Studio | SnapshotVariant::StudioData | SnapshotVariant::StudioLayout => {
@@ -105,6 +105,9 @@ fn primitives_match_the_golden_files() {
                 SnapshotVariant::Focused,
                 SnapshotVariant::Drawer,
                 SnapshotVariant::Desktop,
+                SnapshotVariant::DesktopCalculator,
+                SnapshotVariant::DesktopWidgets,
+                SnapshotVariant::DesktopEditor,
                 SnapshotVariant::StartMenu,
                 SnapshotVariant::StartMenuPower,
                 SnapshotVariant::Palette,
@@ -175,9 +178,12 @@ fn primitives_match_the_golden_files() {
                 }
 
                 if is_evolving_shell_scene(variant) {
+                    // The desktop clock widget keeps its 24 hour label (`00:00`), while the
+                    // taskbar prints the 12 hour form with seconds (`12:00:00 AM`); either one
+                    // proves the shell drew a live clock.
                     assert!(
-                        painted.contains("\"00:00\""),
-                        "{variant:?} scene is missing the HH:MM desktop clock ({language:?}, {appearance:?})"
+                        painted.contains("\"00:00\"") || painted.contains("\"12:00:00 AM\""),
+                        "{variant:?} scene is missing its desktop clock ({language:?}, {appearance:?})"
                     );
                     assert!(
                         actual.len() > 100,

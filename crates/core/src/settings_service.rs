@@ -143,10 +143,27 @@ fn preferences_key(user_id: Uuid) -> String {
     format!("{PREFERENCES_PREFIX}{user_id}")
 }
 
+/// Version of the desktop icon grid the persisted cells belong to.
+///
+/// Version 1 filled rows first: six columns, the next icon started the next row, so a cell read
+/// `(column, row)` in reading order. Version 2 follows the legacy desktop and fills columns first:
+/// six rows per column and the next icon starts a new column. Records written by an older build are
+/// converted once when they are loaded, so saved layouts keep their reading order instead of
+/// jumping across the desktop.
+pub const DESKTOP_GRID_VERSION: u32 = 2;
+
+/// Icons per column before the grid continues in the next column.
+pub const DESKTOP_GRID_ROWS: u32 = 6;
+
+/// Widest icon grid a saved layout may address.
+pub const DESKTOP_GRID_MAX_COLUMNS: u32 = 16;
+
 /// Persisted desktop icon layout for one account.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DesktopLayout {
+    /// Grid version the icon cells were written with; see [`DESKTOP_GRID_VERSION`].
+    pub grid_version: u32,
     /// Stable app slug to grid cell (column, row).
     pub icon_positions: BTreeMap<String, (u32, u32)>,
     /// Last normal window rectangle and maximize state, keyed by app slug.
@@ -184,21 +201,47 @@ fn desktop_layout_key(user_id: Uuid) -> String {
 }
 
 /// Loads an account's desktop layout. Unknown or older records safely fall back to defaults.
+///
+/// Layouts from before [`DESKTOP_GRID_VERSION`] are migrated in place, so a user who arranged icons
+/// on the row-first grid finds them in the same reading order on the column-first grid.
 pub fn desktop_layout(store: &Store, user_id: Uuid) -> CoreResult<DesktopLayout> {
-    match store.get_setting(&desktop_layout_key(user_id))? {
-        Some(value) => Ok(serde_json::from_value(value).unwrap_or_default()),
-        None => Ok(DesktopLayout::default()),
+    let mut layout = match store.get_setting(&desktop_layout_key(user_id))? {
+        Some(value) => serde_json::from_value(value).unwrap_or_default(),
+        None => DesktopLayout::default(),
+    };
+    migrate_icon_positions(&mut layout);
+    Ok(layout)
+}
+
+/// Converts row-first icon cells of version 1 into the column-first grid of version 2.
+///
+/// Both grids hold six cells per line, so the old row becomes the new column and the old column
+/// the new row: the icons keep their reading order without any cell leaving the grid.
+fn migrate_icon_positions(layout: &mut DesktopLayout) {
+    if layout.grid_version >= DESKTOP_GRID_VERSION {
+        return;
     }
+    for cell in layout.icon_positions.values_mut() {
+        *cell = (
+            cell.1.min(DESKTOP_GRID_MAX_COLUMNS - 1),
+            cell.0.min(DESKTOP_GRID_ROWS - 1),
+        );
+    }
+    layout.grid_version = DESKTOP_GRID_VERSION;
 }
 
 /// Saves a normalized desktop layout, ignoring malformed app slugs and excessive grid rows.
 pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout) -> CoreResult<()> {
     let normalized = DesktopLayout {
+        grid_version: DESKTOP_GRID_VERSION,
         icon_positions: layout
             .icon_positions
             .iter()
             .filter(|(slug, (column, row))| {
-                !slug.trim().is_empty() && slug.len() <= 64 && *column < 6 && *row < 256
+                !slug.trim().is_empty()
+                    && slug.len() <= 64
+                    && *column < DESKTOP_GRID_MAX_COLUMNS
+                    && *row < DESKTOP_GRID_ROWS
             })
             .map(|(slug, cell)| (slug.clone(), *cell))
             .collect(),
@@ -440,8 +483,8 @@ mod tests {
                 ("contacts".to_string(), (2, 1)),
                 ("settings".to_string(), (0, 3)),
                 ("".to_string(), (1, 1)),
-                ("invalid-column".to_string(), (6, 0)),
-                ("invalid-row".to_string(), (0, 256)),
+                ("invalid-column".to_string(), (DESKTOP_GRID_MAX_COLUMNS, 0)),
+                ("invalid-row".to_string(), (0, DESKTOP_GRID_ROWS)),
             ]
             .into_iter()
             .collect(),
@@ -471,6 +514,34 @@ mod tests {
             .expect("defaults")
             .icon_positions
             .is_empty());
+    }
+
+    #[test]
+    fn older_icon_positions_are_migrated_into_the_column_first_grid() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let legacy = serde_json::json!({
+            "icon_positions": {
+                "contacts": [0, 0],
+                "settings": [1, 0],
+                "invoices": [0, 1],
+                "products": [5, 0]
+            }
+        });
+        store
+            .put_setting(&desktop_layout_key(user), &legacy)
+            .expect("legacy layout stored");
+        let layout = desktop_layout(&store, user).expect("migrated layout");
+        assert_eq!(layout.grid_version, DESKTOP_GRID_VERSION);
+        // Row-first cells transpose into the column-first grid and keep the reading order.
+        assert_eq!(layout.icon_positions.get("contacts"), Some(&(0, 0)));
+        assert_eq!(layout.icon_positions.get("settings"), Some(&(0, 1)));
+        assert_eq!(layout.icon_positions.get("invoices"), Some(&(1, 0)));
+        assert_eq!(layout.icon_positions.get("products"), Some(&(0, 5)));
+        assert!(layout
+            .icon_positions
+            .values()
+            .all(|(column, row)| *column < DESKTOP_GRID_MAX_COLUMNS && *row < DESKTOP_GRID_ROWS));
     }
 
     #[test]
