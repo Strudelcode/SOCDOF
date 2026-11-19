@@ -278,8 +278,7 @@ pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle
     let commute_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "commute")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let percentage = |part: i64| {
         if total_km > 0 {
             ((part as f64 / total_km as f64) * 100.0).round() as i64
