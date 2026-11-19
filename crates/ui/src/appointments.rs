@@ -1780,19 +1780,18 @@ mod tests {
 
     #[test]
     fn exports_only_visible_local_appointments_to_icalendar() {
-        let (store, state, _texts) = seeded();
-        let mut state = state;
+        let (_store, mut state, _texts) = seeded();
         state.filter_status(Some(AppointmentStatus::Scheduled));
-        let export_path = std::env::temp_dir().join(format!("socdof-calendar-{}.ics", Uuid::new_v4()));
+        let export_path =
+            std::env::temp_dir().join(format!("socdof-calendar-{}.ics", Uuid::new_v4()));
         let bytes = state.export_ics(&export_path, SAMPLE_NOW_MS).expect("export");
         let content = std::fs::read_to_string(&export_path).expect("read export");
-        assert_eq!(bytes as usize, content.len());
+        assert_eq!(usize::try_from(bytes).expect("file length"), content.len());
         assert!(content.starts_with("BEGIN:VCALENDAR\\r\\n"));
         assert!(content.contains("BEGIN:VEVENT"));
         assert_eq!(content.matches("BEGIN:VEVENT").count(), 2);
         std::fs::remove_file(export_path).expect("cleanup");
-        drop(store);
-    }
+            }
 
     #[test]
     fn renders_month_week_day_detail_and_form() {
