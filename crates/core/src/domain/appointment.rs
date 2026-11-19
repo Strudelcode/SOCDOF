@@ -253,7 +253,7 @@ mod tests {
         appointment.location = Some("Room 2, north".to_string());
         appointment.notes = Some("Bring slides\nand notes".to_string());
         appointment.status = AppointmentStatus::Cancelled;
-        let ics = export_appointments_ics(&[appointment], 1_700_000_000_000);
+        let ics = export_appointments_ics(std::slice::from_ref(&appointment), 1_700_000_000_000);
 
         assert!(ics.starts_with("BEGIN:VCALENDAR\r\nVERSION:2.0"));
         assert!(ics.contains("DTSTAMP:20231114T221320Z"));
