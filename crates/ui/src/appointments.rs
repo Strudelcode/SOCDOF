@@ -1793,7 +1793,7 @@ mod tests {
         assert!(content.contains("BEGIN:VEVENT"));
         assert_eq!(content.matches("BEGIN:VEVENT").count(), 2);
         std::fs::remove_file(export_path).expect("cleanup");
-            }
+    }
 
     #[test]
     fn renders_month_week_day_detail_and_form() {
