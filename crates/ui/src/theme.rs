@@ -26,7 +26,7 @@ pub fn detect_system_appearance() -> Option<Appearance> {
             ])
             .output()
             .ok()?;
-        return parse_windows_theme(&String::from_utf8_lossy(&output.stdout));
+        parse_windows_theme(&String::from_utf8_lossy(&output.stdout))
     }
 
     #[cfg(target_os = "macos")]
@@ -36,36 +36,30 @@ pub fn detect_system_appearance() -> Option<Appearance> {
             .output()
             .ok()?;
         if !output.status.success() {
-            return Some(Appearance::Light);
-        }
-        return if String::from_utf8_lossy(&output.stdout)
+            Some(Appearance::Light)
+        } else if String::from_utf8_lossy(&output.stdout)
             .trim()
             .eq_ignore_ascii_case("dark")
         {
             Some(Appearance::Dark)
         } else {
             Some(Appearance::Light)
-        };
+        }
     }
 
     #[cfg(target_os = "linux")]
     {
-        if let Ok(output) = std::process::Command::new("gsettings")
+        let gnome_appearance = std::process::Command::new("gsettings")
             .args(["get", "org.gnome.desktop.interface", "color-scheme"])
             .output()
-        {
-            if output.status.success() {
-                if let Some(appearance) = parse_gnome_color_scheme(&String::from_utf8_lossy(&output.stdout)) {
-                    return Some(appearance);
-                }
-            }
-        }
-        if let Ok(theme) = std::env::var("GTK_THEME") {
-            if let Some(appearance) = parse_gtk_theme(&theme) {
-                return Some(appearance);
-            }
-        }
-        None
+            .ok()
+            .filter(|output| output.status.success())
+            .and_then(|output| parse_gnome_color_scheme(&String::from_utf8_lossy(&output.stdout)));
+        gnome_appearance.or_else(|| {
+            std::env::var("GTK_THEME")
+                .ok()
+                .and_then(|theme| parse_gtk_theme(&theme))
+        })
     }
 
     #[cfg(target_arch = "wasm32")]
