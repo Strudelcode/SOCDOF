@@ -153,7 +153,7 @@ impl PurchaseOrder {
                     kind: StockMoveKind::In,
                     // Divide before adding the remainder so even i64::MAX cannot overflow.
                     quantity: line.quantity_milli / 1_000
-                        + if line.quantity_milli % 1_000 != 0 { 1 } else { 0 },
+                        + (if line.quantity_milli % 1_000 != 0 { 1 } else { 0 }),
                     reason: Some(self.number.clone()),
                     created_at,
                 })
