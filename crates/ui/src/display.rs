@@ -90,7 +90,12 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
         Err("Physical display discovery is available in the native desktop app only.".to_string())
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_arch = "wasm32"
+    )))]
     {
         Err("Display discovery is not supported on this operating system.".to_string())
     }
