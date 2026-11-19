@@ -138,12 +138,12 @@ pub struct FleetTrip {
 impl FleetTrip {
     /// Distance between start and end, never negative.
     pub fn distance(start_km: i64, end_km: i64) -> i64 {
-        (end_km - start_km).max(0)
+        end_km.saturating_sub(start_km).max(0)
     }
 
     /// Tax allowance of the trip in cents (`0.30 EUR` per kilometre).
     pub fn allowance_cents(&self) -> i64 {
-        self.distance_km * COST_PER_KM_CENTS
+        self.distance_km.saturating_mul(COST_PER_KM_CENTS)
     }
 
     /// Validates the fields of the trip modal.
@@ -165,6 +165,9 @@ impl FleetTrip {
         }
         if self.distance_km <= 0 {
             return Err("Die Strecke muss groesser als 0 km sein".to_string());
+        }
+        if self.distance_km != self.end_km - self.start_km {
+            return Err("Die Strecke muss der Differenz aus End- und Startkilometerstand entsprechen".to_string());
         }
         if !is_time(&self.start_time) || !is_time(&self.end_time) {
             return Err("Zeiten muessen im Format HH:MM vorliegen".to_string());
@@ -207,7 +210,12 @@ impl FleetFuel {
         if units_milli <= 0 {
             return 0;
         }
-        (total_cost_cents * 10_000 + units_milli / 2) / units_milli
+        {
+            let numerator = i128::from(total_cost_cents)
+                .saturating_mul(10_000)
+                .saturating_add(i128::from(units_milli / 2));
+            (numerator / i128::from(units_milli)).clamp(0, i128::from(i64::MAX)) as i64
+        }
     }
 
     /// Validates the fields of the receipt modal.
@@ -256,7 +264,9 @@ pub struct FleetMetrics {
 
 /// Computes the KPI values exactly like the TypeScript `useMemo` block.
 pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle]) -> FleetMetrics {
-    let total_km: i64 = trips.iter().map(|trip| trip.distance_km).sum();
+    let total_km = trips
+        .iter()
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let business_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "business")
@@ -264,8 +274,7 @@ pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle
     let private_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "private")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let commute_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "commute")
@@ -286,8 +295,10 @@ pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle
         business_pct: percentage(business_km),
         private_pct: percentage(private_km),
         commute_pct: percentage(commute_km),
-        fuel_cost_cents: fuel.iter().map(|entry| entry.total_cost_cents).sum(),
-        tax_allowance_cents: business_km * COST_PER_KM_CENTS,
+        fuel_cost_cents: fuel.iter().fold(0_i64, |total, entry| {
+            total.saturating_add(entry.total_cost_cents)
+        }),
+        tax_allowance_cents: business_km.saturating_mul(COST_PER_KM_CENTS),
         active_vehicles: vehicles
             .iter()
             .filter(|vehicle| vehicle.status == "active")
