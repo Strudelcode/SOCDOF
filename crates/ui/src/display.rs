@@ -159,7 +159,7 @@ fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, S
             }
             serde_json::Value::Object(object) => {
                 if let Some(resolution) = object
-                    .get("spdisplays_resolution")
+                    .get(RESOLUTION_KEY)
                     .and_then(serde_json::Value::as_str)
                 {
                     if let Some((width, height)) = parse_resolution(resolution) {
