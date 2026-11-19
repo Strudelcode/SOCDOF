@@ -55,23 +55,39 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
 
     #[cfg(target_os = "linux")]
     {
-        if let Ok(output) = std::process::Command::new("xrandr")
-            .arg("--listmonitors")
-            .output()
-        {
+        let wayland_session = std::env::var_os("WAYLAND_DISPLAY").is_some();
+        if !wayland_session {
+            if let Ok(output) = std::process::Command::new("xrandr")
+                .arg("--listmonitors")
+                .output()
+            {
+                if output.status.success() {
+                    if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
+                        return Ok(monitors);
+                    }
+                }
+            }
+        }
+        if let Ok(output) = std::process::Command::new("wlr-randr").output() {
             if output.status.success() {
-                if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
+                if let Ok(monitors) = parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout)) {
                     return Ok(monitors);
                 }
             }
         }
-        let output = std::process::Command::new("wlr-randr")
-            .output()
-            .map_err(|error| format!("Neither xrandr nor wlr-randr is available for display detection: {error}"))?;
-        if !output.status.success() {
-            return Err("The available Linux display utility could not read the active layout.".to_string());
+        if wayland_session {
+            if let Ok(output) = std::process::Command::new("xrandr")
+                .arg("--listmonitors")
+                .output()
+            {
+                if output.status.success() {
+                    if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
+                        return Ok(monitors);
+                    }
+                }
+            }
         }
-        return parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout));
+        Err("No supported Linux display utility found a readable active monitor layout. Install xrandr (X11) or wlr-randr (Wayland).".to_string())
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -222,7 +238,7 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
     };
 
     for line in output.lines() {
-        if !line.trim().is_empty() && !line.starts_with(char::is_whitespace) {
+        if line.chars().next().is_some_and(|character| !character.is_whitespace()) {
             finish(current.take(), enabled, &mut monitors);
             let id = line.split_whitespace().next().unwrap_or("Display").to_string();
             let label = line
