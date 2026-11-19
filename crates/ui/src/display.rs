@@ -19,7 +19,7 @@ pub struct DisplayMonitor {
     /// Current height in physical pixels.
     pub height: u32,
     /// Whether the operating system marks this display as primary.
-    pub primary: bool,
+    pub primary: Option<bool>,
 }
 
 /// Detects connected displays using the current operating system's read-only display API.
@@ -91,7 +91,7 @@ fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
                 y: entry.get("y")?.as_i64()? as i32,
                 width: entry.get("width")?.as_u64()? as u32,
                 height: entry.get("height")?.as_u64()? as u32,
-                primary: entry.get("primary")?.as_bool()?,
+                primary: Some(entry.get("primary")?.as_bool()?),
             })
         })
         .filter(|monitor| monitor.width > 0 && monitor.height > 0)
@@ -127,7 +127,7 @@ fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, S
                             y: 0,
                             width,
                             height,
-                            primary: monitors.is_empty(),
+                            primary: None,
                         });
                     }
                 }
@@ -188,7 +188,7 @@ fn parse_xrandr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
             y,
             width,
             height,
-            primary: flags.contains('*'),
+            primary: Some(flags.contains('*')),
         });
     }
     if monitors.is_empty() {
@@ -221,9 +221,9 @@ mod tests {
         assert_eq!(monitors.len(), 2);
         assert_eq!(monitors[0].label, "DP-1");
         assert_eq!((monitors[0].width, monitors[0].height), (2560, 1440));
-        assert!(monitors[0].primary);
+        assert_eq!(monitors[0].primary, Some(true));
         assert_eq!((monitors[1].x, monitors[1].y), (2560, 120));
-        assert!(!monitors[1].primary);
+        assert_eq!(monitors[1].primary, Some(false));
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod tests {
         let single = r#"{"id":"\\\\.\\DISPLAY1","label":"\\\\.\\DISPLAY1","x":0,"y":0,"width":1920,"height":1080,"primary":true}"#;
         let monitor = parse_windows_monitors(single).expect("single monitor");
         assert_eq!(monitor.len(), 1);
-        assert!(monitor[0].primary);
+        assert_eq!(monitor[0].primary, Some(true));
         assert_eq!((monitor[0].width, monitor[0].height), (1920, 1080));
 
         let multiple = r#"[{"id":"DISPLAY1","label":"DISPLAY1","x":0,"y":0,"width":1920,"height":1080,"primary":true},{"id":"DISPLAY2","label":"DISPLAY2","x":1920,"y":0,"width":2560,"height":1440,"primary":false}]"#;
@@ -254,7 +254,7 @@ mod tests {
         assert_eq!(monitors.len(), 1);
         assert_eq!(monitors[0].label, "Built-in Retina Display");
         assert_eq!((monitors[0].width, monitors[0].height), (3024, 1964));
-        assert!(monitors[0].primary);
+        assert_eq!(monitors[0].primary, None);
     }
 
     #[test]
