@@ -19,7 +19,7 @@ use socdof_core::settings_service;
 use socdof_core::store::Store;
 use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::invoice_templates::native_asset_picker;
-use socdof_ui::theme::{Appearance, Theme};
+use socdof_ui::theme::Appearance;
 
 struct LoadedStore {
     store: Store,
@@ -402,7 +402,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             // theme only from Gallery::update is too late on some native backends: the
             // first frame can resolve RichText against the custom Semibold family before
             // epaint has rebuilt its font atlas.
-            Theme::new(Appearance::Dark, "indigo").apply(&creation.egui_ctx);
+            socdof_ui::theme::install_fonts(&creation.egui_ctx);
             Box::new(DesktopApp::new())
         }),
     )?;
