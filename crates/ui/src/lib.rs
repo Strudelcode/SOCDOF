@@ -30,7 +30,7 @@ pub mod auth_kit;
 pub mod auth_screens;
 pub mod calculator;
 pub mod calendar;
-mod chrome;
+pub mod chrome;
 pub mod components;
 pub mod contacts;
 pub mod controls;
