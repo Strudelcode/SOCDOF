@@ -517,7 +517,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 
 - **Symptom:** The native Products → Journal summary did not match the TypeScript `StockMovesModule` summary. Rust counted warehouse-originating movements as outbound and reported virtual transfers as a count; TypeScript classifies outbound quantity by the destination `Virtual/Customers` and adjustment quantity by `Virtual/Inventory-Loss` / `Virtual/Scrap`.
 - **Root cause:** The Rust UI summary used a different interpretation of the double-entry journal than the reference screen.
-- **Fix:** `crates/ui/src/stock_moves.rs` now derives four summary values from the currently visible rows: total movements, inbound quantity, outbound-to-customers quantity, and adjustment quantity. The location filter is applied before the summary, matching the filtered TypeScript view.
+- **Fix:** `crates/ui/src/stock_moves.rs` now derives four summary values from the currently visible rows: total movements, inbound quantity, outbound-to-customers quantity, and adjustment quantity. The summary intentionally uses the complete journal collection, independent of table search/location filters, matching the TypeScript `stats` calculation over the unfiltered `stockMoves` prop.
 - **Regression coverage:** Added a mixed-location test that checks the exact totals, including warehouse-to-loss, warehouse-to-scrap and virtual-only transfers.
 - **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the locale catalogue.
 - **Verification:** Committed on `feature/rust-stock-journal-parity`; CI has not yet run on this branch. Do not mark this fix CI-verified until the new PR workflow passes.
