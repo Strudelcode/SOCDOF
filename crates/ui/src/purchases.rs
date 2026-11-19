@@ -567,7 +567,7 @@ fn validation_key(code: &str) -> &'static str {
         "line_tax_rate_out_of_range" => "purchases_error_tax",
         "line_total_overflow" => "purchases_error_line_total_overflow",
         "order_total_overflow" => "purchases_error_order_total_overflow",
-        "order_not_receivable" => "purchases_error_receive",
+        "order_not_receivable" | "order_receive_requires_goods_receipt" => "purchases_error_receive",
         _ => "purchases_error_save",
     }
 }
@@ -1563,6 +1563,14 @@ mod tests {
         assert_eq!(
             store.find_purchase_order(order.id).unwrap().unwrap().status,
             PurchaseOrderStatus::Ordered
+        );
+        assert!(store
+            .set_purchase_order_status(order.id, PurchaseOrderStatus::Received, SAMPLE_NOW_MS)
+            .is_err());
+        assert_eq!(
+            store.find_purchase_order(order.id).unwrap().unwrap().status,
+            PurchaseOrderStatus::Ordered,
+            "received status must not bypass the stock receipt transaction"
         );
 
         state.receive(&store, SAMPLE_NOW_MS).expect("receive");
