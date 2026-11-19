@@ -565,6 +565,8 @@ fn validation_key(code: &str) -> &'static str {
         "line_quantity_invalid" => "purchases_error_quantity",
         "line_price_negative" => "purchases_error_price",
         "line_tax_rate_out_of_range" => "purchases_error_tax",
+        "line_total_overflow" => "purchases_error_line_total_overflow",
+        "order_total_overflow" => "purchases_error_order_total_overflow",
         "order_not_receivable" => "purchases_error_receive",
         _ => "purchases_error_save",
     }
