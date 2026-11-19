@@ -267,7 +267,7 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - SMTP port validation is strict (1–65535). SMTP passwords are not stored in profile data; an OS credential-store integration is required before adding that field.
 - Added a native Shortcuts section for implemented Rust-host hotkeys and split Language from Personalization in Settings.
 - Existing General, Security, Backup, Users, Roles, Updates and Portable sections remain available.
-- Still open against TypeScript: account recovery questions, avatars, multi-monitor/display configuration, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
+- Still open against TypeScript: account recovery questions, avatars, monitor layout editing and OS-level resolution/orientation controls, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
 - Verification: current-head CI and payment persistence regression test pending.
 
 
