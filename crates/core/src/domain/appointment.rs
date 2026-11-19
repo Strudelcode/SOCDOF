@@ -249,20 +249,20 @@ mod tests {
     #[test]
     fn exports_valid_utc_icalendar_with_escaped_text_and_status() {
         let mut appointment = sample();
-        appointment.title = "Review, project; release\\\nNext".to_string();
+        appointment.title = "Review, project; release\nNext".to_string();
         appointment.location = Some("Room 2, north".to_string());
-        appointment.notes = Some("Bring slides\\\nand notes".to_string());
+        appointment.notes = Some("Bring slides\nand notes".to_string());
         appointment.status = AppointmentStatus::Cancelled;
-        let ics = export_appointments_ics(&[appointment.clone()], 1_700_000_000_000);
+        let ics = export_appointments_ics(&[appointment], 1_700_000_000_000);
 
-        assert!(ics.starts_with("BEGIN:VCALENDAR\\r\\nVERSION:2.0"));
+        assert!(ics.starts_with("BEGIN:VCALENDAR\r\nVERSION:2.0"));
         assert!(ics.contains("DTSTAMP:20231114T221320Z"));
         assert!(ics.contains("DTSTART:20231114T221320Z"));
-        assert!(ics.contains("SUMMARY:Review\\\\, project\\\\; release\\\\\\\\\\\\nNext"));
-        assert!(ics.contains("LOCATION:Room 2\\\\, north"));
-        assert!(ics.contains("DESCRIPTION:Bring slides\\\\\\\\\\\\n and notes") == false);
+        assert!(ics.contains("SUMMARY:Review\\, project\\; release\\nNext"));
+        assert!(ics.contains("LOCATION:Room 2\\, north"));
+        assert!(ics.contains("DESCRIPTION:Bring slides\\nand notes"));
         assert!(ics.contains("STATUS:CANCELLED"));
-        assert!(ics.ends_with("END:VCALENDAR\\r\\n"));
+        assert!(ics.ends_with("END:VCALENDAR\r\n"));
     }
 
     #[test]
@@ -278,7 +278,7 @@ mod tests {
             + first_event + 1;
         assert!(ics[first_event..].starts_with("DTSTART:20231114"));
         assert!(ics[second_event..].starts_with("DTSTART:20231115"));
-        assert!(ics.lines().all(|line| line.len() <= 75));
+        assert!(ics.lines().all(|line| line.trim_end_matches('\\r').len() <= 75));
     }
 
     #[test]
