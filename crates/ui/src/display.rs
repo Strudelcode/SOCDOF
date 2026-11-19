@@ -133,23 +133,23 @@ fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, S
                 }
             }
             serde_json::Value::Object(object) => {
-                if let Some(resolution) = object.get("spdisplays_resolution").and_then(serde_json::Value::as_str) {
-                    if let Some((width, height)) = parse_resolution(resolution) {
-                        let label = ["sppci_model", "spdisplays_display", "spdisplays_name"]
-                            .iter()
-                            .find_map(|key| object.get(*key).and_then(serde_json::Value::as_str))
-                            .unwrap_or("Display")
-                            .to_string();
-                        monitors.push(DisplayMonitor {
-                            id: label.clone(),
-                            label,
-                            x: 0,
-                            y: 0,
-                            width,
-                            height,
-                            primary: None,
-                        });
-                    }
+                if let Some(resolution) = object.get("spdisplays_resolution").and_then(serde_json::Value::as_str)
+                    && let Some((width, height)) = parse_resolution(resolution)
+                {
+                    let label = ["sppci_model", "spdisplays_display", "spdisplays_name"]
+                        .iter()
+                        .find_map(|key| object.get(*key).and_then(serde_json::Value::as_str))
+                        .unwrap_or("Display")
+                        .to_string();
+                    monitors.push(DisplayMonitor {
+                        id: label.clone(),
+                        label,
+                        x: 0,
+                        y: 0,
+                        width,
+                        height,
+                        primary: None,
+                    });
                 }
                 for child in object.values() {
                     collect(child, monitors);
@@ -225,10 +225,8 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
     let mut enabled = true;
 
     let finish = |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
-        if enabled {
-            if let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
-                monitors.push(monitor);
-            }
+        if enabled && let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
+            monitors.push(monitor);
         }
     };
 
@@ -263,19 +261,18 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
             enabled = value.trim().eq_ignore_ascii_case("yes");
         } else if let Some(value) = detail.strip_prefix("Position:") {
             let mut coordinates = value.trim().split(',');
-            if let (Some(x), Some(y)) = (coordinates.next(), coordinates.next()) {
-                if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
-                    monitor.x = x;
-                    monitor.y = y;
-                }
+            if let (Some(x), Some(y)) = (coordinates.next(), coordinates.next())
+                && let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse())
+            {
+                monitor.x = x;
+                monitor.y = y;
             }
-        } else if detail.contains("current)") || (monitor.width == 0 && detail.contains(" px,")) {
-            if let Some(dimensions) = detail.split_whitespace().next() {
-                if let Some((width, height)) = parse_mode_dimensions(dimensions) {
-                    monitor.width = width;
-                    monitor.height = height;
-                }
-            }
+        } else if (detail.contains("current)") || (monitor.width == 0 && detail.contains(" px,")))
+            && let Some(dimensions) = detail.split_whitespace().next()
+            && let Some((width, height)) = parse_mode_dimensions(dimensions)
+        {
+            monitor.width = width;
+            monitor.height = height;
         }
     }
     finish(current, enabled, &mut monitors);
