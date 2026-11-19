@@ -158,13 +158,21 @@ pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i6
             &mut output,
             &format!("SUMMARY:{}", escape_ical_text(&appointment.title)),
         );
-        if let Some(location) = appointment.location.as_deref().filter(|value| !value.trim().is_empty()) {
+        if let Some(location) = appointment
+            .location
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
             push_ical_line(
                 &mut output,
                 &format!("LOCATION:{}", escape_ical_text(location)),
             );
         }
-        if let Some(notes) = appointment.notes.as_deref().filter(|value| !value.trim().is_empty()) {
+        if let Some(notes) = appointment
+            .notes
+            .as_deref()
+            .filter(|value| !value.trim().is_empty())
+        {
             push_ical_line(
                 &mut output,
                 &format!("DESCRIPTION:{}", escape_ical_text(notes)),
@@ -172,9 +180,9 @@ pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i6
         }
         let status = match appointment.status {
             AppointmentStatus::Scheduled => "TENTATIVE",
-            AppointmentStatus::Confirmed | AppointmentStatus::Completed | AppointmentStatus::NoShow => {
-                "CONFIRMED"
-            }
+            AppointmentStatus::Confirmed
+            | AppointmentStatus::Completed
+            | AppointmentStatus::NoShow => "CONFIRMED",
             AppointmentStatus::Cancelled => "CANCELLED",
         };
         push_ical_line(&mut output, &format!("STATUS:{status}"));
@@ -274,11 +282,16 @@ mod tests {
         let earlier = sample();
         let ics = export_appointments_ics(&[later, earlier], 1_700_000_000_000);
         let first_event = ics.find("DTSTART:").expect("first start");
-        let second_event = ics[first_event + 1..].find("DTSTART:").expect("second start")
-            + first_event + 1;
+        let second_event = ics[first_event + 1..]
+            .find("DTSTART:")
+            .expect("second start")
+            + first_event
+            + 1;
         assert!(ics[first_event..].starts_with("DTSTART:20231114"));
         assert!(ics[second_event..].starts_with("DTSTART:20231115"));
-        assert!(ics.lines().all(|line| line.trim_end_matches('\r').len() <= 75));
+        assert!(ics
+            .lines()
+            .all(|line| line.trim_end_matches('\r').len() <= 75));
     }
 
     #[test]
