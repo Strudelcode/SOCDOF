@@ -18,7 +18,7 @@ pub struct DisplayMonitor {
     pub width: u32,
     /// Current height in physical pixels.
     pub height: u32,
-    /// Whether the operating system marks this display as primary.
+    /// Primary-display marker reported by the operating system; `None` means unknown.
     pub primary: Option<bool>,
 }
 
@@ -58,36 +58,29 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
     #[cfg(target_os = "linux")]
     {
         let wayland_session = std::env::var_os("WAYLAND_DISPLAY").is_some();
-        if !wayland_session {
-            if let Ok(output) = std::process::Command::new("xrandr")
+        if !wayland_session
+            && let Ok(output) = std::process::Command::new("xrandr")
                 .arg("--listmonitors")
                 .output()
-            {
-                if output.status.success() {
-                    if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
-                        return Ok(monitors);
-                    }
-                }
-            }
+            && output.status.success()
+            && let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
+        {
+            return Ok(monitors);
         }
-        if let Ok(output) = std::process::Command::new("wlr-randr").output() {
-            if output.status.success() {
-                if let Ok(monitors) = parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout)) {
-                    return Ok(monitors);
-                }
-            }
+        if let Ok(output) = std::process::Command::new("wlr-randr").output()
+            && output.status.success()
+            && let Ok(monitors) = parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout))
+        {
+            return Ok(monitors);
         }
-        if wayland_session {
-            if let Ok(output) = std::process::Command::new("xrandr")
+        if wayland_session
+            && let Ok(output) = std::process::Command::new("xrandr")
                 .arg("--listmonitors")
                 .output()
-            {
-                if output.status.success() {
-                    if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
-                        return Ok(monitors);
-                    }
-                }
-            }
+            && output.status.success()
+            && let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
+        {
+            return Ok(monitors);
         }
         Err("No supported Linux display utility found a readable active monitor layout. Install xrandr (X11) or wlr-randr (Wayland).".to_string())
     }
