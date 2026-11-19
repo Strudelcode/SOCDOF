@@ -201,7 +201,7 @@ impl eframe::App for DesktopApp {
         };
         ctx.request_repaint_after(repaint_after);
         // Refresh the OS preference occasionally, not on every immediate-mode frame.
-        if runtime.last_system_theme_check.elapsed() >= Duration::from_secs(10) {
+        if runtime.last_system_theme_check.elapsed() >= Duration::from_secs(60) {
             if let Some(appearance) = socdof_ui::theme::detect_system_appearance() {
                 runtime.system_appearance = Some(appearance);
             }
