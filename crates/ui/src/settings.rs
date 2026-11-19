@@ -2184,8 +2184,8 @@ fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayM
     for (index, (monitor, origin)) in monitors.iter().zip(origins).enumerate() {
         let rect = egui::Rect::from_min_size(
             egui::pos2(
-                offset.x + (origin.0 - min_x) as f32 * scale,
-                offset.y + (origin.1 - min_y) as f32 * scale,
+                offset.x + origin.0.saturating_sub(min_x) as f32 * scale,
+                offset.y + origin.1.saturating_sub(min_y) as f32 * scale,
             ),
             Vec2::new(monitor.width as f32 * scale, monitor.height as f32 * scale),
         );
