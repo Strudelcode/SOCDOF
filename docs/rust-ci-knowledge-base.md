@@ -531,3 +531,18 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression coverage:** Added an i64::MAX stock-rounding boundary test, line/order amount overflow validation tests, and a purchase lifecycle assertion that direct Received status changes fail without altering the Ordered state.
 - **Translations:** Added dedicated DE/EN/FR/ES messages for oversized line and order totals and mapped the new validation codes in the native purchase screen.
 - **Verification:** Changes are committed to the PR branch. CI must pass on the latest PR head before this entry is marked verified.
+
+
+## RUST-CI-017 — WASM host cannot access shared chrome module (2026-11-19)
+
+- **Symptom:** The Trunk/WASM job failed with E0603 because `crates/web/src/lib.rs` imports `socdof_ui::chrome::{app_chrome, app_window}`, while the UI crate declared the module private.
+- **Root cause:** The browser host and native shell share the chrome implementation, but the module visibility was not aligned with that cross-crate use.
+- **Fix:** Expose the documented `chrome` module publicly from `crates/ui/src/lib.rs`; its functions were already public and re-exported for native consumers.
+- **Verification:** Added to the current PR head; WASM/Trunk rerun is pending.
+
+## RUST-CI-018 — Native startup resolves custom font before font atlas initialization (2026-11-19)
+
+- **Symptom:** Linux GUI smoke launched the native process but no visible window appeared; the process panicked with `FontFamily::Name("Semibold") is not bound to any fonts`.
+- **Root cause:** The desktop host installed its custom theme/fonts from the first app update. On the first native frame, epaint could resolve a Semibold RichText family before the custom font atlas had been rebuilt.
+- **Fix:** The eframe creation callback now applies the initial theme to `creation.egui_ctx` before the first frame is rendered. Normal per-account theme application remains in the gallery update path.
+- **Verification:** Added to the current PR head; Linux GUI smoke rerun is pending. The startup screen and native window visibility checks remain enabled.
