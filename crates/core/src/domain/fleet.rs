@@ -527,12 +527,22 @@ mod tests {
         assert_eq!(metrics.tax_allowance_cents, 900);
         assert_eq!(metrics.active_vehicles, 1);
         assert_eq!(FleetFuel::price_per_unit(8_000, 40_000), 2_000);
+        assert_eq!(FleetFuel::price_per_unit(1, 20_000), 1);
+        assert_eq!(FleetFuel::price_per_unit(8_000, 0), 0);
         assert_eq!(FleetTrip::distance(i64::MAX, i64::MIN), 0);
         assert_eq!(FleetFuel::price_per_unit(i64::MAX, 1), i64::MAX);
 
         let huge_business = trip(Uuid::new_v4(), vehicle.id, "business", i64::MAX / 2);
         assert_eq!(huge_business.allowance_cents(), i64::MAX);
-        let saturated = metrics(&[huge_business.clone(), huge_business], &fuel, &[vehicle]);
+        let saturated = metrics(
+            &[
+                huge_business.clone(),
+                huge_business,
+                trip(Uuid::new_v4(), vehicle.id, "business", 30),
+            ],
+            &fuel,
+            &[vehicle],
+        );
         assert_eq!(saturated.total_km, i64::MAX);
         assert_eq!(saturated.business_km, i64::MAX);
         assert_eq!(saturated.tax_allowance_cents, i64::MAX);
