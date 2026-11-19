@@ -308,3 +308,10 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - ThemeMode::System now reads the native Windows AppsUseLightTheme registry value, macOS AppleInterfaceStyle preference, or GNOME color-scheme/GTK_THEME preference on Linux, with the window backend's initial appearance as fallback.
 - The running desktop rechecks the OS preference every ten seconds, but only applies it to accounts whose theme mode is System.
 - The native display screen applies the persisted UI zoom and a per-window warm night-light tint; neither changes the operating system's global display settings.
+
+
+### Local calendar export (2026-11-19)
+
+- The native calendar exports the currently visible, search/status-filtered local appointments to RFC 5545 iCalendar (.ics).
+- Exported events include stable UIDs, UTC start/end timestamps, creation/update metadata, escaped summary/location/description text and lifecycle status.
+- Lines are folded at the RFC 5545 75-octet limit. The export is local and does not connect to Google Calendar or any external calendar service.
