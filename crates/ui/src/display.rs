@@ -197,7 +197,7 @@ fn parse_xrandr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
         let Some((width, height, x, y)) = parse_xrandr_geometry(geometry) else {
             continue;
         };
-        let label = flags.trim_start_matches(|character| character == '+' || character == '*').to_string();
+        let label = flags.trim_start_matches(['+', '*']).to_string();
         if label.is_empty() {
             continue;
         }
@@ -224,16 +224,25 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
     let mut current: Option<DisplayMonitor> = None;
     let mut enabled = true;
 
-    let finish = |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
-        if enabled && let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
-            monitors.push(monitor);
-        }
-    };
+    let finish =
+        |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
+            if enabled && let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
+                monitors.push(monitor);
+            }
+        };
 
     for line in output.lines() {
-        if line.chars().next().is_some_and(|character| !character.is_whitespace()) {
+        if line
+            .chars()
+            .next()
+            .is_some_and(|character| !character.is_whitespace())
+        {
             finish(current.take(), enabled, &mut monitors);
-            let id = line.split_whitespace().next().unwrap_or("Display").to_string();
+            let id = line
+                .split_whitespace()
+                .next()
+                .unwrap_or("Display")
+                .to_string();
             let label = line
                 .split('"')
                 .nth(1)
@@ -333,7 +342,10 @@ mod tests {
     #[test]
     fn rejects_missing_or_invalid_monitor_geometry() {
         assert!(parse_xrandr_monitors("Monitors: 1\n").is_err());
-        assert_eq!(parse_xrandr_geometry("1920x1080+0+0"), Some((1920, 1080, 0, 0)));
+        assert_eq!(
+            parse_xrandr_geometry("1920x1080+0+0"),
+            Some((1920, 1080, 0, 0))
+        );
         assert_eq!(parse_xrandr_geometry("0x1080+0+0"), None);
     }
 
