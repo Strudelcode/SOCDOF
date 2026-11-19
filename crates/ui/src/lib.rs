@@ -37,6 +37,7 @@ pub mod controls;
 pub mod dashboard;
 pub mod desktop;
 pub mod documentation;
+pub mod display;
 pub mod editor;
 pub mod fleet;
 pub mod focus;
