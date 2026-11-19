@@ -544,7 +544,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 
 - **Symptom:** Linux GUI smoke launched the native process but no visible window appeared; the process panicked with `FontFamily::Name("Semibold") is not bound to any fonts`.
 - **Root cause:** The desktop host installed its custom theme/fonts from the first app update. On the first native frame, epaint could resolve a Semibold RichText family before the custom font atlas had been rebuilt.
-- **Fix:** The eframe creation callback now applies the initial theme to `creation.egui_ctx` before the first frame is rendered. Normal per-account theme application remains in the gallery update path.
+- **Fix:** The eframe creation callback now calls the public font installer on `creation.egui_ctx` before the first frame is rendered. It does not set colors or dark mode, so the existing OS appearance detection and per-account theme resolution remain intact.
 - **Verification:** Added to the current PR head; Linux GUI smoke rerun is pending. The startup screen and native window visibility checks remain enabled.
 
 
