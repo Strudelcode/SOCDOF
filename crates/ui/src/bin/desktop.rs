@@ -197,7 +197,7 @@ impl eframe::App for DesktopApp {
                 Duration::from_secs(15)
             }
         } else {
-            Duration::from_secs(10)
+            Duration::from_secs(15)
         };
         ctx.request_repaint_after(repaint_after);
         // Refresh the OS preference occasionally, not on every immediate-mode frame.
@@ -229,7 +229,7 @@ impl eframe::App for DesktopApp {
         if user_follows_system {
             runtime.state.appearance = system_appearance;
         }
-        if runtime.last_heartbeat.elapsed() >= Duration::from_secs(5) {
+        if runtime.last_heartbeat.elapsed() >= Duration::from_secs(15) {
             if let Err(error) = runtime.lock.heartbeat(now_millis()) {
                 eprintln!("SOCDOF lock heartbeat failed: {error}");
             }
