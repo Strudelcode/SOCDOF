@@ -555,3 +555,11 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** Register `stock_journal_adjustment`, `stock_journal_total`, `purchases_error_line_total_overflow` and `purchases_error_order_total_overflow` in sorted order in `UI_KEYS`; the four locale packs and `catalogue-keys.json` now contain the same keys.
 - **Regression coverage:** Existing tests `every_embedded_language_defines_all_ui_keys`, `a_missing_pack_folder_keeps_the_embedded_texts` and `the_committed_key_inventory_matches_the_catalogue` verify the full key set and counts.
 - **Verification:** Fix is committed on the PR branch; full workspace tests are pending on the latest head.
+
+
+## RUST-CI-020 — macOS objc2 pin was installed but not selected by Cargo (2026-11-19)
+
+- **Symptom:** The macOS universal desktop build failed inside `objc2 0.4.1` with E0277 associated-type/Iterator errors, despite the workflow installing Rust 1.90.0 for that target.
+- **Root cause:** The repository's `rust-toolchain.toml` selects stable (1.100.0). Installing 1.90.0 and setting it as rustup's default did not override the repository toolchain file, so Cargo still compiled the legacy objc2 dependency with 1.100.0.
+- **Fix:** Set `RUSTUP_TOOLCHAIN=1.90.0` explicitly on the macOS native desktop build and Tauri bundle build steps. Linux and Windows continue to use stable.
+- **Verification:** Workflow change is on the PR branch; the next macOS build must show rustc 1.90.0 and complete both universal slices and Tauri packaging.
