@@ -148,7 +148,9 @@ impl PurchaseOrder {
                     id: Uuid::new_v4(),
                     product_id,
                     kind: StockMoveKind::In,
-                    quantity: (line.quantity_milli + 999) / 1_000,
+                    // Divide before adding the remainder so even i64::MAX cannot overflow.
+                    quantity: line.quantity_milli / 1_000
+                        + i64::from(line.quantity_milli % 1_000 != 0),
                     reason: Some(self.number.clone()),
                     created_at,
                 })
@@ -300,6 +302,16 @@ mod tests {
         assert_eq!(moves[0].reason.as_deref(), Some("BE-2026-0001"));
         assert_eq!(moves[0].created_at, 42);
         assert!(order.lines[1].product_id.is_none());
+    }
+
+    #[test]
+    fn stock_move_rounding_is_safe_at_the_integer_limit() {
+        let mut order = sample();
+        order.lines[0].quantity_milli = i64::MAX;
+
+        let moves = order.stock_moves(42);
+        assert_eq!(moves.len(), 1);
+        assert_eq!(moves[0].quantity, i64::MAX / 1_000 + 1);
     }
 
     #[test]
