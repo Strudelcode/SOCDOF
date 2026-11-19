@@ -260,8 +260,7 @@ pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle
     let business_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "business")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let private_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "private")
@@ -470,6 +469,10 @@ mod tests {
         trip.distance_km = 10;
         trip.purpose = "holiday".to_string();
         assert!(trip.validate().is_err());
+
+        let mut inconsistent = trip(Uuid::new_v4(), Uuid::new_v4(), "business", 30);
+        inconsistent.distance_km = 29;
+        assert!(inconsistent.validate().is_err(), "stored distance must match odometer readings");
     }
 
     #[test]
@@ -514,6 +517,15 @@ mod tests {
         assert_eq!(metrics.tax_allowance_cents, 900);
         assert_eq!(metrics.active_vehicles, 1);
         assert_eq!(FleetFuel::price_per_unit(8_000, 40_000), 2_000);
+        assert_eq!(FleetTrip::distance(i64::MAX, i64::MIN), 0);
+        assert_eq!(FleetFuel::price_per_unit(i64::MAX, 1), i64::MAX);
+
+        let huge_business = trip(Uuid::new_v4(), vehicle.id, "business", i64::MAX / 2);
+        assert_eq!(huge_business.allowance_cents(), i64::MAX);
+        let saturated = metrics(&[huge_business.clone(), huge_business], &fuel, &[vehicle]);
+        assert_eq!(saturated.total_km, i64::MAX);
+        assert_eq!(saturated.business_km, i64::MAX);
+        assert_eq!(saturated.tax_allowance_cents, i64::MAX);
 
         let csv = csv(&trips);
         assert!(csv.starts_with("\u{feff}Datum;Uhrzeit;Fahrzeug"));
