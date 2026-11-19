@@ -610,3 +610,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Regression coverage:** Verify inconsistent trip distances and malformed/out-of-range times are rejected; negative/overflowing distance inputs do not wrap; unit-price rounding handles half units and zero quantities; very large trip/fuel values saturate instead of panicking or wrapping.
 - **Compatibility:** Normal valid TypeScript fleet entries retain the same distance, 0.30-per-kilometre allowance, unit-price rounding and KPI values. No database schema change is required.
 - **Verification:** The new core tests are part of the latest PR-head Rust workflow; do not treat this change as verified until Format, Clippy and workspace tests pass.
+
+
+## RUST-CI-026 — Rust 2021 compatibility in native display detection (2026-11-19)
+
+- **Symptom:** Stable Rust rejected the native display parser in the workspace, WebAssembly and desktop builds with `let chains are only allowed in Rust 2024 or later`.
+- **Root cause:** The display-discovery implementation used let-chain syntax while the workspace packages still inherit the Rust 2021 edition. Installing a newer stable toolchain does not change the crate edition.
+- **Fix:** Rewrite the Linux utility fallbacks, macOS resolution parsing and Wayland output parser as explicit nested conditionals. Keep the workspace edition unchanged rather than broadening the migration to Rust 2024 just to accommodate one parser.
+- **Regression coverage:** Existing xrandr, wlr-randr, Windows JSON and macOS system_profiler parser tests remain unchanged and exercise the same branches.
+- **Verification:** The next latest-head Format, Clippy, WASM, Linux, Windows and macOS runs must all compile the updated module; do not count the older run's failures as current-head results.
