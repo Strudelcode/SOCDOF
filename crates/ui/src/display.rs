@@ -55,14 +55,23 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
 
     #[cfg(target_os = "linux")]
     {
-        let output = std::process::Command::new("xrandr")
+        if let Ok(output) = std::process::Command::new("xrandr")
             .arg("--listmonitors")
             .output()
-            .map_err(|error| format!("xrandr is unavailable; install xrandr to detect displays: {error}"))?;
-        if !output.status.success() {
-            return Err("xrandr could not read the active display layout.".to_string());
+        {
+            if output.status.success() {
+                if let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout)) {
+                    return Ok(monitors);
+                }
+            }
         }
-        return parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout));
+        let output = std::process::Command::new("wlr-randr")
+            .output()
+            .map_err(|error| format!("Neither xrandr nor wlr-randr is available for display detection: {error}"))?;
+        if !output.status.success() {
+            return Err("The available Linux display utility could not read the active layout.".to_string());
+        }
+        return parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout));
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -199,6 +208,82 @@ fn parse_xrandr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
 }
 
 #[cfg(any(target_os = "linux", test))]
+fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
+    let mut monitors = Vec::new();
+    let mut current: Option<DisplayMonitor> = None;
+    let mut enabled = true;
+
+    let finish = |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
+        if enabled {
+            if let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
+                monitors.push(monitor);
+            }
+        }
+    };
+
+    for line in output.lines() {
+        if !line.trim().is_empty() && !line.starts_with(char::is_whitespace) {
+            finish(current.take(), enabled, &mut monitors);
+            let id = line.split_whitespace().next().unwrap_or("Display").to_string();
+            let label = line
+                .split('"')
+                .nth(1)
+                .filter(|value| !value.is_empty())
+                .unwrap_or(&id)
+                .to_string();
+            current = Some(DisplayMonitor {
+                id,
+                label,
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0,
+                primary: None,
+            });
+            enabled = true;
+            continue;
+        }
+
+        let Some(monitor) = current.as_mut() else {
+            continue;
+        };
+        let detail = line.trim();
+        if let Some(value) = detail.strip_prefix("Enabled:") {
+            enabled = value.trim().eq_ignore_ascii_case("yes");
+        } else if let Some(value) = detail.strip_prefix("Position:") {
+            let mut coordinates = value.trim().split(',');
+            if let (Some(x), Some(y)) = (coordinates.next(), coordinates.next()) {
+                if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
+                    monitor.x = x;
+                    monitor.y = y;
+                }
+            }
+        } else if detail.contains("current)") || (monitor.width == 0 && detail.contains(" px,")) {
+            if let Some(dimensions) = detail.split_whitespace().next() {
+                if let Some((width, height)) = parse_mode_dimensions(dimensions) {
+                    monitor.width = width;
+                    monitor.height = height;
+                }
+            }
+        }
+    }
+    finish(current, enabled, &mut monitors);
+    if monitors.is_empty() {
+        Err("wlr-randr did not report any enabled displays with an active mode.".to_string())
+    } else {
+        Ok(monitors)
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_mode_dimensions(value: &str) -> Option<(u32, u32)> {
+    let (width, height) = value.split_once('x')?;
+    let width = width.parse().ok()?;
+    let height = height.parse().ok()?;
+    (width > 0 && height > 0).then_some((width, height))
+}
+
+#[cfg(any(target_os = "linux", test))]
 fn parse_xrandr_geometry(value: &str) -> Option<(u32, u32, i32, i32)> {
     let (dimensions, position) = value.split_once('+')?;
     let (width, height) = dimensions.split_once('x')?;
@@ -224,6 +309,17 @@ mod tests {
         assert_eq!(monitors[0].primary, Some(true));
         assert_eq!((monitors[1].x, monitors[1].y), (2560, 120));
         assert_eq!(monitors[1].primary, Some(false));
+    }
+
+    #[test]
+    fn parses_wayland_wlr_randr_enabled_display_blocks() {
+        let output = "eDP-1 \"Built-in Display\"\n  Enabled: yes\n  Modes:\n    1920x1080 px, 60.000000 Hz (preferred, current)\n  Position: 0,0\n  Scale: 1.000000\nHDMI-A-1 \"External Monitor\"\n  Enabled: no\n  Modes:\n    2560x1440 px, 60.000000 Hz (current)\n  Position: 1920,0\n";
+        let monitors = parse_wlr_randr_monitors(output).expect("Wayland monitors");
+        assert_eq!(monitors.len(), 1);
+        assert_eq!(monitors[0].id, "eDP-1");
+        assert_eq!(monitors[0].label, "Built-in Display");
+        assert_eq!((monitors[0].width, monitors[0].height), (1920, 1080));
+        assert_eq!(monitors[0].primary, None);
     }
 
     #[test]
