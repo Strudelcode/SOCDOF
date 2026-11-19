@@ -674,13 +674,16 @@ impl SettingsState {
         self.back = false;
     }
 
-    /// Loads profile, users, roles and the persisted policies.
-    /// Loads only native display preferences for startup without loading the full Settings workspace.
+    /// Loads only native display preferences for startup without hydrating the full Settings workspace.
     pub fn refresh_display_preferences(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
-        self.refresh_display_preferences(store)?;
+        self.display = store
+            .get_setting("native_display_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
         Ok(())
     }
 
+    /// Loads profile, users, roles and the persisted policies.
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         if self.loaded {
             return Ok(());
@@ -4468,7 +4471,10 @@ mod tests {
             .expect("display preferences");
         assert_eq!(startup_state.ui_scale_factor(), 1.35);
         assert_eq!(
-            startup_state.night_light_overlay().expect("night light").a(),
+            startup_state
+                .night_light_overlay()
+                .expect("night light")
+                .a(),
             46
         );
         assert!(!startup_state.loaded);

@@ -1784,7 +1784,9 @@ mod tests {
         state.filter_status(Some(AppointmentStatus::Scheduled));
         let export_path =
             std::env::temp_dir().join(format!("socdof-calendar-{}.ics", Uuid::new_v4()));
-        let bytes = state.export_ics(&export_path, SAMPLE_NOW_MS).expect("export");
+        let bytes = state
+            .export_ics(&export_path, SAMPLE_NOW_MS)
+            .expect("export");
         let content = std::fs::read_to_string(&export_path).expect("read export");
         assert_eq!(usize::try_from(bytes).expect("file length"), content.len());
         assert!(content.starts_with("BEGIN:VCALENDAR\\r\\n"));

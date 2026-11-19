@@ -488,7 +488,10 @@ mod tests {
         assert!(entry.validate().is_err(), "time must use zero-padded HH:MM");
         entry.start_time = "08:30".to_string();
         entry.end_time = "24:00".to_string();
-        assert!(entry.validate().is_err(), "hours must be in the 00..23 range");
+        assert!(
+            entry.validate().is_err(),
+            "hours must be in the 00..23 range"
+        );
         entry.end_time = "09:30".to_string();
         entry.end_km = entry.start_km;
         entry.distance_km = 0;

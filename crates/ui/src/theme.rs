@@ -62,10 +62,9 @@ pub fn detect_system_appearance() -> Option<Appearance> {
             .ok()
             .and_then(|home| std::fs::read_to_string(format!("{home}/.config/kdeglobals")).ok())
             .and_then(|config| {
-                config.lines().find_map(|line| {
-                    line.strip_prefix("ColorScheme=")
-                        .and_then(parse_gtk_theme)
-                })
+                config
+                    .lines()
+                    .find_map(|line| line.strip_prefix("ColorScheme=").and_then(parse_gtk_theme))
             });
         gnome_appearance.or(toolkit_appearance).or(kde_appearance)
     }

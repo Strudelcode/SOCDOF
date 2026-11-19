@@ -184,7 +184,9 @@ fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, S
         .map_err(|error| format!("system_profiler response was invalid: {error}"))?;
     let mut monitors = Vec::new();
     collect(&value, &mut monitors);
-    monitors.dedup_by(|left, right| left.id == right.id && left.width == right.width && left.height == right.height);
+    monitors.dedup_by(|left, right| {
+        left.id == right.id && left.width == right.width && left.height == right.height
+    });
     if monitors.is_empty() {
         Err("macOS did not report any active display resolutions.".to_string())
     } else {
@@ -248,9 +250,7 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
     let finish =
         |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
             if enabled {
-                if let Some(monitor) =
-                    monitor.filter(|item| item.width > 0 && item.height > 0)
-                {
+                if let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
                     monitors.push(monitor);
                 }
             }
@@ -301,9 +301,7 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
                     monitor.y = y;
                 }
             }
-        } else if detail.contains("current)")
-            || (monitor.width == 0 && detail.contains(" px,"))
-        {
+        } else if detail.contains("current)") || (monitor.width == 0 && detail.contains(" px,")) {
             if let Some(dimensions) = detail.split_whitespace().next() {
                 if let Some((width, height)) = parse_mode_dimensions(dimensions) {
                     monitor.width = width;
