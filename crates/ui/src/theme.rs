@@ -55,11 +55,19 @@ pub fn detect_system_appearance() -> Option<Appearance> {
             .ok()
             .filter(|output| output.status.success())
             .and_then(|output| parse_gnome_color_scheme(&String::from_utf8_lossy(&output.stdout)));
-        gnome_appearance.or_else(|| {
-            std::env::var("GTK_THEME")
-                .ok()
-                .and_then(|theme| parse_gtk_theme(&theme))
-        })
+        let toolkit_appearance = std::env::var("GTK_THEME")
+            .ok()
+            .and_then(|theme| parse_gtk_theme(&theme));
+        let kde_appearance = std::env::var("HOME")
+            .ok()
+            .and_then(|home| std::fs::read_to_string(format!("{home}/.config/kdeglobals")).ok())
+            .and_then(|config| {
+                config.lines().find_map(|line| {
+                    line.strip_prefix("ColorScheme=")
+                        .and_then(parse_gtk_theme)
+                })
+            });
+        gnome_appearance.or(toolkit_appearance).or(kde_appearance)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -461,6 +469,7 @@ mod tests {
         assert_eq!(parse_gnome_color_scheme("'default'"), None);
         assert_eq!(parse_gtk_theme("Adwaita-dark"), Some(Appearance::Dark));
         assert_eq!(parse_gtk_theme("Adwaita"), Some(Appearance::Light));
+        assert_eq!(parse_gtk_theme("BreezeDark"), Some(Appearance::Dark));
     }
 
     #[test]
