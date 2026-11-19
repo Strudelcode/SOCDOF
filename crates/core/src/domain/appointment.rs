@@ -278,7 +278,7 @@ mod tests {
             + first_event + 1;
         assert!(ics[first_event..].starts_with("DTSTART:20231114"));
         assert!(ics[second_event..].starts_with("DTSTART:20231115"));
-        assert!(ics.lines().all(|line| line.trim_end_matches('\\r').len() <= 75));
+        assert!(ics.lines().all(|line| line.trim_end_matches('\r').len() <= 75));
     }
 
     #[test]
