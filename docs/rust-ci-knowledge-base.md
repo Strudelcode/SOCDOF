@@ -601,3 +601,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Fix:** Poll the OS theme every 60 seconds instead of every ten seconds. Add `SettingsState::refresh_display_preferences` and call it during startup, leaving the full Settings workspace lazy-loaded until the user opens it.
 - **Expected effect:** Avoid repeated child-process wakeups during the 30-second idle CPU sample and reduce startup state hydration. This is a targeted budget fix, not a relaxed threshold.
 - **Verification:** The next latest-head Linux GUI smoke must pass both the 122,880 KiB idle RAM ceiling and the 0.5% idle CPU ceiling; do not waive either check.
+
+
+## RUST-CI-025 — Fleet odometer and monetary arithmetic boundaries (2026-11-19)
+
+- **Symptom:** Fleet calculations accepted a trip whose stored distance disagreed with its start/end odometer readings, and several integer operations could overflow for malformed or extreme imported values.
+- **Fix:** Require distance_km to equal end_km minus start_km after validating non-negative ordered odometer readings. Use saturating subtraction/multiplication for distance and tax allowance, an i128 intermediate for fuel unit-price rounding, and saturating aggregation for total, purpose-specific and fuel-cost KPIs.
+- **Regression coverage:** Verify inconsistent trip distances are rejected; negative/overflowing distance inputs do not wrap; unit-price rounding handles half units and zero quantities; very large trip/fuel values saturate instead of panicking or wrapping.
+- **Compatibility:** Normal valid TypeScript fleet entries retain the same distance, 0.30-per-kilometre allowance, unit-price rounding and KPI values. No database schema change is required.
+- **Verification:** The new core tests are part of the latest PR-head Rust workflow; do not treat this change as verified until Format, Clippy and workspace tests pass.
