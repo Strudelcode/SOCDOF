@@ -30,6 +30,7 @@ struct DesktopRuntime {
     state: GalleryState,
     lock: InstanceLock,
     last_heartbeat: Instant,
+    last_system_theme_check: Instant,
     follow_system_theme: bool,
     system_appearance: Option<Appearance>,
 }
@@ -86,6 +87,7 @@ impl DesktopApp {
             state,
             lock: loaded.lock,
             last_heartbeat: Instant::now(),
+            last_system_theme_check: Instant::now(),
             follow_system_theme,
             system_appearance: self.system_appearance,
         });
@@ -144,11 +146,13 @@ fn load_store() -> Result<LoadedStore, Box<dyn Error>> {
 impl eframe::App for DesktopApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.system_appearance.get_or_insert_with(|| {
-            if ctx.style().visuals.dark_mode {
-                Appearance::Dark
-            } else {
-                Appearance::Light
-            }
+            socdof_ui::theme::detect_system_appearance().unwrap_or_else(|| {
+                if ctx.style().visuals.dark_mode {
+                    Appearance::Dark
+                } else {
+                    Appearance::Light
+                }
+            })
         });
         if self.runtime.is_none() {
             // Always paint one splash frame before accepting even an already-completed worker.
@@ -193,18 +197,26 @@ impl eframe::App for DesktopApp {
                 Duration::from_secs(15)
             }
         } else {
-            Duration::from_secs(10)
+            Duration::from_secs(15)
         };
         ctx.request_repaint_after(repaint_after);
-        // Capture the platform appearance before the SOCDOF theme is applied. Resolve the
-        // active user's preference on every frame so changing Theme to System/Light/Dark takes
-        // effect immediately, rather than inheriting the company profile forever.
-        let system_appearance = *runtime.system_appearance.get_or_insert_with(|| {
-            if ctx.style().visuals.dark_mode {
-                Appearance::Dark
-            } else {
-                Appearance::Light
+        // Refresh the OS preference occasionally, not on every immediate-mode frame.
+        if runtime.last_system_theme_check.elapsed() >= Duration::from_secs(60) {
+            if let Some(appearance) = socdof_ui::theme::detect_system_appearance() {
+                runtime.system_appearance = Some(appearance);
             }
+            runtime.last_system_theme_check = Instant::now();
+        }
+        // Resolve the active user's preference on every frame so changing Theme to
+        // System/Light/Dark takes effect immediately, rather than inheriting the company profile.
+        let system_appearance = *runtime.system_appearance.get_or_insert_with(|| {
+            socdof_ui::theme::detect_system_appearance().unwrap_or_else(|| {
+                if ctx.style().visuals.dark_mode {
+                    Appearance::Dark
+                } else {
+                    Appearance::Light
+                }
+            })
         });
         let user_follows_system = runtime
             .state
@@ -217,13 +229,22 @@ impl eframe::App for DesktopApp {
         if user_follows_system {
             runtime.state.appearance = system_appearance;
         }
-        if runtime.last_heartbeat.elapsed() >= Duration::from_secs(5) {
+        if runtime.last_heartbeat.elapsed() >= Duration::from_secs(15) {
             if let Err(error) = runtime.lock.heartbeat(now_millis()) {
                 eprintln!("SOCDOF lock heartbeat failed: {error}");
             }
             runtime.last_heartbeat = Instant::now();
         }
+        ctx.set_zoom_factor(runtime.state.settings.ui_scale_factor());
         gallery(ctx, &mut runtime.state);
+        if let Some(tint) = runtime.state.settings.night_light_overlay() {
+            let layer = egui::LayerId::new(
+                egui::Order::Foreground,
+                egui::Id::new("socdof-native-night-light"),
+            );
+            ctx.layer_painter(layer)
+                .rect_filled(ctx.screen_rect(), 0.0, tint);
+        }
     }
 }
 
@@ -388,13 +409,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("SOCDOF {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
-    let app = DesktopApp::new();
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([760.0, 560.0]),
         ..Default::default()
     };
-    eframe::run_native("SOCDOF", options, Box::new(move |_creation| Box::new(app)))?;
+    eframe::run_native(
+        "SOCDOF",
+        options,
+        Box::new(move |creation| {
+            // Install the bundled font families before the first egui frame. Applying the
+            // theme only from Gallery::update is too late on some native backends: the
+            // first frame can resolve RichText against the custom Semibold family before
+            // epaint has rebuilt its font atlas.
+            socdof_ui::theme::install_fonts(&creation.egui_ctx);
+            Box::new(DesktopApp::new())
+        }),
+    )?;
     Ok(())
 }

@@ -1,4 +1,4 @@
-//! Settings screen with eleven sections, including company, payments, appearance, security,
+//! Settings screen with thirteen sections, including display discovery, company, payments, appearance, security,
 //! backup, users, roles, updates, portable mode and keyboard shortcuts.
 //!
 //! The screen is a thin presentation layer over the core services. The company profile is read and
@@ -33,6 +33,7 @@ use crate::components::{
     badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
+use crate::display::{detect_connected_monitors, DisplayMonitor};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
@@ -515,6 +516,8 @@ pub struct SettingsState {
     profile: ProfileDraft,
     appearance: AppearanceDraft,
     display: DisplayDraft,
+    display_monitors: Vec<DisplayMonitor>,
+    display_scan_error: Option<String>,
     letterhead: LetterheadDraft,
     users: Vec<User>,
     roles: Vec<Role>,
@@ -560,6 +563,8 @@ impl Default for SettingsState {
             profile: ProfileDraft::default(),
             appearance: AppearanceDraft::default(),
             display: DisplayDraft::default(),
+            display_monitors: Vec::new(),
+            display_scan_error: None,
             letterhead: LetterheadDraft::default(),
             users: Vec::new(),
             roles: Vec::new(),
@@ -618,6 +623,37 @@ impl SettingsState {
         self.tab
     }
 
+    /// Returns the persisted UI scale as an egui zoom factor.
+    pub fn ui_scale_factor(&self) -> f32 {
+        self.display
+            .scale_percent
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(100)
+            .clamp(75, 200) as f32
+            / 100.0
+    }
+
+    /// Returns the native night-light tint to paint above the desktop, if enabled.
+    ///
+    /// The alpha follows the TypeScript edition's 1000K–6500K warmth curve. The tint affects only
+    /// SOCDOF's own window; it does not claim to change the operating system's global night light.
+    pub fn night_light_overlay(&self) -> Option<egui::Color32> {
+        if !self.display.night_light_enabled {
+            return None;
+        }
+        let temperature = self
+            .display
+            .night_light_temperature
+            .trim()
+            .parse::<u32>()
+            .unwrap_or(3400)
+            .clamp(1000, 6500);
+        let warmth = (6500 - temperature) as f32 / 5500.0;
+        let alpha = (warmth * 62.0).round() as u8;
+        Some(egui::Color32::from_rgba_unmultiplied(255, 172, 82, alpha))
+    }
+
     /// Takes appearance preferences after a successful save so the desktop shell can apply them.
     pub fn take_saved_preferences(&mut self) -> Option<Preferences> {
         self.saved_preferences.take()
@@ -636,6 +672,15 @@ impl SettingsState {
     pub fn reset_for_open(&mut self) {
         self.set_tab(SettingsTab::General);
         self.back = false;
+    }
+
+    /// Loads only native display preferences for startup without hydrating the full Settings workspace.
+    pub fn refresh_display_preferences(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        self.display = store
+            .get_setting("native_display_settings_v1")?
+            .and_then(|value| serde_json::from_value(value).ok())
+            .unwrap_or_default();
+        Ok(())
     }
 
     /// Loads profile, users, roles and the persisted policies.
@@ -1950,6 +1995,7 @@ fn display_tab(
     store: &Store,
 ) {
     let mut save = false;
+    let mut scan_displays = false;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("settings_display_title")).strong());
         ui.add_space(4.0);
@@ -1958,6 +2004,66 @@ fn display_tab(
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
         );
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_display_detect"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                scan_displays = true;
+            }
+            ui.label(
+                RichText::new(texts.get("settings_display_detect_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        });
+        if state.display_monitors.is_empty() {
+            ui.label(
+                RichText::new(texts.get("settings_display_no_monitors"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        } else {
+            for (index, monitor) in state.display_monitors.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    let label = if monitor.primary == Some(true) {
+                        format!("{} · {}", index + 1, texts.get("settings_display_primary"))
+                    } else {
+                        (index + 1).to_string()
+                    };
+                    badge(
+                        ui,
+                        theme,
+                        &label,
+                        if monitor.primary == Some(true) {
+                            Tone::Success
+                        } else {
+                            Tone::Neutral
+                        },
+                    );
+                    ui.label(format!(
+                        "{} · {} × {} px · {:+}, {:+}",
+                        monitor.label, monitor.width, monitor.height, monitor.x, monitor.y
+                    ));
+                });
+            }
+        }
+        if !state.display_monitors.is_empty() {
+            display_layout_preview(ui, theme, &state.display_monitors);
+        }
+        if let Some(error) = &state.display_scan_error {
+            ui.label(
+                RichText::new(error)
+                    .size(FONT_SMALL)
+                    .color(theme.palette.danger),
+            );
+        }
         ui.add_space(8.0);
         text_field(
             ui,
@@ -1998,8 +2104,119 @@ fn display_tab(
             save = true;
         }
     });
+    if scan_displays {
+        match detect_connected_monitors() {
+            Ok(monitors) => {
+                state.display_monitors = monitors;
+                state.display_scan_error = None;
+            }
+            Err(error) => {
+                state.display_monitors.clear();
+                state.display_scan_error = Some(error);
+            }
+        }
+    }
     if save {
         state.save_display(store);
+    }
+}
+
+/// Draws a read-only layout preview using the coordinates reported by the OS.
+fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayMonitor]) {
+    let (canvas, _) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 176.0), Sense::hover());
+    let painter = ui.painter();
+    painter.rect(
+        canvas,
+        egui::Rounding::same(10.0),
+        theme.palette.surface_muted,
+        Stroke::new(1.0_f32, theme.palette.border),
+    );
+
+    let same_origin = monitors.len() > 1
+        && monitors
+            .iter()
+            .all(|monitor| monitor.x == monitors[0].x && monitor.y == monitors[0].y);
+    let mut origins = Vec::with_capacity(monitors.len());
+    let mut next_x = 0_i32;
+    for monitor in monitors {
+        let origin = if same_origin {
+            let origin = (next_x, 0);
+            next_x = next_x.saturating_add(monitor.width.min(i32::MAX as u32) as i32);
+            origin
+        } else {
+            (monitor.x, monitor.y)
+        };
+        origins.push(origin);
+    }
+
+    let min_x = origins.iter().map(|origin| origin.0).min().unwrap_or(0);
+    let min_y = origins.iter().map(|origin| origin.1).min().unwrap_or(0);
+    let max_x = origins
+        .iter()
+        .zip(monitors)
+        .map(|(origin, monitor)| {
+            origin
+                .0
+                .saturating_add(monitor.width.min(i32::MAX as u32) as i32)
+        })
+        .max()
+        .unwrap_or(1);
+    let max_y = origins
+        .iter()
+        .zip(monitors)
+        .map(|(origin, monitor)| {
+            origin
+                .1
+                .saturating_add(monitor.height.min(i32::MAX as u32) as i32)
+        })
+        .max()
+        .unwrap_or(1);
+    let total_width = max_x.saturating_sub(min_x).max(1) as f32;
+    let total_height = max_y.saturating_sub(min_y).max(1) as f32;
+    let scale = ((canvas.width() - 24.0) / total_width)
+        .min((canvas.height() - 24.0) / total_height)
+        .max(0.001);
+    let rendered_width = total_width * scale;
+    let rendered_height = total_height * scale;
+    let offset = egui::vec2(
+        canvas.left() + (canvas.width() - rendered_width) / 2.0,
+        canvas.top() + (canvas.height() - rendered_height) / 2.0,
+    );
+
+    for (index, (monitor, origin)) in monitors.iter().zip(origins).enumerate() {
+        let rect = egui::Rect::from_min_size(
+            egui::pos2(
+                offset.x + origin.0.saturating_sub(min_x) as f32 * scale,
+                offset.y + origin.1.saturating_sub(min_y) as f32 * scale,
+            ),
+            Vec2::new(monitor.width as f32 * scale, monitor.height as f32 * scale),
+        );
+        let fill = if monitor.primary == Some(true) {
+            theme.accent.base
+        } else {
+            theme.palette.surface
+        };
+        let text = if monitor.primary == Some(true) {
+            egui::Color32::WHITE
+        } else {
+            theme.palette.text
+        };
+        painter.rect(
+            rect,
+            egui::Rounding::same(7.0),
+            fill,
+            Stroke::new(1.2_f32, theme.palette.border),
+        );
+        if rect.width() >= 56.0 && rect.height() >= 36.0 {
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                format!("{} · {}×{}", index + 1, monitor.width, monitor.height),
+                egui::FontId::proportional(FONT_SMALL),
+                text,
+            );
+        }
     }
 }
 
@@ -4238,6 +4455,47 @@ mod tests {
         assert_eq!(letterhead.default_subject, "Angebot");
         assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
         assert!(!letterhead.show_fold_marks);
+    }
+
+    #[test]
+    fn startup_can_load_display_preferences_without_loading_the_full_settings_screen() {
+        let (store, mut state, _texts) = seeded();
+        state.display.scale_percent = "135".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "2400".to_string();
+        assert!(state.save_display(&store));
+
+        let mut startup_state = SettingsState::new();
+        startup_state
+            .refresh_display_preferences(&store)
+            .expect("display preferences");
+        assert_eq!(startup_state.ui_scale_factor(), 1.35);
+        assert_eq!(
+            startup_state
+                .night_light_overlay()
+                .expect("night light")
+                .a(),
+            46
+        );
+        assert!(!startup_state.loaded);
+    }
+
+    #[test]
+    fn display_effects_resolve_scale_and_night_light_strength() {
+        let (_store, mut state, _texts) = seeded();
+        assert_eq!(state.ui_scale_factor(), 1.0);
+        assert!(state.night_light_overlay().is_none());
+
+        state.display.scale_percent = "150".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "1000".to_string();
+        assert_eq!(state.ui_scale_factor(), 1.5);
+        assert_eq!(state.night_light_overlay().expect("night light").a(), 62);
+
+        state.display.night_light_temperature = "6500".to_string();
+        assert_eq!(state.night_light_overlay().expect("daylight").a(), 0);
+        state.display.night_light_enabled = false;
+        assert!(state.night_light_overlay().is_none());
     }
 
     #[test]

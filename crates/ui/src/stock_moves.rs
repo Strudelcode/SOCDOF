@@ -63,6 +63,23 @@ pub struct StockMovesState {
     pub status: Option<&'static str>,
 }
 
+fn movement_totals(entries: &[&StockJournalEntry]) -> (usize, i64, i64, i64) {
+    let mut inbound = 0_i64;
+    let mut outbound = 0_i64;
+    let mut adjustments = 0_i64;
+    for entry in entries {
+        match entry.dest_location {
+            StockLocation::Warehouse => inbound += entry.quantity,
+            StockLocation::Customers => outbound += entry.quantity,
+            StockLocation::InventoryLoss | StockLocation::Scrap => {
+                adjustments += entry.quantity;
+            }
+            StockLocation::Vendors => {}
+        }
+    }
+    (entries.len(), inbound, outbound, adjustments)
+}
+
 impl StockMovesState {
     fn refresh(&mut self, store: &Store) {
         if self.loaded && self.query == self.loaded_query {
@@ -248,23 +265,16 @@ pub fn stock_moves_window(
     });
     state.refresh(store);
     let visible = state.visible_entries();
-    let inbound: i64 = visible
-        .iter()
-        .filter(|e| e.dest_location == StockLocation::Warehouse)
-        .map(|e| e.quantity)
-        .sum();
-    let outbound: i64 = visible
-        .iter()
-        .filter(|e| e.source_location == StockLocation::Warehouse)
-        .map(|e| e.quantity)
-        .sum();
-    let virtual_moves = visible.iter().filter(|e| e.stock_delta() == 0).count();
+    let all_entries = store.list_stock_journal_entries().unwrap_or_default();
+    let all_refs = all_entries.iter().collect::<Vec<_>>();
+    let (total_moves, inbound, outbound, adjustments) = movement_totals(&all_refs);
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
         for (label, value) in [
+            ("stock_journal_total", total_moves.to_string()),
             ("stock_journal_inbound", inbound.to_string()),
             ("stock_journal_outbound", outbound.to_string()),
-            ("stock_journal_virtual", virtual_moves.to_string()),
+            ("stock_journal_adjustment", adjustments.to_string()),
         ] {
             card(ui, theme, |ui| {
                 ui.label(
@@ -589,6 +599,32 @@ mod tests {
         state.save(&store, 11);
         assert_eq!(state.error, Some("stock_journal_error_quantity"));
         assert_eq!(store.stock_journal_count().expect("count"), 1);
+    }
+
+    #[test]
+    fn movement_totals_match_legacy_destination_based_kpis() {
+        let product_id = Uuid::new_v4();
+        let make = |source_location, dest_location, quantity| StockJournalEntry {
+            id: Uuid::new_v4(),
+            product_id,
+            product_name: None,
+            product_sku: None,
+            quantity,
+            source_location,
+            dest_location,
+            reference: "TEST".to_string(),
+            notes: None,
+            created_at: 1,
+        };
+        let rows = vec![
+            make(StockLocation::Vendors, StockLocation::Warehouse, 8),
+            make(StockLocation::Warehouse, StockLocation::Customers, 3),
+            make(StockLocation::Warehouse, StockLocation::InventoryLoss, 2),
+            make(StockLocation::Warehouse, StockLocation::Scrap, 1),
+            make(StockLocation::Customers, StockLocation::Vendors, 4),
+        ];
+        let refs = rows.iter().collect::<Vec<_>>();
+        assert_eq!(movement_totals(&refs), (5, 8, 3, 3));
     }
 
     #[test]

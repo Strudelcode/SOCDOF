@@ -138,12 +138,12 @@ pub struct FleetTrip {
 impl FleetTrip {
     /// Distance between start and end, never negative.
     pub fn distance(start_km: i64, end_km: i64) -> i64 {
-        (end_km - start_km).max(0)
+        end_km.saturating_sub(start_km).max(0)
     }
 
     /// Tax allowance of the trip in cents (`0.30 EUR` per kilometre).
     pub fn allowance_cents(&self) -> i64 {
-        self.distance_km * COST_PER_KM_CENTS
+        self.distance_km.saturating_mul(COST_PER_KM_CENTS)
     }
 
     /// Validates the fields of the trip modal.
@@ -165,6 +165,12 @@ impl FleetTrip {
         }
         if self.distance_km <= 0 {
             return Err("Die Strecke muss groesser als 0 km sein".to_string());
+        }
+        if self.distance_km != self.end_km - self.start_km {
+            return Err(
+                "Die Strecke muss der Differenz aus End- und Startkilometerstand entsprechen"
+                    .to_string(),
+            );
         }
         if !is_time(&self.start_time) || !is_time(&self.end_time) {
             return Err("Zeiten muessen im Format HH:MM vorliegen".to_string());
@@ -207,7 +213,10 @@ impl FleetFuel {
         if units_milli <= 0 {
             return 0;
         }
-        (total_cost_cents * 10_000 + units_milli / 2) / units_milli
+        let numerator = i128::from(total_cost_cents)
+            .saturating_mul(10_000)
+            .saturating_add(i128::from(units_milli / 2));
+        (numerator / i128::from(units_milli)).clamp(0, i128::from(i64::MAX)) as i64
     }
 
     /// Validates the fields of the receipt modal.
@@ -256,22 +265,21 @@ pub struct FleetMetrics {
 
 /// Computes the KPI values exactly like the TypeScript `useMemo` block.
 pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle]) -> FleetMetrics {
-    let total_km: i64 = trips.iter().map(|trip| trip.distance_km).sum();
+    let total_km = trips
+        .iter()
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let business_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "business")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let private_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "private")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let commute_km: i64 = trips
         .iter()
         .filter(|trip| trip.purpose == "commute")
-        .map(|trip| trip.distance_km)
-        .sum();
+        .fold(0_i64, |total, trip| total.saturating_add(trip.distance_km));
     let percentage = |part: i64| {
         if total_km > 0 {
             ((part as f64 / total_km as f64) * 100.0).round() as i64
@@ -287,8 +295,10 @@ pub fn metrics(trips: &[FleetTrip], fuel: &[FleetFuel], vehicles: &[FleetVehicle
         business_pct: percentage(business_km),
         private_pct: percentage(private_km),
         commute_pct: percentage(commute_km),
-        fuel_cost_cents: fuel.iter().map(|entry| entry.total_cost_cents).sum(),
-        tax_allowance_cents: business_km * COST_PER_KM_CENTS,
+        fuel_cost_cents: fuel.iter().fold(0_i64, |total, entry| {
+            total.saturating_add(entry.total_cost_cents)
+        }),
+        tax_allowance_cents: business_km.saturating_mul(COST_PER_KM_CENTS),
         active_vehicles: vehicles
             .iter()
             .filter(|vehicle| vehicle.status == "active")
@@ -393,9 +403,19 @@ fn is_iso_date(text: &str) -> bool {
 
 fn is_time(text: &str) -> bool {
     let text = text.trim();
+    if text.len() != 5 {
+        return false;
+    }
     let Some((hours, minutes)) = text.split_once(':') else {
         return false;
     };
+    if hours.len() != 2
+        || minutes.len() != 2
+        || !hours.bytes().all(|byte| byte.is_ascii_digit())
+        || !minutes.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return false;
+    }
     matches!((hours.parse::<u32>(), minutes.parse::<u32>()), (Ok(h), Ok(m)) if h < 24 && m < 60)
 }
 
@@ -462,14 +482,30 @@ mod tests {
         invalid.next_inspection_due = "2026-02-31".to_string();
         assert!(invalid.validate().is_err());
 
-        let mut trip = trip(Uuid::nil(), Uuid::nil(), "business", 30);
-        assert!(trip.validate().is_ok());
-        trip.end_km = trip.start_km;
-        trip.distance_km = 0;
-        assert!(trip.validate().is_err());
-        trip.distance_km = 10;
-        trip.purpose = "holiday".to_string();
-        assert!(trip.validate().is_err());
+        let mut entry = trip(Uuid::nil(), Uuid::nil(), "business", 30);
+        assert!(entry.validate().is_ok());
+        entry.start_time = "8:30".to_string();
+        assert!(entry.validate().is_err(), "time must use zero-padded HH:MM");
+        entry.start_time = "08:30".to_string();
+        entry.end_time = "24:00".to_string();
+        assert!(
+            entry.validate().is_err(),
+            "hours must be in the 00..23 range"
+        );
+        entry.end_time = "09:30".to_string();
+        entry.end_km = entry.start_km;
+        entry.distance_km = 0;
+        assert!(entry.validate().is_err());
+        entry.distance_km = 10;
+        entry.purpose = "holiday".to_string();
+        assert!(entry.validate().is_err());
+
+        let mut inconsistent = trip(Uuid::new_v4(), Uuid::new_v4(), "business", 30);
+        inconsistent.distance_km = 29;
+        assert!(
+            inconsistent.validate().is_err(),
+            "stored distance must match odometer readings"
+        );
     }
 
     #[test]
@@ -502,18 +538,42 @@ mod tests {
             notes: String::new(),
             created_at: 0,
         }];
-        let metrics = metrics(&trips, &fuel, std::slice::from_ref(&vehicle));
-        assert_eq!(metrics.total_km, 100);
-        assert_eq!(metrics.business_km, 30);
-        assert_eq!(metrics.private_km, 10);
-        assert_eq!(metrics.commute_km, 60);
-        assert_eq!(metrics.business_pct, 30);
-        assert_eq!(metrics.private_pct, 10);
-        assert_eq!(metrics.commute_pct, 60);
-        assert_eq!(metrics.fuel_cost_cents, 8_000);
-        assert_eq!(metrics.tax_allowance_cents, 900);
-        assert_eq!(metrics.active_vehicles, 1);
+        let computed = metrics(&trips, &fuel, std::slice::from_ref(&vehicle));
+        assert_eq!(computed.total_km, 100);
+        assert_eq!(computed.business_km, 30);
+        assert_eq!(computed.private_km, 10);
+        assert_eq!(computed.commute_km, 60);
+        assert_eq!(computed.business_pct, 30);
+        assert_eq!(computed.private_pct, 10);
+        assert_eq!(computed.commute_pct, 60);
+        assert_eq!(computed.fuel_cost_cents, 8_000);
+        assert_eq!(computed.tax_allowance_cents, 900);
+        assert_eq!(computed.active_vehicles, 1);
         assert_eq!(FleetFuel::price_per_unit(8_000, 40_000), 2_000);
+        assert_eq!(FleetFuel::price_per_unit(1, 20_000), 1);
+        assert_eq!(FleetFuel::price_per_unit(8_000, 0), 0);
+        assert_eq!(FleetTrip::distance(i64::MAX, i64::MIN), 0);
+        assert_eq!(FleetFuel::price_per_unit(i64::MAX, 1), i64::MAX);
+
+        let huge_business = trip(Uuid::new_v4(), vehicle.id, "business", i64::MAX / 2);
+        assert_eq!(huge_business.allowance_cents(), i64::MAX);
+        let saturated = metrics(
+            &[
+                huge_business.clone(),
+                huge_business,
+                trip(Uuid::new_v4(), vehicle.id, "business", 30),
+            ],
+            &fuel,
+            &[vehicle],
+        );
+        assert_eq!(saturated.total_km, i64::MAX);
+        assert_eq!(saturated.business_km, i64::MAX);
+        assert_eq!(saturated.tax_allowance_cents, i64::MAX);
+
+        let mut huge_fuel = fuel[0].clone();
+        huge_fuel.total_cost_cents = i64::MAX;
+        let saturated_fuel = metrics(&[], &[huge_fuel.clone(), huge_fuel], &[]);
+        assert_eq!(saturated_fuel.fuel_cost_cents, i64::MAX);
 
         let csv = csv(&trips);
         assert!(csv.starts_with("\u{feff}Datum;Uhrzeit;Fahrzeug"));

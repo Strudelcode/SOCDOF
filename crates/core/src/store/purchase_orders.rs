@@ -161,6 +161,14 @@ pub fn set_status(
     status: PurchaseOrderStatus,
     now: i64,
 ) -> CoreResult<()> {
+    // Receipt must go through receive(), which books stock and changes the status in
+    // the same SQLite transaction. A direct status update would silently lose inventory.
+    if status == PurchaseOrderStatus::Received {
+        return Err(CoreError::Validation(
+            "order_receive_requires_goods_receipt".to_string(),
+        ));
+    }
+
     let changed = conn.execute(
         "UPDATE purchase_orders SET status = ?2, updated_at = ?3 WHERE id = ?1",
         params![id.to_string(), status.as_str(), now],

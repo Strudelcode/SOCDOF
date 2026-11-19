@@ -44,7 +44,7 @@ The current Rust tree contains 183 `.rs` source/test files under `crates/`. This
 | `components/sales/InvoicesModule.tsx`, `InvoiceTemplateModal.tsx`, `InvoicePrintModal.tsx` | `crates/ui/src/invoices.rs`, `invoice_templates.rs`, `invoice_tokens.rs`; `crates/app/src/invoice_bridge.rs`; `crates/core/src/store/invoices.rs`, `invoice_template.rs`, `pdf/` | Existing Rust surface; full parity audit required |
 | `components/therapy/*` | `crates/ui/src/therapie.rs`, `crates/core/src/domain/therapy.rs`, `crates/core/src/store/therapy.rs` | Session create/edit/delete, date/time editing and invoice-link protections covered; schema v18 now persists standalone mileage trips with per-trip rates and CRUD APIs; native egui mileage UI, TypeScript rate/preset parity and end-to-end acceptance remain open |
 | `components/contacts/*` | `crates/ui/src/contacts.rs`, `crates/core/src/domain/contact.rs`, `crates/core/src/store/contacts.rs` | Existing Rust surface; full parity audit required |
-| `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Product CRUD, stock in/out, labels and reorder are present; exact tax-rate parsing and stock overflow handling are covered. The standalone TypeScript `StockMovesModule` double-entry journal (source/destination locations, reference, location filters, CSV/print) is not yet represented as a native Rust screen; treat as an open parity gap |
+| `components/sales/*` | `crates/ui/src/accounting.rs`, `pos.rs`, `products.rs`, `purchases.rs`; matching core domains/stores | Product CRUD, stock in/out, labels and reorder are present; exact tax-rate parsing and stock overflow handling are covered. The standalone TypeScript `StockMovesModule` double-entry journal is represented by `crates/ui/src/stock_moves.rs` and `crates/core/src/store/stock_journal.rs`, embedded as the Products Journal view. Search, location filters, atomic warehouse balance updates, reference/notes, and semicolon CSV export are implemented. The 2026-11-19 parity fix aligns the journal KPI definitions with the TypeScript destination-based inbound/outbound/adjustment totals and keeps summary values independent of table search/location filters; purchase-order quantity rounding and line/order monetary totals now guard integer boundaries, and Received can only be reached through the atomic goods-receipt operation; side-by-side acceptance and current-head CI remain open |
 | `components/documents/*` | `crates/core/src/domain/document.rs`, `crates/core/src/store/documents.rs`, `crates/core/src/docx/`, `crates/core/src/pdf/` | Backend candidates exist; native UI parity unverified |
 | `components/shell/*` | `crates/ui/src/shell.rs`, `desktop.rs`, `dashboard.rs`, `calendar.rs`, `widgets.rs`, `wallpaper.rs`, `studio.rs` | Native shell, taskbar, window manager, per-user icon/window persistence and global F11/Ctrl+K/Ctrl+L/Escape shortcuts are implemented. Independent native window adapters now render Contacts, Projects, Fleet, Restaurant, Invoices, Accounting, POS, Therapy, Users, Settings, Products, Purchases, Calendar, Editor, App Store, Support, Reports and Dashboard. The 2026-11-17 follow-up adds restoration for the newer module slugs and active-window Escape handling; current-head CI and side-by-side acceptance remain pending. OS tray/startup integration and full workflow parity remain open |
 | `src/lib/*` | `crates/core/src/*`, `crates/app/src/*`, `crates/ui/src/*` | Cross-cutting; map every exported function and side effect |
@@ -267,7 +267,7 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - SMTP port validation is strict (1–65535). SMTP passwords are not stored in profile data; an OS credential-store integration is required before adding that field.
 - Added a native Shortcuts section for implemented Rust-host hotkeys and split Language from Personalization in Settings.
 - Existing General, Security, Backup, Users, Roles, Updates and Portable sections remain available.
-- Still open against TypeScript: account recovery questions, avatars, multi-monitor/display configuration, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
+- Still open against TypeScript: account recovery questions, avatars, monitor layout editing and OS-level resolution/orientation controls, custom language packs, Google Calendar/iCal connections, letterhead/logo editor, storage inspector/export workflows, audio preferences, virtual desktop management and destructive full-system reset.
 - Verification: current-head CI and payment persistence regression test pending.
 
 
@@ -292,3 +292,26 @@ The F11 action is emitted as a viewport fullscreen command and remains covered b
 - The user must choose a new password and configure both recovery answers before reaching the workspace. Password replacement clears the persisted must-change flag; recovery answers are stored only as Argon2id hashes through the existing core security-question service.
 - Added a cross-store regression test covering the required gate, successful password replacement, flag clearing and case-insensitive recovery-answer verification. DE/EN/FR/ES strings are registered in the source key list and generated locale inventory.
 - **Verification:** pending Linux/Windows tests and the macOS Tauri compatibility build.
+
+
+### Native display discovery (2026-11-19)
+
+- The Rust Settings → Display screen can query physical displays from the active OS and shows their names, current pixel dimensions, primary marker and desktop coordinates in a read-only layout preview.
+- Windows uses the native .NET screen collection exposed by PowerShell, macOS reads `system_profiler SPDisplaysDataType`, and Linux reads `xrandr --listmonitors` on X11 and prefers `wlr-randr` on Wayland.
+- Detection is explicit/on-demand; no monitor data is fabricated when the platform API or utility is unavailable. Linux reports the missing `xrandr` dependency rather than silently presenting a fake 1920×1080 monitor.
+- The configured UI scale is applied to the native egui context, and the persisted night-light temperature produces an amber tint over SOCDOF's own window. Neither setting claims to alter OS-wide display configuration.
+- This is detection and layout visualization only. Changing hardware resolution, orientation, primary monitor or physical OS placement remains out of scope until a safe platform-specific write API is implemented.
+
+
+### Native appearance and display effects (2026-11-19)
+
+- ThemeMode::System now reads the native Windows AppsUseLightTheme registry value, macOS AppleInterfaceStyle preference, or GNOME color-scheme, KDE ColorScheme or GTK_THEME preference on Linux, with the window backend's initial appearance as fallback.
+- The running desktop rechecks the OS preference every 60 seconds, but only applies it to accounts whose theme mode is System. Display preferences are loaded through a lightweight startup read rather than hydrating the full Settings workspace.
+- The native display screen applies the persisted UI zoom and a per-window warm night-light tint; neither changes the operating system's global display settings.
+
+
+### Local calendar export (2026-11-19)
+
+- The native calendar exports the currently visible, search/status-filtered local appointments to RFC 5545 iCalendar (.ics).
+- Exported events include stable UIDs, UTC start/end timestamps, creation/update metadata, escaped summary/location/description text and lifecycle status.
+- Lines are folded at the RFC 5545 75-octet limit. The export is local and does not connect to Google Calendar or any external calendar service.

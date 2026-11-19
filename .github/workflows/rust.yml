@@ -5,7 +5,7 @@ on:
   # on the migration branch are checked by the push trigger below, avoiding duplicate matrices.
   pull_request:
     branches: [main]
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
   push:
     branches: [main, feature/rust-native-desktop-host]
   workflow_dispatch:
@@ -15,8 +15,8 @@ permissions:
 
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
-  # Keep an expensive cross-platform matrix running while newer commits queue for validation.
-  cancel-in-progress: false
+  # A newer commit supersedes stale results; only the latest PR head needs the full matrix.
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -170,6 +170,10 @@ jobs:
 
       - name: Build native Rust desktop host (macOS universal)
         if: runner.os == 'macOS'
+        env:
+          # rust-toolchain.toml selects stable (currently 1.100); override it here so
+          # Cargo actually uses the 1.90 toolchain installed for legacy objc2 0.4.
+          RUSTUP_TOOLCHAIN: 1.90.0
         shell: bash
         run: |
           set -euo pipefail
@@ -212,6 +216,8 @@ jobs:
 
       - name: Build Tauri bundles
         working-directory: crates/app
+        env:
+          RUSTUP_TOOLCHAIN: ${{ matrix.os == 'macos-latest' && '1.90.0' || 'stable' }}
         shell: bash
         run: |
           if [ "${{ matrix.os }}" = "macos-latest" ]; then

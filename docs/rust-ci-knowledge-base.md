@@ -512,3 +512,110 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** this workspace intentionally retains egui/eframe 0.27 for its UI/API baseline; its transitive Objective-C bindings are not compatible with the runner's newer Rust 1.100 compiler. Separately, the lipo verification commands placed the architecture/file arguments in the wrong order.
 - **Fix:** pin only the macOS native build and release jobs to Rust 1.90.0; keep Linux and Windows on stable. Verify universal executables with `lipo <input-file> -verify_arch arm64 x86_64`. The PR workflow now assembles a native `.app`, validates its plist and both Mach-O slices, creates a ZIP, and uploads it as a build artifact.
 - **Verification:** implementation committed. Run 1480 is the current full CI gate; do not close this entry or merge until its macOS build, app packaging, Linux/Windows tests, desktop builds and GUI smoke jobs pass.
+
+## RUST-CI-015 — Stock journal KPI parity (2026-11-19)
+
+- **Symptom:** The native Products → Journal summary did not match the TypeScript `StockMovesModule` summary. Rust counted warehouse-originating movements as outbound and reported virtual transfers as a count; TypeScript classifies outbound quantity by the destination `Virtual/Customers` and adjustment quantity by `Virtual/Inventory-Loss` / `Virtual/Scrap`.
+- **Root cause:** The Rust UI summary used a different interpretation of the double-entry journal than the reference screen.
+- **Fix:** `crates/ui/src/stock_moves.rs` now derives four summary values from the currently visible rows: total movements, inbound quantity, outbound-to-customers quantity, and adjustment quantity. The summary intentionally uses the complete journal collection, independent of table search/location filters, matching the TypeScript `stats` calculation over the unfiltered `stockMoves` prop.
+- **Regression coverage:** Added a mixed-location test that checks the exact totals, including warehouse-to-loss, warehouse-to-scrap and virtual-only transfers.
+- **Translations:** Added total-movement and adjustment labels to DE/EN/FR/ES and registered both keys in the UI_KEYS source list and committed locale catalogue inventory.
+- **Verification:** Committed on `feature/rust-stock-journal-parity`; CI has not yet run on this branch. Do not mark this fix CI-verified until the new PR workflow passes.
+
+
+## RUST-CI-016 — Purchase-order quantity and total overflow (2026-11-19)
+
+- **Symptom:** Large but syntactically valid purchase quantities could overflow while rounding fractional units into whole stock units. Purchase line multiplication could also overflow signed 64-bit cents before division, and a direct status update could mark an order as received without booking stock.
+- **Root cause:** The stock conversion added 999 before division; monetary line totals multiplied two i64 values; and the generic status setter accepted Received even though the atomic goods-receipt operation is the only path that updates inventory.
+- **Fix:** Stock quantities now divide first and add a remainder flag, avoiding addition overflow. Purchase line net arithmetic uses an i128 intermediate, and order validation rejects line or aggregate net/tax/gross values that cannot fit the Money(i64) representation. The generic status setter rejects Received so the status can only be changed by the transaction that applies stock movements.
+- **Regression coverage:** Added an i64::MAX stock-rounding boundary test, line/order amount overflow validation tests, and a purchase lifecycle assertion that direct Received status changes fail without altering the Ordered state.
+- **Translations:** Added dedicated DE/EN/FR/ES messages for oversized line and order totals and mapped the new validation codes in the native purchase screen.
+- **Verification:** Changes are committed to the PR branch. CI must pass on the latest PR head before this entry is marked verified.
+
+
+## RUST-CI-017 — WASM host cannot access shared chrome module (2026-11-19)
+
+- **Symptom:** The Trunk/WASM job failed with E0603 because `crates/web/src/lib.rs` imports `socdof_ui::chrome::{app_chrome, app_window}`, while the UI crate declared the module private.
+- **Root cause:** The browser host and native shell share the chrome implementation, but the module visibility was not aligned with that cross-crate use.
+- **Fix:** Expose the documented `chrome` module publicly from `crates/ui/src/lib.rs`; its functions were already public and re-exported for native consumers.
+- **Verification:** Added to the current PR head; WASM/Trunk rerun is pending.
+
+## RUST-CI-018 — Native startup resolves custom font before font atlas initialization (2026-11-19)
+
+- **Symptom:** Linux GUI smoke launched the native process but no visible window appeared; the process panicked with `FontFamily::Name("Semibold") is not bound to any fonts`.
+- **Root cause:** The desktop host installed its custom theme/fonts from the first app update. On the first native frame, epaint could resolve a Semibold RichText family before the custom font atlas had been rebuilt.
+- **Fix:** The eframe creation callback now calls the public font installer on `creation.egui_ctx` before the first frame is rendered. It does not set colors or dark mode, so the existing OS appearance detection and per-account theme resolution remain intact.
+- **Verification:** Added to the current PR head; Linux GUI smoke rerun is pending. The startup screen and native window visibility checks remain enabled.
+
+
+## RUST-CI-019 — Locale catalogue key inventory drift (2026-11-19)
+
+- **Symptom:** UI tests reported that the embedded catalogue contained two more labels than `UI_KEYS`; the committed catalogue inventory also differed from the source key list.
+- **Root cause:** The Stock Journal KPI labels had been added to the four JSON locale packs and the committed JSON inventory, but not to the authoritative `UI_KEYS` list in `crates/ui/src/i18n.rs`. The subsequent purchase validation labels also needed to be registered there.
+- **Fix:** Register `stock_journal_adjustment`, `stock_journal_total`, `purchases_error_line_total_overflow` and `purchases_error_order_total_overflow` in sorted order in `UI_KEYS`; the four locale packs and `catalogue-keys.json` now contain the same keys.
+- **Regression coverage:** Existing tests `every_embedded_language_defines_all_ui_keys`, `a_missing_pack_folder_keeps_the_embedded_texts` and `the_committed_key_inventory_matches_the_catalogue` verify the full key set and counts.
+- **Verification:** Fix is committed on the PR branch; full workspace tests are pending on the latest head.
+
+
+## RUST-CI-020 — macOS objc2 pin was installed but not selected by Cargo (2026-11-19)
+
+- **Symptom:** The macOS universal desktop build failed inside `objc2 0.4.1` with E0277 associated-type/Iterator errors, despite the workflow installing Rust 1.90.0 for that target.
+- **Root cause:** The repository's `rust-toolchain.toml` selects stable (1.100.0). Installing 1.90.0 and setting it as rustup's default did not override the repository toolchain file, so Cargo still compiled the legacy objc2 dependency with 1.100.0.
+- **Fix:** Set `RUSTUP_TOOLCHAIN=1.90.0` explicitly on the macOS native desktop build and Tauri bundle build steps. Linux and Windows continue to use stable.
+- **Verification:** Workflow change is on the PR branch; the next macOS build must show rustc 1.90.0 and complete both universal slices and Tauri packaging.
+
+
+## RUST-CI-021 — Native display discovery and cross-platform parser coverage (2026-11-19)
+
+- **Implementation:** Added a read-only display discovery service for Windows (System.Windows.Forms.Screen via PowerShell), macOS (system_profiler JSON), and Linux (xrandr --listmonitors on X11, wlr-randr on Wayland; Wayland detection is preferred when WAYLAND_DISPLAY is set).
+- **UI:** Settings → Display now offers explicit detection and a layout preview showing OS-reported names, dimensions, primary status and desktop coordinates. Detection errors are shown rather than replaced with invented display information.
+- **Tests:** Added parser tests for Linux xrandr geometry, Windows single/multi-screen JSON, macOS system_profiler records, negative/invalid geometry and resolution strings.
+- **Effects:** The persisted UI scale is applied through egui's zoom factor. The night-light temperature is mapped to a warm translucent overlay over the SOCDOF window; it does not change OS-wide display configuration.
+- **Scope:** No attempt is made to change OS monitor topology, physical placement, resolution or hardware scaling. The preview is read-only.
+- **Verification:** CI for the latest source revision is pending; do not mark the cross-platform implementation complete until Linux, Windows, macOS and WASM builds/tests finish.
+
+
+## RUST-CI-022 — Native system appearance and live preference refresh (2026-11-19)
+
+- **Implementation:** Added read-only native preference detection: Windows registry `AppsUseLightTheme`, macOS `defaults read -g AppleInterfaceStyle`, and Linux GNOME `gsettings color-scheme`, KDE `~/.config/kdeglobals` ColorScheme and `GTK_THEME` fallback.
+- **Runtime:** The desktop captures the initial OS preference and rechecks it every 60 seconds to stay within the native idle CPU budget. Only users with ThemeMode::System follow the detected value; explicit Light/Dark choices remain authoritative. Display settings are loaded through a lightweight startup read, while the full Settings workspace remains lazy-loaded.
+- **Display effects:** Settings are loaded during application startup so the saved UI scale applies before Settings is opened. The scale is applied through egui zoom, and the night-light temperature maps to a warm translucent overlay on SOCDOF's own window.
+- **Tests:** Added parsing coverage for Windows registry values, GNOME color-scheme values, and GTK theme names, plus settings tests for UI scale and night-light intensity.
+- **Verification:** Cross-platform CI remains required; platform command availability and GUI behavior must be confirmed by the Windows, macOS and Linux jobs.
+
+
+## RUST-CI-023 — Local appointments iCalendar export (2026-11-19)
+
+- **Core:** Added an RFC 5545 exporter for native local appointments. Events are deterministically sorted and contain stable UIDs, UTC timestamps, lifecycle status, escaped text fields and CRLF line endings.
+- **Interop:** Long UTF-8 content lines are folded at 75 octets; CR/LF, backslashes, commas and semicolons are escaped to prevent event-field injection.
+- **UI:** Settings are not involved; the Calendar toolbar offers an .ics save dialog in native builds. The export includes only the appointments currently visible after the active search and status filter.
+- **Privacy/scope:** No Google sign-in, OAuth, network sync or external calendar connection is used.
+- **Tests:** Added core tests for escaping, UTC timestamps, deterministic ordering and UTF-8 line folding, plus UI file-export coverage.
+- **Verification:** Native dialogs, Linux/Windows/macOS builds and the full workspace tests must pass before this feature is considered released.
+
+
+## RUST-CI-024 — Native GUI idle CPU budget after system-theme integration (2026-11-19)
+
+- **Symptom:** The Linux Xvfb smoke test opened the native window successfully and passed the idle RAM budget (121,896 / 122,880 KiB), but idle CPU measured 1.07% against the 0.5% ceiling.
+- **Root cause:** The first implementation spawned the OS theme query every ten seconds during the desktop's idle repaint cycle and fully hydrated users/roles/preferences in Settings during startup, even though only the small global display record was needed before login.
+- **Fix:** Poll the OS theme every 60 seconds instead of every ten seconds. Add `SettingsState::refresh_display_preferences` and call it during startup, leaving the full Settings workspace lazy-loaded until the user opens it.
+- **Expected effect:** Avoid repeated child-process wakeups during the 30-second idle CPU sample and reduce startup state hydration. This is a targeted budget fix, not a relaxed threshold.
+- **Verification:** The next latest-head Linux GUI smoke must pass both the 122,880 KiB idle RAM ceiling and the 0.5% idle CPU ceiling; do not waive either check.
+
+
+## RUST-CI-025 — Fleet odometer and monetary arithmetic boundaries (2026-11-19)
+
+- **Symptom:** Fleet calculations accepted a trip whose stored distance disagreed with its start/end odometer readings, and several integer operations could overflow for malformed or extreme imported values.
+- **Fix:** Require distance_km to equal end_km minus start_km after validating non-negative ordered odometer readings, and require logbook times to use strict zero-padded HH:MM values. Use saturating subtraction/multiplication for distance and tax allowance, an i128 intermediate for fuel unit-price rounding, and saturating aggregation for total, purpose-specific and fuel-cost KPIs.
+- **Regression coverage:** Verify inconsistent trip distances and malformed/out-of-range times are rejected; negative/overflowing distance inputs do not wrap; unit-price rounding handles half units and zero quantities; very large trip/fuel values saturate instead of panicking or wrapping.
+- **Compatibility:** Normal valid TypeScript fleet entries retain the same distance, 0.30-per-kilometre allowance, unit-price rounding and KPI values. No database schema change is required.
+- **Verification:** The new core tests are part of the latest PR-head Rust workflow; do not treat this change as verified until Format, Clippy and workspace tests pass.
+
+
+## RUST-CI-026 — Rust 2021 compatibility in native display detection (2026-11-19)
+
+- **Symptom:** Stable Rust rejected the native display parser in the workspace, WebAssembly and desktop builds with `let chains are only allowed in Rust 2024 or later`.
+- **Root cause:** The display-discovery implementation used let-chain syntax while the workspace packages still inherit the Rust 2021 edition. Installing a newer stable toolchain does not change the crate edition.
+- **Fix:** Rewrite the Linux utility fallbacks, macOS resolution parsing and Wayland output parser as explicit nested conditionals. Keep the workspace edition unchanged rather than broadening the migration to Rust 2024 just to accommodate one parser.
+- **Regression coverage:** Existing xrandr, wlr-randr, Windows JSON and macOS system_profiler parser tests remain unchanged and exercise the same branches.
+- **Verification:** The next latest-head Format, Clippy, WASM, Linux, Windows and macOS runs must all compile the updated module; do not count the older run's failures as current-head results.

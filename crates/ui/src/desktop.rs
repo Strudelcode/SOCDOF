@@ -1330,7 +1330,7 @@ fn desktop_impl(
     }
     // Minute precision keeps the desktop responsive without forcing a full UI redraw every second.
     // The native host still checks idle locking and refreshes its instance heartbeat periodically.
-    ctx.request_repaint_after(std::time::Duration::from_secs(10));
+    ctx.request_repaint_after(std::time::Duration::from_secs(15));
 
     crate::studio::studio_drawer(ctx, theme, texts, focus, &mut shell.studio, store);
 

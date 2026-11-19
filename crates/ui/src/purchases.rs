@@ -565,7 +565,11 @@ fn validation_key(code: &str) -> &'static str {
         "line_quantity_invalid" => "purchases_error_quantity",
         "line_price_negative" => "purchases_error_price",
         "line_tax_rate_out_of_range" => "purchases_error_tax",
-        "order_not_receivable" => "purchases_error_receive",
+        "line_total_overflow" => "purchases_error_line_total_overflow",
+        "order_total_overflow" => "purchases_error_order_total_overflow",
+        "order_not_receivable" | "order_receive_requires_goods_receipt" => {
+            "purchases_error_receive"
+        }
         _ => "purchases_error_save",
     }
 }
@@ -1562,6 +1566,14 @@ mod tests {
             store.find_purchase_order(order.id).unwrap().unwrap().status,
             PurchaseOrderStatus::Ordered
         );
+        assert!(store
+            .set_purchase_order_status(order.id, PurchaseOrderStatus::Received, SAMPLE_NOW_MS)
+            .is_err());
+        assert_eq!(
+            store.find_purchase_order(order.id).unwrap().unwrap().status,
+            PurchaseOrderStatus::Ordered,
+            "received status must not bypass the stock receipt transaction"
+        );
 
         state.receive(&store, SAMPLE_NOW_MS).expect("receive");
         assert_eq!(
@@ -1602,6 +1614,64 @@ mod tests {
         state.draft.lines[0].description.clear();
         state.save(&store, SAMPLE_NOW_MS).expect("validation ok");
         assert_eq!(state.error, Some("purchases_error_line_description"));
+    }
+
+    #[test]
+    fn failed_goods_receipt_rolls_back_every_stock_change_and_status() {
+        let store = Store::open_in_memory().expect("store");
+        let supplier = vendor(&store, "Nordroast GmbH");
+        let mut existing = Product::new("Vorhandenes Produkt", SAMPLE_NOW_MS);
+        existing.stock = 4;
+        store.insert_product(&existing).expect("product");
+
+        let order = sample_order(
+            supplier.id,
+            "BE-2026-0011",
+            PurchaseOrderStatus::Ordered,
+            SAMPLE_NOW_MS,
+            vec![PurchaseOrderLine {
+                product_id: Some(existing.id),
+                description: "Vorhandenes Produkt".to_string(),
+                quantity_milli: 2_000,
+                unit_cost: Money::from_cents(500),
+                tax_rate_bp: 700,
+            }],
+            None,
+        );
+        store.insert_purchase_order(&order).expect("insert");
+
+        let movements = vec![
+            socdof_core::domain::stock::StockMove {
+                id: Uuid::new_v4(),
+                product_id: existing.id,
+                kind: socdof_core::domain::stock::StockMoveKind::In,
+                quantity: 2,
+                reason: Some(order.number.clone()),
+                created_at: SAMPLE_NOW_MS + 1,
+            },
+            socdof_core::domain::stock::StockMove {
+                id: Uuid::new_v4(),
+                product_id: Uuid::new_v4(),
+                kind: socdof_core::domain::stock::StockMoveKind::In,
+                quantity: 1,
+                reason: Some(order.number.clone()),
+                created_at: SAMPLE_NOW_MS + 1,
+            },
+        ];
+        let error = store
+            .receive_purchase_order(order.id, &movements, SAMPLE_NOW_MS + 1)
+            .expect_err("unknown product must abort the receipt");
+        assert!(matches!(error, socdof_core::CoreError::NotFound(_)));
+        assert_eq!(
+            store.find_product(existing.id).unwrap().unwrap().stock,
+            4,
+            "the earlier valid movement must be rolled back"
+        );
+        assert_eq!(
+            store.find_purchase_order(order.id).unwrap().unwrap().status,
+            PurchaseOrderStatus::Ordered,
+            "failed stock booking must not mark the order received"
+        );
     }
 
     #[test]

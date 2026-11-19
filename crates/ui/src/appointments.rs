@@ -444,6 +444,24 @@ impl AppointmentsState {
             .and_then(|id| self.appointments.iter().find(|item| item.id == id))
     }
 
+    /// Exports the currently visible local appointments as an iCalendar file.
+    pub fn export_ics(
+        &self,
+        path: &std::path::Path,
+        generated_at_ms: i64,
+    ) -> socdof_core::CoreResult<u64> {
+        let appointments = self.visible().into_iter().cloned().collect::<Vec<_>>();
+        let content = socdof_core::domain::appointment::export_appointments_ics(
+            &appointments,
+            generated_at_ms,
+        );
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, content.as_bytes())?;
+        Ok(content.len() as u64)
+    }
+
     /// Opens the detail view of an appointment.
     pub fn select(&mut self, id: Uuid) {
         self.selected = Some(id);
@@ -878,6 +896,8 @@ fn calendar_view(
     ui.add_space(6.0);
 
     let mut create = false;
+    #[cfg(feature = "dialogs")]
+    let mut export_ics = false;
     ui.horizontal_wrapped(|ui| {
         for view in [
             AppointmentsView::Month,
@@ -927,6 +947,18 @@ fn calendar_view(
                 .copied();
             state.filter_status(status);
         }
+        #[cfg(feature = "dialogs")]
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("appointments_export_ics"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            export_ics = true;
+        }
         if button(
             ui,
             theme,
@@ -942,6 +974,21 @@ fn calendar_view(
     if create {
         state.start_new();
         return;
+    }
+    #[cfg(feature = "dialogs")]
+    if export_ics {
+        let (year, month, day) = socdof_core::date::civil_from_millis(now);
+        let filename = format!("socdof-kalender-{year:04}-{month:02}-{day:02}.ics");
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name(&filename)
+            .add_filter("iCalendar", &["ics"])
+            .save_file()
+        {
+            match state.export_ics(&path, now) {
+                Ok(_) => state.status = Some("appointments_exported"),
+                Err(_) => state.error = Some("appointments_error_export"),
+            }
+        }
     }
 
     ui.add_space(8.0);
@@ -1729,6 +1776,23 @@ mod tests {
         assert_eq!(state.visible().len(), 2);
         state.filter_status(None);
         assert_eq!(state.visible().len(), 4);
+    }
+
+    #[test]
+    fn exports_only_visible_local_appointments_to_icalendar() {
+        let (_store, mut state, _texts) = seeded();
+        state.filter_status(Some(AppointmentStatus::Scheduled));
+        let export_path =
+            std::env::temp_dir().join(format!("socdof-calendar-{}.ics", Uuid::new_v4()));
+        let bytes = state
+            .export_ics(&export_path, SAMPLE_NOW_MS)
+            .expect("export");
+        let content = std::fs::read_to_string(&export_path).expect("read export");
+        assert_eq!(usize::try_from(bytes).expect("file length"), content.len());
+        assert!(content.starts_with("BEGIN:VCALENDAR\r\n"));
+        assert!(content.contains("BEGIN:VEVENT"));
+        assert_eq!(content.matches("BEGIN:VEVENT").count(), 2);
+        std::fs::remove_file(export_path).expect("cleanup");
     }
 
     #[test]
