@@ -75,7 +75,12 @@ pub fn detect_system_appearance() -> Option<Appearance> {
         None
     }
 
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_arch = "wasm32")))]
+    #[cfg(not(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux",
+        target_arch = "wasm32"
+    )))]
     {
         None
     }
