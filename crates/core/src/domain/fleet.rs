@@ -167,7 +167,10 @@ impl FleetTrip {
             return Err("Die Strecke muss groesser als 0 km sein".to_string());
         }
         if self.distance_km != self.end_km - self.start_km {
-            return Err("Die Strecke muss der Differenz aus End- und Startkilometerstand entsprechen".to_string());
+            return Err(
+                "Die Strecke muss der Differenz aus End- und Startkilometerstand entsprechen"
+                    .to_string(),
+            );
         }
         if !is_time(&self.start_time) || !is_time(&self.end_time) {
             return Err("Zeiten muessen im Format HH:MM vorliegen".to_string());
