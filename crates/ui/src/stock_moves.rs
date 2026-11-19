@@ -265,7 +265,9 @@ pub fn stock_moves_window(
     });
     state.refresh(store);
     let visible = state.visible_entries();
-    let (total_moves, inbound, outbound, adjustments) = movement_totals(&visible);
+    let all_entries = store.list_stock_journal_entries().unwrap_or_default();
+    let all_refs = all_entries.iter().collect::<Vec<_>>();
+    let (total_moves, inbound, outbound, adjustments) = movement_totals(&all_refs);
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
         for (label, value) in [
