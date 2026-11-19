@@ -36,9 +36,10 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
             .output()
             .map_err(|error| format!("PowerShell display detection could not start: {error}"))?;
         if !output.status.success() {
-            return Err("Windows display detection returned an error.".to_string());
+            Err("Windows display detection returned an error.".to_string())
+        } else {
+            parse_windows_monitors(&String::from_utf8_lossy(&output.stdout))
         }
-        return parse_windows_monitors(&String::from_utf8_lossy(&output.stdout));
     }
 
     #[cfg(target_os = "macos")]
@@ -48,9 +49,10 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
             .output()
             .map_err(|error| format!("system_profiler could not start: {error}"))?;
         if !output.status.success() {
-            return Err("macOS display detection returned an error.".to_string());
+            Err("macOS display detection returned an error.".to_string())
+        } else {
+            parse_system_profiler_monitors(&String::from_utf8_lossy(&output.stdout))
         }
-        return parse_system_profiler_monitors(&String::from_utf8_lossy(&output.stdout));
     }
 
     #[cfg(target_os = "linux")]
