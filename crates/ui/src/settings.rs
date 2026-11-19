@@ -675,6 +675,12 @@ impl SettingsState {
     }
 
     /// Loads profile, users, roles and the persisted policies.
+    /// Loads only native display preferences for startup without loading the full Settings workspace.
+    pub fn refresh_display_preferences(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        self.refresh_display_preferences(store)?;
+        Ok(())
+    }
+
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         if self.loaded {
             return Ok(());
@@ -4446,6 +4452,26 @@ mod tests {
         assert_eq!(letterhead.default_subject, "Angebot");
         assert_eq!(letterhead.footer_lines[0], "IBAN: DE00");
         assert!(!letterhead.show_fold_marks);
+    }
+
+    #[test]
+    fn startup_can_load_display_preferences_without_loading_the_full_settings_screen() {
+        let (store, mut state, _texts) = seeded();
+        state.display.scale_percent = "135".to_string();
+        state.display.night_light_enabled = true;
+        state.display.night_light_temperature = "2400".to_string();
+        assert!(state.save_display(&store));
+
+        let mut startup_state = SettingsState::new();
+        startup_state
+            .refresh_display_preferences(&store)
+            .expect("display preferences");
+        assert_eq!(startup_state.ui_scale_factor(), 1.35);
+        assert_eq!(
+            startup_state.night_light_overlay().expect("night light").a(),
+            46
+        );
+        assert!(!startup_state.loaded);
     }
 
     #[test]
