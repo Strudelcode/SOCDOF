@@ -190,13 +190,18 @@ impl PurchaseOrder {
             }
 
             let net = line.unit_cost.cents() as i128 * line.quantity_milli as i128 / 1_000;
-            let tax_raw = net * line.tax_rate_bp as i128;
-            let tax = (tax_raw + 5_000) / 10_000;
-            total_net += net;
-            total_tax += tax;
-            if net > i64::MAX as i128 || tax > i64::MAX as i128 {
+            if net > i64::MAX as i128 {
                 return Err("line_total_overflow".to_string());
             }
+            // The net amount is now bounded to i64, so scaling it by the maximum
+            // 10,000 basis-point tax rate is comfortably within i128.
+            let tax_raw = net * line.tax_rate_bp as i128;
+            let tax = (tax_raw + 5_000) / 10_000;
+            if tax > i64::MAX as i128 {
+                return Err("line_total_overflow".to_string());
+            }
+            total_net += net;
+            total_tax += tax;
         }
         // The public totals use Money(i64), so validate aggregate values before they are
         // accepted and later summed by list, invoice and print views.
