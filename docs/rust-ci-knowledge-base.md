@@ -567,7 +567,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 
 ## RUST-CI-021 — Native display discovery and cross-platform parser coverage (2026-11-19)
 
-- **Implementation:** Added a read-only display discovery service for Windows (System.Windows.Forms.Screen via PowerShell), macOS (system_profiler JSON), and Linux (xrandr --listmonitors).
+- **Implementation:** Added a read-only display discovery service for Windows (System.Windows.Forms.Screen via PowerShell), macOS (system_profiler JSON), and Linux (xrandr --listmonitors on X11, wlr-randr on Wayland; Wayland detection is preferred when WAYLAND_DISPLAY is set).
 - **UI:** Settings → Display now offers explicit detection and a layout preview showing OS-reported names, dimensions, primary status and desktop coordinates. Detection errors are shown rather than replaced with invented display information.
 - **Tests:** Added parser tests for Linux xrandr geometry, Windows single/multi-screen JSON, macOS system_profiler records, negative/invalid geometry and resolution strings.
 - **Effects:** The persisted UI scale is applied through egui's zoom factor. The night-light temperature is mapped to a warm translucent overlay over the SOCDOF window; it does not change OS-wide display configuration.
