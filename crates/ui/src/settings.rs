@@ -2010,6 +2010,9 @@ fn display_tab(
                 });
             }
         }
+        if !state.display_monitors.is_empty() {
+            display_layout_preview(ui, theme, &state.display_monitors);
+        }
         if let Some(error) = &state.display_scan_error {
             ui.label(
                 RichText::new(error)
@@ -2071,6 +2074,97 @@ fn display_tab(
     }
     if save {
         state.save_display(store);
+    }
+}
+
+/// Draws a read-only layout preview using the coordinates reported by the OS.
+fn display_layout_preview(ui: &mut egui::Ui, theme: &Theme, monitors: &[DisplayMonitor]) {
+    let (canvas, _) = ui.allocate_exact_size(
+        Vec2::new(ui.available_width(), 176.0),
+        Sense::hover(),
+    );
+    let painter = ui.painter();
+    painter.rect(
+        canvas,
+        egui::Rounding::same(10.0),
+        theme.palette.surface_muted,
+        Stroke::new(1.0, theme.palette.border),
+    );
+
+    let same_origin = monitors.len() > 1
+        && monitors.iter().all(|monitor| monitor.x == monitors[0].x && monitor.y == monitors[0].y);
+    let mut origins = Vec::with_capacity(monitors.len());
+    let mut next_x = 0_i32;
+    for monitor in monitors {
+        let origin = if same_origin {
+            let origin = (next_x, 0);
+            next_x = next_x.saturating_add(monitor.width.min(i32::MAX as u32) as i32);
+            origin
+        } else {
+            (monitor.x, monitor.y)
+        };
+        origins.push(origin);
+    }
+
+    let min_x = origins.iter().map(|origin| origin.0).min().unwrap_or(0);
+    let min_y = origins.iter().map(|origin| origin.1).min().unwrap_or(0);
+    let max_x = origins
+        .iter()
+        .zip(monitors)
+        .map(|(origin, monitor)| origin.0.saturating_add(monitor.width.min(i32::MAX as u32) as i32))
+        .max()
+        .unwrap_or(1);
+    let max_y = origins
+        .iter()
+        .zip(monitors)
+        .map(|(origin, monitor)| origin.1.saturating_add(monitor.height.min(i32::MAX as u32) as i32))
+        .max()
+        .unwrap_or(1);
+    let total_width = max_x.saturating_sub(min_x).max(1) as f32;
+    let total_height = max_y.saturating_sub(min_y).max(1) as f32;
+    let scale = ((canvas.width() - 24.0) / total_width)
+        .min((canvas.height() - 24.0) / total_height)
+        .max(0.001);
+    let rendered_width = total_width * scale;
+    let rendered_height = total_height * scale;
+    let offset = egui::vec2(
+        canvas.left() + (canvas.width() - rendered_width) / 2.0,
+        canvas.top() + (canvas.height() - rendered_height) / 2.0,
+    );
+
+    for (index, (monitor, origin)) in monitors.iter().zip(origins).enumerate() {
+        let rect = egui::Rect::from_min_size(
+            egui::pos2(
+                offset.x + (origin.0 - min_x) as f32 * scale,
+                offset.y + (origin.1 - min_y) as f32 * scale,
+            ),
+            Vec2::new(monitor.width as f32 * scale, monitor.height as f32 * scale),
+        );
+        let fill = if monitor.primary {
+            theme.accent.base
+        } else {
+            theme.palette.surface
+        };
+        let text = if monitor.primary {
+            egui::Color32::WHITE
+        } else {
+            theme.palette.text
+        };
+        painter.rect(
+            rect,
+            egui::Rounding::same(7.0),
+            fill,
+            Stroke::new(1.2, theme.palette.border),
+        );
+        if rect.width() >= 56.0 && rect.height() >= 36.0 {
+            painter.text(
+                rect.center(),
+                egui::Align2::CENTER_CENTER,
+                format!("{} · {}×{}", index + 1, monitor.width, monitor.height),
+                egui::FontId::proportional(FONT_SMALL),
+                text,
+            );
+        }
     }
 }
 
