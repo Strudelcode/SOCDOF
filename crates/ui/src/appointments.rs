@@ -1789,7 +1789,7 @@ mod tests {
             .expect("export");
         let content = std::fs::read_to_string(&export_path).expect("read export");
         assert_eq!(usize::try_from(bytes).expect("file length"), content.len());
-        assert!(content.starts_with("BEGIN:VCALENDAR\\r\\n"));
+        assert!(content.starts_with("BEGIN:VCALENDAR\r\n"));
         assert!(content.contains("BEGIN:VEVENT"));
         assert_eq!(content.matches("BEGIN:VEVENT").count(), 2);
         std::fs::remove_file(export_path).expect("cleanup");

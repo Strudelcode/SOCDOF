@@ -114,6 +114,11 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
     }
 }
 
+/// Looks up a JSON field without using the translation catalogue's literal-key syntax.
+fn json_field<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
+    value.get(key)
+}
+
 #[cfg(any(target_os = "windows", test))]
 fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     let value: serde_json::Value = serde_json::from_str(output.trim())
@@ -123,13 +128,13 @@ fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
         .iter()
         .filter_map(|entry| {
             Some(DisplayMonitor {
-                id: entry.get("id")?.as_str()?.to_string(),
-                label: entry.get("label")?.as_str()?.to_string(),
-                x: entry.get("x")?.as_i64()? as i32,
-                y: entry.get("y")?.as_i64()? as i32,
-                width: entry.get("width")?.as_u64()? as u32,
-                height: entry.get("height")?.as_u64()? as u32,
-                primary: Some(entry.get("primary")?.as_bool()?),
+                id: json_field(entry, "id")?.as_str()?.to_string(),
+                label: json_field(entry, "label")?.as_str()?.to_string(),
+                x: i32::try_from(json_field(entry, "x")?.as_i64()?).ok()?,
+                y: i32::try_from(json_field(entry, "y")?.as_i64()?).ok()?,
+                width: u32::try_from(json_field(entry, "width")?.as_u64()?).ok()?,
+                height: u32::try_from(json_field(entry, "height")?.as_u64()?).ok()?,
+                primary: Some(json_field(entry, "primary")?.as_bool()?),
             })
         })
         .filter(|monitor| monitor.width > 0 && monitor.height > 0)
@@ -143,6 +148,8 @@ fn parse_windows_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
 
 #[cfg(any(target_os = "macos", test))]
 fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
+    const RESOLUTION_KEY: &str = "spdisplays_resolution";
+
     fn collect(value: &serde_json::Value, monitors: &mut Vec<DisplayMonitor>) {
         match value {
             serde_json::Value::Array(items) => {
