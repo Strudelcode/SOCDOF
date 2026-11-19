@@ -160,7 +160,7 @@ fn parse_resolution(value: &str) -> Option<(u32, u32)> {
     (width > 0 && height > 0).then_some((width, height))
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", test))]
 fn parse_xrandr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
     let mut monitors = Vec::new();
     for line in output.lines().skip(1) {
@@ -177,7 +177,7 @@ fn parse_xrandr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String> {
         let Some((width, height, x, y)) = parse_xrandr_geometry(geometry) else {
             continue;
         };
-        let label = flags.trim_start_matches(['+', '*']).to_string();
+        let label = flags.trim_start_matches(|character| character == '+' || character == '*').to_string();
         if label.is_empty() {
             continue;
         }
