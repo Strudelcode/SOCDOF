@@ -10,6 +10,111 @@ use crate::tokens::{
     AccentPreset, CONTROL_HEIGHT, FONT_BODY, FONT_HEADING, FONT_SMALL, RADIUS_CONTROL, SPACING_UNIT,
 };
 
+/// Detects the current operating-system light/dark preference without changing it.
+///
+/// Returns `None` when the platform exposes no readable preference. The native desktop host can
+/// then fall back to the windowing backend's initial appearance.
+pub fn detect_system_appearance() -> Option<Appearance> {
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                "/v",
+                "AppsUseLightTheme",
+            ])
+            .output()
+            .ok()?;
+        return parse_windows_theme(&String::from_utf8_lossy(&output.stdout));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let output = std::process::Command::new("defaults")
+            .args(["read", "-g", "AppleInterfaceStyle"])
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return Some(Appearance::Light);
+        }
+        return if String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .eq_ignore_ascii_case("dark")
+        {
+            Some(Appearance::Dark)
+        } else {
+            Some(Appearance::Light)
+        };
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(output) = std::process::Command::new("gsettings")
+            .args(["get", "org.gnome.desktop.interface", "color-scheme"])
+            .output()
+        {
+            if output.status.success() {
+                if let Some(appearance) = parse_gnome_color_scheme(&String::from_utf8_lossy(&output.stdout)) {
+                    return Some(appearance);
+                }
+            }
+        }
+        if let Ok(theme) = std::env::var("GTK_THEME") {
+            if let Some(appearance) = parse_gtk_theme(&theme) {
+                return Some(appearance);
+            }
+        }
+        None
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        None
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux", target_arch = "wasm32")))]
+    {
+        None
+    }
+}
+
+#[cfg(any(target_os = "windows", test))]
+fn parse_windows_theme(output: &str) -> Option<Appearance> {
+    let value = output.split_whitespace().last()?;
+    if value.ends_with("0x0") {
+        Some(Appearance::Dark)
+    } else if value.ends_with("0x1") {
+        Some(Appearance::Light)
+    } else {
+        None
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_gnome_color_scheme(output: &str) -> Option<Appearance> {
+    let value = output.trim().trim_matches(['\\'', '"']);
+    if value.eq_ignore_ascii_case("prefer-dark") {
+        Some(Appearance::Dark)
+    } else if value.eq_ignore_ascii_case("prefer-light") {
+        Some(Appearance::Light)
+    } else {
+        None
+    }
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_gtk_theme(output: &str) -> Option<Appearance> {
+    let theme = output.trim();
+    if theme.to_ascii_lowercase().contains("dark") {
+        Some(Appearance::Dark)
+    } else if !theme.is_empty() {
+        Some(Appearance::Light)
+    } else {
+        None
+    }
+}
+
 /// Concrete appearance after `ThemeMode::System` has been resolved against the operating system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Appearance {
@@ -338,6 +443,29 @@ pub fn install_fonts(ctx: &Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parses_native_system_theme_preferences() {
+        assert_eq!(
+            parse_windows_theme("AppsUseLightTheme REG_DWORD 0x0"),
+            Some(Appearance::Dark)
+        );
+        assert_eq!(
+            parse_windows_theme("AppsUseLightTheme REG_DWORD 0x1"),
+            Some(Appearance::Light)
+        );
+        assert_eq!(
+            parse_gnome_color_scheme("'prefer-dark'"),
+            Some(Appearance::Dark)
+        );
+        assert_eq!(
+            parse_gnome_color_scheme("'prefer-light'"),
+            Some(Appearance::Light)
+        );
+        assert_eq!(parse_gnome_color_scheme("'default'"), None);
+        assert_eq!(parse_gtk_theme("Adwaita-dark"), Some(Appearance::Dark));
+        assert_eq!(parse_gtk_theme("Adwaita"), Some(Appearance::Light));
+    }
 
     #[test]
     fn resolves_system_mode_against_the_operating_system() {
