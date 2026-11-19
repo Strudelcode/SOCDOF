@@ -582,3 +582,13 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Display effects:** Settings are loaded during application startup so the saved UI scale applies before Settings is opened. The scale is applied through egui zoom, and the night-light temperature maps to a warm translucent overlay on SOCDOF's own window.
 - **Tests:** Added parsing coverage for Windows registry values, GNOME color-scheme values, and GTK theme names, plus settings tests for UI scale and night-light intensity.
 - **Verification:** Cross-platform CI remains required; platform command availability and GUI behavior must be confirmed by the Windows, macOS and Linux jobs.
+
+
+## RUST-CI-023 — Local appointments iCalendar export (2026-11-19)
+
+- **Core:** Added an RFC 5545 exporter for native local appointments. Events are deterministically sorted and contain stable UIDs, UTC timestamps, lifecycle status, escaped text fields and CRLF line endings.
+- **Interop:** Long UTF-8 content lines are folded at 75 octets; CR/LF, backslashes, commas and semicolons are escaped to prevent event-field injection.
+- **UI:** Settings are not involved; the Calendar toolbar offers an .ics save dialog in native builds. The export includes only the appointments currently visible after the active search and status filter.
+- **Privacy/scope:** No Google sign-in, OAuth, network sync or external calendar connection is used.
+- **Tests:** Added core tests for escaping, UTC timestamps, deterministic ordering and UTF-8 line folding, plus UI file-export coverage.
+- **Verification:** Native dialogs, Linux/Windows/macOS builds and the full workspace tests must pass before this feature is considered released.
