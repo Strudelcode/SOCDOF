@@ -570,5 +570,6 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Implementation:** Added a read-only display discovery service for Windows (System.Windows.Forms.Screen via PowerShell), macOS (system_profiler JSON), and Linux (xrandr --listmonitors).
 - **UI:** Settings → Display now offers explicit detection and a layout preview showing OS-reported names, dimensions, primary status and desktop coordinates. Detection errors are shown rather than replaced with invented display information.
 - **Tests:** Added parser tests for Linux xrandr geometry, Windows single/multi-screen JSON, macOS system_profiler records, negative/invalid geometry and resolution strings.
-- **Scope:** No attempt is made to change OS monitor topology, physical placement, resolution or scaling. The preview is read-only.
+- **Effects:** The persisted UI scale is applied through egui's zoom factor. The night-light temperature is mapped to a warm translucent overlay over the SOCDOF window; it does not change OS-wide display configuration.
+- **Scope:** No attempt is made to change OS monitor topology, physical placement, resolution or hardware scaling. The preview is read-only.
 - **Verification:** CI for the latest source revision is pending; do not mark the cross-platform implementation complete until Linux, Windows, macOS and WASM builds/tests finish.
