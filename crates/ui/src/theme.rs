@@ -93,7 +93,9 @@ fn parse_windows_theme(output: &str) -> Option<Appearance> {
 
 #[cfg(any(target_os = "linux", test))]
 fn parse_gnome_color_scheme(output: &str) -> Option<Appearance> {
-    let value = output.trim().trim_matches(['\\'', '"']);
+    let value = output
+        .trim()
+        .trim_matches(|character| character == char::from(39) || character == '"');
     if value.eq_ignore_ascii_case("prefer-dark") {
         Some(Appearance::Dark)
     } else if value.eq_ignore_ascii_case("prefer-light") {
