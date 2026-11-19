@@ -400,9 +400,19 @@ fn is_iso_date(text: &str) -> bool {
 
 fn is_time(text: &str) -> bool {
     let text = text.trim();
+    if text.len() != 5 {
+        return false;
+    }
     let Some((hours, minutes)) = text.split_once(':') else {
         return false;
     };
+    if hours.len() != 2
+        || minutes.len() != 2
+        || !hours.bytes().all(|byte| byte.is_ascii_digit())
+        || !minutes.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return false;
+    }
     matches!((hours.parse::<u32>(), minutes.parse::<u32>()), (Ok(h), Ok(m)) if h < 24 && m < 60)
 }
 
@@ -471,6 +481,12 @@ mod tests {
 
         let mut entry = trip(Uuid::nil(), Uuid::nil(), "business", 30);
         assert!(entry.validate().is_ok());
+        entry.start_time = "8:30".to_string();
+        assert!(entry.validate().is_err(), "time must use zero-padded HH:MM");
+        entry.start_time = "08:30".to_string();
+        entry.end_time = "24:00".to_string();
+        assert!(entry.validate().is_err(), "hours must be in the 00..23 range");
+        entry.end_time = "09:30".to_string();
         entry.end_km = entry.start_km;
         entry.distance_km = 0;
         assert!(entry.validate().is_err());
