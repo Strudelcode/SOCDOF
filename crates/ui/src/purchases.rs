@@ -1615,6 +1615,55 @@ mod tests {
     }
 
     #[test]
+    fn failed_goods_receipt_rolls_back_every_stock_change_and_status() {
+        let store = Store::open_in_memory().expect("store");
+        let supplier = vendor(&store, "Nordroast GmbH");
+        let mut existing = Product::new("Vorhandenes Produkt", SAMPLE_NOW_MS);
+        existing.stock = 4;
+        store.insert_product(&existing).expect("product");
+
+        let order = sample_order(
+            supplier.id,
+            "BE-2026-0011",
+            PurchaseOrderStatus::Ordered,
+            SAMPLE_NOW_MS,
+            vec![
+                PurchaseOrderLine {
+                    product_id: Some(existing.id),
+                    description: "Vorhandenes Produkt".to_string(),
+                    quantity_milli: 2_000,
+                    unit_cost: Money::from_cents(500),
+                    tax_rate_bp: 700,
+                },
+                PurchaseOrderLine {
+                    product_id: Some(Uuid::new_v4()),
+                    description: "Nicht vorhandenes Produkt".to_string(),
+                    quantity_milli: 1_000,
+                    unit_cost: Money::from_cents(300),
+                    tax_rate_bp: 700,
+                },
+            ],
+            None,
+        );
+        store.insert_purchase_order(&order).expect("insert");
+
+        let error = store
+            .receive_purchase_order(order.id, &order.stock_moves(SAMPLE_NOW_MS + 1), SAMPLE_NOW_MS + 1)
+            .expect_err("unknown product must abort the receipt");
+        assert!(matches!(error, socdof_core::CoreError::NotFound(_)));
+        assert_eq!(
+            store.find_product(existing.id).unwrap().unwrap().stock,
+            4,
+            "the earlier valid movement must be rolled back"
+        );
+        assert_eq!(
+            store.find_purchase_order(order.id).unwrap().unwrap().status,
+            PurchaseOrderStatus::Ordered,
+            "failed stock booking must not mark the order received"
+        );
+    }
+
+    #[test]
     fn searches_and_filters_through_the_store() {
         let (store, mut state, _texts) = seeded();
         assert_eq!(state.orders.len(), 3);
