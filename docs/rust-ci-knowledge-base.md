@@ -563,3 +563,12 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 - **Root cause:** The repository's `rust-toolchain.toml` selects stable (1.100.0). Installing 1.90.0 and setting it as rustup's default did not override the repository toolchain file, so Cargo still compiled the legacy objc2 dependency with 1.100.0.
 - **Fix:** Set `RUSTUP_TOOLCHAIN=1.90.0` explicitly on the macOS native desktop build and Tauri bundle build steps. Linux and Windows continue to use stable.
 - **Verification:** Workflow change is on the PR branch; the next macOS build must show rustc 1.90.0 and complete both universal slices and Tauri packaging.
+
+
+## RUST-CI-021 — Native display discovery and cross-platform parser coverage (2026-11-19)
+
+- **Implementation:** Added a read-only display discovery service for Windows (System.Windows.Forms.Screen via PowerShell), macOS (system_profiler JSON), and Linux (xrandr --listmonitors).
+- **UI:** Settings → Display now offers explicit detection and a layout preview showing OS-reported names, dimensions, primary status and desktop coordinates. Detection errors are shown rather than replaced with invented display information.
+- **Tests:** Added parser tests for Linux xrandr geometry, Windows single/multi-screen JSON, macOS system_profiler records, negative/invalid geometry and resolution strings.
+- **Scope:** No attempt is made to change OS monitor topology, physical placement, resolution or scaling. The preview is read-only.
+- **Verification:** CI for the latest source revision is pending; do not mark the cross-platform implementation complete until Linux, Windows, macOS and WASM builds/tests finish.
