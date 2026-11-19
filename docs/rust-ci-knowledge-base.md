@@ -578,7 +578,7 @@ For native Linux idle measurement, use the same Xvfb environment as `.github/wor
 ## RUST-CI-022 — Native system appearance and live preference refresh (2026-11-19)
 
 - **Implementation:** Added read-only native preference detection: Windows registry `AppsUseLightTheme`, macOS `defaults read -g AppleInterfaceStyle`, and Linux GNOME `gsettings color-scheme`, KDE `~/.config/kdeglobals` ColorScheme and `GTK_THEME` fallback.
-- **Runtime:** The desktop captures the initial OS preference and rechecks it every ten seconds. Only users with ThemeMode::System follow the detected value; explicit Light/Dark choices remain authoritative.
+- **Runtime:** The desktop captures the initial OS preference and rechecks it every 60 seconds to stay within the native idle CPU budget. Only users with ThemeMode::System follow the detected value; explicit Light/Dark choices remain authoritative. Display settings are loaded through a lightweight startup read, while the full Settings workspace remains lazy-loaded.
 - **Display effects:** Settings are loaded during application startup so the saved UI scale applies before Settings is opened. The scale is applied through egui zoom, and the night-light temperature maps to a warm translucent overlay on SOCDOF's own window.
 - **Tests:** Added parsing coverage for Windows registry values, GNOME color-scheme values, and GTK theme names, plus settings tests for UI scale and night-light intensity.
 - **Verification:** Cross-platform CI remains required; platform command availability and GUI behavior must be confirmed by the Windows, macOS and Linux jobs.
