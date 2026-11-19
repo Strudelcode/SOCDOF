@@ -115,6 +115,7 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
 }
 
 /// Looks up a JSON field without using the translation catalogue's literal-key syntax.
+#[cfg(any(target_os = "windows", test))]
 fn json_field<'a>(value: &'a serde_json::Value, key: &str) -> Option<&'a serde_json::Value> {
     value.get(key)
 }
