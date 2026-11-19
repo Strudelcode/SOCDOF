@@ -330,12 +330,13 @@ mod tests {
 
     #[test]
     fn parses_wayland_wlr_randr_enabled_display_blocks() {
-        let output = "eDP-1 \"Built-in Display\"\n  Enabled: yes\n  Modes:\n    1920x1080 px, 60.000000 Hz (preferred, current)\n  Position: 0,0\n  Scale: 1.000000\nHDMI-A-1 \"External Monitor\"\n  Enabled: no\n  Modes:\n    2560x1440 px, 60.000000 Hz (current)\n  Position: 1920,0\n";
+        let output = "eDP-1 \"Built-in Display\"\n  Enabled: yes\n  Modes:\n    1920x1080 px, 60.000000 Hz (preferred, current)\n  Position: -1920,-120\n  Scale: 1.000000\nHDMI-A-1 \"External Monitor\"\n  Enabled: no\n  Modes:\n    2560x1440 px, 60.000000 Hz (current)\n  Position: 1920,0\n";
         let monitors = parse_wlr_randr_monitors(output).expect("Wayland monitors");
         assert_eq!(monitors.len(), 1);
         assert_eq!(monitors[0].id, "eDP-1");
         assert_eq!(monitors[0].label, "Built-in Display");
         assert_eq!((monitors[0].width, monitors[0].height), (1920, 1080));
+        assert_eq!((monitors[0].x, monitors[0].y), (-1920, -120));
         assert_eq!(monitors[0].primary, None);
     }
 
