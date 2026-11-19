@@ -58,29 +58,42 @@ pub fn detect_connected_monitors() -> Result<Vec<DisplayMonitor>, String> {
     #[cfg(target_os = "linux")]
     {
         let wayland_session = std::env::var_os("WAYLAND_DISPLAY").is_some();
-        if !wayland_session
-            && let Ok(output) = std::process::Command::new("xrandr")
+        if !wayland_session {
+            if let Ok(output) = std::process::Command::new("xrandr")
                 .arg("--listmonitors")
                 .output()
-            && output.status.success()
-            && let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
-        {
-            return Ok(monitors);
+            {
+                if output.status.success() {
+                    if let Ok(monitors) =
+                        parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
+                    {
+                        return Ok(monitors);
+                    }
+                }
+            }
         }
-        if let Ok(output) = std::process::Command::new("wlr-randr").output()
-            && output.status.success()
-            && let Ok(monitors) = parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout))
-        {
-            return Ok(monitors);
+        if let Ok(output) = std::process::Command::new("wlr-randr").output() {
+            if output.status.success() {
+                if let Ok(monitors) =
+                    parse_wlr_randr_monitors(&String::from_utf8_lossy(&output.stdout))
+                {
+                    return Ok(monitors);
+                }
+            }
         }
-        if wayland_session
-            && let Ok(output) = std::process::Command::new("xrandr")
+        if wayland_session {
+            if let Ok(output) = std::process::Command::new("xrandr")
                 .arg("--listmonitors")
                 .output()
-            && output.status.success()
-            && let Ok(monitors) = parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
-        {
-            return Ok(monitors);
+            {
+                if output.status.success() {
+                    if let Ok(monitors) =
+                        parse_xrandr_monitors(&String::from_utf8_lossy(&output.stdout))
+                    {
+                        return Ok(monitors);
+                    }
+                }
+            }
         }
         Err("No supported Linux display utility found a readable active monitor layout. Install xrandr (X11) or wlr-randr (Wayland).".to_string())
     }
@@ -138,23 +151,26 @@ fn parse_system_profiler_monitors(output: &str) -> Result<Vec<DisplayMonitor>, S
                 }
             }
             serde_json::Value::Object(object) => {
-                if let Some(resolution) = object.get("spdisplays_resolution").and_then(serde_json::Value::as_str)
-                    && let Some((width, height)) = parse_resolution(resolution)
+                if let Some(resolution) = object
+                    .get("spdisplays_resolution")
+                    .and_then(serde_json::Value::as_str)
                 {
-                    let label = ["sppci_model", "spdisplays_display", "spdisplays_name"]
-                        .iter()
-                        .find_map(|key| object.get(*key).and_then(serde_json::Value::as_str))
-                        .unwrap_or("Display")
-                        .to_string();
-                    monitors.push(DisplayMonitor {
-                        id: label.clone(),
-                        label,
-                        x: 0,
-                        y: 0,
-                        width,
-                        height,
-                        primary: None,
-                    });
+                    if let Some((width, height)) = parse_resolution(resolution) {
+                        let label = ["sppci_model", "spdisplays_display", "spdisplays_name"]
+                            .iter()
+                            .find_map(|key| object.get(*key).and_then(serde_json::Value::as_str))
+                            .unwrap_or("Display")
+                            .to_string();
+                        monitors.push(DisplayMonitor {
+                            id: label.clone(),
+                            label,
+                            x: 0,
+                            y: 0,
+                            width,
+                            height,
+                            primary: None,
+                        });
+                    }
                 }
                 for child in object.values() {
                     collect(child, monitors);
@@ -231,8 +247,12 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
 
     let finish =
         |monitor: Option<DisplayMonitor>, enabled: bool, monitors: &mut Vec<DisplayMonitor>| {
-            if enabled && let Some(monitor) = monitor.filter(|item| item.width > 0 && item.height > 0) {
-                monitors.push(monitor);
+            if enabled {
+                if let Some(monitor) =
+                    monitor.filter(|item| item.width > 0 && item.height > 0)
+                {
+                    monitors.push(monitor);
+                }
             }
         };
 
@@ -275,18 +295,21 @@ fn parse_wlr_randr_monitors(output: &str) -> Result<Vec<DisplayMonitor>, String>
             enabled = value.trim().eq_ignore_ascii_case("yes");
         } else if let Some(value) = detail.strip_prefix("Position:") {
             let mut coordinates = value.trim().split(',');
-            if let (Some(x), Some(y)) = (coordinates.next(), coordinates.next())
-                && let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse())
-            {
-                monitor.x = x;
-                monitor.y = y;
+            if let (Some(x), Some(y)) = (coordinates.next(), coordinates.next()) {
+                if let (Ok(x), Ok(y)) = (x.trim().parse(), y.trim().parse()) {
+                    monitor.x = x;
+                    monitor.y = y;
+                }
             }
-        } else if (detail.contains("current)") || (monitor.width == 0 && detail.contains(" px,")))
-            && let Some(dimensions) = detail.split_whitespace().next()
-            && let Some((width, height)) = parse_mode_dimensions(dimensions)
+        } else if detail.contains("current)")
+            || (monitor.width == 0 && detail.contains(" px,"))
         {
-            monitor.width = width;
-            monitor.height = height;
+            if let Some(dimensions) = detail.split_whitespace().next() {
+                if let Some((width, height)) = parse_mode_dimensions(dimensions) {
+                    monitor.width = width;
+                    monitor.height = height;
+                }
+            }
         }
     }
     finish(current, enabled, &mut monitors);
