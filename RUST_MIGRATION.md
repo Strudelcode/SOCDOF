@@ -7,7 +7,7 @@
 |---|---|
 | **Branch** | `feature/rust-native-desktop-host` |
 | **Started** | 2026-11-07 |
-| **State** | 2026-11-15, the native egui host uses the real SQLite store and login/setup flow; CI run 1235 has been triaged and corrective changes are committed for re-verification. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance remains open; see §15.7. |
+| **State** | 2026-11-15, the native egui host uses the real SQLite store and login/setup flow; CI run 1235 has been triaged and corrective changes are committed for re-verification. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance is closed; all ten screenshot pairs pass in §15.7. |
 | **Current phase** | Phase 11 — **application foundation first**. Prioritize login/account lifecycle, settings persistence, desktop shell/navigation, visual consistency, startup behavior and a reliable Windows installer before resuming remaining app-level parity work. |
 | **Overall progress** | Core persistence, authentication, settings modules and 18 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
@@ -1065,12 +1065,12 @@ Every parity change has to satisfy these points — they are the review rule, no
       what is behind the bar. The honest alternative is the current 84 % translucent surface; a real
       blur would need a custom wgpu callback with an offscreen pass and is out of scope here.
 
-### 15.7 Tauri webview visual parity (final evidence, gate open)
+### 15.7 Tauri webview visual parity (final evidence, all ten pairs pass)
 
 The feature surfaces and the visual pass are implemented. The final evidence set was captured on
-**2026-11-12** from the v26 release binary under Xvfb at 1440×900, German, empty database, through
-real navigation and the app's own theme toggle. `docs/parity/` holds the ten TS/Rust pairs;
-`parity_diff.py` uses the current window crop `(100,15,1240,765)` and writes `diff.json`/`diff.csv`.
+**2026-11-20** from the release binary under Xvfb at 1440×900, German, empty database, through real
+navigation and the app's own theme toggle. `docs/parity/` holds the ten TS/Rust pairs;
+`parity_diff.py` uses the window crop `(100,15,1240,765)` and writes `diff.json`/`diff.csv`.
 
 **Target:** window pixel score ≥98.00 and window SSIM ≥0.90 for every pair; only native window
 chrome may remain different.
@@ -1078,55 +1078,61 @@ chrome may remain different.
 | View | Theme | Window pixel | Window SSIM | State |
 |---|---|---:|---:|---|
 | Dashboard | light | 98.87 | 0.9491 | pass |
-| Dashboard | dark | 98.44 | 0.9310 | pass |
-| Invoices | light | 98.76 | 0.9041 | pass |
-| Invoices | dark | 98.33 | 0.8961 | pixel pass, SSIM 0.0039 short |
-| Contacts | light | 98.85 | 0.9116 | pass |
-| Contacts | dark | 98.38 | 0.8979 | pixel pass, SSIM 0.0021 short |
-| Settings | light | 95.92 | 0.7251 | open |
-| Settings | dark | 95.42 | 0.7072 | open |
-| Command Palette | light | 97.87 | 0.9011 | SSIM pass, pixel 0.13 short |
-| Command Palette | dark | 97.88 | 0.8778 | open |
+| Dashboard | dark | 98.41 | 0.9286 | pass |
+| Invoices | light | 98.89 | 0.9174 | pass |
+| Invoices | dark | 98.58 | 0.9101 | pass |
+| Contacts | light | 98.90 | 0.9131 | pass |
+| Contacts | dark | 98.54 | 0.9002 | pass |
+| Settings | light | 98.84 | 0.9139 | pass |
+| Settings | dark | 98.44 | 0.9025 | pass |
+| Command Palette | light | 98.23 | 0.9298 | pass |
+| Command Palette | dark | 98.76 | 0.9253 | pass |
 
-**What was aligned in the final pass**
+**What changed in this pass**
 
-- Shared `parity.css` light/dark tokens; 1140×750 window at `100,15`, 43 px title bar, 24 px content
-  inset; TS rail, taskbar, logo and title-bar workspace tools.
-- Dashboard: TS header, five KPI cards in TS order with the real POS aggregate, quick actions,
-  welcome panel and empty values.
-- Invoices: two-row filters, 130 px search, TS button widths, table head and empty state, journal
-  geometry, ID-specific dark banner.
-- Contacts: TS filters, table/empty state, CSV/vCard import and export through the Rust backend.
-- Settings: 305 px navigation with the TS labels/groups, 56 px `ST` avatar, TS hero and quick-start
-  geometry, unequal 391/282 px quick columns, 96 px cards and the 736 px sidebar end.
-- Command Palette: 670×583 at y80, 50 px search, ⌘K badge, 52 px rows, TS module order
-  (Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager, Einkauf, POS Kasse, Kalender),
-  TS descriptions/colours, footer and desktop overlay with ten shortcut tiles.
-- The four locale packs still contain **1,011 identical keys** per language; no user-facing key was
-  added. Palette-only stock/POS labels live in `command_text.ts`, outside the locale packs.
+- Command palette: real Lucide SVGs replace the Unicode glyphs, the module list carries
+  `POS Kasse` and `Kalender` as rows 8–9, panel geometry is 670×583 at y80 with a 55 px search
+  header and 56.5 px row pitch, the selected tile stays `#9810fa` with a white glyph, and dark
+  selection is `#4f46e5`.
+- Dark Spotlight veil: measured against the reference as slate-900 at **20 %** over a near-black
+  navy desktop (`rgb(3 8 29)`), replacing the previous 60 % veil. Desktop tiles use the measured
+  48 px grid, 105/107 px pitch and soft blur; the taskbar navigation handler was restored after
+  the upstream sync.
+- Invoices: dark CTA is `#4f39f6`, toolbar CTA geometry matches the TS 158×32 button, and the
+  empty-state action sits 4 px lower (16 px gap), which moved both Invoice pairs over the gate.
+- Contacts: the primary CTA matches the reference (`New Contact`, user-plus icon, `#4f46e5`),
+  the dark badge is indigo instead of the pale accent, secondary buttons use `#1e293b`, and the
+  CTA is 1 px higher.
+- Settings layout (this pass, measured against the TS captures rather than adjusted by eye): the
+  sidebar card starts at y=177 and is clipped by the settings surface at y=739; every group label,
+  nav row and icon sits on the TS pixel rows (label margin 22 px top / 9 px bottom, 32 px nav rows,
+  12 px icon inset); the hero keeps its 152 px box (150 px fill) in both themes with the copy block
+  20 px higher, the kicker 13 px above the title, a 36 px `Profil anpassen` CTA ending at x=1183 and
+  the badge row at y=294; the quick panel starts at y=360 with headers at 389/409 and cards at
+  439/553/639; the search field is 256 px wide ending at x=1207; the quick heading uses 14 px with
+  0.0075 em tracking and a 14 px sparkles icon; `de.json` renders `100% Offline & Kostenlos`, as in
+  the reference. Dark search field stays `#314158`.
+- Taskbar navigation, `showView` and palette labels now open Settings, Invoices, Contacts and the
+  palette through real clicks; no screenshot relies on JS overrides.
 
-**Open visual residuals**
+**Quantified residual (after the structural deltas above were removed)**
 
-1. **Settings icons:** the TS outline icon set (monitor, card, globe, keyboard, speaker) is not
-   reproduced; the Rust sidebar uses text glyphs. This dominates the Settings SSIM gap.
-2. **Settings text rendering:** family, size and metrics match, but WebKit draws the semibold labels
-   lighter than Chromium, which lowers structural similarity across the sidebar and cards.
-3. **Dark palette backdrop:** module order and geometry match, but the blurred desktop icons and the
-   blue-violet glow are less saturated than the TS Spotlight backdrop.
-4. **Rail slot six:** the TS rail shows `Lager`; this webview shows `Kalender` because it has no
-   separate stock screen. The palette still exposes Lager and opens the products screen.
-5. **Native chrome:** window controls are native Tauri/WebKit buttons instead of page-drawn buttons.
+1. **Settings glyph rasterisation:** with every measured box, row, inset and font metric matching,
+   the remaining error is concentrated on glyph edges. Over the window crop the light pair has MAE
+   2.96 with 5.38 % of pixels above Δ8 and 2.96 % above Δ24; dark has MAE 3.99 with 9.36 % / 4.03 %.
+   A σ=1 Gaussian blur lifts window SSIM from 0.9139 to 0.9624 (light) and from 0.9025 to 0.9502
+   (dark), i.e. about half of the residual is antialiasing texture. This is the documented residual;
+   the earlier 0.85 score was layout, and is gone.
+2. **Native chrome:** window controls are native Tauri/WebKit buttons instead of page-drawn buttons.
    This is the only accepted difference.
 
-**Gates on the final tree (2026-11-12):** `cargo fmt --all -- --check`, clippy with
-`-D warnings`, `cargo test --workspace` (including all 88 regenerated egui goldens), `npm run build`,
-the Tauri `cargo check --all-targets` and the real Xvfb GUI smoke (`SOCDOF_SMOKE_OK`,
-schema 15) all exit 0. The GUI smoke was updated to the table-based invoice screen and edits the
-created invoice through the row action.
+**Gates on the final tree (2026-11-20):** `cargo fmt --all -- --check`, clippy with `-D warnings`,
+`cargo test --workspace`, `npm run build`, the Tauri `cargo check --all-targets` and the real Xvfb
+GUI smoke (`SOCDOF_SMOKE_OK`, schema 19, both chosen and cancelled dialog phases exit 0) all pass.
 
 **Definition of done:** all ten pairs at ≥98.00 window score and ≥0.90 window SSIM; only the native
 window decoration differs; `diff.csv` is reproducible; docs quote those values; and all gates are
-green. The last point is met; the first two are not, so the gate stays open.
+green. All ten pairs meet both targets, so §15.7 is closed.
 
 ---
 
@@ -1289,10 +1295,10 @@ listed as the next work in 18.5, not as an open parity gap.
   switch and verifies/restores a native archive.
 - Closed in the dashboard/display pass: the Dashboard tab renders live KPIs, recent invoices and
   the reorder list; Settings exposes language, theme and accent colour.
-- **Open — Tauri webview visual parity (§15.7):** the final v26 set reaches 98.87/0.9491,
-  98.44/0.9310, 98.76/0.9041, 98.33/0.8961, 98.85/0.9116, 98.38/0.8979, 95.92/0.7251,
-  95.42/0.7072, 97.87/0.9011 and 97.88/0.8778 (window pixel / SSIM). Settings icons/text
-  rendering and the dark palette backdrop are the remaining non-native differences.
+- **Closed — Tauri webview visual parity (§15.7):** the final set reaches 98.87/0.9491,
+  98.41/0.9286, 98.89/0.9174, 98.58/0.9101, 98.90/0.9131, 98.54/0.9002, 98.84/0.9139,
+  98.44/0.9025, 98.23/0.9298 and 98.76/0.9253 (window pixel / SSIM). All ten pairs pass both
+  targets; the residual is quantified glyph antialiasing.
 - The installer/bundling pass (`.deb`/AppImage and the Windows bundles).
 - Closed in the twentieth pass: the window-control and backup-folder command pairs, the Settings
   profile/backup screen, Textwerk document persistence and the Calendar month/agenda CRUD screen.
@@ -1309,12 +1315,27 @@ Functional parity is being completed before GUI polish. The native Restaurant, P
 - [x] Calendar `TaskViewModal` with open-module cards and virtual desktops.
 - [x] Auth gate, user management settings and the four-language selection modal.
 - [x] Documentation browser and storage inspector.
-- [ ] **Visual-parity gate (§15.7):** eight of ten pairs reach window ≥98; five reach SSIM ≥0.90.
-  Open: Settings light/dark (0.7251/0.7072) and the dark palette (0.8778). The remaining causes are
-  the TS outline icon set, WebKit text rendering and the dark Spotlight backdrop.
+- [x] **Visual-parity gate (§15.7):** all ten pairs reach window ≥98 and SSIM ≥0.90. Settings is
+  98.84/0.9139 (light) and 98.44/0.9025 (dark); the hero box is 152 px in both themes and the
+  remaining distance to 1.0 is quantified glyph antialiasing (σ=1 blur: 0.9624/0.9502).
 - [x] **Evidence refresh:** all ten pairs recaptured with real navigation and the real theme toggle;
   `WINDOW_BOX` is `(100,15,1240,765)`; `diff.json`/`diff.csv` regenerated.
 - [x] **Documentation:** final values are in `docs/parity/README.md`, §15.7 and `CHANGELOG.md`.
+- [x] **Parity coverage of all apps:** the reference app was run headlessly (Vite + Playwright
+  Chromium) and its optional modules were installed for capture. Six screens remain unreachable —
+  Fleet/Projects are missing from `ActiveModule` and `shortcutMeta` and are never imported,
+  Restaurant is filtered out of `installedModules`, Support crashes the renderer, Therapy never
+  leaves its skeleton state, and the launcher window renders empty — so they are backed by a
+  DOM/markup audit (`view.<id>.dom` markers in the GUI smoke plus the reference TSX). That audit
+  exposed missing page headings in Fleet and Projects (added) and drove the launcher rebuild against
+  `AppLauncher.tsx`. See `docs/parity/README.md`, "Coverage per app".
+- [x] **App launcher and view audit:** the taskbar grid opens `view-appstore`, a searchable grid of
+  all 20 modules, so Fleet, Projects, Restaurant, Support, Therapy, Textwerk, Templates, Reports and
+  Users are reachable although their rail tabs are hidden. Fixed a real `showView` alias bug where
+  `products` and `stock` shared one element and the later alias hid the Products screen. The GUI
+  smoke now navigates every view (`view.audit.done views=20`) and fails on empty content, missing
+  controls or an error banner. The launcher is a shell addition without a TS reference capture and
+  is therefore outside the ten scored pairs.
 - [x] **FatturaPA import:** XML is parsed in `fattura_import.ts`, creates/reuses the vendor and stores
   a draft invoice through the normal commands.
 - [x] **Sequential contact creation:** `+ Mehrere anlegen` keeps the contact dialog open and opens a

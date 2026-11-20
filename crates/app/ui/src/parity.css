@@ -4533,9 +4533,9 @@ body.palette-desktop {
 /* TS Spotlight metrics: 672x535 panel, 55 px search header, 51 px rows with a
    4 px gap, 28 px coloured icon tile, regular-weight descriptions. */
 .command-window {
-  width: 672px;
-  height: 535px;
-  max-height: 535px;
+  width: 670px;
+  height: 583px;
+  max-height: 583px;
 }
 
 .command-search {
@@ -4569,3 +4569,722 @@ body.palette-desktop {
 .command-footer {
   padding: 3px 13px;
 }
+/* Spotlight matches the TS panel: white surface, 32 px icon tiles, a 16 px
+   icon/text gap and 56.5 px row pitch (the TS rows alternate 56/57 px).
+   Only the palette uses Plus Jakarta Sans; the rest of the shell keeps the
+   DejaVu metrics that matched the reference. */
+.command-window {
+  font-family: "Plus Jakarta Sans", var(--font-sans);
+}
+
+:root:not([data-theme="dark"]) .command-window {
+  background: #ffffff;
+}
+
+:root:not([data-theme="dark"]) .command-row.is-selected {
+  background: #655de8;
+}
+
+.command-results {
+  gap: 0;
+}
+
+.command-row {
+  min-height: 56.5px;
+  gap: 16px;
+  align-items: flex-start;
+  padding-top: 8px;
+}
+
+.command-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.command-search > * {
+  transform: translateY(-3px);
+}
+
+.command-footer {
+  height: 35px;
+  padding: 0 16px;
+  font-size: 11px;
+}
+
+.command-icon {
+  color: #fff;
+}
+
+.command-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.command-row {
+  gap: 12px;
+  padding-top: 7.5px;
+}
+
+.command-footer {
+  transform: translateY(-1px);
+}
+
+/* TS Spotlight keeps the same indigo selection in both themes. */
+:root[data-theme="dark"] .command-row.is-selected {
+  color: #fff;
+  background: #655de8;
+}
+
+:root[data-theme="dark"] .command-row.is-selected small {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+:root[data-theme="dark"] .command-footer {
+  background: #0f172a;
+}
+
+/* The TS Spotlight blurs the whole desktop layer, including the taskbar. */
+body.palette-desktop .desktop-taskbar {
+  filter: blur(3px);
+  opacity: 0.2;
+}
+/* TS dark titles are semibold white with a slightly heavier WebKit stroke. */
+:root[data-theme="dark"] .command-row strong {
+  font-weight: 650;
+}
+
+/* The TS desktop shortcuts read as soft colour blobs under Spotlight. */
+body.palette-desktop .desktop-shortcut {
+  filter: blur(4px) saturate(1.2);
+}
+
+/* TS keeps the quick-action tile coloured when its row is selected. */
+.command-row.is-selected .command-icon {
+  color: #fff;
+  background: #9810fa;
+}
+
+:root[data-theme="dark"] .command-row.is-selected {
+  background: #4f46e5;
+}
+
+:root[data-theme="dark"] .command-window {
+  background: #0f172b;
+}
+
+:root[data-theme="dark"] .command-row strong {
+  font-weight: 650;
+}
+
+:root[data-theme="dark"] body.palette-desktop .desktop-icons {
+  padding: 39px 0 0 36px;
+  column-gap: 65px;
+  row-gap: 59px;
+}
+
+:root[data-theme="dark"] body.palette-desktop .desktop-shortcut {
+  opacity: 0.2;
+  color: transparent;
+  filter: blur(12px) saturate(1.05);
+}
+
+:root[data-theme="dark"] .command-row small {
+  color: #9aa8bd;
+}
+
+:root[data-theme="dark"] .command-footer {
+  background: #0f162a;
+}
+
+:root[data-theme="dark"] .command-search {
+  background: #0f172b;
+}
+
+.command-window {
+  text-rendering: geometricPrecision;
+}
+
+:root[data-theme="dark"] .command-row.is-selected small {
+  transform: translateY(-1px);
+}
+
+/* TS dark Spotlight veil is only lightly darkened; measured backdrop is
+   rgb(3 8 29), i.e. slate-900 at 20% over a near-black navy desktop. */
+:root[data-theme="dark"] body.palette-desktop {
+  background: #00041a;
+}
+
+:root[data-theme="dark"] .command-overlay {
+  background: rgba(15, 23, 42, 0.2);
+}
+
+:root[data-theme="dark"] .settings-search {
+  background: #314158;
+}
+
+.settings-nav {
+  font-weight: 650;
+}
+
+.settings-nav-label {
+  font-weight: 750;
+}
+
+/* TS keeps its indigo call-to-action buttons saturated in dark mode. */
+:root[data-theme="dark"] .invoice-empty-action {
+  background: #4f39f6;
+}
+
+:root[data-theme="dark"] .contacts-new {
+  background: #4f46e5;
+}
+
+.invoice-empty-action {
+  padding: 0 26px;
+}
+
+:root[data-theme="dark"] #invoice-new {
+  background: #4f39f6;
+  border-color: transparent;
+}
+
+#invoice-new {
+  height: 32px;
+  min-width: 158px;
+  padding: 0 20px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.contacts-actions > .contacts-new {
+  padding: 0 18px;
+  font-size: 13px;
+}
+
+.invoice-empty-state {
+  gap: 16px;
+}
+
+.contacts-actions > .contacts-new {
+  gap: 6px;
+  padding: 0 26px;
+  font-size: 13px;
+}
+
+.contacts-new svg {
+  width: 16px;
+  height: 16px;
+}
+
+:root[data-theme="dark"] .contacts-badge {
+  background: #4f46e5;
+}
+
+:root[data-theme="dark"] .contacts-secondary {
+  background: #1e293b;
+  color: #cbd5e1;
+}
+
+.contacts-new {
+  transform: translateY(-1px);
+}
+
+/* Settings structural parity, measured 2026-11-20:
+   hero 184–335 (152 px), sidebar 185–739 (555 px), quick panel 360–731 with
+   card rows already at 439/553/639. Fix the boxes, not the screenshot. */
+#view-settings .settings-content {
+  padding-top: 28px;
+}
+
+#view-settings .settings-hero {
+  height: 152px;
+  min-height: 0;
+  padding-bottom: 6px;
+}
+
+#view-settings .settings-sidebar {
+  margin-top: 16px;
+  min-height: 555px;
+}
+
+#view-settings .settings-quick {
+  margin-top: 4px;
+  padding-top: 19px;
+  padding-bottom: 3px;
+}
+
+/* TS clips the settings surface at y=739 (inside the 24 px window inset). */
+#view-settings {
+  height: 660px;
+  overflow: hidden;
+}
+
+#view-settings .settings-sidebar {
+  margin-top: 18px;
+  padding-top: 14px;
+  min-height: 565px;
+}
+
+#view-settings .settings-nav {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 9px;
+  margin-bottom: 4px;
+}
+
+#view-settings .settings-quick {
+  margin-top: 8px;
+  padding-top: 24px;
+  padding-bottom: 0;
+}
+
+/* Sidebar rhythm measured against the TS rows: group labels sit 22 px below
+   the previous item and 13 px above the next, which removes the cumulative
+   drift (labels were 3/6/9/12 px early). */
+#view-settings .settings-nav-label {
+  margin-top: 22px;
+  margin-bottom: 9px;
+}
+
+#view-settings .settings-nav-label:first-of-type {
+  margin-top: 22px;
+}
+
+#view-settings .settings-quick {
+  margin-top: 12px;
+}
+
+/* Hero internals: TS places the kicker 13 px above the title (not 29 px) and
+   uses a 32 px CTA. Padding stays 24 px total so the 152 px box is stable. */
+#view-settings .settings-hero {
+  padding: 8px 24px 16px;
+}
+
+#view-settings .settings-kicker {
+  margin-top: 18px;
+}
+
+#view-settings .settings-hero h2 {
+  margin-top: 4px;
+}
+
+#view-settings .settings-hero-action {
+  margin-top: 49px;
+  padding: 4px 16px;
+}
+
+#view-settings .settings-badges {
+  margin-top: 13px;
+}
+
+/* The hero's 13 px bottom margin absorbs larger values, so 17 px is the first
+   value that actually moves the panel to y=360. */
+#view-settings .settings-quick {
+  margin-top: 17px;
+}
+
+/* Flex centring moved the copy block down when the h2 margin shrank; give it
+   a 20 px bottom margin (10 px centring offset) and trim the kicker by 2 px. */
+#view-settings .settings-hero-copy {
+  margin-bottom: 20px;
+}
+
+#view-settings .settings-kicker {
+  margin-top: 18px;
+}
+
+#view-settings .settings-hero h2 {
+  margin-top: 6px;
+}
+
+/* Guarantee the measured 24 px gap between hero (ends 336) and panel (360). */
+#view-settings .settings-quick {
+  margin-top: 24px !important;
+}
+
+/* Sidebar card: TS top 177 and clipped by the settings surface at 739, with
+   the nav label/icon inset at 13 px and a 304 px wide card. */
+#view-settings {
+  height: 670px;
+}
+
+#view-settings .settings-sidebar {
+  margin-top: 18px;
+  padding-right: 10px;
+}
+
+#view-settings .settings-nav {
+  padding: 0 9px 0 12px;
+}
+
+#view-settings .settings-nav-label {
+  margin-left: 10px;
+  margin-right: 9px;
+}
+
+#view-settings .settings-shell {
+  padding-left: 13px;
+}
+
+/* Search field: TS renders a 256 px box ending at 1207 with the placeholder
+   1 px higher than the flex-centred input. */
+#view-settings .settings-topbar {
+  padding-right: 15px;
+}
+
+#view-settings .settings-search {
+  width: 256px;
+}
+
+#view-settings .settings-search input {
+  transform: translateY(-1px);
+}
+
+/* CTA is 36 px tall in TS (the legacy height:38px wins over padding). Quick
+   heading and sidebar labels are 800-weight in the reference. */
+#view-settings .settings-hero-action {
+  height: 36px;
+}
+
+#view-settings .settings-quick h3 {
+  font-weight: 800;
+}
+
+#view-settings .settings-nav-label {
+  font-weight: 800;
+}
+
+/* Quick heading is 14.5 px in TS (14 px is 3.4 % too narrow); the hero copy
+   sits 1 px closer to the avatar. */
+#view-settings .settings-quick h3 {
+  font-size: 14px;
+  letter-spacing: 0.0075em;
+}
+
+#view-settings .settings-quick h3 .settings-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#view-settings .settings-hero {
+  gap: 15px;
+}
+
+/* App launcher: reachable from the taskbar grid button, lists every module.
+   Structure mirrors the reference AppLauncher: brand header with live clock,
+   search, four-column cards with category/description/open affordance, footer. */
+#view-appstore {
+  height: 670px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+#view-appstore .launcher-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 6px;
+}
+
+#view-appstore .launcher-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+#view-appstore .launcher-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#view-appstore .launcher-logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+#view-appstore .launcher-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#view-appstore .launcher-badge {
+  border-radius: 999px;
+  background: rgba(79, 70, 229, 0.12);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+}
+
+#view-appstore .launcher-clock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+#view-appstore .launcher-clock .settings-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--accent);
+}
+
+#view-appstore .launcher-live {
+  color: #059669;
+  font-weight: 600;
+}
+
+#view-appstore .launcher-search {
+  max-width: 560px;
+  margin-top: 2px;
+}
+
+#view-appstore .launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+#view-appstore .launcher-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 158px;
+  padding: 14px;
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--surface);
+  text-align: left;
+  box-shadow: none;
+}
+
+#view-appstore .launcher-card:hover {
+  border-color: var(--accent-border);
+  background: var(--surface-muted);
+}
+
+#view-appstore .launcher-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 11px;
+  color: #fff;
+  background: #4f46e5;
+}
+
+#view-appstore .launcher-icon .settings-icon {
+  width: 17px;
+  height: 17px;
+}
+
+#view-appstore .launcher-icon.violet { background: #7c3aed; }
+#view-appstore .launcher-icon.sky { background: #0284c7; }
+#view-appstore .launcher-icon.emerald { background: #059669; }
+#view-appstore .launcher-icon.amber { background: #d97706; }
+#view-appstore .launcher-icon.orange { background: #ea580c; }
+#view-appstore .launcher-icon.rose { background: #e11d48; }
+#view-appstore .launcher-icon.slate { background: #475569; }
+
+#view-appstore .launcher-cat {
+  margin-top: 6px;
+  color: var(--accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+#view-appstore .launcher-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#view-appstore .launcher-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+#view-appstore .launcher-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--surface-border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#view-appstore .launcher-arrow {
+  width: 13px;
+  height: 13px;
+}
+
+#view-appstore .launcher-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--surface-border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#view-appstore .launcher-footer .settings-icon {
+  width: 14px;
+  height: 14px;
+  color: #059669;
+}
+
+/* Purchases — ported from the TypeScript PurchasesModule layout. */
+#view-purchases { color: #0f172a; }
+#view-purchases .px-page { display: flex; flex-direction: column; gap: 16px; padding: 28px 48px 48px; }
+#view-purchases .px-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+#view-purchases .px-head-main { display: flex; align-items: flex-start; gap: 14px; }
+#view-purchases .px-appicon { width: 46px; height: 46px; color: #fff; font-size: 20px; border-radius: 14px; background: linear-gradient(135deg,#fb923c,#ea580c); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
+#view-purchases h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; color: #0f172a; }
+#view-purchases .px-head-main p { margin: 0; font-size: 12px; line-height: 20px; color: #64748b; }
+#view-purchases .px-head-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+#view-purchases .px-btn-amber, #view-purchases .px-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 12px; font-size: 10.5px; font-weight: 700; border: 0; cursor: pointer; white-space: nowrap; }
+#view-purchases .px-btn-amber { background: linear-gradient(90deg,#f59e0b,#d97706); color: #0f172a; }
+#view-purchases .px-btn-primary { background: #4f46e5; color: #fff; }
+#view-purchases .px-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
+#view-purchases .px-kpi { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+#view-purchases .px-kpi-label { font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+#view-purchases .px-kpi-value { margin-top: 3px; font-size: 18px; line-height: 26px; font-weight: 700; color: #0f172a; white-space: nowrap; }
+#view-purchases .px-kpi-value.px-tone-accent { color: #4f46e5; }
+#view-purchases .px-kpi-value.px-tone-emerald { color: #059669; }
+#view-purchases .px-kpi-value.px-tone-amber { color: #d97706; }
+#view-purchases .px-kpi-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+#view-purchases .px-kpi-icon.px-tone-accent { background: rgba(79,70,229,.12); color: #4f46e5; }
+#view-purchases .px-kpi-icon.px-tone-emerald { background: rgba(16,185,129,.12); color: #059669; }
+#view-purchases .px-kpi-icon.px-tone-amber { background: rgba(245,158,11,.14); color: #d97706; }
+#view-purchases .px-filter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+#view-purchases .px-search { position: relative; display: flex; align-items: center; flex: 1; }
+#view-purchases .px-search span { position: absolute; left: 12px; color: #94a3b8; font-size: 14px; }
+#view-purchases .px-search input { width: 100%; height: 32px; padding: 0 14px 0 34px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; font-size: 12px; color: #0f172a; }
+#view-purchases .px-pills { display: flex; align-items: center; gap: 6px; }
+#view-purchases .px-pill { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 500; cursor: pointer; }
+#view-purchases .px-pill.is-active { background: #4f46e5; color: #fff; font-weight: 700; }
+#view-purchases .px-tablecard { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+#view-purchases .px-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+#view-purchases .px-table th { padding: 14px 14px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #eef2f7; }
+#view-purchases .px-table th:nth-child(1) { width: 9%; }
+#view-purchases .px-table th:nth-child(2) { width: 15%; }
+#view-purchases .px-table th:nth-child(3), #view-purchases .px-table th:nth-child(4) { width: 10%; }
+#view-purchases .px-table th:nth-child(5) { width: 11%; }
+#view-purchases .px-table th:nth-child(6) { width: 11%; }
+#view-purchases .px-table th:nth-child(7) { width: 22%; }
+#view-purchases .px-table td { padding: 16px 14px; font-size: 12px; color: #334155; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+#view-purchases .px-table tr:last-child td { border-bottom: 0; }
+#view-purchases .px-doc { color: #38bdf8; font-size: 13px; text-align: left; }
+#view-purchases .px-num { display: block; margin-top: 2px; color: #64748b; font-size: 9.5px; letter-spacing: -0.01em; }
+#view-purchases .px-vendor { color: #475569; line-height: 18px; }
+#view-purchases .px-total { font-weight: 600; color: #0f172a; }
+#view-purchases .px-status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 700; }
+#view-purchases .px-status.is-received { background: #d1fae5; color: #047857; }
+#view-purchases .px-status.is-draft { background: #f1f5f9; color: #475569; }
+#view-purchases .px-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+#view-purchases .px-icon { width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #64748b; font-size: 12px; cursor: pointer; }
+#view-purchases .px-receive { height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: #059669; color: #fff; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+#view-purchases .px-empty { padding: 32px; text-align: center; color: #94a3b8; }
+#view-purchases #purchases-message:empty { display: none; }
+:root[data-theme="dark"] #view-purchases { color: #e2e8f0; }
+:root[data-theme="dark"] #view-purchases h1 { color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .px-head-main p { color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .px-kpi, :root[data-theme="dark"] #view-purchases .px-filter, :root[data-theme="dark"] #view-purchases .px-tablecard { background: #0f172a; border-color: #1e293b; }
+:root[data-theme="dark"] #view-purchases .px-kpi-label, :root[data-theme="dark"] #view-purchases .px-table th { color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .px-kpi-value { color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .px-search input { background: #1e293b; border-color: #334155; color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .px-pill { background: #1e293b; color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .px-pill.is-active { background: #4f46e5; color: #fff; }
+:root[data-theme="dark"] #view-purchases .px-table td { color: #cbd5e1; border-color: #1e293b; }
+:root[data-theme="dark"] #view-purchases .px-icon { background: #1e293b; border-color: #334155; color: #94a3b8; }
+
+/* POS — ported from the TypeScript POSModule layout (dark register workspace). */
+#view-pos { margin: -24px; padding: 0; height: calc(100% + 48px); }
+#view-pos .pos-page { display: flex; height: 100%; background: #0f172a; color: #e2e8f0; font-family: Arial, "Helvetica Neue", "Noto Sans", sans-serif; font-size: 14px; line-height: 20px; overflow: hidden; }
+#view-pos .pos-main { display: flex; flex-direction: column; flex: 1; min-width: 0; border-right: 1px solid #1e293b; }
+#view-pos .pos-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px 0; }
+#view-pos .pos-search { position: relative; display: flex; align-items: center; flex: 1; height: 38px; padding: 0 16px 0 22px; gap: 8px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #94a3b8; font-size: 16px; }
+#view-pos .pos-search > span { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 16px; }
+#view-pos .pos-search input { flex: 1; height: 100%; padding: 0; border: 0; background: transparent; color: #fff; font-size: 14px; outline: none; }
+#view-pos .pos-scan { display: flex; align-items: center; gap: 8px; }
+#view-pos .pos-scan input { width: 192px; height: 38px; padding: 0 12px 0 17px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #fff; font-size: 14px; }
+#view-pos .pos-scan-btn { height: 34px; padding: 0 12px; border: 0; border-radius: 12px; background: #059669; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+#view-pos .pos-cats { display: flex; align-items: center; gap: 6px; margin-top: 13px; padding: 0 15px; overflow-x: auto; }
+#view-pos .pos-category { height: 22px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e293b; color: #94a3b8; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+#view-pos .pos-category.is-active { background: #714b67; color: #fff; }
+#view-pos .pos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 38px; padding: 0 16px 16px; overflow-y: auto; align-content: start; }
+#view-pos .pos-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; position: relative; height: 180px; padding: 14px; border: 1px solid rgba(51,65,85,0.6); border-radius: 12px; background: rgba(30,41,59,0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: left; color: #fff; cursor: pointer; }
+#view-pos .pos-card-icon { display: block; width: 10px; height: 20px; margin: 6px 0; border: 1px solid #cbd5e1; border-radius: 2px; }
+#view-pos .pos-stock { position: absolute; top: 14px; right: 14px; padding: 2px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; font-family: var(--font-mono); font-size: 10px; line-height: 15px; }
+#view-pos .pos-stock.is-low { background: rgba(136,19,55,0.6); border: 1px solid rgba(190,18,60,0.4); color: #fda4af; }
+#view-pos .pos-card-name { display: block; margin-top: 9px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #fff; font-size: 14px; line-height: 20px; font-weight: 600; }
+#view-pos .pos-card-sku { display: block; margin-top: 3px; color: #94a3b8; font-family: var(--font-mono); font-size: 11px; line-height: 16px; }
+#view-pos .pos-card-price { position: absolute; left: 14px; bottom: 22px; color: #34d399; font-size: 14px; line-height: 20px; font-weight: 700; bottom: 15px; }
+#view-pos .pos-card-add { position: absolute; right: 14px; bottom: 20px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #334155; color: #fff; font-size: 12px; }
+#view-pos .pos-cart { display: flex; flex-direction: column; flex: 0 0 384px; width: 384px; min-width: 0; border-left: 1px solid #1e293b; background: #020617; }
+#view-pos .pos-cart-head { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 16px; border-bottom: 1px solid #1e293b; background: rgba(15,23,42,0.4); }
+#view-pos .pos-cart-title-row { display: flex; align-items: center; gap: 8px; }
+#view-pos .pos-cart-bag { color: #c084fc; font-size: 16px; line-height: 1; }
+#view-pos .pos-cart-head h2 { margin: 0; color: #fff; font-size: 14px; line-height: 20px; font-weight: 700; }
+#view-pos .pos-customer { display: flex; align-items: center; gap: 8px; height: 30px; color: #94a3b8; font-size: 16px; }
+#view-pos .pos-customer select { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #fff; font-size: 12px; outline: none; -webkit-appearance: none; appearance: none; }
+#view-pos .pos-customer-chevron { margin-left: -22px; color: #94a3b8; font-size: 9px; pointer-events: none; }
+#view-pos .pos-cart-lines { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+#view-pos .pos-cart-empty { height: 192px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #64748b; text-align: center; }
+#view-pos .pos-cart-empty-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 2px; color: #64748b; font-size: 30px; opacity: 0.25; }
+#view-pos .pos-cart-empty strong { color: #94a3b8; font-size: 12px; line-height: 16px; font-weight: 400; }
+#view-pos .pos-cart-empty small { color: #475569; font-size: 11px; line-height: 16px; }
+#view-pos .pos-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid #1e293b; border-radius: 12px; background: #0f172a; }
+#view-pos .pos-line-copy { flex: 1; min-width: 0; }
+#view-pos .pos-line-copy strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #fff; font-size: 12px; line-height: 16px; font-weight: 500; }
+#view-pos .pos-line-copy small { color: #94a3b8; font-size: 11px; line-height: 16px; }
+#view-pos .pos-qty { display: flex; align-items: center; gap: 6px; padding: 4px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; }
+#view-pos .pos-qty button { width: 20px; height: 20px; border: 0; border-radius: 4px; background: transparent; color: #cbd5e1; font-size: 12px; }
+#view-pos .pos-qty span { width: 24px; text-align: center; color: #fff; font-size: 12px; font-weight: 700; }
+#view-pos .pos-line-total { width: 64px; text-align: right; color: #34d399; font-size: 12px; line-height: 16px; font-weight: 700; }
+#view-pos .pos-totals { display: flex; flex-direction: column; gap: 6px; padding: 21px 16px 0; border-top: 1px solid #1e293b; background: #0f172a; }
+#view-pos .pos-totals > div { display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 12px; line-height: 17px; }
+#view-pos .pos-totals strong { color: #cbd5e1; font-weight: 400; }
+#view-pos .pos-grand { margin-top: 3px; padding-top: 3px; border-top: 1px solid #1e293b; }
+#view-pos .pos-grand span { color: #fff; font-size: 16px; line-height: 24px; font-weight: 700; }
+#view-pos .pos-grand strong { color: #34d399; font-size: 16px; line-height: 24px; font-weight: 700; }
+#view-pos .pos-checkout { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; margin: 12px 16px 16px; border: 0; border-radius: 12px; background: #1e293b; color: #64748b; font-size: 14px; font-weight: 700; }
+#view-pos .pos-checkout:disabled { opacity: 1; cursor: not-allowed; }
+#view-pos .pos-checkout:not(:disabled) { background: #059669; color: #fff; }
+#view-pos .pos-msg { min-height: 16px; padding: 0 16px; color: #fca5a5; font-size: 12px; }
+#view-pos .pos-empty { grid-column: 1 / -1; padding: 64px 0; text-align: center; color: #64748b; font-size: 14px; }
+:root[data-theme="dark"] #view-pos .pos-page { background: #0f172a; }
