@@ -49,6 +49,7 @@ let products: ProductView[] = [];
 let query = "";
 let editingId: string | null = null;
 let lineCount = 0;
+let statusFilter: "all" | "draft" | "ordered" | "received" = "all";
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -71,22 +72,47 @@ function showMessage(text: string): void {
 export function initPurchases(): void {
   const view = byId<HTMLElement>("view-purchases");
   view.innerHTML = `
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">${t("purchasesEyebrow")}</p>
-        <h2>${t("purchasesTitle")}</h2>
-        <p class="subtitle">${t("purchasesSubtitle")}</p>
+    <div class="px-page">
+      <div class="px-head">
+        <div class="px-head-main">
+          <div class="px-appicon" aria-hidden="true">▤</div>
+          <div>
+            <h1>Einkauf &amp; Beschaffung</h1>
+            <p>Lieferantenbestellungen, Preisanfragen (RFQ) &amp; automatische Wareneingangsbuchung</p>
+          </div>
+        </div>
+        <div class="px-head-actions">
+          <button class="px-btn-amber" type="button" id="purchases-reorder"><span aria-hidden="true">↻</span> Nachbestellen (Amazon)</button>
+          <button id="purchases-new" class="px-btn-primary" type="button"><span aria-hidden="true">+</span> Neue Bestellung anlegen</button>
+        </div>
       </div>
-      <div class="toolbar">
-        <button id="purchases-new" class="primary" type="button">${t("purchasesNew")}</button>
+      <div class="px-kpis" id="purchases-kpis"></div>
+      <div class="px-filter">
+        <label class="px-search"><span aria-hidden="true">⌕</span><input id="purchases-search" type="search" placeholder="Bestellungen durchsuchen (z. B. PO/2026/0001, Lieferant)..."></label>
+        <div class="px-pills" id="purchases-pills">
+          <button type="button" class="px-pill is-active" data-po-filter="all">Alle</button>
+          <button type="button" class="px-pill" data-po-filter="draft">Entwurf (<span id="po-draft-count">0</span>)</button>
+          <button type="button" class="px-pill" data-po-filter="ordered">Bestellt (<span id="po-open-count">0</span>)</button>
+          <button type="button" class="px-pill" data-po-filter="received">Eingegangen (<span id="po-received-count">0</span>)</button>
+        </div>
       </div>
-    </div>
-    <div class="kpi-grid" id="purchases-kpis"></div>
-    <div class="grid">
-      <section class="card">
-        <label class="field"><span>${t("purchasesSearch")}</span><input id="purchases-search" type="search"></label>
-        <div id="purchases-list" class="entity-list"></div>
-      </section>
+      <div class="px-tablecard">
+        <table class="px-table">
+          <thead><tr>
+            <th class="px-th-icon"></th>
+            <th>Bestell-Nr.</th>
+            <th>Lieferant</th>
+            <th>Bestelldatum</th>
+            <th>Lieferdatum</th>
+            <th>Gesamt (brutto)</th>
+            <th>Status</th>
+            <th class="px-th-actions">Aktionen</th>
+          </tr></thead>
+          <tbody id="purchases-list"></tbody>
+        </table>
+        <span id="purchases-message" class="message" role="status"></span>
+      </div>
+      <div class="grid">
       <section id="purchases-editor" class="card" hidden>
         <h3 id="purchases-editor-title">${t("purchasesNew")}</h3>
         <form id="purchases-form" class="stack">
@@ -102,13 +128,23 @@ export function initPurchases(): void {
             <button class="primary" type="submit">${t("purchasesSave")}</button>
             <button id="purchases-delete" class="danger" type="button" hidden>${t("purchasesDelete")}</button>
             <button id="purchases-cancel" type="button">${t("cancel")}</button>
-            <span id="purchases-message" class="message" role="status"></span>
           </div>
         </form>
       </section>
+      </div>
     </div>`;
 
   byId("purchases-new").addEventListener("click", () => openEditor());
+  byId("purchases-reorder").addEventListener("click", () => openEditor());
+  for (const pill of view.querySelectorAll<HTMLButtonElement>("[data-po-filter]")) {
+    pill.addEventListener("click", () => {
+      statusFilter = (pill.dataset.poFilter ?? "all") as typeof statusFilter;
+      for (const other of view.querySelectorAll("[data-po-filter]")) {
+        other.classList.toggle("is-active", other === pill);
+      }
+      renderList();
+    });
+  }
   byId("purchases-cancel").addEventListener("click", closeEditor);
   byId("purchases-delete").addEventListener("click", () => void deleteOrder());
   byId("purchases-add-line").addEventListener("click", () => addLine());
@@ -148,38 +184,59 @@ async function loadOrders(): Promise<void> {
 function renderKpis(): void {
   const open = orders.filter((order) => order.status === "ordered" || order.status === "partially_received");
   const openValue = open.reduce((sum, order) => sum + orderGross(order), 0);
-  byId("purchases-kpis").innerHTML = [
-    [t("purchasesOpen"), String(open.length)],
-    [t("purchasesOpenValue"), formatMoney(openValue)],
-    [t("purchasesDraft"), String(orders.filter((order) => order.status === "draft").length)],
-    [t("purchasesReceived"), String(orders.filter((order) => order.status === "received").length)],
-  ]
+  const drafts = orders.filter((order) => order.status === "draft").length;
+  const received = orders.filter((order) => order.status === "received").length;
+  const draftCount = document.getElementById("po-draft-count");
+  const openCount = document.getElementById("po-open-count");
+  const receivedCount = document.getElementById("po-received-count");
+  if (draftCount) draftCount.textContent = String(drafts);
+  if (openCount) openCount.textContent = String(open.length);
+  if (receivedCount) receivedCount.textContent = String(received);
+  const cards = [
+    ["Beschaffungsvolumen", formatMoney(openValue), "accent", "$"],
+    ["Bestellt", `${open.length} Bestellungen`, "accent", "⇥"],
+    ["Eingegangen", `${received} Bestellungen`, "emerald", "✓"],
+    ["Aktive Lieferanten", `${vendors.length} Lieferanten`, "amber", "◎"],
+  ];
+  byId("purchases-kpis").innerHTML = cards
     .map(
-      ([label, value]) =>
-        `<article class="card kpi"><span>${label}</span><strong>${value}</strong></article>`,
+      ([label, value, tone, icon]) => `
+        <article class="px-kpi">
+          <div><div class="px-kpi-label">${label}</div><div class="px-kpi-value px-tone-${tone}">${value}</div></div>
+          <div class="px-kpi-icon px-tone-${tone}" aria-hidden="true">${icon}</div>
+        </article>`,
     )
     .join("");
 }
 
 function renderList(): void {
   const list = byId<HTMLElement>("purchases-list");
-  list.innerHTML = orders.length
-    ? orders
+  const visible = orders.filter((order) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "ordered") return order.status === "ordered" || order.status === "partially_received";
+    return order.status === statusFilter;
+  });
+  list.innerHTML = visible.length
+    ? visible
         .map(
           (order) => `
-            <article class="entity-row">
-              <div><strong>${escapeHtml(order.number)} · ${escapeHtml(vendorName(order.vendor_id))}</strong>
-              <p class="hint">${dateLabel(order.order_date)} · ${statusLabel(order.status)} · ${order.lines.length} ${t("purchasesLines")} · ${formatMoney(orderGross(order))}</p></div>
-              <div class="row-actions">
-                <button type="button" data-edit="${order.id}">${t("purchasesEdit")}</button>
-                ${order.status === "draft" ? `<button type="button" data-status="${order.id}:ordered">${t("purchasesOrder")}</button>` : ""}
-                ${order.status === "ordered" || order.status === "partially_received" ? `<button type="button" data-receive="${order.id}">${t("purchasesReceive")}</button>` : ""}
-                ${order.status !== "received" && order.status !== "cancelled" ? `<button type="button" data-status="${order.id}:cancelled">${t("purchasesCancel")}</button>` : ""}
-              </div>
-            </article>`,
+            <tr>
+              <td class="px-doc" title="${escapeHtml(order.number)}">▤<span class="px-num">${escapeHtml(order.number)}</span></td>
+              <td class="px-vendor">${escapeHtml(vendorName(order.vendor_id))}</td>
+              <td>${dayLabel(order.order_date)}</td>
+              <td>${order.expected_at ? dayLabel(order.expected_at) : "—"}</td>
+              <td class="px-total">${formatMoney(orderGross(order))}</td>
+              <td><span class="px-status is-${escapeHtml(order.status)}">${statusLabel(order.status)}</span></td>
+              <td class="px-actions">
+                <button type="button" class="px-icon" data-edit="${order.id}" title="${t("purchasesEdit")}">•••</button>
+                ${order.status === "draft" ? `<button type="button" class="px-icon" data-status="${order.id}:ordered">${t("purchasesOrder")}</button>` : ""}
+                ${order.status === "ordered" || order.status === "partially_received" ? `<button type="button" class="px-receive" data-receive="${order.id}">▸ ${t("purchasesReceive")}</button>` : ""}
+                ${order.status !== "received" && order.status !== "cancelled" ? `<button type="button" class="px-icon" data-status="${order.id}:cancelled" title="${t("purchasesCancel")}">✕</button>` : ""}
+              </td>
+            </tr>`,
         )
         .join("")
-    : `<p class="hint">${t("purchasesEmpty")}</p>`;
+    : `<tr><td colspan="7" class="px-empty">${t("purchasesEmpty")}</td></tr>`;
   for (const button of list.querySelectorAll<HTMLButtonElement>("[data-edit]")) {
     button.addEventListener("click", () => openEditor(button.dataset.edit ?? null));
   }
@@ -386,8 +443,10 @@ function dateInput(millis: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function dateLabel(millis: number): string {
-  return new Date(millis).toLocaleDateString(language);
+function dayLabel(millis: number): string {
+  const date = new Date(millis);
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
 }
 
 function escapeHtml(value: string): string {

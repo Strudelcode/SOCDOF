@@ -115,10 +115,10 @@ export function paletteDescription(language: Language, view: string): string {
 /// Labels for palette-only modules that have no own webview tab. They mirror the
 /// TypeScript Spotlight rows without touching the 1,011-key locale packs.
 const LABELS: Record<Language, Record<string, string>> = {
-  de: { stock: "Lager", pos: "POS Kasse" },
-  en: { stock: "Stock", pos: "POS register" },
-  fr: { stock: "Stock", pos: "Caisse POS" },
-  es: { stock: "Almacén", pos: "Caja POS" },
+  de: { stock: "Lager", pos: "POS Kasse", calendar: "Kalender" },
+  en: { stock: "Stock", pos: "POS register", calendar: "Calendar" },
+  fr: { stock: "Stock", pos: "Caisse POS", calendar: "Calendrier" },
+  es: { stock: "Almacén", pos: "Caja POS", calendar: "Calendario" },
 };
 
 export function paletteLabel(language: Language, view: string): string {

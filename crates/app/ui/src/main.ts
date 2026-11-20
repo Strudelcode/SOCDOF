@@ -24,6 +24,7 @@ import { sounds } from "./sound";
 import { initSupport, loadSupport } from "./support";
 import { initTherapy, loadTherapy } from "./therapy";
 import { runBackofficeSmoke } from "./backoffice_smoke";
+import { renderLauncher } from "./appstore";
 import { applyTranslations, detectLanguage, format, translate, type TranslationKey } from "./i18n";
 import { initExternalAssets, loadExternalAssets } from "./external_assets";
 import { confirmDialog } from "./dialogs";
@@ -347,6 +348,7 @@ interface PosOverviewView {
 }
 
 type View =
+  | "appstore"
   | "dashboard"
   | "contacts"
   | "products"
@@ -578,6 +580,7 @@ const updaterConfigured = import.meta.env.VITE_UPDATER_CONFIGURED === "true";
 
 const tabs = document.querySelectorAll<HTMLButtonElement>("[data-view]");
 const views: Record<View, HTMLElement> = {
+  appstore: byId<HTMLElement>("view-appstore"),
   dashboard: byId<HTMLElement>("view-dashboard"),
   contacts: byId<HTMLElement>("view-contacts"),
   products: byId<HTMLElement>("view-products"),
@@ -690,10 +693,7 @@ function renderBackup(report: BackupReport): void {
 }
 
 function formatMoney(cents: number): string {
-  return new Intl.NumberFormat(language, {
-    style: "currency",
-    currency: "EUR",
-  }).format(cents / 100);
+  return `${(cents / 100).toFixed(2)} €`;
 }
 
 function contactDisplayName(contact: Contact): string {
@@ -967,28 +967,33 @@ async function loadPos(): Promise<void> {
   const view = byId<HTMLElement>("view-pos");
   const posT = (key: TranslationKey): string => translate(language, key);
   view.innerHTML = `
-    <section class="pos-screen">
-      <div class="pos-mobile-tabs"><button id="pos-tab-catalog" class="pos-mobile-tab is-active" type="button">${posT("posCatalog")}</button><button id="pos-tab-cart" class="pos-mobile-tab" type="button">${posT("posCart")}</button></div>
-      <div class="pos-catalog">
-        <div class="pos-controls">
-          <label class="pos-search"><span aria-hidden="true">⌕</span><input id="pos-search" type="search" placeholder="${posT("posSearch")}"></label>
-          <form id="pos-scan-form" class="pos-scan"><input id="pos-barcode" type="search" placeholder="${posT("posScan")}"><button class="primary" type="submit">${posT("posScan")}</button></form>
-          <div id="pos-categories" class="pos-categories"></div>
+    <div class="pos-page">
+      <section class="pos-main">
+        <div class="pos-top">
+          <label class="pos-search"><span aria-hidden="true">⌕</span><input id="pos-search" type="search" placeholder="Artikel suchen oder Barcode scannen..."></label>
+          <form id="pos-scan-form" class="pos-scan"><input id="pos-barcode" type="search" placeholder="Barcode scannen..."><button class="pos-scan-btn" type="submit">Scannen</button></form>
         </div>
-        <div id="pos-products" class="pos-products"></div>
-        <div id="pos-pos-message" class="message" role="status"></div>
-      </div>
+        <div id="pos-categories" class="pos-cats"></div>
+        <div id="pos-products" class="pos-grid"></div>
+        <div id="pos-pos-message" class="pos-msg" role="status"></div>
+      </section>
       <aside class="pos-cart">
-        <div class="pos-cart-head"><h2>${posT("posCart")}</h2><button id="pos-clear" class="link-button" type="button">${posT("posClear")}</button></div>
-        <label class="pos-customer"><span>${posT("posWalkIn")}</span><select id="pos-customer"><option value="">${posT("posWalkIn")}</option></select></label>
+        <div class="pos-cart-head">
+          <div class="pos-cart-title-row"><span class="pos-cart-bag" aria-hidden="true">▣</span><h2 id="pos-cart-title">Warenkorb ist leer</h2></div>
+          <label class="pos-customer"><span aria-hidden="true">◔</span><select id="pos-customer"><option value="">Laufkundschaft (Standard)</option></select><span class="pos-customer-chevron" aria-hidden="true">▾</span></label>
+        </div>
         <div id="pos-cart-lines" class="pos-cart-lines"></div>
-        <div class="pos-totals"><div><span>${posT("posSubtotal")}</span><strong id="pos-subtotal"></strong></div><div><span>${posT("posTax")}</span><strong id="pos-tax"></strong></div><div class="pos-total"><span>${posT("posTotal")}</span><strong id="pos-total"></strong></div></div>
-        <button id="pos-checkout" class="pos-checkout" type="button" disabled>${posT("posCheckout")}</button>
+        <div class="pos-totals">
+          <div><span>Zwischensumme (Netto):</span><strong id="pos-subtotal">0,00 €</strong></div>
+          <div><span>MwSt.: (19%):</span><strong id="pos-tax">0,00 €</strong></div>
+          <div class="pos-grand"><span>Gesamtbetrag:</span><strong id="pos-total">0,00 €</strong></div>
+        </div>
+        <button id="pos-checkout" class="pos-checkout" type="button" disabled><span aria-hidden="true">▤</span> <span id="pos-checkout-label">Jetzt Abrechnen (0.00 €)</span></button>
       </aside>
-    </section>
-    <section class="card pos-history"><div class="toolbar"><h2>${posT("posRecent")}</h2><button id="pos-refresh" class="secondary" type="button">${posT("posRefresh")}</button></div><div id="pos-receipts"></div></section>
-    <dialog id="pos-payment-dialog" class="editor"></dialog>
-    <dialog id="pos-receipt-dialog" class="editor"></dialog>`;
+      <section class="card pos-history" hidden><div class="toolbar"><h2>Belege</h2><button id="pos-refresh" class="secondary" type="button">Aktualisieren</button></div><div id="pos-receipts"></div></section>
+      <dialog id="pos-payment-dialog" class="editor"></dialog>
+      <dialog id="pos-receipt-dialog" class="editor"></dialog>
+    </div>`;
   const [products, contacts, company] = await Promise.all([
     invoke<Product[]>("list_products", { query: null }),
     invoke<Contact[]>("list_contacts", { query: null }),
@@ -1011,7 +1016,13 @@ async function loadPos(): Promise<void> {
     customerSelect.append(option);
   }
 
-  const categories = ["all", ...new Set(products.map((product) => product.category).filter(Boolean))];
+  const preferredOrder = ["Hardware", "Sensoren", "Zubehör", "Software & Lizenzen", "Dienstleistung"];
+  const presentCategories = new Set(products.map((product) => product.category).filter(Boolean));
+  const categories = [
+    "all",
+    ...preferredOrder.filter((item) => presentCategories.has(item)),
+    ...[...presentCategories].filter((item) => !preferredOrder.includes(item)),
+  ];
   categoryArea.replaceChildren();
   for (const item of categories) {
     const button = document.createElement("button");
@@ -1057,20 +1068,25 @@ async function loadPos(): Promise<void> {
     for (const product of filtered) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = "pos-product-card";
-      const emoji = document.createElement("span");
-      emoji.className = "pos-product-emoji";
-      emoji.textContent = product.image_emoji || "📦";
+      button.className = "pos-card";
+      const icon = document.createElement("span");
+      icon.className = "pos-card-icon";
       const stock = document.createElement("span");
       stock.className = `pos-stock${product.stock <= product.reorder_level ? " is-low" : ""}`;
       stock.textContent = `${product.stock} ${product.unit}`;
       const name = document.createElement("strong");
+      name.className = "pos-card-name";
       name.textContent = product.name;
       const sku = document.createElement("small");
+      sku.className = "pos-card-sku";
       sku.textContent = product.sku;
       const price = document.createElement("b");
+      price.className = "pos-card-price";
       price.textContent = formatMoney(product.price);
-      button.append(emoji, stock, name, sku, price);
+      const add = document.createElement("span");
+      add.className = "pos-card-add";
+      add.textContent = "+";
+      button.append(icon, stock, name, sku, price, add);
       button.addEventListener("click", () => {
         sounds.playClick();
         const current = cart.get(product.id);
@@ -1086,24 +1102,28 @@ async function loadPos(): Promise<void> {
     if (cart.size === 0) {
       const empty = document.createElement("div");
       empty.className = "pos-cart-empty";
+      const glyph = document.createElement("div");
+      glyph.className = "pos-cart-empty-icon";
+      glyph.textContent = "◫";
       const title = document.createElement("strong");
-      title.textContent = posT("posReady");
+      title.textContent = "Kasse ist bereit.";
       const hint = document.createElement("small");
-      hint.textContent = posT("posReadyHint");
-      empty.append(title, hint);
+      hint.textContent = "Artikel antippen oder Barcode scannen";
+      empty.append(glyph, title, hint);
       cartArea.append(empty);
     }
     for (const [id, item] of cart) {
       const row = document.createElement("article");
-      row.className = "pos-cart-row";
+      row.className = "pos-line";
       const copy = document.createElement("div");
+      copy.className = "pos-line-copy";
       const name = document.createElement("strong");
       name.textContent = item.product.name;
       const unit = document.createElement("small");
       unit.textContent = `${formatMoney(item.product.price)} / ${item.product.unit}`;
       copy.append(name, unit);
       const controls = document.createElement("div");
-      controls.className = "pos-quantity";
+      controls.className = "pos-qty";
       for (const [label, delta] of [["−", -1], ["+", 1]] as const) {
         const button = document.createElement("button");
         button.type = "button";
@@ -1122,6 +1142,7 @@ async function loadPos(): Promise<void> {
         }
       }
       const lineTotal = document.createElement("b");
+      lineTotal.className = "pos-line-total";
       lineTotal.textContent = formatMoney(item.product.price * item.quantity);
       row.append(copy, controls, lineTotal);
       cartArea.append(row);
@@ -1130,6 +1151,8 @@ async function loadPos(): Promise<void> {
     byId("pos-subtotal").textContent = formatMoney(sum.net);
     byId("pos-tax").textContent = formatMoney(sum.tax);
     byId("pos-total").textContent = formatMoney(sum.gross);
+    byId("pos-cart-title").textContent = cart.size === 0 ? "Warenkorb ist leer" : `Warenkorb (${[...cart.values()].reduce((n, line) => n + line.quantity, 0)})`;
+    byId("pos-checkout-label").textContent = `Jetzt Abrechnen (${(sum.gross / 100).toFixed(2)} €)`;
     byId<HTMLButtonElement>("pos-checkout").disabled = cart.size === 0;
   }
 
@@ -1247,10 +1270,6 @@ async function loadPos(): Promise<void> {
   }
 
   search.addEventListener("input", renderProducts);
-  byId("pos-clear").addEventListener("click", () => {
-    cart.clear();
-    renderCart();
-  });
   byId("pos-checkout").addEventListener("click", openPayment);
   byId("pos-refresh").addEventListener("click", () => void renderHistory());
   byId("pos-scan-form").addEventListener("submit", (event) => {
@@ -1268,8 +1287,6 @@ async function loadPos(): Promise<void> {
     message.textContent = "";
     renderCart();
   });
-  byId("pos-tab-catalog").addEventListener("click", () => view.classList.remove("pos-show-cart"));
-  byId("pos-tab-cart").addEventListener("click", () => view.classList.add("pos-show-cart"));
   view.addEventListener("keydown", (event) => {
     if (event.key === "F2") {
       event.preventDefault();
@@ -1289,8 +1306,11 @@ async function loadPos(): Promise<void> {
 async function showView(view: View): Promise<void> {
   activeView = view;
   updateViewHeader(view);
-  for (const [name, element] of Object.entries(views)) {
-    element.hidden = name !== view;
+  // Several view names share one element (products/stock): decide visibility per element,
+  // otherwise the later alias hides the section that was just opened.
+  const visible = views[view];
+  for (const element of new Set(Object.values(views))) {
+    element.hidden = element !== visible;
   }
   for (const tab of tabs) {
     const selected = tab.dataset.view === view;
@@ -1335,11 +1355,61 @@ async function showView(view: View): Promise<void> {
     loadDocs();
   } else if (view === "users") {
     await loadUsers();
+  } else if (view === "appstore") {
+    renderLauncher();
   } else if (view === "dashboard") {
     await Promise.all([refreshStatus(), loadDashboard(), loadAppearance()]);
   } else {
     await refreshStatus();
   }
+}
+
+/// Navigates every registered view through its real tab and asserts that it renders content,
+/// exposes controls and shows no error banner. Runs only inside the GUI smoke, where the marker
+/// command records one line per view for the CI log.
+async function runViewAudit(): Promise<void> {
+  const seen = new Set<HTMLElement>();
+  let audited = 0;
+  for (const [name, section] of Object.entries(views) as [View, HTMLElement][]) {
+    if (seen.has(section)) {
+      continue;
+    }
+    seen.add(section);
+    const tab = Array.from(tabs).find((entry) => entry.dataset.view === name);
+    if (!tab) {
+      throw new Error(`view ${name} has no navigation tab`);
+    }
+    await showView(name);
+    if (!tab.classList.contains("is-active")) {
+      throw new Error(`view ${name} did not activate its tab`);
+    }
+    await waitForSmoke(
+      () => !section.hidden && (section.textContent ?? "").trim().length > 30,
+      `view ${name} did not render content`,
+    );
+    const error = section.querySelector<HTMLElement>('[data-kind="error"]');
+    if (error && error.offsetParent !== null) {
+      throw new Error(`view ${name} shows an error: ${(error.textContent ?? "").trim()}`);
+    }
+    const controls = section.querySelectorAll("button, input, select, textarea").length;
+    if (controls === 0) {
+      throw new Error(`view ${name} renders without any control`);
+    }
+    audited += 1;
+    await invoke("smoke_ui_marker", { marker: `view.${section.id}.ok controls=${controls}` });
+    // Structural audit: the heading and the first labels are compared against the
+    // reference markup for the screens the TS app cannot render (docs/parity/README.md).
+    const heading = (section.querySelector("h1, h2")?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80);
+    const labels = Array.from(section.querySelectorAll("button"))
+      .map((button) => (button.textContent ?? "").replace(/\s+/g, " ").trim())
+      .filter((label) => label.length > 0)
+      .slice(0, 6)
+      .join(" | ")
+      .slice(0, 160);
+    await invoke("smoke_ui_marker", { marker: `view.${section.id}.dom heading="${heading}" buttons="${labels}"` });
+  }
+  await showView("dashboard");
+  await invoke("smoke_ui_marker", { marker: `view.audit.done views=${audited}` });
 }
 
 function contactInput(): ContactInput {
@@ -3120,6 +3190,7 @@ async function runSmokeIfEnabled(): Promise<boolean> {
 
     const backup = await invoke<BackupReport>("create_backup");
     renderBackup(backup);
+    await runViewAudit();
 
     const contact = await invoke<Contact>("create_contact", {
       input: smokeContactInput("Berlin", "GUI smoke contact"),
@@ -3759,6 +3830,15 @@ backupButton.addEventListener("click", async () => {
 for (const tab of tabs) {
   tab.addEventListener("click", () => {
     const view = tab.dataset.view as View | undefined;
+    if (view) {
+      void showView(view);
+    }
+  });
+}
+
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-taskbar-view]")) {
+  button.addEventListener("click", () => {
+    const view = button.dataset.taskbarView as View | undefined;
     if (view) {
       void showView(view);
     }

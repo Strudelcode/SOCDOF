@@ -16,7 +16,8 @@ import numpy as np
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent
-VIEWS = ["dashboard", "invoices", "contacts", "settings", "command-palette"]
+VIEWS = ["dashboard", "invoices", "contacts", "settings", "command-palette",
+         "products", "pos", "calendar", "accounting", "purchases", "docs"]
 THEMES = ["light", "dark"]
 WINDOW_BOX = (100, 15, 1240, 765)
 

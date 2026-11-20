@@ -2,6 +2,60 @@
 
 ## Unreleased
 
+- **Six module reference pairs captured for real, with the demo catalogue on both sides.** The
+  blocker was the runner, not the app: there were no TrueType fonts installed (only Type 1, ignored by
+  Chromium), so every glyph had zero advance and every text box measured `0 × 0`. With Inter and Noto
+  Sans in `~/.fonts` and `FONTCONFIG_PATH` pointed at the sysroot fontconfig, text measures `89 × 17`.
+  The Rust edition now seeds the same five-product catalogue, six appointments, journal entries and two
+  purchase orders behind `SOCDOF_DEMO_SEED=1` (`crates/app/src/demo_seed.rs`), which only the capture
+  harness sets, so both editions compare equal data. Measured with `parity_diff.py`: products 94.98/0.7113 light, 92.56/0.5367 dark; pos 98.05/0.8509 light, 98.03/0.8544 dark; calendar 96.50/0.7476 light, 94.90/0.6696 dark; accounting 95.23/0.7613 light, 92.73/0.6025 dark; purchases 95.03/0.7445 light, 94.15/0.6663 dark; docs 94.43/0.6852 light, 92.13/0.5677 dark. The thresholds stay at 98.00 / 0.90. The six pairs remain below them because
+  the Rust screens are simpler layouts than the TS screens (a card grid instead of the product table, a
+  bare month grid instead of the toolbar and mini-month sidebar, no BWA/OP tabs, no documentation
+  tabs); with both images blurred at σ=8 the structural similarity is still 0.09–0.45, so the gap is
+  layout, not data. The earlier placeholder captures remain in `artifacts/parity-attempts/`, pinned by
+  `SHA256SUMS`, and the pixel proof still passes on the new captures.
+- Re-captured all ten existing parity pairs from the current release binary and regenerated
+  `docs/parity/diff.json`/`diff.csv`. The new Rust screenshots are pixel-identical to the stored ones
+  (reproducibility 100.00) and every value against the unchanged TS references is unchanged:
+  dashboard 98.87/0.9491 and 98.41/0.9286, invoices 98.89/0.9174 and 98.58/0.9101, contacts
+  98.90/0.9131 and 98.54/0.9002, settings 98.84/0.9139 and 98.44/0.9025, palette 98.23/0.9298 and
+  98.76/0.9253. The section-head, locale, icon and smoke-audit changes of this run therefore did not
+  regress any measured pair. `docs/parity/README.md` states which views have a reference pair and which
+  remain structural (Reports, Documents, Users, Templates); Products, POS, Calendar, Accounting,
+  Purchases and the Manual now have pairs of their own.
+- **Parity coverage for every app:** `artifacts/parity_capture_ts_extra.cjs` installs the optional
+  TS modules and captures them headlessly (Playwright Chromium + Vite). Fleet, Projects, Restaurant,
+  Support, Therapy and the launcher still cannot be captured from the reference: Fleet/Projects are
+  absent from `ActiveModule`/`shortcutMeta` and are never imported, Restaurant is filtered out of
+  `installedModules`, Support crashes the renderer (`Target crashed`), Therapy stays on skeletons and
+  the launcher window renders empty. Those six are therefore documented with a DOM/markup audit in
+  `docs/parity/README.md`, and the other ten views carry the smoke's `view.<id>.dom` heading/control
+  markers. The audit found and fixed two real gaps: Fleet and Projects rendered without any page
+  heading (now title + subtitle like the reference modules), and the launcher was rebuilt against
+  `AppLauncher.tsx` (brand header with live clock, search, four-column cards with category, title,
+  description and open affordance, local-storage footer).
+- Added an **App launcher** to the desktop shell: the taskbar grid button opens a searchable
+  card grid for all 20 modules, including Fleet, Projects, Restaurant, Support, Therapy, Textwerk,
+  Templates, Reports and Users, whose rail tabs are hidden. Cards navigate through the same
+  `data-view` buttons as the rail. Fixed the `products`/`stock` view alias in `showView`: the two
+  names share one element, and the loop hid the section again after opening Products, so that app
+  rendered blank. The GUI smoke now audits every registered view through the real render path
+  (`view.*.ok`, `view.audit.done views=20`) and fails on an empty screen, missing controls or a
+  visible error banner. All gates pass (fmt, clippy, 367 workspace tests, web build, Tauri check,
+  Xvfb smoke with `SOCDOF_SMOKE_OK`, schema 19).
+- Visual parity against the TypeScript reference now reaches both targets on all ten pairs:
+  dashboard 98.87/0.9491 light and 98.41/0.9286 dark, invoices 98.89/0.9174 and 98.58/0.9101,
+  contacts 98.90/0.9131 and 98.54/0.9002, settings 98.84/0.9139 and 98.44/0.9025, command palette
+  98.23/0.9298 and 98.76/0.9253 (window pixel / SSIM). Settings was fixed through measured layout
+  deltas: the sidebar card now spans y=177–739 with every label/nav row and 12 px icon inset on the
+  reference pixels, the hero keeps its 152 px box in both themes with the copy block 20 px higher,
+  the kicker 13 px above the title and a 36 px CTA ending at x=1183, the quick panel starts at y=360
+  with cards at 439/553/639, the search field is 256 px wide, the quick heading uses 14 px with
+  0.0075 em tracking, and `de.json` renders `100% Offline & Kostenlos` like the reference. The
+  remaining 0.9139/0.9025 SSIM is glyph antialiasing: σ=1 blur lifts it to 0.9624/0.9502, with
+  5.38 %/9.36 % of window pixels above Δ8. All gates (fmt, clippy, workspace tests, web build, Tauri
+  check, Xvfb GUI smoke with schema 19) pass; `diff.json`/`diff.csv` and the ten screenshots are
+  regenerated.
 - Native desktop authentication now saves first-run language/theme/accent choices to the created account and restores per-account appearance preferences after sign-in, instead of applying them only in memory. Saving Appearance settings now also updates the live desktop shell.
 - Added an initial per-user Windows NSIS installer for the native Rust desktop host: selectable install directory, Start Menu/Desktop shortcuts, uninstall registration, and preservation of the database in the Windows application-data folder. CI builds it as a separate artifact while retaining the Tauri transition installer; runtime/upgrade/uninstall acceptance is still pending.
 - Invoice payment capture now rejects cash amounts below the invoice total and blocks card capture when no terminal is configured. Invoice status and payment metadata are persisted atomically in one SQLite transaction.
@@ -77,12 +131,11 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 
 ### Known issues
 
-- Visual parity is **not fully accepted**. The final ten pairs (Dashboard, Invoices, Contacts,
-  Settings, Command Palette × light/dark at 1440×900) reach 98.87/0.9491, 98.44/0.9310,
-  98.76/0.9041, 98.33/0.8961, 98.85/0.9116, 98.38/0.8979, 95.92/0.7251, 95.42/0.7072,
-  97.87/0.9011 and 97.88/0.8778 (window pixel / SSIM). Eight of ten pass the pixel target and five
-  pass SSIM ≥0.90; Settings (both themes) and the dark palette remain open because of the TS outline
-  icon set, WebKit text rendering and the Spotlight backdrop. See `RUST_MIGRATION.md` §15.7.
+- Visual parity is accepted. The final ten pairs (Dashboard, Invoices, Contacts, Settings, Command
+  Palette × light/dark at 1440×900) reach 98.87/0.9491, 98.41/0.9286, 98.89/0.9174, 98.58/0.9101,
+  98.90/0.9131, 98.54/0.9002, 98.84/0.9139, 98.44/0.9025, 98.23/0.9298 and 98.76/0.9253 (window
+  pixel / SSIM). All ten pass both targets; the remaining distance to 1.0 is measured glyph
+  antialiasing. See `RUST_MIGRATION.md` §15.7.
 - The v26 tag is not cut yet; the TypeScript reference stays at `25.2.1`. See
   `RUST_MIGRATION.md` §2.1.
 
@@ -128,7 +181,8 @@ the tag is cut. The workspace, Tauri and UI manifests are already aligned at `26
 - Ten real screenshot pairs (Dashboard, Invoices, Contacts, Settings and Command Palette, each in
   light and dark at 1440×900) are in `docs/parity/`, recaptured from the v26 release binary with the
   current window crop `(100,15,1240,765)`. `parity_diff.py` records the per-pair pixel and SSIM
-  scores in `diff.json`/`diff.csv`. Eight pairs meet the ≥98 pixel target, five meet SSIM ≥0.90.
+  scores in `diff.json`/`diff.csv`. All ten pairs meet both targets after the Settings layout pass
+  described under Unreleased.
 - The Dashboard tab now renders live store data: period KPIs (revenue, open, overdue, contacts,
   products, low stock, inventory value), recent invoices with contact names and status badges, the
   reorder list and quick actions through the new `dashboard` command and

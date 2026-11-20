@@ -120,7 +120,7 @@ pub fn find(conn: &Connection, id: Uuid) -> CoreResult<Option<Product>> {
 
 /// Loads all products ordered by name.
 pub fn list(conn: &Connection) -> CoreResult<Vec<Product>> {
-    let sql = format!("SELECT {COLUMNS} FROM products ORDER BY lower(name)");
+    let sql = format!("SELECT {COLUMNS} FROM products ORDER BY rowid");
     let mut statement = conn.prepare(&sql)?;
     let rows = statement.query_map([], map_row)?;
 

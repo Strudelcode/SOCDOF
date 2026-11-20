@@ -7,6 +7,7 @@
 #![deny(missing_docs)]
 
 pub mod commands;
+pub mod demo_seed;
 pub mod desktop;
 pub mod dialogs;
 pub mod external_assets;

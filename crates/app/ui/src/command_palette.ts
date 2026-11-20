@@ -38,6 +38,7 @@ interface PaletteItem {
   subtitle: string;
   group: string;
   icon: string;
+  iconSvg?: string;
   color?: string;
   badge?: string;
   shortcut?: string;
@@ -63,26 +64,21 @@ let invoices: InvoiceLike[] = [];
 let selected = 0;
 let filteredItems: PaletteItem[] = [];
 
-const viewGlyphs: Record<string, string> = {
-  dashboard: "◈",
-  invoices: "▤",
-  accounting: "€",
-  contacts: "♧",
-  products: "▣",
-  stock: "▤",
-  pos: "▣",
-  calendar: "▦",
-  templates: "▥",
-  purchases: "▥",
-  reports: "▥",
-  fleet: "▦",
-  projects: "▣",
-  restaurant: "▤",
-  documents: "▤",
-  docs: "?",
-  users: "U",
-  settings: "⚙",
+const viewIcons: Record<string, string> = {
+  dashboard: `<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>`,
+  invoices: `<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/>`,
+  accounting: `<rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/>`,
+  contacts: `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/>`,
+  products: `<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/><path d="m7.5 4.27 9 5.15"/>`,
+  stock: `<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>`,
+  purchases: `<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>`,
+  pos: `<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>`,
+  calendar: `<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>`,
 };
+
+function paletteIcon(name: string): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${viewIcons[name] ?? ""}</svg>`;
+}
 
 function navigationItems(): PaletteItem[] {
   const buttons = new Map(
@@ -106,7 +102,7 @@ function navigationItems(): PaletteItem[] {
   ];
   return order.flatMap((view) => {
     const tab = buttons.get(view);
-    const label = tab?.textContent?.trim() || paletteLabel(language, view);
+    const label = paletteLabel(language, view) || tab?.textContent?.trim() || "";
     if (!label) return [];
     const target = view === "pos" ? "accounting" : view;
     return [
@@ -114,7 +110,8 @@ function navigationItems(): PaletteItem[] {
         label,
         subtitle: paletteDescription(language, view),
         group: t("commandApps"),
-        icon: viewGlyphs[view] ?? label.slice(0, 1).toUpperCase(),
+        icon: view,
+        iconSvg: paletteIcon(view),
         color: PALETTE_COLORS[view],
         run: () => navigate(target),
       },
@@ -300,7 +297,7 @@ function render(query: string): void {
   results.innerHTML = filteredItems
     .map((item, index) => {
       return `<button type="button" class="command-row ${index === selected ? "is-selected" : ""}" data-command-index="${index}">
-        <span class="command-icon" style="--command-icon-color:${escapeHtml(item.color ?? "#4f46e5")}">${escapeHtml(item.icon)}</span>
+        <span class="command-icon" style="--command-icon-color:${escapeHtml(item.color ?? "#4f46e5")}">${item.iconSvg ?? escapeHtml(item.icon)}</span>
         <span class="command-copy"><span class="command-title"><strong>${escapeHtml(item.label)}</strong>${item.badge ? `<span class="command-badge">${escapeHtml(item.badge)}</span>` : ""}</span><small>${escapeHtml(item.subtitle)}</small></span>
         ${item.shortcut ? `<span class="command-shortcut">${escapeHtml(item.shortcut)}</span>` : ""}
         ${index === selected ? "<b class='command-enter'>↵</b>" : ""}

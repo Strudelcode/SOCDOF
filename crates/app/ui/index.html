@@ -65,6 +65,7 @@
         <button class="tab" type="button" data-view="users" data-i18n="navUsers"></button>
         <button class="tab" type="button" data-view="settings" data-i18n="navSettings"></button>
         <button class="tab" type="button" data-view="calendar" data-i18n="navCalendar" aria-hidden="true" style="display:none"></button>
+        <button class="tab" type="button" data-view="appstore" data-i18n="launcherTitle" aria-hidden="true" style="display:none"></button>
       </nav>
 
       <main class="workspace-window-body">
@@ -133,7 +134,7 @@
               </div>
             </div>
             <div class="contacts-actions">
-              <button id="contact-new" class="contacts-new" type="button"><span aria-hidden="true">+</span> <span id="contacts-new-label" data-i18n="contactsNew"></span></button>
+              <button id="contact-new" class="contacts-new" type="button"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg><span id="contacts-new-label" data-i18n="contactsNew"></span></button>
               <button id="contact-batch" class="contacts-secondary" type="button"><span aria-hidden="true">▤</span> <span id="contact-batch-label">+ Mehrere anlegen</span></button>
               <label class="contacts-secondary contacts-import">
                 <span aria-hidden="true">⇧</span> <span id="contact-import-label">CSV / Outlook Import</span>
@@ -237,6 +238,12 @@
         </section>
 
         <section id="view-fleet" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2 data-i18n="fleetTitle"></h2>
+              <p class="subtitle" data-i18n="fleetSubtitle"></p>
+            </div>
+          </div>
           <div class="grid fleet-kpis">
             <section class="card">
               <h3 data-i18n="fleetKpiTotal"></h3>
@@ -288,6 +295,12 @@
         </section>
 
         <section id="view-projects" class="view" hidden>
+          <div class="section-head">
+            <div>
+              <h2 data-i18n="projectsTitle"></h2>
+              <p class="subtitle" data-i18n="projectsSubtitle"></p>
+            </div>
+          </div>
           <div class="grid project-kpis">
             <section class="card">
               <h3 data-i18n="projectKpiActive"></h3>
@@ -361,6 +374,7 @@
         <section id="view-users" class="view" hidden></section>
         <section id="view-settings" class="view" hidden></section>
 
+        <section id="view-appstore" class="view" hidden></section>
         <section id="view-templates" class="view" hidden>
           <div class="section-head">
             <div>
@@ -1299,7 +1313,7 @@
         <button id="taskbar-search" class="taskbar-search" type="button">
           <span aria-hidden="true">⌕</span><span data-i18n="commandOpen"></span>
         </button>
-        <button class="taskbar-app" type="button" data-taskbar-view="dashboard" title="Dashboard">◈</button>
+        <button class="taskbar-app" type="button" data-taskbar-view="appstore" title="Apps">◈</button>
         <button class="taskbar-app" type="button" data-taskbar-view="invoices" title="Rechnungen">▤</button>
         <button class="taskbar-app" type="button" data-taskbar-view="contacts" title="Kontakte">♧</button>
         <button class="taskbar-app" type="button" data-taskbar-view="products" title="Produkte">▣</button>

@@ -310,6 +310,9 @@ pub fn run() {
                             }
                         }
                     }
+                    if let Err(error) = socdof_app::demo_seed::seed_if_requested(&database) {
+                        eprintln!("SOCDOF demo seed failed: {error}");
+                    }
                     let state = DesktopState::open(database).map_err(|error| error.to_string())?;
                     drop(legacy_lock);
                     Ok(state)
