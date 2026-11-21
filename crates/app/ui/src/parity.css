@@ -5266,69 +5266,206 @@ body.palette-desktop .desktop-shortcut {
 }
 
 /* Purchases — ported from the TypeScript PurchasesModule layout. */
+/* ==========================================================================
+   Purchases (port of SOCDOF - TS/src/components/sales/PurchasesModule.tsx)
+   Measured on the reference capture: content 150–1189 (module padding 24), four KPI
+   cards of 248 px with 16 px gaps (150–397 / 414–661 / 678–925 / 942–1189), the
+   search+filter card and the order table sharing that width, 41 px table header and
+   1 px row rules. The TS table paints its number and total cells `text-white`, which
+   is why the light reference shows an empty number column and no totals.
+   ========================================================================== */
+
 #view-purchases { color: #0f172a; }
-#view-purchases .px-page { display: flex; flex-direction: column; gap: 16px; padding: 28px 48px 48px; }
-#view-purchases .px-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-#view-purchases .px-head-main { display: flex; align-items: flex-start; gap: 14px; }
-#view-purchases .px-appicon { width: 46px; height: 46px; color: #fff; font-size: 20px; border-radius: 14px; background: linear-gradient(135deg,#fb923c,#ea580c); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
-#view-purchases h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 800; letter-spacing: -.01em; color: #0f172a; }
-#view-purchases .px-head-main p { margin: 0; font-size: 12px; line-height: 20px; color: #64748b; }
-#view-purchases .px-head-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-#view-purchases .px-btn-amber, #view-purchases .px-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 12px; font-size: 10.5px; font-weight: 700; border: 0; cursor: pointer; white-space: nowrap; }
-#view-purchases .px-btn-amber { background: linear-gradient(90deg,#f59e0b,#d97706); color: #0f172a; }
-#view-purchases .px-btn-primary { background: #4f46e5; color: #fff; }
-#view-purchases .px-kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 14px; }
-#view-purchases .px-kpi { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-#view-purchases .px-kpi-label { font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
-#view-purchases .px-kpi-value { margin-top: 3px; font-size: 18px; line-height: 26px; font-weight: 700; color: #0f172a; white-space: nowrap; }
-#view-purchases .px-kpi-value.px-tone-accent { color: #4f46e5; }
-#view-purchases .px-kpi-value.px-tone-emerald { color: #059669; }
-#view-purchases .px-kpi-value.px-tone-amber { color: #d97706; }
-#view-purchases .px-kpi-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-#view-purchases .px-kpi-icon.px-tone-accent { background: rgba(79,70,229,.12); color: #4f46e5; }
-#view-purchases .px-kpi-icon.px-tone-emerald { background: rgba(16,185,129,.12); color: #059669; }
-#view-purchases .px-kpi-icon.px-tone-amber { background: rgba(245,158,11,.14); color: #d97706; }
-#view-purchases .px-filter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-#view-purchases .px-search { position: relative; display: flex; align-items: center; flex: 1; }
-#view-purchases .px-search span { position: absolute; left: 12px; color: #94a3b8; font-size: 14px; }
-#view-purchases .px-search input { width: 100%; height: 32px; padding: 0 14px 0 34px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; font-size: 12px; color: #0f172a; }
-#view-purchases .px-pills { display: flex; align-items: center; gap: 6px; }
-#view-purchases .px-pill { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 500; cursor: pointer; }
-#view-purchases .px-pill.is-active { background: #4f46e5; color: #fff; font-weight: 700; }
-#view-purchases .px-tablecard { overflow: hidden; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
-#view-purchases .px-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-#view-purchases .px-table th { padding: 14px 14px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #64748b; border-bottom: 1px solid #eef2f7; }
-#view-purchases .px-table th:nth-child(1) { width: 9%; }
-#view-purchases .px-table th:nth-child(2) { width: 15%; }
-#view-purchases .px-table th:nth-child(3), #view-purchases .px-table th:nth-child(4) { width: 10%; }
-#view-purchases .px-table th:nth-child(5) { width: 11%; }
-#view-purchases .px-table th:nth-child(6) { width: 11%; }
-#view-purchases .px-table th:nth-child(7) { width: 22%; }
-#view-purchases .px-table td { padding: 16px 14px; font-size: 12px; color: #334155; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
-#view-purchases .px-table tr:last-child td { border-bottom: 0; }
-#view-purchases .px-doc { color: #38bdf8; font-size: 13px; text-align: left; }
-#view-purchases .px-num { display: block; margin-top: 2px; color: #64748b; font-size: 9.5px; letter-spacing: -0.01em; }
-#view-purchases .px-vendor { color: #475569; line-height: 18px; }
-#view-purchases .px-total { font-weight: 600; color: #0f172a; }
-#view-purchases .px-status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #e0e7ff; color: #4338ca; font-size: 11px; font-weight: 700; }
-#view-purchases .px-status.is-received { background: #d1fae5; color: #047857; }
-#view-purchases .px-status.is-draft { background: #f1f5f9; color: #475569; }
-#view-purchases .px-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
-#view-purchases .px-icon { width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; color: #64748b; font-size: 12px; cursor: pointer; }
-#view-purchases .px-receive { height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: #059669; color: #fff; font-size: 9px; font-weight: 700; cursor: pointer; white-space: nowrap; }
-#view-purchases .px-empty { padding: 32px; text-align: center; color: #94a3b8; }
-#view-purchases #purchases-message:empty { display: none; }
+#view-purchases .po-page {
+  display: flex; flex-direction: column; gap: 24px; padding: 24px 24px 0;
+  font-family: "Noto Sans Var", var(--font-sans);
+  -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
+}
+#view-purchases .po-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+#view-purchases .po-head-text { flex: 0 0 auto; }
+#view-purchases .po-title {
+  display: flex; align-items: center; gap: 10px; margin: 0;
+  font-size: 22px; line-height: 30px; font-weight: 700; color: #0f172a; letter-spacing: 0;
+}
+#view-purchases .po-title-icon { display: grid; place-items: center; color: #4f46e5; }
+#view-purchases .po-title-icon svg { width: 28px; height: 28px; }
+#view-purchases .po-subtitle { margin: 0; font-size: 14px; line-height: 20px; color: #64748b; }
+#view-purchases .po-head-actions { display: flex; align-items: center; gap: 8px; }
+#view-purchases .po-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  height: 34px; padding: 0 16px; border: 1px solid transparent; border-radius: 12px;
+  font-family: inherit; font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap;
+  cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-purchases .po-btn svg { width: 16px; height: 16px; }
+#view-purchases .po-btn.is-amber { background: linear-gradient(90deg, #f59e0b, #d97706); color: #020617; font-weight: 700; }
+#view-purchases .po-btn.is-accent { background: #4f46e5; color: #fff; }
+#view-purchases .po-btn.is-plain { background: #fff; border-color: #e2e8f0; color: #334155; }
+#view-purchases .po-btn.is-danger { background: #fff1f2; border-color: #fecdd3; color: #e11d48; }
+
+#view-purchases .po-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+#view-purchases .po-kpi {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17.5px 16px;
+  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-purchases .po-kpi-label {
+  font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0.05em;
+  text-transform: uppercase; color: #64748b;
+}
+#view-purchases .po-kpi-value { margin-top: 4px; font-size: 20px; line-height: 28px; font-weight: 700; white-space: nowrap; }
+#view-purchases .po-kpi-value.is-accent { color: #4f46e5; }
+#view-purchases .po-kpi-value.is-emerald { color: #059669; }
+#view-purchases .po-kpi-value.is-amber { color: #f59e0b; }
+#view-purchases .po-kpi-value.is-mono { font-family: "JetBrains Mono", monospace; color: #0f172a; }
+#view-purchases .po-kpi-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; flex: 0 0 40px; }
+#view-purchases .po-kpi-icon svg { width: 20px; height: 20px; }
+#view-purchases .po-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.12); color: #4f46e5; }
+#view-purchases .po-kpi-icon.is-emerald { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: #059669; }
+#view-purchases .po-kpi-icon.is-amber { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+
+#view-purchases .po-filter {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-purchases .po-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
+#view-purchases .po-search-icon { position: absolute; left: 12px; display: grid; place-items: center; color: #94a3b8; pointer-events: none; }
+#view-purchases .po-search-icon svg { width: 16px; height: 16px; }
+#view-purchases .po-search input {
+  width: 100%; height: 34px; padding: 0 16px 0 36px; border: 1px solid #e2e8f0; border-radius: 12px;
+  background: #f8fafc; color: #0f172a; font-family: inherit; font-size: 12px;
+}
+#view-purchases .po-pills { display: flex; align-items: center; gap: 6px; }
+#view-purchases .po-pill {
+  height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #f1f5f9; color: #475569;
+  font-family: inherit; font-size: 12px; line-height: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;
+}
+#view-purchases .po-pill.is-active { background: #4f46e5; color: #fff; font-weight: 700; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+
+#view-purchases .po-tablecard {
+  overflow: hidden; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-purchases .po-table { width: 100%; border-collapse: collapse; text-align: left; }
+#view-purchases .po-table thead { background: #f8fafc; }
+#view-purchases .po-table th {
+  padding: 12px 20px; border-bottom: 1px solid #e2e8f0;
+  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: #64748b;
+}
+#view-purchases .po-table th.is-right { text-align: right; }
+#view-purchases .po-table th.is-center { text-align: center; }
+#view-purchases .po-table td {
+  height: 73px; padding: 0 20px; border-top: 1px solid #f1f5f9;
+  font-size: 12px; line-height: 16px; color: #334155; vertical-align: middle;
+}
+#view-purchases .po-table tbody tr:first-child td { border-top: 0; }
+#view-purchases .po-table td.is-center { text-align: center; }
+#view-purchases .po-table td.po-number {
+  color: #fff; font-weight: 700; font-family: "JetBrains Mono", monospace; white-space: nowrap;
+  line-height: 16px;
+}
+#view-purchases .po-file {
+  display: inline-block; width: 16px; height: 16px; line-height: 0; margin-right: 8px;
+  vertical-align: -3px; color: #22d3ee;
+}
+#view-purchases .po-file svg { display: block; width: 16px; height: 16px; }
+#view-purchases .po-num { display: inline-block; vertical-align: middle; line-height: 16px; }
+#view-purchases .po-vendor-name { color: #fff; font-weight: 500; line-height: 16px; }
+#view-purchases .po-vendor-company { color: #94a3b8; font-size: 11px; line-height: 16px; }
+#view-purchases .po-table td.po-total {
+  text-align: right; color: #fff; font-weight: 700; white-space: nowrap;
+  font-family: "JetBrains Mono", monospace;
+}
+#view-purchases .po-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px;
+  font-size: 11px; line-height: 16px; font-weight: 600; white-space: nowrap;
+}
+#view-purchases .po-badge svg { width: 12px; height: 12px; }
+#view-purchases .po-badge.is-ordered,
+#view-purchases .po-badge.is-partially_received {
+  background: rgba(22, 78, 99, 0.6); border: 1px solid rgba(14, 116, 144, 0.4); color: #67e8f9;
+}
+#view-purchases .po-badge.is-received {
+  background: rgba(6, 78, 59, 0.6); border: 1px solid rgba(4, 120, 87, 0.4); color: #6ee7b7;
+}
+#view-purchases .po-badge.is-draft,
+#view-purchases .po-badge.is-cancelled { background: #334155; color: #cbd5e1; }
+#view-purchases .po-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+#view-purchases .po-tile {
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  border: 0; border-radius: 8px; background: #cbd5e1; color: #475569; cursor: pointer;
+}
+#view-purchases .po-tile svg { width: 14px; height: 14px; }
+#view-purchases .po-receive {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 8px;
+  background: #009966; color: #fff; font-family: inherit; font-size: 12px; line-height: 14px; font-weight: 700;
+  text-align: left; cursor: pointer; white-space: nowrap;
+}
+#view-purchases .po-receive svg { width: 14px; height: 14px; flex: 0 0 14px; }
+#view-purchases .po-status-btn {
+  height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #4f46e5; color: #fff;
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#view-purchases .po-empty { padding: 32px; text-align: center; color: #94a3b8; }
+#view-purchases .po-status:empty { display: none; }
+#view-purchases .po-status { margin: 0; color: #e11d48; font-size: 12px; }
+
+/* Editor dialog */
+
+#view-purchases .po-dialog {
+  width: min(560px, calc(100vw - 48px)); padding: 20px; border: 1px solid #e2e8f0; border-radius: 16px;
+  background: #fff; color: #0f172a; box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  font-family: "Noto Sans Var", var(--font-sans); font-size: 12px;
+}
+#view-purchases .po-dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
+#view-purchases .po-dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+#view-purchases .po-dialog-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+#view-purchases .po-dialog-close { border: 0; background: transparent; color: #64748b; cursor: pointer; font-size: 20px; line-height: 20px; }
+#view-purchases .po-form { display: flex; flex-direction: column; gap: 12px; max-height: 60vh; overflow-y: auto; }
+#view-purchases .po-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+#view-purchases .po-field { display: flex; flex-direction: column; gap: 4px; color: #475569; font-weight: 500; }
+#view-purchases .po-field input,
+#view-purchases .po-field select {
+  height: 32px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+  color: #0f172a; font-family: inherit; font-size: 12px;
+}
+#view-purchases .po-lines-head { display: flex; align-items: center; justify-content: space-between; }
+#view-purchases .po-lines-head h4 { margin: 0; font-size: 12px; font-weight: 700; }
+#view-purchases .po-mini { height: 26px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; font-family: inherit; font-size: 11px; cursor: pointer; }
+#view-purchases .po-lines { display: flex; flex-direction: column; gap: 8px; }
+#view-purchases .po-line { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #f1f5f9; border-radius: 12px; }
+#view-purchases .po-dialog-actions { display: flex; gap: 8px; padding-top: 4px; }
+
+/* Dark theme -------------------------------------------------------------- */
+
 :root[data-theme="dark"] #view-purchases { color: #e2e8f0; }
-:root[data-theme="dark"] #view-purchases h1 { color: #f8fafc; }
-:root[data-theme="dark"] #view-purchases .px-head-main p { color: #94a3b8; }
-:root[data-theme="dark"] #view-purchases .px-kpi, :root[data-theme="dark"] #view-purchases .px-filter, :root[data-theme="dark"] #view-purchases .px-tablecard { background: #0f172a; border-color: #1e293b; }
-:root[data-theme="dark"] #view-purchases .px-kpi-label, :root[data-theme="dark"] #view-purchases .px-table th { color: #94a3b8; }
-:root[data-theme="dark"] #view-purchases .px-kpi-value { color: #f8fafc; }
-:root[data-theme="dark"] #view-purchases .px-search input { background: #1e293b; border-color: #334155; color: #f8fafc; }
-:root[data-theme="dark"] #view-purchases .px-pill { background: #1e293b; color: #94a3b8; }
-:root[data-theme="dark"] #view-purchases .px-pill.is-active { background: #4f46e5; color: #fff; }
-:root[data-theme="dark"] #view-purchases .px-table td { color: #cbd5e1; border-color: #1e293b; }
-:root[data-theme="dark"] #view-purchases .px-icon { background: #1e293b; border-color: #334155; color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .po-title { color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .po-subtitle { color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .po-kpi,
+:root[data-theme="dark"] #view-purchases .po-filter,
+:root[data-theme="dark"] #view-purchases .po-tablecard { background: #0f172a; border-color: #1e293b; }
+:root[data-theme="dark"] #view-purchases .po-kpi-label,
+:root[data-theme="dark"] #view-purchases .po-table th { color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .po-kpi-value.is-mono { color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .po-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.24); color: #818cf8; }
+:root[data-theme="dark"] #view-purchases .po-kpi-icon.is-emerald { background: rgba(6, 78, 59, 0.5); color: #34d399; }
+:root[data-theme="dark"] #view-purchases .po-kpi-icon.is-amber { background: rgba(120, 53, 15, 0.5); color: #fbbf24; }
+:root[data-theme="dark"] #view-purchases .po-search input { background: #1e293b; border-color: #334155; color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .po-pill { background: #1e293b; color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .po-pill.is-active { background: #4f46e5; color: #fff; }
+:root[data-theme="dark"] #view-purchases .po-table thead { background: rgba(30, 41, 59, 0.8); }
+:root[data-theme="dark"] #view-purchases .po-table th { border-bottom-color: #334155; }
+:root[data-theme="dark"] #view-purchases .po-table td { color: #cbd5e1; border-top-color: #1e293b; }
+:root[data-theme="dark"] #view-purchases .po-tile { background: #1e293b; color: #cbd5e1; }
+:root[data-theme="dark"] #view-purchases .po-btn.is-plain { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-purchases .po-dialog { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-purchases .po-dialog-head h3 { color: #f1f5f9; }
+:root[data-theme="dark"] #view-purchases .po-field input,
+:root[data-theme="dark"] #view-purchases .po-field select { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-purchases .po-mini { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-purchases .po-line { border-color: #1e293b; }
 
 /* POS — ported from the TypeScript POSModule layout (dark register workspace). */
 #view-pos { margin: -24px; padding: 0; height: calc(100% + 48px); }

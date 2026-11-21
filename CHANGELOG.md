@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Purchases reaches the pixel target in the light theme: window pixel/SSIM purchases 98.09/0.8549
+  light, purchases 97.63/0.8407 dark**, up from 95.03/0.7447 and 94.15/0.6665. The screen was rebuilt
+  as a port of `SOCDOF - TS/src/components/sales/PurchasesModule.tsx` (header, four KPI cards on the
+  248 px grid, search/filter card, seven-column table, editor dialog) instead of being nudged. The
+  measured corrections: the table header uses 12 px cell padding so the two-line "Gesamt (brutto)"
+  label wraps like the reference (20 px made the header 72 px tall and pushed every row down 9 px);
+  the number cell's document glyph was an inline block whose line box stretched the row to 80 px, so
+  it now sits in a fixed 16 px box and the row measures the reference's 73 px; the total cell is
+  `text-white` in the reference and rendered slate here because the shell's `td` rule outranked the
+  class; the KPI value tones were measured from the capture (slate-900 for the mono volume, indigo,
+  emerald 009966, amber f59e0b for the supplier count). One documented content residual: the supplier
+  KPI reads `5` against the reference's `6` because the parity database holds five `vendor` contacts
+  plus one `customer`, and seeding a sixth vendor would break the contacts pair.
+- **The Manual (`view-docs`) is still the old handbook screen**: docs 94.73/0.6391 light and docs
+  92.90/0.5117 dark, unchanged, because porting `documents/DocumentationApp.tsx` (portal ribbon,
+  six-tab bar, 3 x 3 feature grid) was not completed in this pass.
 - **Accounting reaches both targets in both themes: window pixel/SSIM accounting 98.56/0.9090 light,
   accounting 98.21/0.9031 dark**, up from 95.25/0.7621 and 92.75/0.6033. The screen
   was rebuilt as a port of `SOCDOF - TS/src/components/sales/AccountingModule.tsx` instead of being
@@ -24,10 +40,10 @@
 - The manual booking form moved into a dialog behind a keyboard-reachable control, so the journal
   entry smoke path (`accounting-new` → `accounting-form` → `accounting-list`) still runs while the
   screen keeps the reference's report-only pixels.
-- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9005 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.64/0.9086 light, calendar 98.22/0.9023 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. Apart from Accounting the
-  numbers are unchanged except for capture jitter of 0.0001 SSIM on products light (0.9004 → 0.9005)
+- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9004 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.64/0.9086 light, calendar 98.22/0.9023 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 98.09/0.8549 light, purchases 97.63/0.8407 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. Apart from Accounting and Purchases the
+  numbers are unchanged except for capture jitter of 0.0001 SSIM on products light (0.9005 → 0.9004)
   and docs light (0.6390 → 0.6391), both re-measured from this run and updated in the README.
-  `check_consistency.py` now reports 2 open module screens (Purchases, Manual).
+  `check_consistency.py` reports 2 open module screens (Purchases on SSIM, Manual on both).
 
 - **Calendar reaches both targets in both themes: 98.64 / 0.9086 light, 98.22 / 0.9023 dark.**
   The view was not retouched but rebuilt as a port of `SOCDOF - TS/src/components/apps/
