@@ -20,3 +20,7 @@
 
 # Local screenshots and scratch evidence from browser checks
 /artifacts/
+
+# Python bytecode from the parity gate scripts
+__pycache__/
+*.pyc
