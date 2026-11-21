@@ -5514,6 +5514,12 @@ body.palette-desktop .desktop-shortcut {
   padding: 16px; color: #0f172a; font-family: inherit; font-size: 12px; line-height: 16px;
   vertical-align: middle;
 }
+/* Sub-pixel edge-profile measurement against the reference: its rows 2-5 carry their content
+   1.04 px lower than ours while row 1 matches, the half-pixel the reference loses to Chromium's
+   fractional table rows. WebKit keeps row boxes integral, so the same half pixel is restored as
+   fractional cell padding, which positions the text without moving the row borders or the row
+   height (16.5 + 15.5 = the original 32 px). */
+#view-products .products-table tbody td { padding-top: 16.75px; padding-bottom: 15.25px; }
 #view-products .products-table tbody tr + tr { border-top: 1px solid #f1f5f9; }
 #view-products .products-table .is-right { text-align: right; }
 #view-products .products-table .is-center { text-align: center; }
@@ -5537,8 +5543,13 @@ body.palette-desktop .desktop-shortcut {
 #view-products .products-asin { font-family: var(--font-mono); color: #059669; font-size: 10px; }
 #view-products .products-chip {
   display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px;
-  background: #f1f5f9; color: #334155; font-size: 10px; font-weight: 600; line-height: 14px;
+  background: #f1f5f9; color: #334155; font-size: 10px; font-weight: 600; line-height: 13px;
+  /* Measured on the reference: the chip box sits on 390-406 there, one pixel above our baseline
+     alignment; the length raises the inline box without resizing it. */
+  vertical-align: 1px;
 }
+/* Chip column phase: the reference's chips start one pixel further right than ours. */
+#view-products .products-table tbody td:nth-child(4) { padding-left: 17px; padding-right: 15px; }
 #view-products .products-margin { font-family: var(--font-mono); color: #059669; font-weight: 700; }
 #view-products .products-margin.is-negative { color: #e11d48; }
 #view-products .products-margin-pct { font-family: var(--font-mono); color: #94a3b8; font-size: 10px; }
@@ -5586,7 +5597,7 @@ body.palette-desktop .desktop-shortcut {
 :root[data-theme="dark"] #view-products .products-pills { background: rgba(30, 41, 59, 0.8); }
 :root[data-theme="dark"] #view-products .products-pill { color: #94a3b8; }
 :root[data-theme="dark"] #view-products .products-pill:hover { color: #fff; }
-:root[data-theme="dark"] #view-products .products-pill.is-active { background: #0f172a; color: #818cf8; }
+:root[data-theme="dark"] #view-products .products-pill.is-active { background: #0f172b; color: #818cf8; }
 :root[data-theme="dark"] #view-products .products-pill-low { color: #fb7185; }
 :root[data-theme="dark"] #view-products .products-pill-low:hover { background: rgba(76, 5, 25, 0.6); color: #fb7185; }
 :root[data-theme="dark"] #view-products .products-pill-low.is-active { background: #f43f5e; color: #fff; }
@@ -5594,14 +5605,14 @@ body.palette-desktop .desktop-shortcut {
   background: #0f172a; border-color: #1e293b; color: #f1f5f9;
 }
 :root[data-theme="dark"] #view-products .products-search input::placeholder { color: #64748b; }
-:root[data-theme="dark"] #view-products .products-card { background: #0f172a; border-color: #1e293b; }
-:root[data-theme="dark"] #view-products .products-card-head { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-card { background: #0f172b; border-color: #1d293d; }
+:root[data-theme="dark"] #view-products .products-card-head { border-bottom-color: #1d293d; }
 :root[data-theme="dark"] #view-products .products-card-title { color: #94a3b8; }
-:root[data-theme="dark"] #view-products .products-table thead tr { background: rgba(30, 41, 59, 0.4); border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-table thead tr { background: rgba(30, 41, 59, 0.4); border-bottom-color: #1d293d; }
 :root[data-theme="dark"] #view-products .products-table th { color: #94a3b8; }
 :root[data-theme="dark"] #view-products .products-table td { color: #f1f5f9; }
-:root[data-theme="dark"] #view-products .products-table tbody tr + tr { border-top-color: #1e293b; }
-:root[data-theme="dark"] #view-products .products-thumb { background: #1e293b; border-color: #334155; }
+:root[data-theme="dark"] #view-products .products-table tbody tr + tr { border-top-color: #1d293d; }
+:root[data-theme="dark"] #view-products .products-thumb { background: #1d293d; border-color: #334155; }
 :root[data-theme="dark"] #view-products .products-name,
 :root[data-theme="dark"] #view-products .products-price { color: #fff; }
 :root[data-theme="dark"] #view-products .products-desc { color: #94a3b8; }
@@ -5609,15 +5620,19 @@ body.palette-desktop .desktop-shortcut {
 :root[data-theme="dark"] #view-products .products-mono,
 :root[data-theme="dark"] #view-products .products-sku { color: #cbd5e1; }
 :root[data-theme="dark"] #view-products .products-asin { color: #34d399; }
-:root[data-theme="dark"] #view-products .products-chip { background: #1e293b; color: #cbd5e1; }
+:root[data-theme="dark"] #view-products .products-chip { background: #1d293d; color: #cbd5e1; }
 :root[data-theme="dark"] #view-products .products-margin { color: #34d399; }
 :root[data-theme="dark"] #view-products .products-margin.is-negative { color: #fb7185; }
 :root[data-theme="dark"] #view-products .products-cell-stock .products-stock { background: rgba(6, 78, 59, 0.8); color: #6ee7b7; }
+/* Sampled from the reference capture: its dark low-stock pill composites to #41061b with an
+   #8b0836 border, #ffa1ad text and a #ff2056 alert icon (Tailwind v4's rose scale), where this
+   screen carried the v3 values #40081c / #881337 / #fda4af. */
 :root[data-theme="dark"] #view-products .products-cell-stock .products-stock.is-low {
-  border-color: #881337; background: rgba(76, 5, 25, 0.8); color: #fda4af;
+  border-color: #8b0836; background: rgba(78, 2, 23, 0.8); color: #ffa1ad;
 }
-:root[data-theme="dark"] #view-products .products-stock-note { color: #fb7185; }
+:root[data-theme="dark"] #view-products .products-cell-stock .products-stock.is-low svg { color: #ff2056; }
+:root[data-theme="dark"] #view-products .products-stock-note { color: #ff2056; }
 :root[data-theme="dark"] #view-products .products-muted { color: #94a3b8; }
 :root[data-theme="dark"] #view-products .products-empty-cell { color: #94a3b8; }
 :root[data-theme="dark"] #view-products .products-row-book { background: rgba(30, 27, 75, 0.6); color: #818cf8; }
-:root[data-theme="dark"] #view-products .products-row-icon:hover { background: #1e293b; }
+:root[data-theme="dark"] #view-products .products-row-icon:hover { background: #1d293d; }

@@ -6,27 +6,32 @@ Both editions were captured live at **1440 × 900**, in **German**, with the sam
 Manual and POS were captured with the **TS demo catalogue seeded** on both sides. Screenshots are the
 rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces both data states.
 
-> **Status (2026-11-21):** the five original views, Command Palette, POS and Products meet the window
-> pixel target (≥98.00); the five original views, Command Palette and POS also meet the window SSIM
-> target (≥0.90). Products sits at **98.51 / 0.8957** (light) and **98.21 / 0.8946** (dark), up from
-> 94.32/0.6390 and 93.28/0.5713 through two rounds of porting. Its pixel score clears the threshold in
-> both themes; the SSIM score is 0.0043 and 0.0054 short. Three measured causes were found and fixed
-> instead of tuned by eye: (1) the reference capture resolved its body text to fontconfig's **variable**
-> Noto Sans and its `font-mono-num` cells to the bundled **JetBrains Mono**, and this screen now bundles
-> those same files with the weights the reference actually loads; (2) `#view-products .products-table td`
-> outranked the `.products-mono` / `.products-price` classes, so the money columns had silently rendered
-> in the sans face, and the toolbar controls stood 36 px tall against the TS 32 px; (3) the text phase was
-> off — a sub-pixel search over each region showed the name stack drawing 1 px low and the stock stack
-> 1 px right, and asymmetric cell padding (15/17 px) now pins them; that single change moved the pair
-> from 0.8813/0.8810 to 0.8957/0.8946. What is left is not text content, face or column geometry: rows 1
-> and 2 are pixel-exact (region error 1.19 and 0.69), while the reference's third row is 91 px tall where
-> ours is 90 px, which shifts rows 3-6 down by 1 px in the reference. The reference's low-stock rows 2 and
-> 3 carry identical ink extents (378-425 and 468-515) yet differ by that 1 px, so it is fractional
-> row-height accumulation in Chromium's table layout, not content; the same 1 px cannot be produced in
-> WebKit from CSS without special-casing a row index. Four module screens — Calendar, Accounting,
-> Purchases and the Manual — are still below both targets (94.90-96.54 pixel, 0.5117-0.7511 SSIM) because
-> their Rust layouts differ from the TS markup. The residual is quantified per view below; the thresholds
-> were not lowered.
+> **Status (2026-11-21):** every pair in this document except Calendar, Accounting, Purchases and the
+> Manual meets **both** window targets (≥98.00 pixel and ≥0.90 SSIM). Products closes the last gap at
+> **98.60 / 0.9004** (light) and **98.39 / 0.9000** (dark), up from 94.32/0.6390 and 93.28/0.5713.
+> Every step of that recovery came from a measurement against the reference capture rather than from
+> tuning by eye: (1) the reference resolved its body text to fontconfig's **variable** Noto Sans and its
+> `font-mono-num` cells to the bundled **JetBrains Mono**, and this screen now bundles those same files;
+> (2) `#view-products .products-table td` outranked the `.products-mono` / `.products-price` classes, so
+> the money columns had silently rendered in the sans face; (3) an edge-profile and centroid search over
+> every region put the text in the reference's sub-pixel phase — name stack, stock stack, table body and
+> the category chips were each a pixel or a half pixel off; (4) the category chip stood 18 px tall
+> against the reference's 17; (5) the dark palette carried Tailwind v3 hex where the reference captured
+> v4's OKLCH values (`#0f172b` slate-900, `#1d293d` slate-800, and `#8b0836` / `#ffa1ad` / `#ff2056`
+> for the low-stock pill). The table rows are the one thing CSS cannot restate: the reference's rows
+> measure 90.5 px and paint their borders at 443 and 534 through Chromium's fractional row
+> accumulation, while WebKit integerises row boxes — a `height: 90.5px` row measures 91 px there
+> (border ink at 444) exactly like `90.4px` — so the remaining half pixel is carried by fractional cell
+> padding (16.75/15.25 px), which positions the text without moving a border. Measured, then discarded:
+> Tailwind's 21 px name line box (0.8534 / 0.8508), a `mt 2 + line-height 15` note (0.8459 / 0.8432), the
+> 90.4 px row height (0.8804 / 0.8780), `letter-spacing: -0.5px` on the money cells (0.8853 / 0.8863),
+> lifting only the description ink (0.8835 / 0.8824), a full 17/15 px cell shift (0.8813 / 0.8801), the
+> 600-weight JetBrains face on the money cells (0.8956 / 0.8945, no gain over 0.8957 / 0.8946) and the
+> reference's own `font-feature-settings: "tnum"` (0.9004 / 0.8997 — identical, Δ 0.0000, because the
+> bundled mono is already tabular). Four module screens — Calendar, Accounting, Purchases and the
+> Manual — remain below both targets (92.90-96.54 pixel, 0.5117-0.7510 SSIM) because their Rust layouts
+> differ from the TS markup. No threshold was lowered and no blur, scale, transform or global
+> antialiasing setting is used.
 
 ## The twelve pairs
 
@@ -94,7 +99,7 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Restaurant (`view-restaurant`) | DOM audit, `RestaurantModule.tsx:579` | structural: title, sound/Z-report/menu/export actions, table/KDS/menu/history tabs |
 | Support (`view-support`) | DOM audit, `SupportServicesModule.tsx` | structural: title, ticket list, create/edit actions, priority and status controls |
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
-| Products (`view-products`) | image pair, light + dark | pixel, 98.51 / 98.21, SSIM 0.8957 / 0.8946 (pixel target met, SSIM 0.0043/0.0054 short) |
+| Products (`view-products`) | image pair, light + dark | pixel, 98.60 / 98.39, SSIM **0.9004 / 0.9000** (both targets met) |
 | POS (`view-pos`) | image pair, light + dark | pixel, 98.68 / 98.61, SSIM 0.9176 / 0.9143 |
 | Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.54 / 94.90, SSIM 0.7511 / 0.6699 (below target) |
 | Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.25 / 92.75, SSIM 0.7621 / 0.6033 (below target) |
@@ -178,14 +183,14 @@ difference is the window chrome and desktop backdrop.
 | Contacts | light | 97.32 | **98.90** | **0.9131** | 97.03 % |
 | Contacts | dark | 96.88 | **98.54** | **0.9002** | 94.15 % |
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
-| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.27 % |
+| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.26 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
 | Command Palette | dark | 98.73 | **98.73** | **0.9243** | 96.32 % |
-| Products | light | 97.10 | **98.51** | 0.8957 | 95.47 % |
-| Products | dark | 96.70 | **98.21** | 0.8946 | 93.14 % |
+| Products | light | 97.15 | **98.60** | 0.9004 | 95.67 % |
+| Products | dark | 96.81 | **98.39** | 0.9000 | 93.32 % |
 | POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
 | POS | dark | 96.96 | **98.61** | **0.9143** | 95.17 % |
-| Calendar | light | 95.80 | 96.54 | 0.7509 | 90.47 % |
+| Calendar | light | 95.80 | 96.54 | 0.7510 | 90.47 % |
 | Calendar | dark | 94.52 | 94.90 | 0.6699 | 74.55 % |
 | Accounting | light | 94.95 | 95.25 | 0.7621 | 90.95 % |
 | Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
@@ -217,9 +222,9 @@ window crops barely moves the number. Products and POS are ports of the same mar
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
 |---|---|---:|---:|---:|---:|---:|
-| Products | light | 0.8957 | 0.9505 | 0.9657 | 6.3 % | 3.2 % |
-| Products | dark | 0.8946 | 0.9442 | 0.9574 | 8.6 % | 3.9 % |
-| Calendar | light | 0.7509 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
+| Products | light | 0.9004 | 0.9524 | 0.9668 | 6.3 % | 3.1 % |
+| Products | dark | 0.9000 | 0.9469 | 0.9593 | 8.4 % | 3.7 % |
+| Calendar | light | 0.7510 | 0.8297 | 0.8513 | 13.2 % | 4.8 % |
 | Calendar | dark | 0.6699 | 0.7314 | 0.7489 | 38.4 % | 7.3 % |
 | Accounting | light | 0.7621 | 0.8084 | 0.8251 | 11.5 % | 7.0 % |
 | Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |

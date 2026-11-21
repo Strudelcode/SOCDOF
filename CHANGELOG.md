@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- **Products reaches the SSIM target in both themes: 98.60 / 0.9004 light, 98.39 / 0.9000 dark.**
+  The last 0.005 came from four measured corrections, not from tuning by eye: a sub-pixel edge-profile and
+  ink-centroid comparison against the reference put every text block back in its phase (fractional
+  body-cell padding of 16.75/15.25 px, which moves the text without moving a row border, plus the chip
+  column's 1 px horizontal offset), the category chip was 18 px tall against the reference's 17 px, the
+  chip box sat one pixel below the reference baseline, and the dark palette carried Tailwind v3 hex
+  where the reference captured v4's OKLCH values (`#0f172b` slate-900, `#1d293d` slate-800, and
+  `#8b0836` / `#ffa1ad` / `#ff2056` for the low-stock pill and its note).
+- **The row geometry is bounded by the engine, and the bound is measured.** The reference's table rows
+  are 90.5 px and paint their borders at 443 and 534 through Chromium's fractional row accumulation;
+  WebKit integerises row boxes, so `height: 90.5px` and `height: 90.4px` on a `tr` both measure 91 px
+  (border ink at 444 and 535, measured). The half pixel is therefore restored as fractional cell
+  padding instead of a row height.
+- Measured, then discarded (products pair, light/dark SSIM): Tailwind's 21 px name line box 0.8534 /
+  0.8508; note `mt 2 + line-height 15` 0.8459 / 0.8432; row height 90.4 px 0.8804 / 0.8780;
+  `letter-spacing: -0.5px` on the money cells 0.8853 / 0.8863; description-only ink lift 0.8835 /
+  0.8824; full 17/15 px cell shift 0.8813 / 0.8801; the 600-weight JetBrains face on the money cells
+  0.8956 / 0.8945 (no gain over 0.8957 / 0.8946); the reference's own
+  `font-feature-settings: "tnum"` 0.9004 / 0.8997 (Δ 0.0000 — the bundled mono is already tabular).
+  No threshold was lowered and no blur, scale, transform or global antialiasing setting was used.
+- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9004 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 96.54/0.7510 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6390 light, docs 92.90/0.5117 dark.
+- Calendar, Accounting, Purchases and the Manual remain below the targets; their figures are unchanged.
+
 - **Products: sub-pixel text phase corrected; the pair gains 0.014 SSIM and clears the pixel target.**
   A per-region sub-pixel search against the reference capture showed the name/description stack drawing
   1 px lower and the stock stack 1 px further right than the reference; asymmetric cell padding (15/17 px)
