@@ -8,26 +8,25 @@ rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces
 
 > **Status (2026-11-21):** the five original views, Command Palette, POS and Products meet the window
 > pixel target (≥98.00); the five original views, Command Palette and POS also meet the window SSIM
-> target (≥0.90). Products sits at **98.44 / 0.8812** (light) and **98.15 / 0.8810** (dark) after the
-> port, up from 94.32/0.6390 and 93.28/0.5713 and from 97.68/0.8295 and 97.43/0.8314 after the previous
-> round: the ported table now clears the pixel threshold in both themes, and the SSIM gap that remains
-> is glyph rasterisation, not layout. The decisive cause was the face the reference actually resolved:
-> the TS module markup uses the system stack, and the capture machine had fontconfig's **variable**
-> Noto Sans installed, so Chromium rasterised every products glyph from that variable face; the Rust
-> screen now bundles the same variable font (subset, `noto-sans-var-latin.ttf`) and declares it with
-> `font-weight: 100 900`, which alone moved the pair from 97.70/0.8294 to 98.44/0.8814 in one step.
-> Three real CSS bugs were fixed alongside it: `#view-products .products-table td` outranked the
-> `.products-mono` / `.products-price` cell classes so the cost and price columns silently fell back to
-> the sans face, the toolbar controls were 36 px tall where the TS `py-2` controls are 32 px (search
-> field 34 px), and the name/description line boxes were 2 px too tall. Blurring both window crops at
-> σ=1 now lifts Products to **0.9452 / 0.9392** SSIM (pixel 99.12 / 98.83), i.e. the residual is
-> glyph-level. Four module screens —
-> Calendar, Accounting, Purchases and the Manual — are still below both targets (94.90–96.54 pixel,
-> 0.5117–0.7511 SSIM) because the Rust modules render a different layout than the TS markup (no
-> calendar toolbar and calendar rail, no BWA/UStVA/OPOS tab row, a prose manual instead of the
-> documentation portal). Blurring those four at σ=1.5 lifts them by only 0.07–0.14, while POS gains
-> 0.05 on an already-high base, so their difference is geometry. The residual is quantified per view
-> below; the thresholds were not lowered.
+> target (≥0.90). Products sits at **98.51 / 0.8957** (light) and **98.21 / 0.8946** (dark), up from
+> 94.32/0.6390 and 93.28/0.5713 through two rounds of porting. Its pixel score clears the threshold in
+> both themes; the SSIM score is 0.0043 and 0.0054 short. Three measured causes were found and fixed
+> instead of tuned by eye: (1) the reference capture resolved its body text to fontconfig's **variable**
+> Noto Sans and its `font-mono-num` cells to the bundled **JetBrains Mono**, and this screen now bundles
+> those same files with the weights the reference actually loads; (2) `#view-products .products-table td`
+> outranked the `.products-mono` / `.products-price` classes, so the money columns had silently rendered
+> in the sans face, and the toolbar controls stood 36 px tall against the TS 32 px; (3) the text phase was
+> off — a sub-pixel search over each region showed the name stack drawing 1 px low and the stock stack
+> 1 px right, and asymmetric cell padding (15/17 px) now pins them; that single change moved the pair
+> from 0.8813/0.8810 to 0.8957/0.8946. What is left is not text content, face or column geometry: rows 1
+> and 2 are pixel-exact (region error 1.19 and 0.69), while the reference's third row is 91 px tall where
+> ours is 90 px, which shifts rows 3-6 down by 1 px in the reference. The reference's low-stock rows 2 and
+> 3 carry identical ink extents (378-425 and 468-515) yet differ by that 1 px, so it is fractional
+> row-height accumulation in Chromium's table layout, not content; the same 1 px cannot be produced in
+> WebKit from CSS without special-casing a row index. Four module screens — Calendar, Accounting,
+> Purchases and the Manual — are still below both targets (94.90-96.54 pixel, 0.5117-0.7511 SSIM) because
+> their Rust layouts differ from the TS markup. The residual is quantified per view below; the thresholds
+> were not lowered.
 
 ## The twelve pairs
 
@@ -88,14 +87,14 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Invoices (`view-invoices`) | image pair, light + dark | pixel, 98.89 / 98.58, SSIM 0.9174 / 0.9101 |
 | Contacts (`view-contacts`) | image pair, light + dark | pixel, 98.90 / 98.54, SSIM 0.9131 / 0.9002 |
 | Settings (`view-settings`) | image pair, light + dark | pixel, 98.84 / 98.44, SSIM 0.9139 / 0.9025 |
-| Command Palette | image pair, light + dark | pixel, 98.23 / 98.73, SSIM 0.9298 / 0.9244 |
+| Command Palette | image pair, light + dark | pixel, 98.23 / 98.73, SSIM 0.9298 / 0.9243 |
 | App launcher (`view-appstore`) | `rust-launcher-{light,dark}-1440.png`, DOM audit, `AppLauncher.tsx` | structural: header with brand/clock, search, 4-column cards with category/title/description/open, footer |
 | Fleet (`view-fleet`) | DOM audit, `FleetModule.tsx:499-531` | structural: title, subtitle, tab bar, add/export actions, KPI row |
 | Projects (`view-projects`) | DOM audit, `ProjectsModule.tsx:382-405` | structural: title, subtitle, portfolio/kanban tabs, create/export actions |
 | Restaurant (`view-restaurant`) | DOM audit, `RestaurantModule.tsx:579` | structural: title, sound/Z-report/menu/export actions, table/KDS/menu/history tabs |
 | Support (`view-support`) | DOM audit, `SupportServicesModule.tsx` | structural: title, ticket list, create/edit actions, priority and status controls |
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
-| Products (`view-products`) | image pair, light + dark | pixel, 98.44 / 98.15, SSIM 0.8812 / 0.8810 (pixel target met, SSIM residual) |
+| Products (`view-products`) | image pair, light + dark | pixel, 98.51 / 98.21, SSIM 0.8957 / 0.8946 (pixel target met, SSIM 0.0043/0.0054 short) |
 | POS (`view-pos`) | image pair, light + dark | pixel, 98.68 / 98.61, SSIM 0.9176 / 0.9143 |
 | Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.54 / 94.90, SSIM 0.7511 / 0.6699 (below target) |
 | Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.25 / 92.75, SSIM 0.7621 / 0.6033 (below target) |
@@ -181,12 +180,12 @@ difference is the window chrome and desktop backdrop.
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
 | Settings | dark | 96.82 | **98.44** | **0.9025** | 94.27 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
-| Command Palette | dark | 98.73 | **98.73** | **0.9244** | 96.32 % |
-| Products | light | 97.05 | **98.44** | 0.8812 | 95.11 % |
-| Products | dark | 96.65 | **98.15** | 0.8810 | 92.82 % |
+| Command Palette | dark | 98.73 | **98.73** | **0.9243** | 96.32 % |
+| Products | light | 97.10 | **98.51** | 0.8957 | 95.47 % |
+| Products | dark | 96.70 | **98.21** | 0.8946 | 93.14 % |
 | POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
 | POS | dark | 96.96 | **98.61** | **0.9143** | 95.17 % |
-| Calendar | light | 95.80 | 96.54 | 0.7510 | 90.47 % |
+| Calendar | light | 95.80 | 96.54 | 0.7509 | 90.47 % |
 | Calendar | dark | 94.52 | 94.90 | 0.6699 | 74.55 % |
 | Accounting | light | 94.95 | 95.25 | 0.7621 | 90.95 % |
 | Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
@@ -218,9 +217,9 @@ window crops barely moves the number. Products and POS are ports of the same mar
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
 |---|---|---:|---:|---:|---:|---:|
-| Products | light | 0.8812 | 0.9452 | 0.9628 | 6.7 % | 3.5 % |
-| Products | dark | 0.8810 | 0.9392 | 0.9546 | 9.0 % | 4.2 % |
-| Calendar | light | 0.7510 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
+| Products | light | 0.8957 | 0.9505 | 0.9657 | 6.3 % | 3.2 % |
+| Products | dark | 0.8946 | 0.9442 | 0.9574 | 8.6 % | 3.9 % |
+| Calendar | light | 0.7509 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
 | Calendar | dark | 0.6699 | 0.7314 | 0.7489 | 38.4 % | 7.3 % |
 | Accounting | light | 0.7621 | 0.8084 | 0.8251 | 11.5 % | 7.0 % |
 | Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |

@@ -12,6 +12,7 @@
 }
 
 
+
 /* Bundled Plus Jakarta Sans (SIL OFL, see public/fonts/OFL.txt). The TS shell
    loads the static Google Fonts instances; these are the same files, so glyph
    advances and weights match the reference capture exactly. */
@@ -5524,10 +5525,8 @@ body.palette-desktop .desktop-shortcut {
   background: #f1f5f9; font-size: 18px; line-height: 1;
 }
 #view-products .products-name { font-weight: 600; color: #0f172a; line-height: 16px; }
-#view-products .products-desc {
-  margin-top: 2px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: #64748b; font-size: 11px; line-height: 16.5px;
-}
+#view-products .products-desc { color: #64748b; font-size: 11px; line-height: 16.5px;
+  margin-top: 2px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #view-products .products-source { margin-top: 2px; color: #0284c7; font-family: var(--font-mono); font-size: 10px; }
 #view-products .products-table td.products-mono { font-family: var(--font-mono); font-weight: 400; color: #475569; }
 #view-products .products-mono { font-family: var(--font-mono); color: #475569; font-weight: 500; }
@@ -5544,6 +5543,12 @@ body.palette-desktop .desktop-shortcut {
 #view-products .products-margin.is-negative { color: #e11d48; }
 #view-products .products-margin-pct { font-family: var(--font-mono); color: #94a3b8; font-size: 10px; }
 #view-products .products-stock-stack { display: inline-flex; flex-direction: column; align-items: center; }
+/* Vertical/horizontal phase of two cells, measured against the reference capture: the name
+   stack draws 1 px lower than the reference row and the stock stack 1 px to its right, and
+   the parity metric is sensitive at that scale. Asymmetric padding moves the centred content
+   without changing the row height. */
+#view-products .products-table td.products-cell-name { padding-top: 15px; padding-bottom: 17px; }
+#view-products .products-table td.products-cell-stock { padding-left: 15px; padding-right: 17px; }
 #view-products .products-cell-stock .products-stock svg { width: 12px; height: 12px; flex-shrink: 0; }
 #view-products .products-cell-stock .products-stock {
   display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px;

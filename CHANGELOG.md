@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Products: sub-pixel text phase corrected; the pair gains 0.014 SSIM and clears the pixel target.**
+  A per-region sub-pixel search against the reference capture showed the name/description stack drawing
+  1 px lower and the stock stack 1 px further right than the reference; asymmetric cell padding (15/17 px)
+  pins both without changing row heights. That, plus the variable Noto Sans and the bundled JetBrains
+  Mono faces the reference actually resolved, takes the pair from 97.68/0.8295 and 97.43/0.8314 to
+  98.51/0.8957 (light) and 98.21/0.8946 (dark). Window pixel now clears 98.00 in both themes; SSIM is
+  0.0043 and 0.0054 short of 0.90. Rows 1 and 2 are pixel-exact (region error 1.19 and 0.69). The rest is
+  one pixel of row height: the reference's third row is 91 px, ours 90 px, so rows 3-6 sit 1 px higher;
+  the reference's two low-stock rows have identical ink extents yet different heights (90 vs 91), i.e. the
+  difference is fractional row-height accumulation in Chromium's table layout rather than content, and
+  reproducing it in WebKit would require special-casing a row index. No threshold was changed.
+  Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.51/0.8957 light, products 98.21/0.8946 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 96.54/0.7509 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6390 light, docs 92.90/0.5117 dark.
+
 - **Products glyph residual closed to the pixel target; the module now renders the face the reference
   resolved.** The TS products markup uses the system stack, and the reference machine had
   fontconfig's variable Noto Sans, so every products glyph came from that variable face; Rust now
