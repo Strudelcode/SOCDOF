@@ -125,11 +125,11 @@
     "full_pixel_score": 97.15,
     "full_mae": 7.26,
     "full_close_pixels_pct": 87.75,
-    "full_ssim": 0.8866,
+    "full_ssim": 0.8867,
     "window_pixel_score": 98.6,
-    "window_mae": 3.58,
+    "window_mae": 3.57,
     "window_close_pixels_pct": 95.67,
-    "window_ssim": 0.9004
+    "window_ssim": 0.9005
   },
   {
     "view": "products",
@@ -149,7 +149,7 @@
     "full_pixel_score": 97.21,
     "full_mae": 7.12,
     "full_close_pixels_pct": 87.5,
-    "full_ssim": 0.8983,
+    "full_ssim": 0.8984,
     "window_pixel_score": 98.68,
     "window_mae": 3.38,
     "window_close_pixels_pct": 95.3,
@@ -194,26 +194,26 @@
   {
     "view": "accounting",
     "theme": "light",
-    "full_pixel_score": 94.95,
-    "full_mae": 12.89,
-    "full_close_pixels_pct": 84.64,
-    "full_ssim": 0.7956,
-    "window_pixel_score": 95.25,
-    "window_mae": 12.12,
-    "window_close_pixels_pct": 90.95,
-    "window_ssim": 0.7621
+    "full_pixel_score": 97.13,
+    "full_mae": 7.32,
+    "full_close_pixels_pct": 88.04,
+    "full_ssim": 0.8925,
+    "window_pixel_score": 98.56,
+    "window_mae": 3.68,
+    "window_close_pixels_pct": 96.11,
+    "window_ssim": 0.909
   },
   {
     "view": "accounting",
     "theme": "dark",
-    "full_pixel_score": 93.07,
-    "full_mae": 17.67,
-    "full_close_pixels_pct": 66.1,
-    "full_ssim": 0.6418,
-    "window_pixel_score": 92.75,
-    "window_mae": 18.5,
-    "window_close_pixels_pct": 62.14,
-    "window_ssim": 0.6033
+    "full_pixel_score": 96.67,
+    "full_mae": 8.48,
+    "full_close_pixels_pct": 88.03,
+    "full_ssim": 0.8395,
+    "window_pixel_score": 98.21,
+    "window_mae": 4.58,
+    "window_close_pixels_pct": 95.39,
+    "window_ssim": 0.9031
   },
   {
     "view": "purchases",
@@ -244,12 +244,12 @@
     "theme": "light",
     "full_pixel_score": 94.6,
     "full_mae": 13.76,
-    "full_close_pixels_pct": 82.58,
+    "full_close_pixels_pct": 82.57,
     "full_ssim": 0.7142,
     "window_pixel_score": 94.73,
     "window_mae": 13.44,
     "window_close_pixels_pct": 87.82,
-    "window_ssim": 0.639
+    "window_ssim": 0.6391
   },
   {
     "view": "docs",

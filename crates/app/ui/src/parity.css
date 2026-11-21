@@ -5938,3 +5938,244 @@ body.palette-desktop .desktop-shortcut {
 :root[data-theme="dark"] #view-calendar .cal-footer-icon { color: #818cf8; }
 :root[data-theme="dark"] #view-calendar .cal-sep { color: #334155; }
 :root[data-theme="dark"] #view-calendar .cal-editor { background: #0f172a; border-color: #334155; }
+
+/* ==========================================================================
+   Accounting module (port of SOCDOF - TS/src/components/sales/AccountingModule.tsx)
+   Geometry from the reference capture: header 82–170 (title 18 px, two-line subtitle,
+   34 px period pill + 30 px actions on two rows), KPI cards 195–313 on a 261 px grid
+   with 16 px gaps, tab bar 337–366, BWA card 391–669 with dividers at 484/521/558/595
+   and the emerald total band at 526–560 plus the indigo profit band at 604–647.
+   ========================================================================== */
+
+#view-accounting .acc-page {
+  display: flex; flex-direction: column; gap: 24px;
+  font-family: "Noto Sans Var", var(--font-sans);
+  -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision; font-synthesis: none;
+  color: #0f172a;
+}
+
+/* Header and period selector ---------------------------------------------- */
+
+#view-accounting .acc-head {
+  display: flex; align-items: center; justify-content: flex-start; gap: 16px;
+  padding-bottom: 16px; border-bottom: 1px solid #e2e8f0;
+}
+#view-accounting .acc-head-text { flex: 0 0 352px; width: 352px; }
+#view-accounting .acc-title {
+  display: flex; align-items: center; gap: 8px; margin: 0; white-space: nowrap;
+  font-size: 18px; line-height: 24px; font-weight: 700; color: #0f172a;
+}
+#view-accounting .acc-title-icon { display: grid; place-items: center; color: #4f46e5; }
+#view-accounting .acc-title-icon svg { width: 20px; height: 20px; }
+#view-accounting .acc-subtitle { margin: 0; font-size: 12px; line-height: 16px; color: #64748b; }
+
+#view-accounting .acc-head-actions {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 8px;
+  margin-left: 15px;
+}
+#view-accounting .acc-periods {
+  display: inline-flex; align-items: center; gap: 0; height: 34px; padding: 4px;
+  border: 1px solid #e2e8f0; border-radius: 8px; background: #f1f5f9;
+}
+#view-accounting .acc-period {
+  height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent;
+  color: #475569; cursor: pointer; font-family: inherit; font-size: 12px; line-height: 18px; font-weight: 500;
+  white-space: nowrap;
+}
+#view-accounting .acc-period.is-active { background: #fff; color: #4f46e5; font-weight: 700; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+#view-accounting .acc-btn {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  border: 1px solid transparent; border-radius: 8px; cursor: pointer; white-space: nowrap;
+  font-family: inherit; font-size: 12px; line-height: 18px; font-weight: 600;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+#view-accounting .acc-btn svg { width: 14px; height: 14px; }
+#view-accounting .acc-btn-icon { display: grid; place-items: center; }
+#view-accounting .acc-btn-icon.is-emerald { color: #059669; }
+#view-accounting .acc-btn-icon.is-emerald-light { color: #34d399; }
+#view-accounting .acc-btn.is-navy { background: #1b365d; color: #fff; font-weight: 700; }
+#view-accounting .acc-btn.is-plain { background: #fff; border-color: #e2e8f0; color: #334155; }
+#view-accounting .acc-btn.is-accent { background: #4f46e5; color: #fff; }
+
+/* KPI cards --------------------------------------------------------------- */
+
+#view-accounting .acc-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+#view-accounting .acc-kpi {
+  padding: 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-accounting .acc-kpi-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px;
+  color: #64748b; font-size: 12px; line-height: 16px; font-weight: 500;
+}
+#view-accounting .acc-kpi-icon {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; flex: 0 0 28px;
+  box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
+}
+#view-accounting .acc-kpi-icon svg { width: 16px; height: 16px; }
+#view-accounting .acc-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.12); color: #4f46e5; }
+#view-accounting .acc-kpi-icon.is-amber { background: #fffbeb; color: #d97706; }
+#view-accounting .acc-kpi-icon.is-teal { background: #f0fdfa; color: #0d9488; }
+#view-accounting .acc-kpi-icon.is-blue { background: #eff6ff; color: #2563eb; }
+#view-accounting .acc-kpi-value { font-size: 20px; line-height: 28px; font-weight: 800; color: #0f172a; }
+#view-accounting .acc-kpi-value.is-teal { color: #0d9488; }
+#view-accounting .acc-kpi-hint { margin-top: 4px; color: #64748b; font-size: 11px; line-height: 16px; }
+
+/* Report tabs ------------------------------------------------------------- */
+
+#view-accounting .acc-tabs { display: flex; gap: 16px; border-bottom: 1px solid #e2e8f0; }
+#view-accounting .acc-tab {
+  padding: 0 0 10px; border: 0; border-bottom: 2px solid transparent; background: transparent;
+  color: #64748b; cursor: pointer; font-family: inherit; font-size: 12px; line-height: 18px; font-weight: 600;
+  margin-bottom: -1px;
+}
+#view-accounting .acc-tab:hover { color: #1e293b; }
+#view-accounting .acc-tab.is-active { border-bottom-color: #4f46e5; color: #4f46e5; font-weight: 700; }
+
+/* Report cards ------------------------------------------------------------ */
+
+#view-accounting .acc-card {
+  padding: 20px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-accounting .acc-card[hidden] { display: none; }
+#view-accounting .acc-card-title { margin: 0 0 16px; font-size: 14px; line-height: 20px; font-weight: 700; color: #0f172a; }
+#view-accounting .acc-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+#view-accounting .acc-card-head .acc-card-title { margin: 0; }
+
+/* BWA rows */
+
+#view-accounting .acc-bwa-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 0; color: #1e293b; font-size: 12px; line-height: 16px; font-weight: 600;
+}
+#view-accounting .acc-bwa-row + .acc-bwa-row { border-top: 1px solid #f1f5f9; }
+#view-accounting .acc-bwa-row.is-total {
+  padding: 10px 8px; border-top: 0; border-radius: 8px;
+  background: rgba(236, 253, 245, 0.5); color: #059669; font-weight: 700;
+}
+#view-accounting .acc-bwa-row.is-cost { border-top: 1px solid #f1f5f9; color: #475569; font-weight: 600; }
+#view-accounting .acc-bwa-row.is-cost span:last-child { color: #e11d48; }
+#view-accounting .acc-bwa-row.is-profit {
+  margin-top: 8px; padding: 12px; border-top: 0; border-radius: 12px;
+  background: #eef2ff; color: #4f46e5; font-size: 14px; line-height: 20px; font-weight: 800;
+}
+#view-accounting .acc-bwa-row span:last-child { white-space: nowrap; }
+
+/* UStVA table */
+
+#view-accounting .acc-table-wrap { overflow-x: auto; }
+#view-accounting .acc-table { width: 100%; border-collapse: collapse; font-size: 12px; line-height: 18px; text-align: left; }
+#view-accounting .acc-table th { padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600; }
+#view-accounting .acc-table td { padding: 10px 0; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+#view-accounting .acc-table .is-right { text-align: right; }
+#view-accounting .acc-table .is-mono { font-family: "JetBrains Mono", monospace; }
+#view-accounting .acc-table .is-bold { font-weight: 700; }
+#view-accounting .acc-table .is-accent { color: #4f46e5; }
+#view-accounting .acc-table tr.is-cost td { color: #e11d48; }
+#view-accounting .acc-table tr.is-profit td { background: #eef2ff; color: #4f46e5; font-weight: 800; }
+
+/* Open items */
+
+#view-accounting .acc-open-badge { padding: 4px 10px; border-radius: 8px; background: #fff1f2; color: #e11d48; font-size: 12px; font-weight: 700; }
+#view-accounting .acc-open-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+#view-accounting .acc-open-number { display: flex; align-items: center; gap: 8px; font-weight: 700; color: #0f172a; }
+#view-accounting .acc-open-number span { color: #94a3b8; font-weight: 400; }
+#view-accounting .acc-open-meta { margin-top: 2px; color: #64748b; font-size: 11px; }
+#view-accounting .acc-open-amount { text-align: right; }
+#view-accounting .acc-open-value { font-family: "JetBrains Mono", monospace; font-size: 14px; font-weight: 700; color: #0f172a; }
+#view-accounting .acc-open-pill { display: inline-block; margin-top: 2px; padding: 2px 8px; border-radius: 4px; background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 600; }
+#view-accounting .acc-open-empty { display: grid; place-items: center; gap: 8px; padding: 32px 0; color: #94a3b8; font-size: 12px; text-align: center; }
+#view-accounting .acc-open-empty svg { width: 32px; height: 32px; color: #10b981; }
+
+/* Z-Bon */
+
+#view-accounting .acc-zbon { max-width: 512px; margin: 0 auto; }
+#view-accounting .acc-zbon-head { padding-bottom: 12px; border-bottom: 1px solid #e2e8f0; text-align: center; }
+#view-accounting .acc-zbon-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 700; color: #0f172a; }
+#view-accounting .acc-zbon-company { margin: 0; color: #64748b; font-size: 12px; }
+#view-accounting .acc-zbon-date { margin: 4px 0 0; color: #94a3b8; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+#view-accounting .acc-zbon-rows { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+#view-accounting .acc-zbon-row { display: flex; justify-content: space-between; gap: 16px; color: #1e293b; }
+#view-accounting .acc-zbon-row.is-sum { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e2e8f0; font-size: 14px; font-weight: 700; }
+#view-accounting .acc-zbon-actions { display: flex; justify-content: center; padding-top: 16px; }
+
+#view-accounting .acc-status:empty { display: none; }
+#view-accounting .acc-status { margin: 0; color: #e11d48; font-size: 12px; }
+
+/* Dark theme -------------------------------------------------------------- */
+
+:root[data-theme="dark"] #view-accounting .acc-page { color: #e2e8f0; }
+:root[data-theme="dark"] #view-accounting .acc-head { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-title,
+:root[data-theme="dark"] #view-accounting .acc-card-title,
+:root[data-theme="dark"] #view-accounting .acc-open-number { color: #f1f5f9; }
+:root[data-theme="dark"] #view-accounting .acc-subtitle,
+:root[data-theme="dark"] #view-accounting .acc-kpi-head,
+:root[data-theme="dark"] #view-accounting .acc-kpi-hint,
+:root[data-theme="dark"] #view-accounting .acc-open-meta { color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-periods { background: #1e293b; border-color: #334155; }
+:root[data-theme="dark"] #view-accounting .acc-period { color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-period.is-active { background: #334155; color: #f8fafc; }
+:root[data-theme="dark"] #view-accounting .acc-btn.is-plain { background: #1e293b; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-accounting .acc-kpi,
+:root[data-theme="dark"] #view-accounting .acc-card { background: #0f172a; border-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-kpi-value { color: #f1f5f9; }
+:root[data-theme="dark"] #view-accounting .acc-note { color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.24); color: #818cf8; }
+:root[data-theme="dark"] #view-accounting .acc-kpi-icon.is-amber { background: rgba(146, 64, 14, 0.4); color: #fbbf24; }
+:root[data-theme="dark"] #view-accounting .acc-kpi-icon.is-teal { background: rgba(4, 47, 46, 0.5); color: #2dd4bf; }
+:root[data-theme="dark"] #view-accounting .acc-kpi-icon.is-blue { background: rgba(30, 58, 138, 0.5); color: #60a5fa; }
+:root[data-theme="dark"] #view-accounting .acc-tabs { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-tab { color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row { color: #cbd5e1; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row + .acc-bwa-row { border-top-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row.is-total { background: rgba(6, 78, 59, 0.2); color: #34d399; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row.is-cost { border-top-color: #1e293b; color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row.is-cost span:last-child { color: #fb7185; }
+:root[data-theme="dark"] #view-accounting .acc-bwa-row.is-profit { background: rgba(30, 27, 75, 0.4); color: #818cf8; }
+:root[data-theme="dark"] #view-accounting .acc-table th { border-bottom-color: #1e293b; color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-table td { border-bottom-color: #1e293b; color: #cbd5e1; }
+:root[data-theme="dark"] #view-accounting .acc-table tr.is-profit td { background: rgba(30, 27, 75, 0.4); color: #818cf8; }
+:root[data-theme="dark"] #view-accounting .acc-open-badge { background: rgba(76, 5, 25, 0.5); color: #fb7185; }
+:root[data-theme="dark"] #view-accounting .acc-open-row { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-open-value { color: #f1f5f9; }
+:root[data-theme="dark"] #view-accounting .acc-open-pill { background: #451a03; color: #fcd34d; }
+:root[data-theme="dark"] #view-accounting .acc-zbon-head { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-accounting .acc-zbon-title { color: #f1f5f9; }
+:root[data-theme="dark"] #view-accounting .acc-zbon-row { color: #cbd5e1; }
+:root[data-theme="dark"] #view-accounting .acc-zbon-row.is-sum { border-top-color: #1e293b; }
+
+/* Manual booking dialog (keyboard-reachable, out of the reference pixels) */
+
+#view-accounting .acc-sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+#view-accounting .acc-dialog {
+  width: min(520px, calc(100vw - 48px)); padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;
+  background: #fff; color: #0f172a; box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  font-family: "Noto Sans Var", var(--font-sans); font-size: 12px;
+}
+#view-accounting .acc-dialog::backdrop { background: rgba(15, 23, 42, 0.4); }
+#view-accounting .acc-dialog-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+#view-accounting .acc-dialog-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+#view-accounting .acc-dialog-close { border: 0; background: transparent; color: #64748b; cursor: pointer; font-size: 20px; line-height: 20px; }
+#view-accounting .acc-form { display: flex; flex-direction: column; gap: 12px; }
+#view-accounting .acc-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#view-accounting .acc-field { display: flex; flex-direction: column; gap: 4px; color: #475569; font-weight: 500; }
+#view-accounting .acc-field input,
+#view-accounting .acc-field select {
+  height: 32px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff;
+  color: #0f172a; font-family: inherit; font-size: 12px;
+}
+#view-accounting .acc-dialog-actions { display: flex; gap: 8px; padding-top: 4px; }
+#view-accounting .acc-btn.is-danger { background: #fff1f2; color: #e11d48; border-color: #fecdd3; }
+#view-accounting .acc-journal-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; max-height: 220px; overflow-y: auto; }
+#view-accounting .acc-journal-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid #f1f5f9; }
+#view-accounting .acc-journal-row p { margin: 2px 0 0; color: #64748b; font-size: 11px; }
+#view-accounting .acc-journal-empty { margin: 0; color: #94a3b8; }
+:root[data-theme="dark"] #view-accounting .acc-dialog { background: #0f172b; border-color: #334155; color: #e2e8f0; }
+:root[data-theme="dark"] #view-accounting .acc-dialog-head h3 { color: #f1f5f9; }
+:root[data-theme="dark"] #view-accounting .acc-field input,
+:root[data-theme="dark"] #view-accounting .acc-field select { background: #1e293b; border-color: #334155; color: #e2e8f0; }

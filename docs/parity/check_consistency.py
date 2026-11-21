@@ -45,7 +45,7 @@ THEMES = {"light", "dark"}
 ALIASES = {"manual": "docs", "pos-(reference)": "pos"}
 # Module screens whose Rust layout still differs from the TS markup. They were below the
 # targets before this work started and stay documented as such; nothing else may be.
-OPEN_BELOW_TARGET = {"accounting", "purchases", "docs"}
+OPEN_BELOW_TARGET = {"purchases", "docs"}
 
 
 def table_rows(text: str, header_words: tuple[str, ...]) -> list[list[str]]:

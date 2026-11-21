@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+- **Accounting reaches both targets in both themes: window pixel/SSIM accounting 98.56/0.9090 light,
+  accounting 98.21/0.9031 dark**, up from 95.25/0.7621 and 92.75/0.6033. The screen
+  was rebuilt as a port of `SOCDOF - TS/src/components/sales/AccountingModule.tsx` instead of being
+  nudged: the header block at 82–170 with the 18 px title, its two-line subtitle, the 34 px period pill
+  and the three 30 px actions wrapping onto two rows at x=493; the four KPI cards at 195–313 on the
+  261 px column grid; the report tab bar whose border closes at y=366; and the BWA card at 391–669 with
+  row rules at 484/521/558/595, the emerald total band at 526–560 and the indigo profit band at
+  604–647. Three measured corrections carried the last 1.5 points: the module cards use slate-200
+  borders rather than the shell's indigo-tinted edge, the BWA rows are `text-xs` line boxes of 16 px
+  (18 px stretched the card by 5 px and moved every rule), and the header's action block starts
+  352 + 16 px into the content area. Figures come from real commands — `list_invoices`,
+  `purchase_orders` and `pos_overview` — and are aggregated exactly like the TS module
+  (posted invoices = `sent`/`paid`, all non-draft purchase orders, POS receipts in the period).
+- **One documented content residual on that screen:** the TS reference frame was captured in a session
+  with three posted invoices (`14682.80 €` revenue), while the parity database — and the TS app's own
+  invoice journal, which shows `0 Einträge` — holds none, so the invoice-derived cells read `0.00 €`
+  next to matching `2600.00 €` purchases and `0.00 €` POS. Seeding invoices would move the invoice pair
+  off its empty-journal reference, so the screen is measured with the data that exists; the layout,
+  bands and totals arithmetic match and the pair clears both thresholds.
+- The manual booking form moved into a dialog behind a keyboard-reachable control, so the journal
+  entry smoke path (`accounting-new` → `accounting-form` → `accounting-list`) still runs while the
+  screen keeps the reference's report-only pixels.
+- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9005 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.64/0.9086 light, calendar 98.22/0.9023 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. Apart from Accounting the
+  numbers are unchanged except for capture jitter of 0.0001 SSIM on products light (0.9004 → 0.9005)
+  and docs light (0.6390 → 0.6391), both re-measured from this run and updated in the README.
+  `check_consistency.py` now reports 2 open module screens (Purchases, Manual).
+
 - **Calendar reaches both targets in both themes: 98.64 / 0.9086 light, 98.22 / 0.9023 dark.**
   The view was not retouched but rebuilt as a port of `SOCDOF - TS/src/components/apps/
   CalendarModule.tsx`: the two-row command header (sidebar toggle, indigo tile and title, *Neuer
