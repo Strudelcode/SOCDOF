@@ -44,7 +44,7 @@
   "productsTitle": "Produkte",
   "productsCount": "{count} Produkte",
   "productsSearchLabel": "Produkte durchsuchen",
-  "productsSearchPlaceholder": "Name, SKU, Kategorie …",
+  "productsSearchPlaceholder": "Produkt, SKU oder Link suchen...",
   "productsNew": "Produkt anlegen",
   "productsEmpty": "Noch keine Produkte. Lege das erste Produkt an.",
   "errorLoadProducts": "Produkte konnten nicht geladen werden: {message}",

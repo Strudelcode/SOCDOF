@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- **Products glyph residual closed to the pixel target; the module now renders the face the reference
+  resolved.** The TS products markup uses the system stack, and the reference machine had
+  fontconfig's variable Noto Sans, so every products glyph came from that variable face; Rust now
+  bundles the same variable font (subset, `noto-sans-var-latin.ttf`, `font-weight: 100 900`), which
+  alone moved the pair from 97.70/0.8294 to 98.44/0.8814. Three CSS defects were repaired with it:
+  `#view-products .products-table td` outranked `.products-mono`/`.products-price`, so the cost and
+  price columns silently fell back to the sans face; the toolbar controls stood 36 px tall against
+  the TS `py-2` 32 px (search field 34 px); and the name/description line boxes were 2 px too tall.
+  The low-stock filter pill, the search placeholder (now `Produkt, SKU oder Link suchen...` from
+  `products.search_placeholder` in all four locales) and the POS body face were aligned to their TS
+  sources as well. Full 22-pair re-capture on this tree, window pixel/SSIM:
+  dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9244 dark, products 98.44/0.8812 light, products 98.15/0.8810 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 96.54/0.7510 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6390 light, docs 92.90/0.5117 dark.
+  Products is 97.05/98.44/0.8812 light and 96.65/98.15/0.8810 dark (full/window/SSIM): the window
+  pixel target (≥98.00) is met in both themes, the SSIM target (≥0.90) is not yet — σ=1 blur lifts
+  the pair to 0.9452/0.9392, so what remains is glyph rasterisation. POS improved from
+  98.42/0.9061 and 98.36/0.9029 to 98.68/0.9176 and 98.61/0.9143; no other pair moved by more than
+  0.0002.
+
 - **Products screen ported from the TS module; the whole parity table re-measured.**
   The Rust catalogue no longer draws `article.entity-card` tiles: `#view-products` is now the TS
   `ProductsModule` layout — category pill bar with the rose low-stock filter, live search, amber

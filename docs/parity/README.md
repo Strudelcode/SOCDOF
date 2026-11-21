@@ -6,14 +6,24 @@ Both editions were captured live at **1440 × 900**, in **German**, with the sam
 Manual and POS were captured with the **TS demo catalogue seeded** on both sides. Screenshots are the
 rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces both data states.
 
-> **Status (2026-11-21):** the five original views and POS meet both agreed targets (window pixel
-> score ≥98.00, window SSIM ≥0.90). Products no longer differs in layout: the Rust screen is now the
-> ported TS table (pill bar, live search, *Nachbestellen* / *Neues Produkt*, card header with count,
-> nine-column table with the TS titles and widths), which moved the pair from 94.32/0.6390 and
-> 93.28/0.5713 to **97.68/0.8295** (light) and **97.43/0.8314** (dark). Blurring both window crops at
-> σ=1 lifts Products to **0.9008 / 0.8961**, so what is left is glyph-level, not geometry. Four module
-> screens — Calendar, Accounting, Purchases and the Manual — are still below both targets (94.90–96.54
-> pixel, 0.5117–0.7511 SSIM) because the Rust modules render a different layout than the TS markup (no
+> **Status (2026-11-21):** the five original views, Command Palette, POS and Products meet the window
+> pixel target (≥98.00); the five original views, Command Palette and POS also meet the window SSIM
+> target (≥0.90). Products sits at **98.44 / 0.8812** (light) and **98.15 / 0.8810** (dark) after the
+> port, up from 94.32/0.6390 and 93.28/0.5713 and from 97.68/0.8295 and 97.43/0.8314 after the previous
+> round: the ported table now clears the pixel threshold in both themes, and the SSIM gap that remains
+> is glyph rasterisation, not layout. The decisive cause was the face the reference actually resolved:
+> the TS module markup uses the system stack, and the capture machine had fontconfig's **variable**
+> Noto Sans installed, so Chromium rasterised every products glyph from that variable face; the Rust
+> screen now bundles the same variable font (subset, `noto-sans-var-latin.ttf`) and declares it with
+> `font-weight: 100 900`, which alone moved the pair from 97.70/0.8294 to 98.44/0.8814 in one step.
+> Three real CSS bugs were fixed alongside it: `#view-products .products-table td` outranked the
+> `.products-mono` / `.products-price` cell classes so the cost and price columns silently fell back to
+> the sans face, the toolbar controls were 36 px tall where the TS `py-2` controls are 32 px (search
+> field 34 px), and the name/description line boxes were 2 px too tall. Blurring both window crops at
+> σ=1 now lifts Products to **0.9452 / 0.9392** SSIM (pixel 99.12 / 98.83), i.e. the residual is
+> glyph-level. Four module screens —
+> Calendar, Accounting, Purchases and the Manual — are still below both targets (94.90–96.54 pixel,
+> 0.5117–0.7511 SSIM) because the Rust modules render a different layout than the TS markup (no
 > calendar toolbar and calendar rail, no BWA/UStVA/OPOS tab row, a prose manual instead of the
 > documentation portal). Blurring those four at σ=1.5 lifts them by only 0.07–0.14, while POS gains
 > 0.05 on an already-high base, so their difference is geometry. The residual is quantified per view
@@ -78,15 +88,15 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Invoices (`view-invoices`) | image pair, light + dark | pixel, 98.89 / 98.58, SSIM 0.9174 / 0.9101 |
 | Contacts (`view-contacts`) | image pair, light + dark | pixel, 98.90 / 98.54, SSIM 0.9131 / 0.9002 |
 | Settings (`view-settings`) | image pair, light + dark | pixel, 98.84 / 98.44, SSIM 0.9139 / 0.9025 |
-| Command Palette | image pair, light + dark | pixel, 98.23 / 98.73, SSIM 0.9298 / 0.9243 |
+| Command Palette | image pair, light + dark | pixel, 98.23 / 98.73, SSIM 0.9298 / 0.9244 |
 | App launcher (`view-appstore`) | `rust-launcher-{light,dark}-1440.png`, DOM audit, `AppLauncher.tsx` | structural: header with brand/clock, search, 4-column cards with category/title/description/open, footer |
 | Fleet (`view-fleet`) | DOM audit, `FleetModule.tsx:499-531` | structural: title, subtitle, tab bar, add/export actions, KPI row |
 | Projects (`view-projects`) | DOM audit, `ProjectsModule.tsx:382-405` | structural: title, subtitle, portfolio/kanban tabs, create/export actions |
 | Restaurant (`view-restaurant`) | DOM audit, `RestaurantModule.tsx:579` | structural: title, sound/Z-report/menu/export actions, table/KDS/menu/history tabs |
 | Support (`view-support`) | DOM audit, `SupportServicesModule.tsx` | structural: title, ticket list, create/edit actions, priority and status controls |
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
-| Products (`view-products`) | image pair, light + dark | pixel, 97.68 / 97.43, SSIM 0.8295 / 0.8314 (layout closed, glyph residual) |
-| POS (`view-pos`) | image pair, light + dark | pixel, 98.42 / 98.36, SSIM 0.9061 / 0.9029 |
+| Products (`view-products`) | image pair, light + dark | pixel, 98.44 / 98.15, SSIM 0.8812 / 0.8810 (pixel target met, SSIM residual) |
+| POS (`view-pos`) | image pair, light + dark | pixel, 98.68 / 98.61, SSIM 0.9176 / 0.9143 |
 | Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.54 / 94.90, SSIM 0.7511 / 0.6699 (below target) |
 | Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.25 / 92.75, SSIM 0.7621 / 0.6033 (below target) |
 | Purchases (`view-purchases`) | image pair, light + dark | pixel, 95.03 / 94.15, SSIM 0.7447 / 0.6665 (below target) |
@@ -171,12 +181,12 @@ difference is the window chrome and desktop backdrop.
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
 | Settings | dark | 96.82 | **98.44** | **0.9025** | 94.27 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
-| Command Palette | dark | 98.73 | **98.73** | **0.9243** | 96.32 % |
-| Products | light | 96.55 | 97.68 | 0.8295 | 93.26 % |
-| Products | dark | 96.18 | 97.43 | 0.8314 | 91.27 % |
-| POS | light | 97.04 | **98.42** | **0.9061** | 94.78 % |
-| POS | dark | 96.79 | **98.36** | **0.9029** | 94.65 % |
-| Calendar | light | 95.80 | 96.54 | 0.7511 | 90.47 % |
+| Command Palette | dark | 98.73 | **98.73** | **0.9244** | 96.32 % |
+| Products | light | 97.05 | **98.44** | 0.8812 | 95.11 % |
+| Products | dark | 96.65 | **98.15** | 0.8810 | 92.82 % |
+| POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
+| POS | dark | 96.96 | **98.61** | **0.9143** | 95.17 % |
+| Calendar | light | 95.80 | 96.54 | 0.7510 | 90.47 % |
 | Calendar | dark | 94.52 | 94.90 | 0.6699 | 74.55 % |
 | Accounting | light | 94.95 | 95.25 | 0.7621 | 90.95 % |
 | Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
@@ -201,15 +211,16 @@ the reference offsets, the quick panel starts at y=360 with cards at y=439, the 
 ## Quantified residual (module screens)
 
 Products, Calendar, Accounting, Purchases and the Manual were re-captured this round with the same
-seeded catalogue on both sides, and each still renders a different layout than its TS counterpart.
-The distance is therefore not antialiasing — blurring both window crops barely moves the number,
-unlike POS, where the same measurement lands at 0.94/0.96 because only glyph edges differ:
+seeded catalogue on both sides. Calendar, Accounting, Purchases and the Manual still render a
+different layout than their TS counterpart, so their distance is not antialiasing — blurring their
+window crops barely moves the number. Products and POS are ports of the same markup and land at
+0.94/0.96 under the same blur, because only glyph edges differ:
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
 |---|---|---:|---:|---:|---:|---:|
-| Products | light | 0.8295 | 0.9008 | 0.9284 | 8.7 % | 5.0 % |
-| Products | dark | 0.8314 | 0.8961 | 0.9209 | 10.7 % | 5.6 % |
-| Calendar | light | 0.7511 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
+| Products | light | 0.8812 | 0.9452 | 0.9628 | 6.7 % | 3.5 % |
+| Products | dark | 0.8810 | 0.9392 | 0.9546 | 9.0 % | 4.2 % |
+| Calendar | light | 0.7510 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
 | Calendar | dark | 0.6699 | 0.7314 | 0.7489 | 38.4 % | 7.3 % |
 | Accounting | light | 0.7621 | 0.8084 | 0.8251 | 11.5 % | 7.0 % |
 | Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |
@@ -217,8 +228,8 @@ unlike POS, where the same measurement lands at 0.94/0.96 because only glyph edg
 | Purchases | dark | 0.6665 | 0.7034 | 0.7188 | 35.7 % | 10.4 % |
 | Manual | light | 0.6391 | 0.7090 | 0.7453 | 16.0 % | 9.3 % |
 | Manual | dark | 0.5117 | 0.5691 | 0.5979 | 48.4 % | 10.9 % |
-| POS (reference) | light | 0.9061 | 0.9431 | 0.9583 | 6.5 % | 2.9 % |
-| POS (reference) | dark | 0.9029 | 0.9402 | 0.9555 | 6.9 % | 3.1 % |
+| POS (reference) | light | 0.9176 | 0.9517 | 0.9649 | 6.1 % | 2.5 % |
+| POS (reference) | dark | 0.9143 | 0.9488 | 0.9621 | 6.4 % | 2.7 % |
 
 The concrete deltas, taken from the two captures of each pair:
 

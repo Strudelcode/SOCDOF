@@ -125,6 +125,14 @@
     U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
+@font-face {
+  font-family: "Noto Sans Var";
+  src: url("/fonts/noto-sans-var-latin.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
 /* ==========================================================================
    TS parity layer
    All colour, typography and spacing tokens live here. Both themes resolve
@@ -5327,7 +5335,7 @@ body.palette-desktop .desktop-shortcut {
    inheritance. The TS register resolves its stack to Noto Sans, so the register re-declares
    the family on the whole subtree and on the mono bits explicitly. */
 #view-pos .pos-page,
-#view-pos .pos-page * { font-family: "Noto Sans", "DejaVu Sans", sans-serif; }
+#view-pos .pos-page * { font-family: "Noto Sans Var", "DejaVu Sans", sans-serif; }
 #view-pos .pos-card-sku,
 #view-pos .pos-stock { font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace; }
 #view-pos .pos-page { display: flex; height: 100%; background: #0f172a; color: #e2e8f0; font-size: 14px; line-height: 20px; overflow: hidden; }
@@ -5401,9 +5409,11 @@ body.palette-desktop .desktop-shortcut {
    ========================================================================== */
 
 #view-products .products-page { display: flex; flex-direction: column; gap: 24px;
-  /* The TS module renders in the body face (Plus Jakarta Sans); the shell's global
-     `--font-sans` rule would otherwise force the system stack onto every heading and control. */
-  font-family: "Plus Jakarta Sans", var(--font-sans);
+  /* The TS reference machine had fontconfig's Noto Sans installed, and its module markup
+     uses the system stack, so Chromium resolved every products glyph to that variable face.
+     Bundling the same variable font (subset) reproduces its metrics exactly; the shell's
+     global `--font-sans` rule would otherwise force DejaVu Sans onto every control. */
+  font-family: "Noto Sans Var", var(--font-sans);
   /* Tailwind preflight renders text with grayscale antialiasing; without it the
      webview synthesises heavier stems and every glyph lands a pixel wide. */
   -webkit-font-smoothing: antialiased;
@@ -5443,7 +5453,7 @@ body.palette-desktop .desktop-shortcut {
 }
 #view-products .products-search-icon svg { width: 16px; height: 16px; }
 #view-products .products-search input {
-  width: 100%; height: 36px; min-height: 0; padding: 0 12px 0 36px; margin: 0;
+  width: 100%; height: 34px; min-height: 0; padding: 0 12px 0 36px; margin: 0;
   border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #0f172a;
   font-family: inherit; font-size: 12px; line-height: 16px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -5453,7 +5463,7 @@ body.palette-desktop .desktop-shortcut {
 
 #view-products .products-reorder,
 #view-products .products-new {
-  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
   border: 0; border-radius: 12px; font-family: inherit;
   font-size: 12px; font-weight: 700; line-height: 16px; cursor: pointer; flex-shrink: 0;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
@@ -5513,14 +5523,17 @@ body.palette-desktop .desktop-shortcut {
   width: 40px; height: 40px; border: 1px solid #e2e8f0; border-radius: 12px;
   background: #f1f5f9; font-size: 18px; line-height: 1;
 }
-#view-products .products-name { font-weight: 600; color: #0f172a; }
+#view-products .products-name { font-weight: 600; color: #0f172a; line-height: 16px; }
 #view-products .products-desc {
   margin-top: 2px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  color: #64748b; font-size: 11px; line-height: 14px;
+  color: #64748b; font-size: 11px; line-height: 16.5px;
 }
 #view-products .products-source { margin-top: 2px; color: #0284c7; font-family: var(--font-mono); font-size: 10px; }
+#view-products .products-table td.products-mono { font-family: var(--font-mono); font-weight: 400; color: #475569; }
 #view-products .products-mono { font-family: var(--font-mono); color: #475569; font-weight: 500; }
-#view-products .products-price { color: #0f172a; font-weight: 700; }
+#view-products .products-table td.products-price { font-family: var(--font-mono); font-weight: 700; color: #0f172a; }
+#view-products .products-table td.products-price { font-variant-numeric: tabular-nums; }
+#view-products .products-price { font-family: var(--font-mono); color: #0f172a; font-weight: 700; }
 #view-products .products-sku { font-family: var(--font-mono); color: #475569; font-weight: 500; }
 #view-products .products-asin { font-family: var(--font-mono); color: #059669; font-size: 10px; }
 #view-products .products-chip {
