@@ -2,13 +2,28 @@
 
 ## Unreleased
 
+- **POS visual parity closed.** The register now matches the TypeScript reference in both themes:
+  98.42 / 0.9061 (light) and 98.36 / 0.9029 (dark), up from 98.05 / 0.8509 and 98.03 / 0.8544, with
+  every box, row and font metric measured on the TS pixels. The fixes were behavioural, not cosmetic
+  retouching: `formatMoney` formats money like the reference (`499.00 €`, dot separator), a global
+  `h1…textarea { font-family: var(--font-sans) }` rule in `parity.css` had been beating every
+  `.pos-page` font declaration so the register painted in DejaVu instead of the reference's Noto Sans
+  — the override is now scoped to the module, and the SKU/stock badge use Noto Sans Mono. The
+  `⌕ ▣ ◔ ▤ ◫` text glyphs became inline Lucide SVGs (`posIcon()`), the product grid no longer shows a
+  native scrollbar, the cart lost its doubled border, the customer select lost a stray 16 px padding
+  that pushed its icon and menu 16 px to the right, and search field, category chips, card rows
+  (`grid-auto-rows: 179.5px`), totals (594/655) and checkout (700–748) were aligned to the TS rows.
+  The command palette no longer rewrites `pos` to `accounting`, so the register is reachable by
+  typing "kasse". What remains is glyph antialiasing between Chromium and WebKitGTK: blurring both
+  window crops at σ=1 gives 0.9429 / 0.9400. `docs/parity/README.md`, `diff.json` and `diff.csv` carry
+  the new pair; the ten original pairs are unchanged.
 - **Six module reference pairs captured for real, with the demo catalogue on both sides.** The
   blocker was the runner, not the app: there were no TrueType fonts installed (only Type 1, ignored by
   Chromium), so every glyph had zero advance and every text box measured `0 × 0`. With Inter and Noto
   Sans in `~/.fonts` and `FONTCONFIG_PATH` pointed at the sysroot fontconfig, text measures `89 × 17`.
   The Rust edition now seeds the same five-product catalogue, six appointments, journal entries and two
   purchase orders behind `SOCDOF_DEMO_SEED=1` (`crates/app/src/demo_seed.rs`), which only the capture
-  harness sets, so both editions compare equal data. Measured with `parity_diff.py`: products 94.98/0.7113 light, 92.56/0.5367 dark; pos 98.05/0.8509 light, 98.03/0.8544 dark; calendar 96.50/0.7476 light, 94.90/0.6696 dark; accounting 95.23/0.7613 light, 92.73/0.6025 dark; purchases 95.03/0.7445 light, 94.15/0.6663 dark; docs 94.43/0.6852 light, 92.13/0.5677 dark. The thresholds stay at 98.00 / 0.90. The six pairs remain below them because
+  harness sets, so both editions compare equal data. Measured with `parity_diff.py`: products 94.98/0.7113 light, 92.56/0.5367 dark; pos 98.42/0.9061 light, 98.36/0.9029 dark; calendar 96.50/0.7476 light, 94.90/0.6696 dark; accounting 95.23/0.7613 light, 92.73/0.6025 dark; purchases 95.03/0.7445 light, 94.15/0.6663 dark; docs 94.43/0.6852 light, 92.13/0.5677 dark. The thresholds stay at 98.00 / 0.90. The six pairs remain below them because
   the Rust screens are simpler layouts than the TS screens (a card grid instead of the product table, a
   bare month grid instead of the toolbar and mini-month sidebar, no BWA/OP tabs, no documentation
   tabs); with both images blurred at σ=8 the structural similarity is still 0.09–0.45, so the gap is

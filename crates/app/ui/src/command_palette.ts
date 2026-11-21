@@ -87,8 +87,8 @@ function navigationItems(): PaletteItem[] {
       tab,
     ]),
   );
-  // Spotlight order measured from the TypeScript reference. `stock` and `pos`
-  // have no own tab in this webview; they open the screens that own their data.
+  // Spotlight order measured from the TypeScript reference. `stock` shares the products
+  // tab; the register has its own `pos` tab and must not fall back to accounting.
   const order = [
     "dashboard",
     "invoices",
@@ -104,7 +104,7 @@ function navigationItems(): PaletteItem[] {
     const tab = buttons.get(view);
     const label = paletteLabel(language, view) || tab?.textContent?.trim() || "";
     if (!label) return [];
-    const target = view === "pos" ? "accounting" : view;
+    const target = view;
     return [
       {
         label,

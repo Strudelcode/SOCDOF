@@ -963,6 +963,21 @@ function updateViewHeader(view: View): void {
   }
 }
 
+/// Lucide icons used by the POS register. The TypeScript module renders the same outlines;
+/// drawing them as SVG keeps the register free of glyph fallbacks (the previous `⌕`/`▣`/`◔`
+/// characters rendered as tofu or as unrelated symbols in WebKit).
+const POS_ICONS: Record<string, string> = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  barcode: '<path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>',
+  bag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+  user: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>',
+  card: '<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+};
+
+function posIcon(name: keyof typeof POS_ICONS): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${POS_ICONS[name]}</svg>`;
+}
+
 async function loadPos(): Promise<void> {
   const view = byId<HTMLElement>("view-pos");
   const posT = (key: TranslationKey): string => translate(language, key);
@@ -970,8 +985,8 @@ async function loadPos(): Promise<void> {
     <div class="pos-page">
       <section class="pos-main">
         <div class="pos-top">
-          <label class="pos-search"><span aria-hidden="true">⌕</span><input id="pos-search" type="search" placeholder="Artikel suchen oder Barcode scannen..."></label>
-          <form id="pos-scan-form" class="pos-scan"><input id="pos-barcode" type="search" placeholder="Barcode scannen..."><button class="pos-scan-btn" type="submit">Scannen</button></form>
+          <label class="pos-search"><span class="pos-icon" aria-hidden="true">${posIcon("search")}</span><input id="pos-search" type="search" placeholder="Artikel suchen oder Barcode scannen..."></label>
+          <form id="pos-scan-form" class="pos-scan"><span class="pos-scan-box"><span class="pos-icon" aria-hidden="true">${posIcon("barcode")}</span><input id="pos-barcode" type="search" placeholder="Barcode scannen..."></span><button class="pos-scan-btn" type="submit">Scannen</button></form>
         </div>
         <div id="pos-categories" class="pos-cats"></div>
         <div id="pos-products" class="pos-grid"></div>
@@ -979,8 +994,8 @@ async function loadPos(): Promise<void> {
       </section>
       <aside class="pos-cart">
         <div class="pos-cart-head">
-          <div class="pos-cart-title-row"><span class="pos-cart-bag" aria-hidden="true">▣</span><h2 id="pos-cart-title">Warenkorb ist leer</h2></div>
-          <label class="pos-customer"><span aria-hidden="true">◔</span><select id="pos-customer"><option value="">Laufkundschaft (Standard)</option></select><span class="pos-customer-chevron" aria-hidden="true">▾</span></label>
+          <div class="pos-cart-title-row"><span class="pos-cart-bag" aria-hidden="true">${posIcon("bag")}</span><h2 id="pos-cart-title">Warenkorb ist leer</h2></div>
+          <label class="pos-customer"><span class="pos-cart-user" aria-hidden="true">${posIcon("user")}</span><select id="pos-customer"><option value="">👤 Laufkundschaft (Standard)</option></select><span class="pos-customer-chevron" aria-hidden="true">▾</span></label>
         </div>
         <div id="pos-cart-lines" class="pos-cart-lines"></div>
         <div class="pos-totals">
@@ -988,7 +1003,7 @@ async function loadPos(): Promise<void> {
           <div><span>MwSt.: (19%):</span><strong id="pos-tax">0,00 €</strong></div>
           <div class="pos-grand"><span>Gesamtbetrag:</span><strong id="pos-total">0,00 €</strong></div>
         </div>
-        <button id="pos-checkout" class="pos-checkout" type="button" disabled><span aria-hidden="true">▤</span> <span id="pos-checkout-label">Jetzt Abrechnen (0.00 €)</span></button>
+        <button id="pos-checkout" class="pos-checkout" type="button" disabled><span class="pos-checkout-icon" aria-hidden="true">${posIcon("card")}</span> <span id="pos-checkout-label">Jetzt Abrechnen (0.00 €)</span></button>
       </aside>
       <section class="card pos-history" hidden><div class="toolbar"><h2>Belege</h2><button id="pos-refresh" class="secondary" type="button">Aktualisieren</button></div><div id="pos-receipts"></div></section>
       <dialog id="pos-payment-dialog" class="editor"></dialog>
@@ -1104,7 +1119,7 @@ async function loadPos(): Promise<void> {
       empty.className = "pos-cart-empty";
       const glyph = document.createElement("div");
       glyph.className = "pos-cart-empty-icon";
-      glyph.textContent = "◫";
+      glyph.innerHTML = posIcon("bag");
       const title = document.createElement("strong");
       title.textContent = "Kasse ist bereit.";
       const hint = document.createElement("small");

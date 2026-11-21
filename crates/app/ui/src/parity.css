@@ -5234,38 +5234,52 @@ body.palette-desktop .desktop-shortcut {
 
 /* POS — ported from the TypeScript POSModule layout (dark register workspace). */
 #view-pos { margin: -24px; padding: 0; height: calc(100% + 48px); }
-#view-pos .pos-page { display: flex; height: 100%; background: #0f172a; color: #e2e8f0; font-family: Arial, "Helvetica Neue", "Noto Sans", sans-serif; font-size: 14px; line-height: 20px; overflow: hidden; }
+/* The shell paints every heading and control with `--font-sans` (DejaVu), which beats
+   inheritance. The TS register resolves its stack to Noto Sans, so the register re-declares
+   the family on the whole subtree and on the mono bits explicitly. */
+#view-pos .pos-page,
+#view-pos .pos-page * { font-family: "Noto Sans", "DejaVu Sans", sans-serif; }
+#view-pos .pos-card-sku,
+#view-pos .pos-stock { font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace; }
+#view-pos .pos-page { display: flex; height: 100%; background: #0f172a; color: #e2e8f0; font-size: 14px; line-height: 20px; overflow: hidden; }
 #view-pos .pos-main { display: flex; flex-direction: column; flex: 1; min-width: 0; border-right: 1px solid #1e293b; }
-#view-pos .pos-top { display: flex; align-items: center; gap: 12px; padding: 14px 16px 0; }
-#view-pos .pos-search { position: relative; display: flex; align-items: center; flex: 1; height: 38px; padding: 0 16px 0 22px; gap: 8px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #94a3b8; font-size: 16px; }
-#view-pos .pos-search > span { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); font-size: 16px; }
-#view-pos .pos-search input { flex: 1; height: 100%; padding: 0; border: 0; background: transparent; color: #fff; font-size: 14px; outline: none; }
+#view-pos .pos-top { display: flex; align-items: center; gap: 12px; padding: 16px 16px 0; }
+#view-pos .pos-icon { position: absolute; left: 12px; top: 50%; display: block; width: 16px; height: 16px; transform: translateY(-50%); color: #94a3b8; pointer-events: none; }
+#view-pos .pos-icon svg { display: block; width: 16px; height: 16px; }
+#view-pos .pos-search { position: relative; display: flex; align-items: center; flex: 1; height: 38px; padding: 0 16px 0 36px; gap: 8px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #94a3b8; font-size: 14px; }
+#view-pos .pos-search input { flex: 1; min-width: 0; height: 20px; min-height: 0; appearance: none; -webkit-appearance: none; padding: 0; border: 0; background: transparent; color: #fff; font-size: 14px; outline: none; }
 #view-pos .pos-scan { display: flex; align-items: center; gap: 8px; }
-#view-pos .pos-scan input { width: 192px; height: 38px; padding: 0 12px 0 17px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #fff; font-size: 14px; }
+#view-pos .pos-scan-box { position: relative; display: flex; align-items: center; }
+#view-pos .pos-scan input { width: 192px; height: 38px; min-height: 0; appearance: none; -webkit-appearance: none; padding: 0 12px 0 36px; border: 1px solid #334155; border-radius: 12px; background: #1e293b; color: #fff; font-size: 14px; }
 #view-pos .pos-scan-btn { height: 34px; padding: 0 12px; border: 0; border-radius: 12px; background: #059669; color: #fff; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-#view-pos .pos-cats { display: flex; align-items: center; gap: 6px; margin-top: 13px; padding: 0 15px; overflow-x: auto; }
-#view-pos .pos-category { height: 22px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e293b; color: #94a3b8; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+#view-pos .pos-cats { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding: 0 15px; overflow-x: auto; }
+#view-pos .pos-category { box-sizing: border-box; height: 24px; padding: 0 12px; border: 0; border-radius: 8px; background: #1e293b; color: #94a3b8; font-size: 12px; font-weight: 500; white-space: nowrap; cursor: pointer; }
 #view-pos .pos-category.is-active { background: #714b67; color: #fff; }
-#view-pos .pos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 38px; padding: 0 16px 16px; overflow-y: auto; align-content: start; }
-#view-pos .pos-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; position: relative; height: 180px; padding: 14px; border: 1px solid rgba(51,65,85,0.6); border-radius: 12px; background: rgba(30,41,59,0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: left; color: #fff; cursor: pointer; }
-#view-pos .pos-card-icon { display: block; width: 10px; height: 20px; margin: 6px 0; border: 1px solid #cbd5e1; border-radius: 2px; }
-#view-pos .pos-stock { position: absolute; top: 14px; right: 14px; padding: 2px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; font-family: var(--font-mono); font-size: 10px; line-height: 15px; }
+#view-pos .pos-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 179.5px; gap: 12px; margin-top: 38px; padding: 0 16px 16px; overflow-y: auto; align-content: start; scrollbar-width: none; }
+#view-pos .pos-grid::-webkit-scrollbar { width: 0; height: 0; }
+#view-pos .pos-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; position: relative; height: 100%; padding: 14px; border: 1px solid rgba(51,65,85,0.6); border-radius: 12px; background: rgba(30,41,59,0.8); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: left; color: #fff; cursor: pointer; }
+#view-pos .pos-card-icon { display: block; box-sizing: border-box; width: 11px; height: 17px; margin: 7px 0 7px 3px; border: 1px solid #cbd5e1; border-radius: 1px; }
+#view-pos .pos-stock { position: absolute; top: 14px; right: 14px; padding: 2px 6px; border-radius: 4px; background: #334155; color: #cbd5e1; font-size: 10px; line-height: 15px; }
 #view-pos .pos-stock.is-low { background: rgba(136,19,55,0.6); border: 1px solid rgba(190,18,60,0.4); color: #fda4af; }
 #view-pos .pos-card-name { display: block; margin-top: 9px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #fff; font-size: 14px; line-height: 20px; font-weight: 600; }
-#view-pos .pos-card-sku { display: block; margin-top: 3px; color: #94a3b8; font-family: var(--font-mono); font-size: 11px; line-height: 16px; }
-#view-pos .pos-card-price { position: absolute; left: 14px; bottom: 22px; color: #34d399; font-size: 14px; line-height: 20px; font-weight: 700; bottom: 15px; }
-#view-pos .pos-card-add { position: absolute; right: 14px; bottom: 20px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #334155; color: #fff; font-size: 12px; }
-#view-pos .pos-cart { display: flex; flex-direction: column; flex: 0 0 384px; width: 384px; min-width: 0; border-left: 1px solid #1e293b; background: #020617; }
+#view-pos .pos-card-sku { display: block; margin-top: 3px; color: #94a3b8; font-size: 11px; line-height: 16px; }
+#view-pos .pos-card-price { position: absolute; left: 14px; bottom: 16px; color: #34d399; font-size: 14px; line-height: 20px; font-weight: 700; }
+#view-pos .pos-card-add { position: absolute; right: 14px; bottom: 13px; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; background: #334155; color: #fff; font-size: 12px; }
+#view-pos .pos-cart { display: flex; flex-direction: column; flex: 0 0 384px; width: 384px; min-width: 0; background: #020617; }
 #view-pos .pos-cart-head { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 16px; border-bottom: 1px solid #1e293b; background: rgba(15,23,42,0.4); }
 #view-pos .pos-cart-title-row { display: flex; align-items: center; gap: 8px; }
-#view-pos .pos-cart-bag { color: #c084fc; font-size: 16px; line-height: 1; }
+#view-pos .pos-cart-bag { display: grid; place-items: center; width: 16px; height: 16px; color: #c084fc; line-height: 1; }
+#view-pos .pos-cart-bag svg { display: block; width: 16px; height: 16px; }
 #view-pos .pos-cart-head h2 { margin: 0; color: #fff; font-size: 14px; line-height: 20px; font-weight: 700; }
-#view-pos .pos-customer { display: flex; align-items: center; gap: 8px; height: 30px; color: #94a3b8; font-size: 16px; }
-#view-pos .pos-customer select { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #fff; font-size: 12px; outline: none; -webkit-appearance: none; appearance: none; }
+#view-pos .pos-customer { display: flex; align-items: center; gap: 8px; height: 33px; padding: 0; color: #94a3b8; font-size: 12px; }
+#view-pos .pos-cart-user { display: grid; place-items: center; width: 16px; height: 16px; color: #94a3b8; }
+#view-pos .pos-cart-user svg { display: block; width: 16px; height: 16px; }
+#view-pos .pos-customer select { flex: 1; min-width: 0; height: 32px; min-height: 0; padding: 0 10px; border: 1px solid #334155; border-radius: 8px; background: #1e293b; color: #fff; font-size: 12px; outline: none; -webkit-appearance: none; appearance: none; }
 #view-pos .pos-customer-chevron { margin-left: -22px; color: #94a3b8; font-size: 9px; pointer-events: none; }
 #view-pos .pos-cart-lines { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-#view-pos .pos-cart-empty { height: 192px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #64748b; text-align: center; }
-#view-pos .pos-cart-empty-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 2px; color: #64748b; font-size: 30px; opacity: 0.25; }
+#view-pos .pos-cart-empty { height: 192px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; color: #64748b; text-align: center; }
+#view-pos .pos-cart-empty-icon { display: grid; place-items: center; width: 40px; height: 40px; margin-bottom: 8px; color: #64748b; opacity: 0.2; }
+#view-pos .pos-cart-empty-icon svg { display: block; width: 40px; height: 40px; }
 #view-pos .pos-cart-empty strong { color: #94a3b8; font-size: 12px; line-height: 16px; font-weight: 400; }
 #view-pos .pos-cart-empty small { color: #475569; font-size: 11px; line-height: 16px; }
 #view-pos .pos-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid #1e293b; border-radius: 12px; background: #0f172a; }
@@ -5276,12 +5290,14 @@ body.palette-desktop .desktop-shortcut {
 #view-pos .pos-qty button { width: 20px; height: 20px; border: 0; border-radius: 4px; background: transparent; color: #cbd5e1; font-size: 12px; }
 #view-pos .pos-qty span { width: 24px; text-align: center; color: #fff; font-size: 12px; font-weight: 700; }
 #view-pos .pos-line-total { width: 64px; text-align: right; color: #34d399; font-size: 12px; line-height: 16px; font-weight: 700; }
-#view-pos .pos-totals { display: flex; flex-direction: column; gap: 6px; padding: 21px 16px 0; border-top: 1px solid #1e293b; background: #0f172a; }
-#view-pos .pos-totals > div { display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 12px; line-height: 17px; }
+#view-pos .pos-totals { display: flex; flex-direction: column; gap: 6px; padding: 18px 16px 0; border-top: 1px solid #1e293b; background: #0f172a; }
+#view-pos .pos-totals > div { display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 12px; line-height: 16px; }
 #view-pos .pos-totals strong { color: #cbd5e1; font-weight: 400; }
-#view-pos .pos-grand { margin-top: 3px; padding-top: 3px; border-top: 1px solid #1e293b; }
+#view-pos .pos-grand { margin-top: -2px; padding-top: 8px; border-top: 1px solid #1e293b; }
 #view-pos .pos-grand span { color: #fff; font-size: 16px; line-height: 24px; font-weight: 700; }
 #view-pos .pos-grand strong { color: #34d399; font-size: 16px; line-height: 24px; font-weight: 700; }
+#view-pos .pos-checkout-icon { display: grid; place-items: center; width: 16px; height: 16px; }
+#view-pos .pos-checkout-icon svg { display: block; width: 16px; height: 16px; }
 #view-pos .pos-checkout { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; margin: 12px 16px 16px; border: 0; border-radius: 12px; background: #1e293b; color: #64748b; font-size: 14px; font-weight: 700; }
 #view-pos .pos-checkout:disabled { opacity: 1; cursor: not-allowed; }
 #view-pos .pos-checkout:not(:disabled) { background: #059669; color: #fff; }

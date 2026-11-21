@@ -146,26 +146,26 @@
   {
     "view": "pos",
     "theme": "light",
-    "full_pixel_score": 96.79,
-    "full_mae": 8.17,
-    "full_close_pixels_pct": 85.95,
-    "full_ssim": 0.8543,
-    "window_pixel_score": 98.05,
-    "window_mae": 4.97,
-    "window_close_pixels_pct": 92.95,
-    "window_ssim": 0.8509
+    "full_pixel_score": 97.04,
+    "full_mae": 7.56,
+    "full_close_pixels_pct": 87.16,
+    "full_ssim": 0.8908,
+    "window_pixel_score": 98.42,
+    "window_mae": 4.03,
+    "window_close_pixels_pct": 94.78,
+    "window_ssim": 0.9061
   },
   {
     "view": "pos",
     "theme": "dark",
-    "full_pixel_score": 96.55,
-    "full_mae": 8.81,
-    "full_close_pixels_pct": 86.56,
-    "full_ssim": 0.8053,
-    "window_pixel_score": 98.03,
-    "window_mae": 5.03,
-    "window_close_pixels_pct": 93.01,
-    "window_ssim": 0.8544
+    "full_pixel_score": 96.79,
+    "full_mae": 8.18,
+    "full_close_pixels_pct": 87.83,
+    "full_ssim": 0.8397,
+    "window_pixel_score": 98.36,
+    "window_mae": 4.19,
+    "window_close_pixels_pct": 94.65,
+    "window_ssim": 0.9029
   },
   {
     "view": "calendar",

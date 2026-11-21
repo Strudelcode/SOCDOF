@@ -4,13 +4,14 @@ Both editions were captured live on **2026-11-20** at **1440 × 900**, in **Germ
 **empty database** and the same company profile (“Strudelcode Studio”). Screenshots are the
 rendered applications, not mockups.
 
-> **Status (2026-11-20):** the five original views are unchanged and still reach both agreed
-> targets (window pixel score ≥98.00, window SSIM ≥0.90). Six further views — Products, POS,
-> Calendar, Accounting, Purchases and the Manual — now have their own light/dark pair as well, taken
-> from real rendered module content; they measure 94.43–98.05 pixel (light) and
-> 92.13–98.03 (dark) with SSIM 0.6852–0.8544, i.e. **below** those
-> targets. The thresholds were not lowered: the gap is the empty Rust database (the Rust views render
-> their zero/empty state) against the TypeScript demo catalogue, documented per pair below.
+> **Status (2026-11-21):** the five original views are unchanged and still reach both agreed
+> targets (window pixel score ≥98.00, window SSIM ≥0.90). POS reaches them too — 98.42 / 0.9061
+> (light) and 98.36 / 0.9029 (dark) — after the register was rebuilt against the TS markup. Five
+> further views — Products, Calendar, Accounting, Purchases and the Manual — have light/dark pairs
+> taken from real rendered module content; they measure 94.43–96.50 pixel (light) and 92.13–94.90
+> (dark) with SSIM 0.6852–0.7613, i.e. **below** those targets. The thresholds were not lowered: the
+> gap is the empty Rust database (the Rust views render their zero/empty state) against the
+> TypeScript demo catalogue, documented per pair below.
 
 ## The twelve pairs
 
@@ -79,7 +80,7 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Support (`view-support`) | DOM audit, `SupportServicesModule.tsx` | structural: title, ticket list, create/edit actions, priority and status controls |
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
 | Products (`view-products`) | image pair, light + dark | pixel, 94.98 / 92.56, SSIM 0.7113 / 0.5367 (below target) |
-| POS (`view-pos`) | image pair, light + dark | pixel, 98.05 / 98.03, SSIM 0.8509 / 0.8544 (below target) |
+| POS (`view-pos`) | image pair, light + dark | pixel, 98.42 / 98.36, SSIM 0.9061 / 0.9029 |
 | Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.50 / 94.90, SSIM 0.7476 / 0.6696 (below target) |
 | Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.23 / 92.73, SSIM 0.7613 / 0.6025 (below target) |
 | Purchases (`view-purchases`) | image pair, light + dark | pixel, 95.03 / 94.15, SSIM 0.7445 / 0.6663 (ported TS layout) |
@@ -167,8 +168,8 @@ difference is the window chrome and desktop backdrop.
 | Command Palette | dark | 98.78 | **98.76** | **0.9253** | 96.40 % |
 | Products | light | 94.77 | 94.98 | 0.7113 | 88.88 % |
 | Products | dark | 92.96 | 92.56 | 0.5367 | 50.32 % |
-| POS | light | 96.79 | 98.05 | 0.8509 | 92.95 % |
-| POS | dark | 96.55 | 98.03 | 0.8544 | 93.01 % |
+| POS | light | 97.04 | **98.42** | **0.9061** | 94.78 % |
+| POS | dark | 96.79 | **98.36** | **0.9029** | 94.65 % |
 | Calendar | light | 95.78 | 96.50 | 0.7476 | 90.27 % |
 | Calendar | dark | 94.52 | 94.90 | 0.6696 | 74.54 % |
 | Accounting | light | 94.94 | 95.23 | 0.7613 | 90.93 % |
@@ -179,14 +180,26 @@ difference is the window chrome and desktop backdrop.
 | Manual | dark | 92.65 | 92.13 | 0.5677 | 67.51 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
-original pairs meet both targets; the six new pairs do not, and are printed unbolded for that
-reason. Their gap is structural: the Rust screens for these six modules are different, simpler
+original pairs and POS meet both targets; the five remaining new pairs do not, and are printed
+unbolded for that reason. Their gap is structural: the Rust screens for these six modules are different, simpler
 layouts than the TS screens, so the harness seeds the same demo catalogue and still measures 0.44–0.80
 SSIM. Filling the empty state did not change the thresholds (see the blurred comparison below). Settings moved from 98.11/0.8507 (light) and 97.67/0.8432 (dark) by fixing
 measured layout deltas, not by retouching the screenshot: the sidebar card now starts at y=177 and is
 clipped at y=739, every sidebar label/nav line sits on the TS row grid, the hero copy/kicker/CTA use
 the reference offsets, the quick panel starts at y=360 with cards at y=439, the search field is
 256 px wide, and the quick heading uses 14 px with 0.0075 em tracking.
+
+## Quantified residual (POS)
+
+The register was rebuilt against the TS markup rather than retouched: `formatMoney` now formats like
+the reference (`499.00 €`, dot), a global `h1…textarea { font-family: var(--font-sans) }` rule that
+had been overriding the module was scoped away so the register paints in Noto Sans, the `⌕ ▣ ◔ ▤ ◫`
+glyphs became Lucide SVGs, the product grid lost its visible scrollbar and the cart its double
+border, the customer select lost a stray 16 px padding, and search field, category chips, card rows
+(`grid-auto-rows: 179.5px`), totals (y=594/655) and checkout (700–748) sit on the TS pixel rows.
+POS moved from 98.05/0.8509 (light) and 98.03/0.8544 (dark) to 98.42/0.9061 and 98.36/0.9029. What
+remains is glyph antialiasing over a text-dense dark screen: blurring both crops at σ=1 gives window
+SSIM 0.9429 (light) and 0.9400 (dark), at σ=1.5 0.9581 and 0.9552.
 
 ## Quantified residual (Settings)
 
@@ -214,6 +227,8 @@ explain the scores above.
 | Window chrome | Custom Electron controls drawn in the page | Native Tauri/WebKit window controls | **Allowed native residual.** Same close/minimize/maximize/fullscreen actions, different glyphs. |
 | Settings layout | Sidebar card y=177–739, hero 152 px box, quick panel y=360, cards y=439, 256 px search field | Identical boxes; all sidebar rows, hero text rows and card rows measured on the same pixels | **Closed.** Settings 98.84/0.9139 light, 98.44/0.9025 dark. |
 | Settings glyph texture | Chromium antialiasing of the dense sidebar/hero/quick text | Same stack, sizes, weights, colours and Lucide icons; edges draw slightly harder in WebKitGTK | **Known residual, quantified below.** No layout delta remains. |
+| POS layout | Noto Sans labels, Lucide icon set, four-column card grid, totals 594/655, checkout 700–748 | Same faces, icons, rows and boxes; the cart head sits 1 px lower with the native title bar | **Closed.** POS 98.42/0.9061 light, 98.36/0.9029 dark. |
+| POS glyph texture | Chromium antialiasing of the catalogue and cart text | Same stack, sizes, weights, colours and SVGs | **Known residual, quantified above.** σ=1 blur recovers 0.9429 / 0.9400. |
 | Dark palette backdrop | Near-black navy desktop, 20 % slate veil, soft blurred tiles | Same veil and tile grid; backdrop now matches at rgb(3 8 29) | **Closed.** Dark palette: 98.76 / 0.9253. |
 | Rail labels | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | **Closed.** Sixth slot is Lager; Calendar is hidden. |
 | Native title-bar tag | `[SETTINGS]`, `[DASHBOARD]` | Same tags, different window controls beside them | Allowed with the native chrome. |
