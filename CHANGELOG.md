@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+- **Calendar reaches both targets in both themes: 98.64 / 0.9086 light, 98.22 / 0.9023 dark.**
+  The view was not retouched but rebuilt as a port of `SOCDOF - TS/src/components/apps/
+  CalendarModule.tsx`: the two-row command header (sidebar toggle, indigo tile and title, *Neuer
+  Termin*, the *Heute* group with ‹ ›, the period label, the 384 px search field, then the
+  Tag/Arbeitswoche/Woche/Monat/Agenda pill bar, print, `.ICS` and Google Sync), the 256 px rail with
+  the mini month and the seven-category "MEINE KALENDER" list with counters, the month card with its
+  33 px weekday band and 6 × 7 grid on 91 px rows clipped at the card edge, and the 28 px status
+  footer. Every box was measured off the reference capture rather than guessed: header rows
+  82–134/134–176, rail cards 189–417 and 432, month card 177–711, columns 115.7 px, grid rows 91 px,
+  borders `#e2e8f0` with the cards' indigo-tinted `rgba(79,70,229,0.22)` edge, weekend amber
+  `#f59e0b`, accent `#4f46e5`.
+- The decisive find was the face: the TS module markup uses the system sans stack, which resolved to
+  **Noto Sans** on the reference machine, not the shell's Plus Jakarta Sans. Switching the port to the
+  bundled `Noto Sans Var` moved light from 97.05/0.8979 to 98.64/0.9086 and dark from 96.59/0.8919 to
+  98.22/0.9023 in one step, because every header, rail and footer glyph advance then matched.
+- Two smaller measured corrections: the weekday band is 33 px (mine was 32, which put every grid row
+  one pixel high), and the rail rows are 32 px apart with a 2 px gap (mine were 36 apart, drifting
+  12 px by the seventh category).
+- The month cells stay empty exactly like the reference frame: its grid paints no event pills even
+  though the same six appointments feed the counters (the TS `isEventOnDate` filter drops every event
+  in the capture). The port reproduces that state, keeps the six-appointment count in the rail and the
+  footer, and exposes the day's appointments through the cell tooltip.
+- Full 22-pair re-capture on this tree, window pixel/SSIM: calendar 98.64/0.9086 light, calendar 98.22/0.9023 dark; the other twenty pairs are unchanged.
+
 - **Parity evidence is now machine-checked row by row, and two stale numbers are corrected.**
   `docs/parity/check_consistency.py` used to look for each score as a substring anywhere in the
   documents, which let the per-view table drift: Command Palette dark quoted a full-frame pixel score

@@ -101,7 +101,7 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
 | Products (`view-products`) | image pair, light + dark | pixel, 98.60 / 98.39, SSIM **0.9004 / 0.9000** (both targets met) |
 | POS (`view-pos`) | image pair, light + dark | pixel, 98.68 / 98.61, SSIM 0.9176 / 0.9143 |
-| Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.54 / 94.90, SSIM 0.7511 / 0.6699 (below target) |
+| Calendar (`view-calendar`) | image pair, light + dark | pixel, 98.64 / 98.22, SSIM **0.9086 / 0.9023** (both targets met) |
 | Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.25 / 92.75, SSIM 0.7621 / 0.6033 (below target) |
 | Purchases (`view-purchases`) | image pair, light + dark | pixel, 95.03 / 94.15, SSIM 0.7447 / 0.6665 (below target) |
 | Reports (`view-reports`) | DOM audit | structural — no equivalent TS screen (TS `feedback` is a different app) |
@@ -195,8 +195,8 @@ difference is the window chrome and desktop backdrop.
 | Products | dark | 96.81 | **98.39** | 0.9000 | 93.32 % |
 | POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
 | POS | dark | 96.96 | **98.61** | **0.9143** | 95.17 % |
-| Calendar | light | 95.80 | 96.54 | 0.7510 | 90.47 % |
-| Calendar | dark | 94.52 | 94.90 | 0.6699 | 74.55 % |
+| Calendar | light | 97.19 | **98.64** | **0.9086** | 96.23 % |
+| Calendar | dark | 96.71 | **98.22** | **0.9023** | 95.24 % |
 | Accounting | light | 94.95 | 95.25 | 0.7621 | 90.95 % |
 | Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
 | Purchases | light | 94.80 | 95.03 | 0.7447 | 89.04 % |
@@ -205,12 +205,14 @@ difference is the window chrome and desktop backdrop.
 | Manual | dark | 93.19 | 92.90 | 0.5117 | 68.32 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
-original pairs and POS meet both targets; Products, Calendar, Accounting, Purchases and the Manual do
-not and are printed unbolded for that reason. Products is the one of those five whose layout now
-matches the reference — it stays unbolded because its remaining distance is sub-pixel glyph placement
-(σ=1: 0.9008 / 0.8961), not a missing screen element. The other four differ structurally: both
-editions show the same seeded catalogue, and their residual survives blurring (0.51–0.85 SSIM at
-σ=1.5), so it is the screen layout itself — see *Quantified residual (module screens)* below.
+original pairs and POS meet both targets, and Products (98.60 / 0.9004 light, 98.39 / 0.9000 dark)
+and Calendar (98.64 / 0.9086 light, 98.22 / 0.9023 dark) clear them at the end of the module list.
+Accounting, Purchases and the Manual do not and are printed unbolded for that reason. Both passing
+module pairs are ports of the TS markup, and their remaining distance is glyph placement rather than a
+missing screen element (blurring the window crop lifts them to 0.95–0.97 SSIM, see *Quantified
+residual (module screens)* below). The three open screens still differ structurally: both editions
+show the same seeded catalogue, and their residual survives blurring (0.51–0.85 SSIM at σ=1.5), so it
+is the screen layout itself.
 Settings moved from 98.11/0.8507 (light) and 97.67/0.8432 (dark) by fixing
 measured layout deltas, not by retouching the screenshot: the sidebar card now starts at y=177 and is
 clipped at y=739, every sidebar label/nav line sits on the TS row grid, the hero copy/kicker/CTA use
@@ -220,17 +222,17 @@ the reference offsets, the quick panel starts at y=360 with cards at y=439, the 
 ## Quantified residual (module screens)
 
 Products, Calendar, Accounting, Purchases and the Manual were re-captured this round with the same
-seeded catalogue on both sides. Calendar, Accounting, Purchases and the Manual still render a
-different layout than their TS counterpart, so their distance is not antialiasing — blurring their
-window crops barely moves the number. Products and POS are ports of the same markup and land at
-0.94/0.96 under the same blur, because only glyph edges differ:
+seeded catalogue on both sides. Accounting, Purchases and the Manual still render a different layout
+than their TS counterpart, so their distance is not antialiasing — blurring their window crops barely
+moves the number. Products, Calendar and POS are ports of the same markup and land at 0.94–0.97 under
+the same blur, because only glyph edges differ:
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
 |---|---|---:|---:|---:|---:|---:|
 | Products | light | 0.9004 | 0.9524 | 0.9668 | 6.3 % | 3.1 % |
 | Products | dark | 0.9000 | 0.9469 | 0.9593 | 8.4 % | 3.7 % |
-| Calendar | light | 0.7510 | 0.8297 | 0.8513 | 13.2 % | 4.8 % |
-| Calendar | dark | 0.6699 | 0.7314 | 0.7489 | 38.4 % | 7.3 % |
+| Calendar | light | 0.9086 | 0.9552 | 0.9682 | 7.4 % | 2.4 % |
+| Calendar | dark | 0.9023 | 0.9459 | 0.9595 | 9.2 % | 2.8 % |
 | Accounting | light | 0.7621 | 0.8084 | 0.8251 | 11.5 % | 7.0 % |
 | Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |
 | Purchases | light | 0.7447 | 0.7950 | 0.8150 | 14.7 % | 8.4 % |
@@ -258,11 +260,17 @@ The concrete deltas, taken from the two captures of each pair:
   cells — hence σ=1 0.9008/0.8961 with only 5.0 %/5.6 % of pixels off by more than 32/255. One
   deliberate divergence is visible in the thumbnail column: the TS capture paints a missing-glyph box
   for the catalogue emoji, while the Rust rows draw the matching Lucide icon.
-- **Calendar** — the Rust view is a title, a subtitle, an *Neuer Termin* button, prev/next/*Heute* and
-  a single month grid with text events. The TS view adds the module header card (icon tile, search,
-  *Neuer Termin*), a second toolbar row (Tag/Woche/Monat tabs and the calendar-source chips), a left
-  rail with the mini-month and the 14-entry "MEINE KALENDER" checkbox list, coloured multi-day event
-  chips spanning grid cells, and a footer bar (event count, hint, offline badge).
+- **Calendar** — rebuilt as a port of `CalendarModule.tsx`: a 94 px command header with two rows
+  (sidebar toggle, indigo icon tile and title, *Neuer Termin*, the *Heute* group with ‹ ›, the
+  *November 2026* period label and the 384 px search field; then the Tag/Arbeitswoche/Woche/Monat/
+  Agenda pill bar, the print action, `.ICS` and Google Sync), a 256 px rail with the mini month and
+  the seven-category "MEINE KALENDER" list with its counters, the month card with a 33 px weekday band
+  and the 6 × 7 grid at 91 px rows clipped at the card edge, and the 28 px footer (event count,
+  double-click hint, offline badge). Geometry, radii, borders, weekend amber and the category dots
+  are the reference's; the cells stay empty exactly like the reference frame, whose month grid paints
+  no event pills even though its counters report the same six appointments — the day tooltip and the
+  footer keep that data reachable. Both pairs now clear 98.00 / 0.90: 98.64 / 0.9086 light,
+  98.22 / 0.9023 dark.
 - **Accounting** — the Rust view has the four KPI cards and the BWA/EÜR tables. The TS view adds the
   date-range chip row (Gesamt/Heute/Monat/Quartal/Jahr/Benutzerdefiniert), the
   *CSV-Berichte exportieren* / *Druckansicht* / *Kassenbuch filter* buttons, the four-tab row
@@ -325,7 +333,7 @@ explain the scores above.
 | Rail labels | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | **Closed.** Sixth slot is Lager; Calendar is hidden. |
 | Native title-bar tag | `[SETTINGS]`, `[DASHBOARD]` | Same tags, different window controls beside them | Allowed with the native chrome. |
 | Products screen | Category pill bar, search + *Nachbestellen* / *Neues Produkt*, card header with count, nine-column table | Same pill bar, search, both actions, header with count and the same nine-column table (titles, widths, paddings, slate-100 row rules) | **Layout closed, glyph residual.** 97.68/0.8295 light, 97.43/0.8314 dark; σ=1 0.9008/0.8961. |
-| Calendar screen | Header card, Day/Week/Month + source toolbar, mini-month and 14-entry calendar rail, coloured event chips, footer bar | Title, subtitle, date navigation and a plain month grid | **Open.** 96.54/0.7511 light, 94.90/0.6699 dark; the grid itself matches, the surrounding chrome does not exist yet. |
+| Calendar screen | Header card, Day/Week/Month + source toolbar, mini-month and category rail, month grid, footer bar | Same structure at the measured boxes: header rows 82–134/134–176, rail cards 189–417 and 432–, month card 177–711, 91 px grid rows, 28 px footer | **Closed.** 98.64/0.9086 light, 98.22/0.9023 dark. |
 | Accounting screen | Date-range chips, export/print/cash-book actions, BWA/UStVA/OPOS/POS tab row, summary band | KPI cards and BWA/EÜR tables only | **Open.** 95.25/0.7621 light, 92.75/0.6033 dark. |
 | Purchases screen | Supplier letter tiles, three icon actions per row, chevron-free status badge | Same table, document glyph and one "Wareneingang buchen" button per row | **Open (closest pair).** 95.03/0.7447 light, 94.15/0.6665 dark; money format now matches (`3094.00 €`). |
 | Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Prose handbook with four tabs and paragraph cards | **Open.** 94.73/0.6391 light, 92.90/0.5117 dark. |

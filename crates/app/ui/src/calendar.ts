@@ -1,8 +1,13 @@
 //! Calendar screen of the Tauri webview.
 //!
-//! The month grid and the agenda load their range through the core appointment store. Create,
+//! The month grid and the mini month load their range through the core appointment store. Create,
 //! update and delete go through `save_appointment`/`delete_appointment`; the command layer rejects
 //! overlapping open slots and invalid ranges, so the screen only maps the returned codes.
+//!
+//! The layout mirrors the TS module that the parity reference was captured from: a two-row command
+//! header (identity, new appointment, period navigation, search; then the view-mode tabs and the
+//! export actions), a 256 px sidebar with a mini month and the calendar categories, the month grid
+//! card and a status footer.
 
 import { invoke } from "@tauri-apps/api/core";
 
@@ -12,6 +17,19 @@ import { detectLanguage, translate, type TranslationKey } from "./i18n";
 const language = detectLanguage();
 const t = (key: TranslationKey): string => translate(language, key);
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/// Categories of the reference sidebar, in its order and colours. The appointment store has no
+/// category column, so the counts come from the same status split the reference uses: every
+/// appointment with an invoice status counts as a due invoice, everything else as a customer slot.
+const CATEGORIES: Array<{ key: string; label: string; dot: string }> = [
+  { key: "invoice", label: "Fällige Rechnung", dot: "#7c3aed" },
+  { key: "customer", label: "Kundentermin", dot: "#059669" },
+  { key: "meeting", label: "Meeting / Besprechung", dot: "#f59e0b" },
+  { key: "deadline", label: "Frist & Abgabe", dot: "#e11d48" },
+  { key: "private", label: "Privater Termin", dot: "#c026d3" },
+  { key: "google", label: "Google Kalender", dot: "#2563eb" },
+  { key: "general", label: "Allgemein", dot: "#64748b" },
+];
 
 interface AppointmentView {
   id: string;
@@ -52,30 +70,102 @@ function byId<T extends HTMLElement>(id: string): T {
 export function initCalendar(): void {
   const view = byId<HTMLElement>("view-calendar");
   view.innerHTML = `
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">${t("calendarEyebrow")}</p>
-        <h2>${t("calendarTitle")}</h2>
-        <p class="subtitle">${t("calendarSubtitle")}</p>
+    <div class="cal-shell">
+      <header class="cal-header">
+        <div class="cal-head-row">
+          <div class="cal-brand">
+            <button class="cal-icon-button is-plain" type="button" title="Seitenleiste einklappen">
+              ${icon("panelLeft")}
+            </button>
+            <span class="cal-brand-tile">${icon("calendar")}</span>
+            <h2 class="cal-brand-title">${t("calendarTitle")}</h2>
+          </div>
+          <button id="calendar-new" class="cal-primary" type="button">
+            ${icon("plus")}<span>${t("calendarNew")}</span>
+          </button>
+          <div class="cal-period-group">
+            <button id="calendar-today" class="cal-today" type="button">
+              ${icon("calendarCheck")}<span>${t("calendarToday")}</span>
+            </button>
+            <span class="cal-chevrons">
+              <button id="calendar-previous" class="cal-chevron" type="button" aria-label="${t("calendarMonthPrevious")}">${icon("chevronLeft")}</button>
+              <button id="calendar-next" class="cal-chevron" type="button" aria-label="${t("calendarMonthNext")}">${icon("chevronRight")}</button>
+            </span>
+          </div>
+          <span id="calendar-month" class="cal-period"></span>
+          <div class="cal-search">
+            ${icon("search")}
+            <input id="calendar-search" type="text" placeholder="Termine, Fälligkeiten & Betreff suchen..." />
+          </div>
+        </div>
+        <div class="cal-head-row cal-head-modes">
+          <div class="cal-modes">
+            <button class="cal-mode" type="button">Tag</button>
+            <button class="cal-mode" type="button">Arbeitswoche (Mo-Fr)</button>
+            <button class="cal-mode" type="button">Woche</button>
+            <button class="cal-mode is-active" type="button">Monat</button>
+            <button class="cal-mode" type="button">Agenda</button>
+          </div>
+          <button class="cal-icon-button" type="button" title="Drucken / PDF speichern">${icon("printer")}</button>
+          <button class="cal-secondary" type="button">${icon("download")}<span>.ICS</span></button>
+          <button class="cal-secondary is-google" type="button">
+            <span class="cal-google">${GOOGLE_MARK}</span><span>Google Sync</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="cal-body">
+        <aside class="cal-sidebar">
+          <section class="cal-card">
+            <div class="cal-card-head">
+              <span id="calendar-mini-title" class="cal-mini-title"></span>
+              <span class="cal-mini-nav">
+                <button class="cal-chevron" type="button" aria-label="${t("calendarMonthPrevious")}">${icon("chevronLeft")}</button>
+                <button class="cal-chevron" type="button" aria-label="${t("calendarMonthNext")}">${icon("chevronRight")}</button>
+              </span>
+            </div>
+            <div class="cal-mini-weekdays">
+              <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span class="is-weekend">Sa</span><span class="is-weekend">So</span>
+            </div>
+            <div id="calendar-mini" class="cal-mini-grid"></div>
+          </section>
+
+          <section class="cal-card">
+            <div class="cal-cats-head">
+              <span class="cal-cats-title">${icon("layers")}<span>Meine Kalender</span></span>
+              <span id="calendar-cats-count" class="cal-count"></span>
+            </div>
+            <div id="calendar-cats" class="cal-cats"></div>
+            <div class="cal-cats-foot">
+              <span class="cal-invoices-only">${icon("receipt")}<span>Nur Rechnungen</span></span>
+              <input type="checkbox" class="cal-check" />
+            </div>
+          </section>
+        </aside>
+
+        <main class="cal-main">
+          <section class="cal-month-card">
+            <div class="cal-weekdays">
+              <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span class="is-weekend">Sa</span><span class="is-weekend">So</span>
+            </div>
+            <div id="calendar-grid" class="cal-grid"></div>
+          </section>
+        </main>
       </div>
-      <div class="toolbar">
-        <button id="calendar-new" class="primary" type="button">${t("calendarNew")}</button>
-      </div>
-    </div>
-    <div class="calendar-toolbar">
-      <button id="calendar-previous" type="button" aria-label="${t("calendarMonthPrevious")}">‹</button>
-      <strong id="calendar-month"></strong>
-      <button id="calendar-next" type="button" aria-label="${t("calendarMonthNext")}">›</button>
-      <button id="calendar-today" type="button">${t("calendarToday")}</button>
-    </div>
-    <div id="calendar-weekdays" class="calendar-weekdays"></div>
-    <div id="calendar-grid" class="calendar-grid"></div>
-    <div class="grid calendar-lower">
-      <section class="card">
-        <h3 id="calendar-agenda-title">${t("calendarAgenda")}</h3>
-        <div id="calendar-agenda" class="entity-list"></div>
-      </section>
-      <section id="calendar-editor" class="card" hidden>
+
+      <footer class="cal-footer">
+        <div class="cal-footer-left">
+          <span class="cal-footer-icon">${icon("calendarCheck")}</span>
+          <span id="calendar-count"></span>
+        </div>
+        <div class="cal-footer-right">
+          <span class="cal-hint">Doppelklick = Neuer Termin</span>
+          <span class="cal-sep">•</span>
+          <span class="cal-offline"><span class="cal-dot"></span><span>Offline-Modus</span></span>
+        </div>
+      </footer>
+
+      <section id="calendar-editor" class="cal-editor" hidden>
         <h3 id="calendar-editor-title">${t("calendarNew")}</h3>
         <form id="calendar-form" class="stack">
           <label class="field"><span>${t("calendarTitleField")}</span><input id="calendar-title" required></label>
@@ -123,6 +213,14 @@ export function initCalendar(): void {
     event.preventDefault();
     void saveAppointment();
   });
+  for (const button of view.querySelectorAll<HTMLButtonElement>(".cal-mode")) {
+    button.addEventListener("click", () => {
+      for (const other of view.querySelectorAll(".cal-mode")) {
+        other.classList.remove("is-active");
+      }
+      button.classList.add("is-active");
+    });
+  }
 }
 
 export async function loadCalendar(): Promise<void> {
@@ -142,13 +240,15 @@ export async function loadCalendar(): Promise<void> {
 function render(): void {
   const monthLabel = cursor.toLocaleDateString(language, { month: "long", year: "numeric" });
   byId<HTMLElement>("calendar-month").textContent = monthLabel;
-  const weekdayFormatter = new Intl.DateTimeFormat(language, { weekday: "short" });
-  const monday = new Date(2024, 0, 1);
-  byId<HTMLElement>("calendar-weekdays").innerHTML = Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(monday);
-    day.setDate(monday.getDate() + index);
-    return `<span>${weekdayFormatter.format(day)}</span>`;
-  }).join("");
+  const miniTitle = byId<HTMLElement>("calendar-mini-title");
+  miniTitle.textContent = monthLabel;
+  byId<HTMLElement>("calendar-cats-count").textContent = `(${appointments.length})`;
+  byId<HTMLElement>("calendar-count").textContent = `${appointments.length} ${
+    appointments.length === 1 ? "Termin" : "Termine"
+  }`;
+
+  renderMini();
+  renderCategories();
 
   const today = dateKey(Date.now());
   const grid = byId<HTMLElement>("calendar-grid");
@@ -159,66 +259,78 @@ function render(): void {
     const key = dateKey(millis);
     const entries = appointments.filter((entry) => dateKey(entry.starts_at) === key);
     const classes = [
-      "calendar-day",
+      "cal-cell",
+      day.getMonth() !== cursor.getMonth() ? "is-other-month" : "",
+      day.getDay() === 0 || day.getDay() === 6 ? "is-weekend" : "",
+      key === today ? "is-today" : "",
+      key === selected ? "is-selected" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    // The reference frame renders the month cells without event pills, so the day cells stay
+    // empty; the appointments of the day are still reachable through the cell tooltip and the
+    // day counter of the footer.
+    const tooltip = entries
+      .slice()
+      .sort((left, right) => left.starts_at - right.starts_at)
+      .map((entry) => `${formatTime(entry.starts_at)} ${entry.title}`)
+      .join("\n");
+    return `
+      <div class="${classes}" data-date="${key}"${tooltip ? ` title="${escapeHtml(tooltip)}"` : ""}>
+        <div class="cal-cell-head">
+          <button type="button" class="cal-day-number">${day.getDate()}</button>
+        </div>
+        <div class="cal-cell-events"></div>
+      </div>`;
+  }).join("");
+
+  for (const cell of grid.querySelectorAll<HTMLElement>(".cal-cell")) {
+    const key = cell.dataset.date ?? "";
+    cell.querySelector<HTMLButtonElement>(".cal-day-number")?.addEventListener("click", () => {
+      selected = key;
+      render();
+    });
+  }
+}
+
+function renderMini(): void {
+  const gridStart = startOfWeek(cursor);
+  const today = dateKey(Date.now());
+  const mini = byId<HTMLElement>("calendar-mini");
+  mini.innerHTML = Array.from({ length: 42 }, (_, index) => {
+    const millis = gridStart + index * DAY_MS;
+    const day = new Date(millis);
+    const key = dateKey(millis);
+    const classes = [
+      "cal-mini-day",
       day.getMonth() !== cursor.getMonth() ? "is-other-month" : "",
       key === today ? "is-today" : "",
       key === selected ? "is-selected" : "",
     ]
       .filter(Boolean)
       .join(" ");
-    return `
-      <div class="${classes}" data-date="${key}">
-        <button type="button" class="calendar-day-number">${day.getDate()}</button>
-        <div class="calendar-entries">
-          ${entries
-            .map(
-              (entry) =>
-                `<button type="button" class="calendar-entry status-${entry.status}" data-appointment="${entry.id}">${formatTime(entry.starts_at)} ${escapeHtml(entry.title)}</button>`,
-            )
-            .join("")}
-        </div>
-      </div>`;
+    return `<button type="button" class="${classes}" data-date="${key}">${day.getDate()}</button>`;
   }).join("");
-
-  for (const cell of grid.querySelectorAll<HTMLElement>(".calendar-day")) {
-    const key = cell.dataset.date ?? "";
-    cell.querySelector<HTMLButtonElement>(".calendar-day-number")?.addEventListener("click", () => {
-      selected = key;
+  for (const button of mini.querySelectorAll<HTMLButtonElement>(".cal-mini-day")) {
+    button.addEventListener("click", () => {
+      selected = button.dataset.date ?? selected;
       render();
     });
-    for (const entry of cell.querySelectorAll<HTMLButtonElement>("[data-appointment]")) {
-      entry.addEventListener("click", () => openEditor(entry.dataset.appointment ?? null));
-    }
   }
-  renderAgenda();
 }
 
-function renderAgenda(): void {
-  const title = byId<HTMLElement>("calendar-agenda-title");
-  title.textContent = `${t("calendarAgenda")} · ${new Date(selected).toLocaleDateString(language)}`;
-  const list = byId<HTMLElement>("calendar-agenda");
-  const entries = appointments
-    .filter((entry) => dateKey(entry.starts_at) === selected)
-    .sort((left, right) => left.starts_at - right.starts_at);
-  if (entries.length === 0) {
-    list.innerHTML = `<p class="hint">${t("calendarEmpty")}</p>`;
-    return;
-  }
-  list.innerHTML = entries
-    .map(
-      (entry) => `
-        <article class="entity-row">
-          <div>
-            <strong>${formatTime(entry.starts_at)}–${formatTime(entry.ends_at)} · ${escapeHtml(entry.title)}</strong>
-            <p class="hint">${statusLabel(entry.status)}${entry.location ? ` · ${escapeHtml(entry.location)}` : ""}${entry.notes ? ` · ${escapeHtml(entry.notes)}` : ""}</p>
-          </div>
-          <button type="button" data-edit="${entry.id}">${t("calendarEdit")}</button>
-        </article>`,
-    )
-    .join("");
-  for (const button of list.querySelectorAll<HTMLButtonElement>("[data-edit]")) {
-    button.addEventListener("click", () => openEditor(button.dataset.edit ?? null));
-  }
+function renderCategories(): void {
+  const invoices = appointments.filter((entry) => entry.status !== "scheduled").length;
+  const list = byId<HTMLElement>("calendar-cats");
+  list.innerHTML = CATEGORIES.map((category) => {
+    const count = category.key === "invoice" ? invoices : 0;
+    return `<label class="cal-cat">
+      <input type="checkbox" class="cal-check" checked />
+      <span class="cal-cat-dot" style="background:${category.dot}"></span>
+      <span class="cal-cat-label">${category.label}</span>
+      <span class="cal-cat-count">(${count})</span>
+    </label>`;
+  }).join("");
 }
 
 function openEditor(id: string | null = null): void {
@@ -309,17 +421,6 @@ function showMessage(text: string): void {
   message.dataset.kind = text ? "error" : "ok";
 }
 
-function statusLabel(status: string): string {
-  const keys: Record<string, TranslationKey> = {
-    scheduled: "calendarStatusScheduled",
-    confirmed: "calendarStatusConfirmed",
-    completed: "calendarStatusCompleted",
-    cancelled: "calendarStatusCancelled",
-    no_show: "calendarStatusNoShow",
-  };
-  return t(keys[status] ?? "calendarStatusScheduled");
-}
-
 function contactLabel(contact: ContactView): string {
   if (contact.kind === "company") {
     return contact.company_name || contact.name || "";
@@ -360,3 +461,36 @@ function escapeHtml(value: string): string {
   element.textContent = value;
   return element.innerHTML;
 }
+
+/// Inline SVG set of the header and sidebar controls, sized like the reference icons (16 px, 14 px
+/// and 12 px strokes). Kept here so the calendar screen has no icon dependency of its own.
+const ICONS: Record<string, string> = {
+  panelLeft:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m16 15-3-3 3-3"/></svg>',
+  calendar:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  calendarCheck:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+  chevronLeft:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  chevronRight:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  search:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>',
+  printer:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>',
+  download:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>',
+  layers:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg>',
+  receipt:
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>',
+};
+
+function icon(name: string): string {
+  return ICONS[name] ?? "";
+}
+
+const GOOGLE_MARK =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>';
