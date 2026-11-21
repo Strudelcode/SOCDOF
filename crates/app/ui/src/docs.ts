@@ -1,4 +1,10 @@
-//! Documentation portal with searchable manual, shortcuts and security notes.
+//! Documentation portal (`view-docs`) of the Tauri webview.
+//!
+//! A port of the reference `documents/DocumentationApp.tsx` showcase tab: the white portal ribbon
+//! with the indigo book tile, the title and its emerald version chip, the six-pill tab bar and the
+//! "Integrierte Business-Module im Überblick" section with the 3 x 3 feature grid. Geometry comes
+//! from the reference capture (ribbon 58-173, tabs 124-159, cards on the 182/513/843 column grid),
+//! not from the Tailwind classes alone. The manual tab keeps the searchable handbook.
 
 import { detectLanguage, translate, type TranslationKey } from "./i18n";
 
@@ -127,43 +133,218 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
-function render(query = ""): void {
-  const list = document.getElementById("docs-sections");
-  if (!list) return;
+const svg = (inner: string): string =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+
+const ICON: Record<string, string> = {
+  book: svg('<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>'),
+  sparkles: svg('<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>'),
+  history: svg('<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>'),
+  keyboard: svg('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01"/><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M18 8h.01"/><path d="M8 12h.01"/><path d="M12 12h.01"/><path d="M16 12h.01"/><path d="M7 16h10"/>'),
+  shield: svg('<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>'),
+  message: svg('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+  grid: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>'),
+  check: svg('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'),
+  receipt: svg('<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 7h8"/><path d="M8 11h8"/><path d="M8 15h5"/>'),
+  users: svg('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
+  card: svg('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>'),
+  calculator: svg('<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8"/><path d="M8 10h.01"/><path d="M12 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/>'),
+  layers: svg('<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 12.5-9.17 4.16a2 2 0 0 1-1.66 0L2 12.5"/><path d="m22 17.5-9.17 4.16a2 2 0 0 1-1.66 0L2 17.5"/>'),
+  calendar: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/>'),
+  hospital: svg('<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M12 8v8"/><path d="M8 12h8"/>'),
+  utensils: svg('<path d="m16 2-2.3 2.3a3 3 0 0 0 0 4.2l1.8 1.8a3 3 0 0 0 4.2 0L22 8"/><path d="M15 15 3.3 3.3a4.2 4.2 0 0 0 0 6l7.3 7.3c.7.7 2 .7 2.8 0L15 15z"/><path d="m2.1 21.8 6.4-6.3"/><path d="m19 5-7 7"/>'),
+  headphones: svg('<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a9 9 0 0 1 18 0v7a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/>'),
+  search: svg('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>'),
+};
+
+interface FeatureCard {
+  tone: string;
+  icon: string;
+  title: string;
+  body: string;
+  badge: string;
+}
+
+const FEATURES: FeatureCard[] = [
+  {
+    tone: "indigo",
+    icon: "receipt",
+    title: "DIN 5008 Fakturierung",
+    body: "Rechtssichere Rechnungen, individuelle Briefköpfe mit Hintergrundgrafiken, Rabatte, Zahlungsziele und PDF-Export.",
+    badge: "GoBD & DIN-A4 konform",
+  },
+  {
+    tone: "teal",
+    icon: "users",
+    title: "Kontakte & CRM",
+    body: "Zentrales Adressbuch für Kunden und Lieferanten, USt-IdNr., Bonität, Zahlungskonditionen und historische Belege.",
+    badge: "Vollständige Adressprüfung",
+  },
+  {
+    tone: "violet",
+    icon: "card",
+    title: "POS Touch-Kasse",
+    body: "Schnellkasse für Ladengeschäfte, Touch-Eingabe, Barcode-Scanner-Support, Bar-/Kartenzahlung und Bondruck.",
+    badge: "Thermobondruck & Kassenjournal",
+  },
+  {
+    tone: "emerald",
+    icon: "calculator",
+    title: "Abrechnung & BWA",
+    body: "Automatische GoBD-Buchungssätze für Rechnungen und Kasse, Einnahmen-Überschuss-Rechnung (EÜR) und BWA.",
+    badge: "Echtzeit-GuV & Steuerausweis",
+  },
+  {
+    tone: "amber",
+    icon: "layers",
+    title: "Warenwirtschaft & Lager",
+    body: "Lagerbestandsführung in Echtzeit, Wareneingang und -ausgang, Mindestbestände und Bestandsbewertung.",
+    badge: "Echtzeit-Bestandsabgleich",
+  },
+  {
+    tone: "blue",
+    icon: "calendar",
+    title: "Kalender & Live Sync",
+    body: "Nahtlose Integration von Google Calendar, Anzeige von Rechnungsfälligkeiten, Terminerstellung und Agenda.",
+    badge: "Google Calendar & Offline-Agenda",
+  },
+  {
+    tone: "teal",
+    icon: "hospital",
+    title: "Praxis & Therapie",
+    body: "Klientenkartei, strukturierte Sitzungsprotokolle, Notizen, Fahrtenbuch und Abrechnungsentwürfe für Therapeuten.",
+    badge: "100% Offline-Klientenarchiv",
+  },
+  {
+    tone: "orange",
+    icon: "utensils",
+    title: "Gastronomie & Restaurant",
+    body: "Interaktiver Tischplan mit Farbstatus, Bon-Druck für Küche/Bar, Gang-Timing und Rechnungs-Splits.",
+    badge: "Tischplan & Küchenbons",
+  },
+  {
+    tone: "cyan",
+    icon: "headphones",
+    title: "Kundendienst & Tickets",
+    body: "Ticket-System mit absturzsicherem Live-Timer, Außendienst-Protokollen und Zeiterfassungs-Export.",
+    badge: "Live-Timer & Stundenjournal",
+  },
+];
+
+const TABS: { id: string; label: string; icon: string }[] = [
+  { id: "showcase", label: "Showcase & Features", icon: "sparkles" },
+  { id: "manual", label: "Handbuch", icon: "book" },
+  { id: "releases", label: "Versionen & Updates", icon: "history" },
+  { id: "shortcuts", label: "Tastenkürzel", icon: "keyboard" },
+  { id: "security", label: "Sicherheit & DSGVO", icon: "shield" },
+  { id: "community", label: "Community", icon: "message" },
+];
+
+const VERSION = "v25.2.27";
+
+let activeTab = "showcase";
+
+function tabBar(): string {
+  return TABS.map(
+    (tab) =>
+      `<button type="button" class="dp-tab${tab.id === activeTab ? " is-active" : ""}" data-docs-tab="${tab.id}">${ICON[tab.icon]}<span>${escapeHtml(tab.label)}</span></button>`,
+  ).join("");
+}
+
+function featureGrid(): string {
+  return FEATURES.map(
+    (card) => `<article class="dp-card">
+        <div class="dp-card-icon is-${card.tone}">${ICON[card.icon]}</div>
+        <h4 class="dp-card-title">${escapeHtml(card.title)}</h4>
+        <p class="dp-card-body">${escapeHtml(card.body)}</p>
+        <div class="dp-card-badge">${ICON.check}<span>${escapeHtml(card.badge)}</span></div>
+      </article>`,
+  ).join("");
+}
+
+function manualCards(query: string): string {
   const needle = query.trim().toLowerCase();
   const filtered = sections.filter((section) => {
     const text = `${section.title[language]} ${section.body[language].join(" ")}`.toLowerCase();
     return !needle || text.includes(needle);
   });
-  list.innerHTML = filtered.length
-    ? filtered
-        .map(
-          (section) => `<article class="card doc-section" id="docs-${section.id}">
-            <p class="eyebrow">${escapeHtml(t("docsManual"))}</p>
-            <h2>${escapeHtml(section.title[language])}</h2>
-            ${section.body[language].map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}
-          </article>`,
-        )
-        .join("")
-    : `<p class="empty">${escapeHtml(t("docsNoResults"))}</p>`;
+  if (!filtered.length) {
+    return `<p class="dp-empty">${escapeHtml(t("docsNoResults"))}</p>`;
+  }
+  return filtered
+    .map(
+      (section) => `<article class="dp-card dp-card-wide" id="docs-${section.id}">
+        <h4 class="dp-card-title">${escapeHtml(section.title[language])}</h4>
+        ${section.body[language].map((paragraph) => `<p class="dp-card-body">${escapeHtml(paragraph)}</p>`).join("")}
+      </article>`,
+    )
+    .join("");
+}
+
+function tabBody(query: string): string {
+  if (activeTab === "manual") {
+    const section = sections.filter((entry) => entry.id === activeTab);
+    return `<div class="dp-manualbar">
+        <label class="dp-search"><span class="visually-hidden">${escapeHtml(t("docsSearch"))}</span>
+          <span class="dp-search-icon">${ICON.search}</span>
+          <input id="docs-search" type="search" value="${escapeHtml(query)}" placeholder="${escapeHtml(t("docsSearch"))}">
+        </label>
+      </div>
+      <div class="dp-grid dp-grid-manual">${manualCards(query)}</div>${
+        section.length ? "" : ""
+      }`;
+  }
+  return `<div class="dp-sectionhead">
+      <h3><span class="dp-sectionhead-icon">${ICON.grid}</span><span>Integrierte Business-Module im Überblick</span></h3>
+      <span class="dp-local">${ICON.check}<span>100% Lokale Datenhaltung &amp; Offline-Betrieb</span></span>
+    </div>
+    <div class="dp-grid">${featureGrid()}</div>`;
+}
+
+function render(query = ""): void {
+  const host = document.getElementById("docs-body");
+  if (!host) return;
+  host.innerHTML = `<div class="dp-body">${tabBody(query)}</div>`;
+  document.getElementById("docs-search")?.addEventListener("input", (event) => {
+    render((event.target as HTMLInputElement).value);
+    const field = document.getElementById("docs-search") as HTMLInputElement | null;
+    if (field) {
+      field.focus();
+      field.setSelectionRange(field.value.length, field.value.length);
+    }
+  });
 }
 
 export function initDocs(): void {
   const view = document.getElementById("view-docs");
   if (!view) return;
-  view.innerHTML = `
-    <div class="section-head">
-      <div><p class="eyebrow">${escapeHtml(t("docsEyebrow"))}</p><h2>${escapeHtml(t("docsTitle"))}</h2><p class="subtitle">${escapeHtml(t("docsSubtitle"))}</p></div>
-      <label class="search-field"><span class="visually-hidden">${escapeHtml(t("docsSearch"))}</span><input id="docs-search" type="search" placeholder="${escapeHtml(t("docsSearch"))}"></label>
-    </div>
-    <nav class="doc-nav">${sections.map((section) => `<a href="#docs-${section.id}">${escapeHtml(section.title[language])}</a>`).join("")}</nav>
-    <div id="docs-sections" class="doc-sections"></div>`;
-  document.getElementById("docs-search")?.addEventListener("input", (event) => {
-    render((event.target as HTMLInputElement).value);
+  view.innerHTML = `<div class="dp-shell">
+      <header class="dp-ribbon">
+        <div class="dp-brand">
+          <div class="dp-brand-tile">${ICON.book}</div>
+          <div class="dp-brand-text">
+            <div class="dp-brand-line">
+              <h2>SOCDOF Portal &amp; Dokumentation</h2>
+              <span class="dp-version">${VERSION}</span>
+            </div>
+            <p class="dp-brand-sub">Offizielles Handbuch, Feature-Showcase, Release-Notes &amp; Architektur</p>
+          </div>
+        </div>
+        <nav class="dp-tabs" id="docs-tabs">${tabBar()}</nav>
+      </header>
+      <div class="dp-scroll" id="docs-body"></div>
+    </div>`;
+  document.getElementById("docs-tabs")?.addEventListener("click", (event) => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-docs-tab]");
+    if (!button) return;
+    activeTab = button.dataset.docsTab ?? "showcase";
+    const nav = document.getElementById("docs-tabs");
+    if (nav) nav.innerHTML = tabBar();
+    render();
   });
   render();
 }
 
 export function loadDocs(): void {
-  render((document.getElementById("docs-search") as HTMLInputElement | null)?.value ?? "");
+  render();
 }

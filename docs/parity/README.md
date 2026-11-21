@@ -33,9 +33,19 @@ rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces
 >
 > Purchases was then rebuilt the same way, as a port of `Sales/PurchasesModule.tsx`, and moved from
 > 95.03/0.7447 to **98.09 / 0.8549** (light) and 94.15/0.6665 to **97.63 / 0.8407** (dark): the window
-> pixel target is met in the light theme, the SSIM target is not. The Manual (`view-docs`) is still the
-> older Rust handbook screen and remains furthest from its reference at **94.73 / 0.6391** (light) and
-> **92.90 / 0.5117** (dark); it needs the same rewrite from `documents/DocumentationApp.tsx`.
+> pixel target is met in the light theme, the SSIM target is not.
+>
+> The Manual (`view-docs`) was then rebuilt as a port of `documents/DocumentationApp.tsx` instead of a
+> restyled handbook, and moved from 94.73/0.6391 to **97.27 / 0.8334** (light) and from 92.90/0.5117 to
+> **97.31 / 0.8315** (dark). The measured corrections: the portal ribbon (36 px icon tile at 121/70,
+> 14/20 title with the `v25.2.27` chip, 11/16 subtitle, six-pill tab bar on `#f1f5f9` with a 28 px active
+> pill), the section rule at y=230, the 3 × 3 feature grid at x=182/513/843 with 315 px cards at
+> y=247/463/678 and 16 px gaps, the type ramp (14/20 Plus Jakarta Sans in the ribbon, 15/20 card titles,
+> 12/20 Liberation Sans descriptions that wrap on the reference's three lines, 17/24 section head), and
+> the shell's 24 px workspace padding, which the full-bleed reference does not have and which the view now
+> cancels with a -24 px inset. Both targets stay open by 0.73 window pixel and 0.067 window SSIM; the
+> residual is glyph rasterisation (WebKitGTK against Chromium), not a missing element, and blurring the
+> crop lifts the pair to 0.9076 / 0.9379 (light) and 0.9045 / 0.9331 (dark) SSIM.
 > No threshold was lowered and no blur, scale, transform or global antialiasing setting is used.
 >
 > Accounting was rebuilt the same way, as a port of `AccountingModule.tsx`: the header block at 82–170
@@ -120,7 +130,7 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Purchases (`view-purchases`) | image pair, light + dark | pixel, **98.09 / 97.63**, SSIM 0.8549 / 0.8407 (SSIM below target) |
 | Reports (`view-reports`) | DOM audit | structural — no equivalent TS screen (TS `feedback` is a different app) |
 | Documents (`view-documents`) | DOM audit | structural — no TS module |
-| Manual (`view-docs`) | image pair, light + dark | pixel, 94.73 / 92.90, SSIM 0.6391 / 0.5117 (below target) |
+| Manual (`view-docs`) | image pair, light + dark | pixel, 97.27 / 97.31, SSIM 0.8334 / 0.8315 (below target) |
 | Users (`view-users`) | DOM audit | structural — no TS module |
 | Templates (`view-templates`) | DOM audit | structural — no TS module |
 
@@ -215,8 +225,8 @@ difference is the window chrome and desktop backdrop.
 | Accounting | dark | 96.67 | **98.21** | **0.9031** | 95.39 % |
 | Purchases | light | 96.82 | 98.09 | 0.8549 | 94.35 % |
 | Purchases | dark | 96.31 | 97.63 | 0.8407 | 93.33 % |
-| Manual | light | 94.60 | 94.73 | 0.6391 | 87.82 % |
-| Manual | dark | 93.19 | 92.90 | 0.5117 | 68.32 % |
+| Manual | light | 96.28 | 97.27 | 0.8334 | 92.97 % |
+| Manual | dark | 96.10 | 97.31 | 0.8315 | 92.07 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
 original pairs and POS meet both targets, and Products (98.60 / 0.9004 light, 98.39 / 0.9000 dark),
@@ -236,9 +246,10 @@ the reference offsets, the quick panel starts at y=360 with cards at y=439, the 
 ## Quantified residual (module screens)
 
 Products, Calendar, Accounting, Purchases and the Manual were re-captured this round with the same
-seeded catalogue on both sides. Purchases and the Manual still render a different layout than their TS
-counterpart, so their distance is not antialiasing — blurring their window crops barely moves the
-number. Products, Calendar, Accounting and POS are ports of the same markup and land at 0.94–0.97 under
+seeded catalogue on both sides. Purchases still renders a different table anatomy than its TS
+counterpart, so part of its distance is structure rather than antialiasing. The Manual is now a port of
+the portal markup and lands at 0.90–0.94 under the same blur, so what is left there is glyph phase, not
+layout. Products, Calendar, Accounting and POS are ports of the same markup and land at 0.94–0.97 under
 the same blur, because only glyph edges differ:
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
@@ -251,8 +262,8 @@ the same blur, because only glyph edges differ:
 | Accounting | dark | 0.9031 | 0.9398 | 0.9536 | 8.1 % | 3.0 % |
 | Purchases | light | 0.8549 | 0.9149 | 0.9385 | 7.1 % | 3.9 % |
 | Purchases | dark | 0.8407 | 0.8994 | 0.9213 | 9.8 % | 4.4 % |
-| Manual | light | 0.6391 | 0.7090 | 0.7453 | 16.0 % | 9.3 % |
-| Manual | dark | 0.5117 | 0.5691 | 0.5979 | 48.4 % | 10.9 % |
+| Manual | light | 0.8334 | 0.9076 | 0.9379 | 9.5 % | 6.2 % |
+| Manual | dark | 0.8315 | 0.9045 | 0.9331 | 14.8 % | 6.9 % |
 | POS (reference) | light | 0.9176 | 0.9517 | 0.9649 | 6.1 % | 2.5 % |
 | POS (reference) | dark | 0.9143 | 0.9488 | 0.9621 | 6.4 % | 2.7 % |
 
@@ -299,12 +310,14 @@ The concrete deltas, taken from the two captures of each pair:
   x=1020 and the port's action cell ends 2 px earlier. The KPI supplier count reads 5 against the
   reference's 6 because the parity database holds five `vendor` contacts and one `customer`; seeding a
   sixth vendor would move the contacts pair off its reference.
-- **Manual** — the Rust view is a prose handbook (four tabs, paragraph cards). The TS reference is the
-  documentation portal: header card with icon, title and the `v26.5.27` chip, a six-pill tab bar
-  (Showcase & Features, Handbuch, Versionen & Updates, Taskenzentriert, Sicherheit & DSGVO, Community),
-  the "Integrierte Business-Module im Überblick" heading with a green "100 % Lokale Datenhaltung &
-  Offline-Betrieb" chip, and a 3 × 3 grid of feature cards (icon, bold title, two-line description,
-  green bullet line).
+- **Manual** — rebuilt as a port of `documents/DocumentationApp.tsx`: the portal ribbon (36 px icon
+  tile, title with the `v25.2.27` chip, subtitle, six-pill tab bar with the indigo active pill), the
+  "Integrierte Business-Module im Überblick" heading with the green "100 % Lokale Datenhaltung &
+  Offline-Betrieb" chip, and the 3 × 3 grid of feature cards (toned icon tile, bold title, three-line
+  description, green bullet line), plus a working Handbuch tab with the reference search field. What is
+  left is text rasterisation: the reference's system-ui stack resolves to Arial metrics here, which the
+  descriptions now match character for character (their three line breaks land on the same words), but
+  the bold titles and the 17 px section head still rasterise half a pixel wider in Chromium.
 
 ## Quantified residual (POS)
 
@@ -355,7 +368,7 @@ explain the scores above.
 | Accounting screen | Period pill + cash-book/export/print actions, four KPI cards, BWA/UStVA/OPOS/Z-Bon tab row, BWA card with emerald total and indigo profit bands | Same header rows, KPI grid, tab row, BWA card and bands at the measured boxes | **Closed.** 98.56/0.9090 light, 98.21/0.9031 dark. |
 | Accounting figures | `14682.80 €` invoice revenue from three posted invoices in the TS session, `2600.00 €` purchases, `0` POS | Purchases and POS match, but the parity database holds no invoices, so the invoice-derived cells read `0.00 €` | **Known content residual.** The TS reference frame was taken in a session with posted invoices while its own invoice journal shows `0 Einträge`; seeding invoices would break the empty-journal invoice pair, so the screen is measured with the data that exists. Layout, bands and totals arithmetic match. |
 | Purchases screen | Supplier letter tiles, three icon actions per row, chevron-free status badge | Same table, document glyph and one "Wareneingang buchen" button per row | **Open on SSIM.** 98.09/0.8549 light, 97.63/0.8407 dark; layout, KPIs, filter row and table anatomy ported. |
-| Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Prose handbook with four tabs and paragraph cards | **Open.** 94.73/0.6391 light, 92.90/0.5117 dark. |
+| Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Same portal: ribbon, version chip, six-pill tab bar, section rule at y=230, 3 × 3 card grid at y=247/463/678, working Handbuch tab | **Open on SSIM.** 97.27/0.8334 light, 97.31/0.8315 dark; layout and wraps ported, residual is glyph phase (σ=1.5 blur 0.9379/0.9331). |
 | Data states | Empty DB for the original views, demo catalogue for the six module views | Reproduced by `artifacts/parity-capture-all.sh` (two sessions) and `artifacts/parity-seed-profile.py` | **Closed, except the accounting invoice figures** (see above): every pair is measured in the state its TS reference uses. |
 
 Technical note: the native window is intentionally captured at the full `1440×900` display size. The

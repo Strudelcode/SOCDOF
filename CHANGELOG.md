@@ -15,9 +15,19 @@
   emerald 009966, amber f59e0b for the supplier count). One documented content residual: the supplier
   KPI reads `5` against the reference's `6` because the parity database holds five `vendor` contacts
   plus one `customer`, and seeding a sixth vendor would break the contacts pair.
-- **The Manual (`view-docs`) is still the old handbook screen**: docs 94.73/0.6391 light and docs
-  92.90/0.5117 dark, unchanged, because porting `documents/DocumentationApp.tsx` (portal ribbon,
-  six-tab bar, 3 x 3 feature grid) was not completed in this pass.
+- **The Manual (`view-docs`) is now a port of `documents/DocumentationApp.tsx`**: docs 97.27/0.8334 light,
+  docs 97.31/0.8315 dark, up from 94.73/0.6391 and 92.90/0.5117. The old handbook screen was
+  replaced by the portal markup: the ribbon (36 px icon tile, 14/20 title with the `v25.2.27` chip, 11/16
+  subtitle, six-pill tab bar on `#f1f5f9` with a 28 px active pill), the section head with its rule at
+  y=230, and the 3 × 3 feature grid at x=182/513/843 with 315 px cards at y=247/463/678 and 16 px gaps.
+  Measured corrections, each re-captured: the shell's 24 px workspace padding does not exist in the
+  full-bleed reference, so the view cancels it with a -24 px inset; the grid row gap is 15 px so the
+  second row starts on the reference's y=463; the card titles are 15/20 with 0.35 px tracking and the
+  descriptions are 12/20 Liberation Sans, which reproduces the reference's three line breaks word for
+  word; the card tone tiles, dark palette (`#020618` page, `#0f172b` cards, `#1d293d` borders) and the
+  green chip colours were sampled from the capture. Both targets stay open (0.73 window pixel, 0.067
+  window SSIM) and the residual is glyph rasterisation: blurring the window crop lifts the pair to
+  0.9076/0.9379 (light) and 0.9045/0.9331 (dark) SSIM, so no screen element is missing.
 - **Accounting reaches both targets in both themes: window pixel/SSIM accounting 98.56/0.9090 light,
   accounting 98.21/0.9031 dark**, up from 95.25/0.7621 and 92.75/0.6033. The screen
   was rebuilt as a port of `SOCDOF - TS/src/components/sales/AccountingModule.tsx` instead of being
