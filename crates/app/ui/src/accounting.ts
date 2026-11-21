@@ -7,7 +7,6 @@ import { detectLanguage, translate, type TranslationKey } from "./i18n";
 
 const language = detectLanguage();
 const t = (key: TranslationKey): string => translate(language, key);
-const moneyFormat = new Intl.NumberFormat(language, { style: "currency", currency: "EUR" });
 
 interface JournalEntryView {
   id: string;
@@ -343,8 +342,11 @@ function signed(entry: JournalEntryView): number {
   return entry.kind === "expense" ? -entry.amount : entry.amount;
 }
 
+/// Money as the TS module prints it (`toFixed(2)` and a dot: `14.682.80`-free `14682.80 €`).
+/// The register, purchases and accounting all use this plain format, unlike the dashboard
+/// and the product catalogue, which group with `de-DE`.
 function formatMoney(cents: number): string {
-  return moneyFormat.format(cents / 100);
+  return `${(cents / 100).toFixed(2)} €`;
 }
 
 function parseCents(value: string): number | null {

@@ -692,7 +692,18 @@ function renderBackup(report: BackupReport): void {
   });
 }
 
+/// Money as the TS modules print it outside the register: `de-DE` grouping and a comma
+/// (`1.200,00 €`), matching `toLocaleString('de-DE', { minimumFractionDigits: 2 })`.
 function formatMoney(cents: number): string {
+  const value = (cents / 100).toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${value} €`;
+}
+
+/// The TS register prints prices with `toFixed(2)` and a dot separator (`499.00 €`).
+function posMoney(cents: number): string {
   return `${(cents / 100).toFixed(2)} €`;
 }
 
@@ -1097,7 +1108,7 @@ async function loadPos(): Promise<void> {
       sku.textContent = product.sku;
       const price = document.createElement("b");
       price.className = "pos-card-price";
-      price.textContent = formatMoney(product.price);
+      price.textContent = posMoney(product.price);
       const add = document.createElement("span");
       add.className = "pos-card-add";
       add.textContent = "+";
@@ -1135,7 +1146,7 @@ async function loadPos(): Promise<void> {
       const name = document.createElement("strong");
       name.textContent = item.product.name;
       const unit = document.createElement("small");
-      unit.textContent = `${formatMoney(item.product.price)} / ${item.product.unit}`;
+      unit.textContent = `${posMoney(item.product.price)} / ${item.product.unit}`;
       copy.append(name, unit);
       const controls = document.createElement("div");
       controls.className = "pos-qty";
@@ -1158,14 +1169,14 @@ async function loadPos(): Promise<void> {
       }
       const lineTotal = document.createElement("b");
       lineTotal.className = "pos-line-total";
-      lineTotal.textContent = formatMoney(item.product.price * item.quantity);
+      lineTotal.textContent = posMoney(item.product.price * item.quantity);
       row.append(copy, controls, lineTotal);
       cartArea.append(row);
     }
     const sum = totals();
-    byId("pos-subtotal").textContent = formatMoney(sum.net);
-    byId("pos-tax").textContent = formatMoney(sum.tax);
-    byId("pos-total").textContent = formatMoney(sum.gross);
+    byId("pos-subtotal").textContent = posMoney(sum.net);
+    byId("pos-tax").textContent = posMoney(sum.tax);
+    byId("pos-total").textContent = posMoney(sum.gross);
     byId("pos-cart-title").textContent = cart.size === 0 ? "Warenkorb ist leer" : `Warenkorb (${[...cart.values()].reduce((n, line) => n + line.quantity, 0)})`;
     byId("pos-checkout-label").textContent = `Jetzt Abrechnen (${(sum.gross / 100).toFixed(2)} €)`;
     byId<HTMLButtonElement>("pos-checkout").disabled = cart.size === 0;
@@ -1175,12 +1186,12 @@ async function loadPos(): Promise<void> {
     const sum = totals();
     const dialog = byId<HTMLDialogElement>("pos-payment-dialog");
     selectedCash = Math.ceil(sum.gross / 100) * 100;
-    dialog.innerHTML = `<form method="dialog" class="pos-payment"><header><h2>${posT("posPaymentTitle")}</h2><button value="cancel" class="icon-button">×</button></header><div class="pos-payment-total"><small>${posT("posAmount")}</small><strong>${formatMoney(sum.gross)}</strong></div><div class="pos-payment-methods"><button type="button" data-method="cash">${posT("posCash")}</button><button type="button" data-method="card">${posT("posCard")}</button><button type="button" data-method="nfc">${posT("posNfc")}</button></div><label class="field pos-cash-field"><span>${posT("posCashReceived")}</span><input id="pos-cash-dialog" type="number" min="0" step="0.01" value="${(selectedCash / 100).toFixed(2)}"></label><p class="pos-change"></p><div class="dialog-actions"><button value="cancel" class="secondary">${posT("posClose")}</button><button id="pos-complete" value="default" class="primary">${posT("posComplete")}</button></div></form>`;
+    dialog.innerHTML = `<form method="dialog" class="pos-payment"><header><h2>${posT("posPaymentTitle")}</h2><button value="cancel" class="icon-button">×</button></header><div class="pos-payment-total"><small>${posT("posAmount")}</small><strong>${posMoney(sum.gross)}</strong></div><div class="pos-payment-methods"><button type="button" data-method="cash">${posT("posCash")}</button><button type="button" data-method="card">${posT("posCard")}</button><button type="button" data-method="nfc">${posT("posNfc")}</button></div><label class="field pos-cash-field"><span>${posT("posCashReceived")}</span><input id="pos-cash-dialog" type="number" min="0" step="0.01" value="${(selectedCash / 100).toFixed(2)}"></label><p class="pos-change"></p><div class="dialog-actions"><button value="cancel" class="secondary">${posT("posClose")}</button><button id="pos-complete" value="default" class="primary">${posT("posComplete")}</button></div></form>`;
     const change = dialog.querySelector<HTMLElement>(".pos-change")!;
     const cashInput = dialog.querySelector<HTMLInputElement>("#pos-cash-dialog")!;
     const updatePayment = (): void => {
       const cash = Math.round(Number(cashInput.value || 0) * 100);
-      change.textContent = `${posT("posChange")}: ${formatMoney(Math.max(0, cash - sum.gross))}`;
+      change.textContent = `${posT("posChange")}: ${posMoney(Math.max(0, cash - sum.gross))}`;
       dialog.querySelector(".pos-cash-field")?.toggleAttribute("hidden", paymentMethod !== "cash");
     };
     for (const button of dialog.querySelectorAll<HTMLButtonElement>("[data-method]")) {
@@ -1236,12 +1247,12 @@ async function loadPos(): Promise<void> {
     const dialog = byId<HTMLDialogElement>("pos-receipt-dialog");
     const companyLines = [company.name, company.street, company.zip_city, company.tax_id ? `${posT("posTaxId")}: ${company.tax_id}` : ""].filter(Boolean);
     const payment = receipt.payment_method === "nfc" ? posT("posNfc") : receipt.payment_method === "card" ? posT("posCard") : posT("posCash");
-    const tendered = receipt.cash_given_cents === null ? "" : `<div><span>${posT("posCashReceived")}</span><strong>${formatMoney(receipt.cash_given_cents)}</strong></div><div><span>${posT("posChange")}</span><strong>${formatMoney(receipt.change_cents ?? 0)}</strong></div>`;
-    dialog.innerHTML = `<div class="pos-receipt"><header><h2>${company.name || posT("posTitle")}</h2>${companyLines.slice(1).map((line) => `<small>${line}</small>`).join("<br>")}<small>${posT("posReceiptNumber")}: ${receipt.receipt_number} · ${new Date(receipt.paid_at).toLocaleTimeString(language)}</small></header><div class="pos-receipt-lines"></div><div class="pos-receipt-total"><span>${posT("posTotal")}</span><strong>${formatMoney(receipt.gross_cents)}</strong></div><div class="pos-receipt-meta"><div><span>${posT("posPayment")}</span><strong>${payment}</strong></div>${tendered}</div><div class="dialog-actions"><button id="pos-print" class="primary">${posT("posPrint")}</button><button id="pos-receipt-close" class="secondary">${posT("posClose")}</button></div></div>`;
+    const tendered = receipt.cash_given_cents === null ? "" : `<div><span>${posT("posCashReceived")}</span><strong>${posMoney(receipt.cash_given_cents)}</strong></div><div><span>${posT("posChange")}</span><strong>${posMoney(receipt.change_cents ?? 0)}</strong></div>`;
+    dialog.innerHTML = `<div class="pos-receipt"><header><h2>${company.name || posT("posTitle")}</h2>${companyLines.slice(1).map((line) => `<small>${line}</small>`).join("<br>")}<small>${posT("posReceiptNumber")}: ${receipt.receipt_number} · ${new Date(receipt.paid_at).toLocaleTimeString(language)}</small></header><div class="pos-receipt-lines"></div><div class="pos-receipt-total"><span>${posT("posTotal")}</span><strong>${posMoney(receipt.gross_cents)}</strong></div><div class="pos-receipt-meta"><div><span>${posT("posPayment")}</span><strong>${payment}</strong></div>${tendered}</div><div class="dialog-actions"><button id="pos-print" class="primary">${posT("posPrint")}</button><button id="pos-receipt-close" class="secondary">${posT("posClose")}</button></div></div>`;
     const lines = dialog.querySelector<HTMLElement>(".pos-receipt-lines")!;
     for (const line of receipt.lines) {
       const row = document.createElement("div");
-      row.textContent = `${line.quantity_milli / 1000} × ${line.description} — ${formatMoney(line.gross_cents)}`;
+      row.textContent = `${line.quantity_milli / 1000} × ${line.description} — ${posMoney(line.gross_cents)}`;
       lines.append(row);
     }
     dialog.querySelector("#pos-print")?.addEventListener("click", () => window.print());
@@ -1270,7 +1281,7 @@ async function loadPos(): Promise<void> {
       const meta = document.createElement("small");
       meta.textContent = `${receipt.payment_method} · ${new Date(receipt.paid_at).toLocaleString(language)}`;
       const amount = document.createElement("b");
-      amount.textContent = formatMoney(receipt.gross_cents);
+      amount.textContent = posMoney(receipt.gross_cents);
       const cancel = document.createElement("button");
       cancel.className = "danger";
       cancel.type = "button";

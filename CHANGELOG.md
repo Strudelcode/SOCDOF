@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+- **Parity evidence rebuilt and re-measured for all 22 pairs, with per-module money formats fixed.**
+  Every documented pair was re-captured from the current release binary this round, and the harness
+  turned out to be measuring two pairs against the wrong screen: the stored `docs` capture showed the
+  *Projects* view and the `invoices` capture showed the *Dashboard*, because palette queries matched a
+  subtitle before the module ("Rechnungen" matches the dashboard subtitle "…offene Rechnungen…"). A new
+  `artifacts/parity-capture-all.sh` now navigates each view through the command palette with a query
+  that only its module matches, captures dark + light, and — like the TS references — uses two data
+  states: an empty database for dashboard, invoices, contacts, settings and the palette, and the TS demo
+  catalogue for products, purchases, calendar, accounting, docs and POS. `artifacts/run-parity-rust.sh`
+  honours `PARITY_SEED`/`PARITY_DATA` for that, and `artifacts/parity-seed-profile.py` restores the
+  "Strudelcode Studio" company profile the TS captures use. Separately, the shared `formatMoney` was
+  putting the register's `toFixed(2)` dot format on every screen; it is back to `de-DE` (`1.200,00 €`)
+  for the dashboard and the catalogue, while POS (`posMoney`), purchases and accounting print
+  `toFixed(2)` with a dot exactly like their TS modules (`3094.00 €`). Fresh scores, window
+  pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.76/0.9253 dark, products 94.32/0.6390 light, products 93.28/0.5713 dark, pos 98.42/0.9061 light, pos 98.36/0.9029 dark, calendar 96.54/0.7510 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. The five original pairs and POS stay at or above 98.00 / 0.90; Products,
+  Calendar, Accounting, Purchases and the Manual remain below because their Rust screens are different
+  layouts (tile list instead of the product table, no calendar toolbar/rail, no BWA-UStVA-OPOS tab row,
+  a prose manual instead of the documentation portal). That residual is documented per view in
+  `docs/parity/README.md` with σ=1/σ=1.5 blur values (0.57–0.85, versus 0.94–0.96 for POS), i.e. it is
+  geometry, not antialiasing; the thresholds were not lowered.
 - **POS visual parity closed.** The register now matches the TypeScript reference in both themes:
   98.42 / 0.9061 (light) and 98.36 / 0.9029 (dark), up from 98.05 / 0.8509 and 98.03 / 0.8544, with
   every box, row and font metric measured on the TS pixels. The fixes were behavioural, not cosmetic

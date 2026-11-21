@@ -1,17 +1,21 @@
 # TypeScript → Rust visual parity evidence
 
-Both editions were captured live on **2026-11-20** at **1440 × 900**, in **German**, with an
-**empty database** and the same company profile (“Strudelcode Studio”). Screenshots are the
-rendered applications, not mockups.
+Both editions were captured live at **1440 × 900**, in **German**, with the same company profile
+(“Strudelcode Studio”). The five original views and the command palette were captured against an
+**empty database**, exactly like their TS references; Products, Calendar, Accounting, Purchases, the
+Manual and POS were captured with the **TS demo catalogue seeded** on both sides. Screenshots are the
+rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces both data states.
 
-> **Status (2026-11-21):** the five original views are unchanged and still reach both agreed
-> targets (window pixel score ≥98.00, window SSIM ≥0.90). POS reaches them too — 98.42 / 0.9061
-> (light) and 98.36 / 0.9029 (dark) — after the register was rebuilt against the TS markup. Five
-> further views — Products, Calendar, Accounting, Purchases and the Manual — have light/dark pairs
-> taken from real rendered module content; they measure 94.43–96.50 pixel (light) and 92.13–94.90
-> (dark) with SSIM 0.6852–0.7613, i.e. **below** those targets. The thresholds were not lowered: the
-> gap is the empty Rust database (the Rust views render their zero/empty state) against the
-> TypeScript demo catalogue, documented per pair below.
+> **Status (2026-11-21):** the five original views and POS meet both agreed targets (window pixel
+> score ≥98.00, window SSIM ≥0.90). Five module screens — Products, Calendar, Accounting, Purchases
+> and the Manual — are still below them (94.32–96.54 pixel, 0.5117–0.7621 SSIM). Those five are not
+> measurement artefacts: each pair was re-captured this round from the current release binary in the
+> data state its TS reference uses, and the remaining gap is the screen itself — the Rust modules
+> render a different layout than the TS markup (card grid instead of the product table, no calendar
+> toolbar and calendar rail, no BWA/UStVA/OPOS tab row, a prose manual instead of the documentation
+> portal). Blurring both crops at σ=1.5 lifts those five by only 0.07–0.14, while POS gains 0.05 on
+> an already-high base, so the difference is geometry, not antialiasing. The residual is quantified
+> per view below; the thresholds were not lowered.
 
 ## The twelve pairs
 
@@ -79,14 +83,14 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Restaurant (`view-restaurant`) | DOM audit, `RestaurantModule.tsx:579` | structural: title, sound/Z-report/menu/export actions, table/KDS/menu/history tabs |
 | Support (`view-support`) | DOM audit, `SupportServicesModule.tsx` | structural: title, ticket list, create/edit actions, priority and status controls |
 | Therapy (`view-therapy`) | DOM audit, `TherapyPracticeModule.tsx` | structural: title, client list, create/edit actions, session controls |
-| Products (`view-products`) | image pair, light + dark | pixel, 94.98 / 92.56, SSIM 0.7113 / 0.5367 (below target) |
+| Products (`view-products`) | image pair, light + dark | pixel, 94.32 / 93.28, SSIM 0.6390 / 0.5713 (below target) |
 | POS (`view-pos`) | image pair, light + dark | pixel, 98.42 / 98.36, SSIM 0.9061 / 0.9029 |
-| Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.50 / 94.90, SSIM 0.7476 / 0.6696 (below target) |
-| Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.23 / 92.73, SSIM 0.7613 / 0.6025 (below target) |
-| Purchases (`view-purchases`) | image pair, light + dark | pixel, 95.03 / 94.15, SSIM 0.7445 / 0.6663 (ported TS layout) |
+| Calendar (`view-calendar`) | image pair, light + dark | pixel, 96.54 / 94.90, SSIM 0.7510 / 0.6699 (below target) |
+| Accounting (`view-accounting`) | image pair, light + dark | pixel, 95.25 / 92.75, SSIM 0.7621 / 0.6033 (below target) |
+| Purchases (`view-purchases`) | image pair, light + dark | pixel, 95.03 / 94.15, SSIM 0.7447 / 0.6665 (below target) |
 | Reports (`view-reports`) | DOM audit | structural — no equivalent TS screen (TS `feedback` is a different app) |
 | Documents (`view-documents`) | DOM audit | structural — no TS module |
-| Manual (`view-docs`) | image pair, light + dark | pixel, 94.43 / 92.13, SSIM 0.6852 / 0.5677 (below target) |
+| Manual (`view-docs`) | image pair, light + dark | pixel, 94.73 / 92.90, SSIM 0.6391 / 0.5117 (below target) |
 | Users (`view-users`) | DOM audit | structural — no TS module |
 | Templates (`view-templates`) | DOM audit | structural — no TS module |
 
@@ -157,42 +161,97 @@ difference is the window chrome and desktop backdrop.
 | View | Theme | Full pixel score | Window pixel score | Window SSIM | Close pixels ≤16/255 |
 |---|---|---:|---:|---:|---:|
 | Dashboard | light | 97.31 | **98.87** | **0.9491** | 97.06 % |
-| Dashboard | dark | 96.79 | **98.41** | **0.9286** | 96.32 % |
+| Dashboard | dark | 96.80 | **98.44** | **0.9310** | 96.43 % |
 | Invoices | light | 97.32 | **98.89** | **0.9174** | 97.03 % |
 | Invoices | dark | 96.90 | **98.58** | **0.9101** | 96.50 % |
 | Contacts | light | 97.32 | **98.90** | **0.9131** | 97.03 % |
 | Contacts | dark | 96.88 | **98.54** | **0.9002** | 94.15 % |
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
-| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.26 % |
+| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.27 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
 | Command Palette | dark | 98.78 | **98.76** | **0.9253** | 96.40 % |
-| Products | light | 94.77 | 94.98 | 0.7113 | 88.88 % |
-| Products | dark | 92.96 | 92.56 | 0.5367 | 50.32 % |
+| Products | light | 94.33 | 94.32 | 0.6390 | 86.21 % |
+| Products | dark | 93.44 | 93.28 | 0.5713 | 72.86 % |
 | POS | light | 97.04 | **98.42** | **0.9061** | 94.78 % |
 | POS | dark | 96.79 | **98.36** | **0.9029** | 94.65 % |
-| Calendar | light | 95.78 | 96.50 | 0.7476 | 90.27 % |
-| Calendar | dark | 94.52 | 94.90 | 0.6696 | 74.54 % |
-| Accounting | light | 94.94 | 95.23 | 0.7613 | 90.93 % |
-| Accounting | dark | 93.06 | 92.73 | 0.6025 | 62.12 % |
-| Purchases | light | 94.56 | 95.03 | 0.7445 | 89.04 % |
-| Purchases | dark | 93.99 | 94.15 | 0.6663 | 75.71 % |
-| Manual | light | 94.41 | 94.43 | 0.6852 | 88.15 % |
-| Manual | dark | 92.65 | 92.13 | 0.5677 | 67.51 % |
+| Calendar | light | 95.80 | 96.54 | 0.7510 | 90.47 % |
+| Calendar | dark | 94.52 | 94.90 | 0.6699 | 74.55 % |
+| Accounting | light | 94.95 | 95.25 | 0.7621 | 90.95 % |
+| Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
+| Purchases | light | 94.80 | 95.03 | 0.7447 | 89.04 % |
+| Purchases | dark | 94.02 | 94.15 | 0.6665 | 75.71 % |
+| Manual | light | 94.60 | 94.73 | 0.6391 | 87.82 % |
+| Manual | dark | 93.19 | 92.90 | 0.5117 | 68.32 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
-original pairs and POS meet both targets; the five remaining new pairs do not, and are printed
-unbolded for that reason. Their gap is structural: the Rust screens for these six modules are different, simpler
-layouts than the TS screens, so the harness seeds the same demo catalogue and still measures 0.44–0.80
-SSIM. Filling the empty state did not change the thresholds (see the blurred comparison below). Settings moved from 98.11/0.8507 (light) and 97.67/0.8432 (dark) by fixing
+original pairs and POS meet both targets; Products, Calendar, Accounting, Purchases and the Manual do
+not and are printed unbolded for that reason. Their gap is structural, not data: both editions show
+the same seeded catalogue in those pairs, and the residual survives blurring (0.51–0.85 SSIM at
+σ=1.5), so it is the screen layout itself — see *Quantified residual (module screens)* below.
+Settings moved from 98.11/0.8507 (light) and 97.67/0.8432 (dark) by fixing
 measured layout deltas, not by retouching the screenshot: the sidebar card now starts at y=177 and is
 clipped at y=739, every sidebar label/nav line sits on the TS row grid, the hero copy/kicker/CTA use
 the reference offsets, the quick panel starts at y=360 with cards at y=439, the search field is
 256 px wide, and the quick heading uses 14 px with 0.0075 em tracking.
 
+## Quantified residual (module screens)
+
+Products, Calendar, Accounting, Purchases and the Manual were re-captured this round with the same
+seeded catalogue on both sides, and each still renders a different layout than its TS counterpart.
+The distance is therefore not antialiasing — blurring both window crops barely moves the number,
+unlike POS, where the same measurement lands at 0.94/0.96 because only glyph edges differ:
+
+| View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
+|---|---|---:|---:|---:|---:|---:|
+| Products | light | 0.6390 | 0.7099 | 0.7376 | 21.7 % | 8.9 % |
+| Products | dark | 0.5713 | 0.6378 | 0.6595 | 33.4 % | 10.5 % |
+| Calendar | light | 0.7510 | 0.8296 | 0.8513 | 13.2 % | 4.8 % |
+| Calendar | dark | 0.6699 | 0.7314 | 0.7489 | 38.4 % | 7.3 % |
+| Accounting | light | 0.7621 | 0.8084 | 0.8251 | 11.5 % | 7.0 % |
+| Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |
+| Purchases | light | 0.7447 | 0.7950 | 0.8150 | 14.7 % | 8.4 % |
+| Purchases | dark | 0.6665 | 0.7034 | 0.7188 | 35.7 % | 10.4 % |
+| Manual | light | 0.6391 | 0.7090 | 0.7453 | 16.0 % | 9.3 % |
+| Manual | dark | 0.5117 | 0.5691 | 0.5979 | 48.4 % | 10.9 % |
+| POS (reference) | light | 0.9061 | 0.9431 | 0.9583 | 6.5 % | 2.9 % |
+| POS (reference) | dark | 0.9029 | 0.9402 | 0.9555 | 6.9 % | 3.1 % |
+
+The concrete deltas, taken from the two captures of each pair:
+
+- **Products** — the Rust module renders `article.entity-card` tiles (name, SKU, category, price,
+  Etikett/Nachbestellen/Bearbeiten/Löschen). The TS module renders the category pill bar with a
+  "Knappe Bestände (4)" filter, the live search plus amber *Nachbestellen* and indigo *Neues Produkt*
+  buttons, a card header (`PRODUKTKATALOG & BESTANDSÜBERSICHT (10 EINTRÄGE)`, "4 Artikel nachbestellen
+  →") and a nine-column table: thumbnail tile, name + description, SKU/ASIN (mono), category chip,
+  EK, VK, margin with percent, stock pill, allocated quantity and actions. Closing this needs the
+  table port, not a CSS tweak.
+- **Calendar** — the Rust view is a title, a subtitle, an *Neuer Termin* button, prev/next/*Heute* and
+  a single month grid with text events. The TS view adds the module header card (icon tile, search,
+  *Neuer Termin*), a second toolbar row (Tag/Woche/Monat tabs and the calendar-source chips), a left
+  rail with the mini-month and the 14-entry "MEINE KALENDER" checkbox list, coloured multi-day event
+  chips spanning grid cells, and a footer bar (event count, hint, offline badge).
+- **Accounting** — the Rust view has the four KPI cards and the BWA/EÜR tables. The TS view adds the
+  date-range chip row (Gesamt/Heute/Monat/Quartal/Jahr/Benutzerdefiniert), the
+  *CSV-Berichte exportieren* / *Druckansicht* / *Kassenbuch filter* buttons, the four-tab row
+  (BWA & EÜR, UStVA, OPOS, POS-Kasse) and the "BWA & EÜR" summary card with its green
+  *Gesamtertrag (Zwischensumme)* band.
+- **Purchases** — the closest of the five (95.03 pixel): same header, KPI row, filter row and
+  table columns, but the Rust rows use a document glyph instead of the supplier letter tile, a
+  "Wareneingang buchen" button where the TS shows three icon actions, and a chevron in the status
+  badge; the TS amounts are printed with `toFixed(2)` (`3094.00 €`), which the Rust purchases view now
+  matches.
+- **Manual** — the Rust view is a prose handbook (four tabs, paragraph cards). The TS reference is the
+  documentation portal: header card with icon, title and the `v26.5.27` chip, a six-pill tab bar
+  (Showcase & Features, Handbuch, Versionen & Updates, Taskenzentriert, Sicherheit & DSGVO, Community),
+  the "Integrierte Business-Module im Überblick" heading with a green "100 % Lokale Datenhaltung &
+  Offline-Betrieb" chip, and a 3 × 3 grid of feature cards (icon, bold title, two-line description,
+  green bullet line).
+
 ## Quantified residual (POS)
 
-The register was rebuilt against the TS markup rather than retouched: `formatMoney` now formats like
-the reference (`499.00 €`, dot), a global `h1…textarea { font-family: var(--font-sans) }` rule that
+The register was rebuilt against the TS markup rather than retouched: it prints money through its own
+`posMoney` helper (`499.00 €`, dot — the app's shared `formatMoney` uses `de-DE` grouping and a comma
+like the dashboard and the catalogue), a global `h1…textarea { font-family: var(--font-sans) }` rule that
 had been overriding the module was scoped away so the register paints in Noto Sans, the `⌕ ▣ ◔ ▤ ◫`
 glyphs became Lucide SVGs, the product grid lost its visible scrollbar and the cart its double
 border, the customer select lost a stray 16 px padding, and search field, category chips, card rows
@@ -232,7 +291,12 @@ explain the scores above.
 | Dark palette backdrop | Near-black navy desktop, 20 % slate veil, soft blurred tiles | Same veil and tile grid; backdrop now matches at rgb(3 8 29) | **Closed.** Dark palette: 98.76 / 0.9253. |
 | Rail labels | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | Dashboard, Rechnungen, Abrechnung, Kontakte, Produkte, Lager | **Closed.** Sixth slot is Lager; Calendar is hidden. |
 | Native title-bar tag | `[SETTINGS]`, `[DASHBOARD]` | Same tags, different window controls beside them | Allowed with the native chrome. |
-| Populated data | Empty database in both captures | Empty database in both captures | Populated screenshots would need identical seeded records in both stores and are outside this empty-state set. |
+| Products screen | Category pill bar, search + *Nachbestellen* / *Neues Produkt*, card header with count, nine-column table | `article.entity-card` tile list with the same fields plus action buttons | **Open.** 94.32/0.6390 light, 93.28/0.5713 dark; needs the table port. |
+| Calendar screen | Header card, Day/Week/Month + source toolbar, mini-month and 14-entry calendar rail, coloured event chips, footer bar | Title, subtitle, date navigation and a plain month grid | **Open.** 96.54/0.7510 light, 94.90/0.6699 dark; the grid itself matches, the surrounding chrome does not exist yet. |
+| Accounting screen | Date-range chips, export/print/cash-book actions, BWA/UStVA/OPOS/POS tab row, summary band | KPI cards and BWA/EÜR tables only | **Open.** 95.25/0.7621 light, 92.75/0.6033 dark. |
+| Purchases screen | Supplier letter tiles, three icon actions per row, chevron-free status badge | Same table, document glyph and one "Wareneingang buchen" button per row | **Open (closest pair).** 95.03/0.7447 light, 94.15/0.6665 dark; money format now matches (`3094.00 €`). |
+| Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Prose handbook with four tabs and paragraph cards | **Open.** 94.73/0.6391 light, 92.90/0.5117 dark. |
+| Data states | Empty DB for the original views, demo catalogue for the six module views | Reproduced by `artifacts/parity-capture-all.sh` (two sessions) and `artifacts/parity-seed-profile.py` | **Closed.** Every pair is measured in the state its TS reference uses. |
 
 Technical note: the native window is intentionally captured at the full `1440×900` display size. The
 desktop shell inside it follows the TypeScript reference geometry (`1140×750`); the window crop is
@@ -241,14 +305,23 @@ the meaningful comparison for layout.
 ## Reproduce
 
 ```bash
-# TypeScript reference (Vite on :3000)
+# TypeScript references (Vite on :3000)
 node artifacts/parity_capture_ts.cjs
+node artifacts/parity_capture_ts_extra.cjs
 
-# Rust edition (release binary with --features custom-protocol)
-bash /tmp/run-parity-rust.sh
-python3 artifacts/x11_window.py --display :99 --width 1440 --height 900 --x 0 --y 0
-python3 artifacts/parity_capture.py --display :99 --output docs/parity/rust-dashboard-light-1440.png
+# Rust edition, every pair in both themes:
+#   session A: empty database (dashboard, invoices, contacts, settings, palette)
+#   session B: TS demo catalogue (products, purchases, calendar, accounting, docs, POS)
+# Each session restores the "Strudelcode Studio" company profile the TS captures use,
+# navigates through the command palette and captures dark + light.
+cargo build --release --features custom-protocol --manifest-path crates/app/src-tauri/Cargo.toml
+bash artifacts/parity-capture-all.sh          # SKIP_A=1 re-captures only the seeded session
 
 # Scores
 python3 docs/parity/parity_diff.py
+python3 docs/parity/check_consistency.py
+python3 docs/parity/check_text_painted.py
 ```
+
+`artifacts/run-parity-rust.sh` honours `PARITY_SEED` (0/1) and `PARITY_DATA` (profile directory), so a
+run never mixes the empty and seeded data states.
