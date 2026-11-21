@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Parity evidence is now machine-checked row by row, and two stale numbers are corrected.**
+  `docs/parity/check_consistency.py` used to look for each score as a substring anywhere in the
+  documents, which let the per-view table drift: Command Palette dark quoted a full-frame pixel score
+  of 98.73 where the capture has 98.76, and the Manual quoted 0.6391 against the captured 0.6390. The
+  guard now parses both README tables and compares every cell with the committed `diff.json`, verifies
+  `diff.csv` and the release-checkout copies `artifacts/diff.json` / `artifacts/diff.csv` byte for byte,
+  requires exactly 11 views x 2 themes with both images present, and fails if the documented 98.00 /
+  0.90 thresholds stop matching the ones it enforces or if any pair outside the four open module
+  screens drops below them. No threshold was changed.
+
 - **Products reaches the SSIM target in both themes: 98.60 / 0.9004 light, 98.39 / 0.9000 dark.**
   The last 0.005 came from four measured corrections, not from tuning by eye: a sub-pixel edge-profile and
   ink-centroid comparison against the reference put every text block back in its phase (fractional

@@ -160,8 +160,13 @@ their KPI rows; before that fix the smoke audit reported `heading=""` for both v
   references, 35–926 for the Rust captures. The stored placeholder captures reach only 109 such
   components at 2.18 % ink, so they cannot pass as content. The script also checks the evidence
   against `artifacts/parity-attempts/SHA256SUMS`.
-- `docs/parity/check_consistency.py` asserts that every number in `diff.json` appears identically in
-  this file and in `CHANGELOG.md`, and that the ten original pairs stay at/above 98.00 and 0.90.
+- `docs/parity/check_consistency.py` reads the committed `diff.json` back and compares it, character
+  for character, with this file's per-view table (full pixel, window pixel, window SSIM, close-pixel
+  share) and with its blur table (window SSIM), with every pair quoted in `CHANGELOG.md`, and with
+  `diff.csv`; it also requires the release-checkout copies `artifacts/diff.json` and
+  `artifacts/diff.csv` to be byte-identical to the `docs/parity` files, exactly 11 views × 2 themes,
+  both reference images per pair, the documented thresholds to still be the enforced 98.00 / 0.90,
+  and no pair outside Calendar, Accounting, Purchases and the Manual to sit below them.
 
 Measured light/dark separation of the six new views (window crop): luminance 245.4→19.9 (Products),
 76.1→23.5 (POS), 247.3→21.1 (Calendar), 243.8→20.5 (Accounting), 243.1→20.4 (Purchases),
@@ -185,7 +190,7 @@ difference is the window chrome and desktop backdrop.
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
 | Settings | dark | 96.82 | **98.44** | **0.9025** | 94.26 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
-| Command Palette | dark | 98.73 | **98.73** | **0.9243** | 96.32 % |
+| Command Palette | dark | 98.76 | **98.73** | **0.9243** | 96.32 % |
 | Products | light | 97.15 | **98.60** | 0.9004 | 95.67 % |
 | Products | dark | 96.81 | **98.39** | 0.9000 | 93.32 % |
 | POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
@@ -196,7 +201,7 @@ difference is the window chrome and desktop backdrop.
 | Accounting | dark | 93.07 | 92.75 | 0.6033 | 62.14 % |
 | Purchases | light | 94.80 | 95.03 | 0.7447 | 89.04 % |
 | Purchases | dark | 94.02 | 94.15 | 0.6665 | 75.71 % |
-| Manual | light | 94.60 | 94.73 | 0.6391 | 87.82 % |
+| Manual | light | 94.60 | 94.73 | 0.6390 | 87.82 % |
 | Manual | dark | 93.19 | 92.90 | 0.5117 | 68.32 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
@@ -230,7 +235,7 @@ window crops barely moves the number. Products and POS are ports of the same mar
 | Accounting | dark | 0.6033 | 0.6393 | 0.6503 | 50.2 % | 10.2 % |
 | Purchases | light | 0.7447 | 0.7950 | 0.8150 | 14.7 % | 8.4 % |
 | Purchases | dark | 0.6665 | 0.7034 | 0.7188 | 35.7 % | 10.4 % |
-| Manual | light | 0.6391 | 0.7090 | 0.7453 | 16.0 % | 9.3 % |
+| Manual | light | 0.6390 | 0.7090 | 0.7453 | 16.0 % | 9.3 % |
 | Manual | dark | 0.5117 | 0.5691 | 0.5979 | 48.4 % | 10.9 % |
 | POS (reference) | light | 0.9176 | 0.9517 | 0.9649 | 6.1 % | 2.5 % |
 | POS (reference) | dark | 0.9143 | 0.9488 | 0.9621 | 6.4 % | 2.7 % |
