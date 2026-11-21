@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- **Products screen ported from the TS module; the whole parity table re-measured.**
+  The Rust catalogue no longer draws `article.entity-card` tiles: `#view-products` is now the TS
+  `ProductsModule` layout — category pill bar with the rose low-stock filter, live search, amber
+  *Nachbestellen* with its count badge, indigo *Neues Produkt*, the card header with the hit counter
+  and the nine-column table (`Bild`, `Artikel / Bezeichnung`, `SKU / ASIN`, `Kategorie`,
+  `Einkaufspreis (EK)`, `Verkaufspreis (VK)`, `Marge / Gewinn`, `Auf Lager`, `An Kunden vergeben`,
+  `Aktionen`) with the TS titles, widths, 16 px cell padding, 40 px thumbnails, slate-100 row rules
+  and the stock pill/note stack. Four real causes were fixed instead of restyling: the shell's
+  global `font-family` rule forced the system stack onto a module the reference renders in Plus
+  Jakarta Sans (the bundled static Google instances now match the reference face), the money cells
+  print `de-DE` (`499,00 €`) like `formatMoney`, the row separators are slate-100 instead of
+  slate-200, and the low-stock pill regained its warning icon so those rows stop being 2 px tall.
+  All 22 pairs were re-captured from the current release binary in the data state their TS reference
+  uses, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices
+  98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002
+  dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light,
+  command-palette 98.73/0.9243 dark, products 97.68/0.8295 light, products 97.43/0.8314 dark, pos
+  98.42/0.9061 light, pos 98.36/0.9029 dark, calendar 96.54/0.7511 light, calendar 94.90/0.6699 dark,
+  accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases
+  94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. Products moved from
+  94.32/0.6390 and 93.28/0.5713; every other pair is unchanged, and the palette's dark pair moved by
+  0.001 with the re-capture. Products keeps an unbolded row in the README because its residual is
+  glyph placement, not layout: σ=1 blur lifts it to 0.9008 / 0.8961 (5.0 %/5.6 % of pixels off by more
+  than 32/255), while the TS thumbnail column still paints a missing-glyph box where the Rust rows
+  draw a real Lucide icon.
+
 - **Parity evidence rebuilt and re-measured for all 22 pairs, with per-module money formats fixed.**
   Every documented pair was re-captured from the current release binary this round, and the harness
   turned out to be measuring two pairs against the wrong screen: the stored `docs` capture showed the
@@ -16,7 +42,7 @@
   putting the register's `toFixed(2)` dot format on every screen; it is back to `de-DE` (`1.200,00 €`)
   for the dashboard and the catalogue, while POS (`posMoney`), purchases and accounting print
   `toFixed(2)` with a dot exactly like their TS modules (`3094.00 €`). Fresh scores, window
-  pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.76/0.9253 dark, products 94.32/0.6390 light, products 93.28/0.5713 dark, pos 98.42/0.9061 light, pos 98.36/0.9029 dark, calendar 96.54/0.7510 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. The five original pairs and POS stay at or above 98.00 / 0.90; Products,
+  pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.76/0.9253 dark, products 94.32/0.6390 light, products 93.28/0.5713 dark, pos 98.42/0.9061 light, pos 98.36/0.9029 dark, calendar 96.54/0.7511 light, calendar 94.90/0.6699 dark, accounting 95.25/0.7621 light, accounting 92.75/0.6033 dark, purchases 95.03/0.7447 light, purchases 94.15/0.6665 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. The five original pairs and POS stay at or above 98.00 / 0.90; Products,
   Calendar, Accounting, Purchases and the Manual remain below because their Rust screens are different
   layouts (tile list instead of the product table, no calendar toolbar/rail, no BWA-UStVA-OPOS tab row,
   a prose manual instead of the documentation portal). That residual is documented per view in

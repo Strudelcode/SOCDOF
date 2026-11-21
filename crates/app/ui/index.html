@@ -167,22 +167,60 @@
         </section>
 
         <section id="view-products" class="view" hidden>
-          <div class="section-head">
-            <div>
-              <p class="eyebrow" data-i18n="masterDataLabel"></p>
-              <h2 data-i18n="productsTitle"></h2>
-              <p class="subtitle" id="products-count"></p>
+          <div class="products-page">
+            <div class="products-toolbar">
+              <div class="products-filters">
+                <div id="products-pills" class="products-pills" role="tablist"></div>
+              </div>
+              <div class="products-actions">
+                <label class="products-search">
+                  <span class="products-search-icon" aria-hidden="true"></span>
+                  <input id="product-search" type="search" autocomplete="off" />
+                </label>
+                <button id="products-reorder" type="button" class="products-reorder">
+                  <span class="products-btn-icon" aria-hidden="true"></span>
+                  <span data-i18n="reorderButton"></span>
+                  <span id="products-reorder-badge" class="products-reorder-badge" hidden></span>
+                </button>
+                <button id="product-new" type="button" class="products-new">
+                  <span class="products-btn-icon" aria-hidden="true"></span>
+                  <span data-i18n="productsNewProduct"></span>
+                </button>
+              </div>
             </div>
-            <div class="toolbar">
-              <label class="search-field">
-                <span class="visually-hidden" data-i18n="productsSearchLabel"></span>
-                <input id="product-search" type="search" autocomplete="off" />
-              </label>
-              <button id="product-new" type="button" data-i18n="productsNew"></button>
+            <p id="products-message" class="message" role="status"></p>
+            <div class="products-card">
+              <div class="products-card-head">
+                <h2 class="products-card-title">
+                  <span class="products-card-icon" aria-hidden="true"></span>
+                  <span><span data-i18n="productsCatalogTitle"></span> (<span id="products-count"></span>)</span>
+                </h2>
+                <button id="products-reorder-link" type="button" class="products-reorder-link" hidden>
+                  <span class="products-link-icon" aria-hidden="true"></span>
+                  <span id="products-reorder-link-text"></span>
+                </button>
+              </div>
+              <div class="products-table-wrap">
+                <table class="products-table">
+                  <thead>
+                    <tr>
+                      <th class="products-th-image" data-i18n="productsThImage"></th>
+                      <th data-i18n="productsThName"></th>
+                      <th data-i18n="productsThSku"></th>
+                      <th data-i18n="productsThCategory"></th>
+                      <th class="is-right" data-i18n="productsThCost"></th>
+                      <th class="is-right" data-i18n="productsThSale"></th>
+                      <th class="is-right" data-i18n="productsThMargin"></th>
+                      <th class="is-center" data-i18n="productsThStock"></th>
+                      <th class="is-center" data-i18n="productsThAllocated"></th>
+                      <th class="is-right" data-i18n="productsThActions"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="products-list"></tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <p id="products-message" class="message" role="status"></p>
-          <div id="products-list" class="entity-list"></div>
         </section>
 
         <section id="view-invoices" class="view" hidden>

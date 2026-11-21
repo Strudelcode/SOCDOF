@@ -530,9 +530,14 @@ const contactsMessage = byId<HTMLParagraphElement>("contacts-message");
 const contactsList = byId<HTMLDivElement>("contacts-list");
 const productSearch = byId<HTMLInputElement>("product-search");
 const productNew = byId<HTMLButtonElement>("product-new");
-const productsCount = byId<HTMLParagraphElement>("products-count");
+const productsCount = byId<HTMLSpanElement>("products-count");
 const productsMessage = byId<HTMLParagraphElement>("products-message");
-const productsList = byId<HTMLDivElement>("products-list");
+const productsList = byId<HTMLElement>("products-list");
+const productsPills = byId<HTMLDivElement>("products-pills");
+const productsReorder = byId<HTMLButtonElement>("products-reorder");
+const productsReorderBadge = byId<HTMLSpanElement>("products-reorder-badge");
+const productsReorderLink = byId<HTMLButtonElement>("products-reorder-link");
+const productsReorderLinkText = byId<HTMLSpanElement>("products-reorder-link-text");
 const contactDialog = byId<HTMLDialogElement>("contact-dialog");
 const contactDialogTitle = byId<HTMLHeadingElement>("contact-dialog-title");
 const contactForm = byId<HTMLFormElement>("contact-form");
@@ -875,62 +880,243 @@ function renderContacts(contacts: Contact[]): void {
   }
 }
 
-function renderProducts(products: Product[]): void {
-  productsCount.textContent = format(translate(language, "productsCount"), {
-    count: numberFormat.format(products.length),
-  });
-  productsList.replaceChildren();
+/// Lucide outlines used by the product catalogue. The TS module draws the same icons; inline
+/// SVGs keep the table free of emoji/glyph fallbacks in WebKit (the POS register had the same
+/// problem with its `⌕`/`▣` characters).
+const PRODUCT_ICONS: Record<string, string> = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  packagePlus: '<path d="M16 16h6"/><path d="M19 13v6"/><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"/><path d="M12 22V12"/><polyline points="3.29 7 12 12 20.71 7"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  boxes: '<path d="M2.97 12.92A2 2 0 0 0 2 14.63v3.24a2 2 0 0 0 .97 1.71l3 1.8a2 2 0 0 0 2.06 0L12 19v-5.5l-5-3-4.03 2.42Z"/><path d="m7 16.5-4.74-2.85"/><path d="m7 16.5 5-3"/><path d="M7 16.5v5.17"/><path d="M12 13.5V19l3.97 2.38a2 2 0 0 0 2.06 0l3-1.8a2 2 0 0 0 .97-1.71v-3.24a2 2 0 0 0-.97-1.71L17 10.5l-5 3Z"/><path d="m17 16.5-5-3"/><path d="m17 16.5 4.74-2.85"/><path d="M17 16.5v5.17"/><path d="M7.97 4.42A2 2 0 0 0 7 6.13v4.37l5 3 5-3V6.13a2 2 0 0 0-.97-1.71l-3-1.8a2 2 0 0 0-2.06 0l-3 1.8Z"/><path d="M12 8 7.26 5.15"/><path d="m12 8 4.74-2.85"/><path d="M12 13.5V8"/>',
+  qr: '<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/>',
+  copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  edit: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  trash: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
+  arrowDown: '<path d="M12 17V3"/><path d="m6 11 6 6 6-6"/><path d="M19 21H5"/>',
+};
 
-  if (products.length === 0) {
-    productsList.appendChild(makeElement("p", "empty", translate(language, "productsEmpty")));
+function productIcon(name: keyof typeof PRODUCT_ICONS): string {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PRODUCT_ICONS[name]}</svg>`;
+}
+
+/// Products loaded from the last query; the category pills filter this list client-side like the
+/// TS module does (`filteredProducts`), while the search field re-queries the store.
+let productCache: Product[] = [];
+let productFilter = "all";
+
+/// The TS module treats a product as low stock when the reorder level is set and stock is at or
+/// below it; `reorder_level = 0` disables the warning.
+function isLowStockProduct(product: Product): boolean {
+  return product.reorder_level > 0 && product.stock <= product.reorder_level;
+}
+
+function productCell(className: string, text: string): HTMLTableCellElement {
+  const cell = document.createElement("td");
+  if (className) {
+    cell.className = className;
+  }
+  cell.textContent = text;
+  return cell;
+}
+
+function renderProductPills(products: Product[]): void {
+  const categories: string[] = [];
+  for (const product of products) {
+    const category = product.category.trim();
+    if (category && !categories.includes(category)) {
+      categories.push(category);
+    }
+  }
+  const lowCount = products.filter(isLowStockProduct).length;
+  productsPills.replaceChildren();
+  const entries: Array<[string, string]> = [["all", translate(language, "productsAllCategories")]];
+  for (const category of categories) {
+    entries.push([category, category]);
+  }
+  for (const [value, label] of entries) {
+    const pill = makeElement("button", "products-pill", label);
+    pill.type = "button";
+    pill.setAttribute("role", "tab");
+    if (productFilter === value) {
+      pill.classList.add("is-active");
+      pill.setAttribute("aria-selected", "true");
+    }
+    pill.addEventListener("click", () => {
+      productFilter = value;
+      renderProducts(productCache);
+    });
+    productsPills.appendChild(pill);
+  }
+  const lowPill = makeElement("button", "products-pill products-pill-low", "");
+  lowPill.type = "button";
+  lowPill.setAttribute("role", "tab");
+  lowPill.innerHTML = `${productIcon("alert")}<span>${translate(language, "productsLowStockPill")} (${lowCount})</span>`;
+  if (productFilter === "__low_stock__") {
+    lowPill.classList.add("is-active");
+    lowPill.setAttribute("aria-selected", "true");
+  }
+  lowPill.addEventListener("click", () => {
+    productFilter = productFilter === "__low_stock__" ? "all" : "__low_stock__";
+    renderProducts(productCache);
+  });
+  productsPills.appendChild(lowPill);
+}
+
+function renderProductRow(product: Product): HTMLTableRowElement {
+  const row = document.createElement("tr");
+
+  const imageCell = makeElement("td", "products-cell-image");
+  imageCell.appendChild(makeElement("div", "products-thumb", product.image_emoji || "📦"));
+  row.appendChild(imageCell);
+
+  const nameCell = makeElement("td", "products-cell-name");
+  const nameLine = makeElement("div", "products-name-line");
+  nameLine.appendChild(makeElement("span", "products-name", product.name));
+  nameCell.appendChild(nameLine);
+  if (product.description) {
+    nameCell.appendChild(makeElement("div", "products-desc", product.description));
+  }
+  if (product.source_domain) {
+    nameCell.appendChild(makeElement("div", "products-source", product.source_domain));
+  }
+  row.appendChild(nameCell);
+
+  const skuCell = makeElement("td", "products-cell-sku");
+  skuCell.appendChild(makeElement("div", "products-sku", product.sku));
+  if (product.asin) {
+    skuCell.appendChild(makeElement("div", "products-asin", `ASIN: ${product.asin}`));
+  }
+  row.appendChild(skuCell);
+
+  const categoryCell = document.createElement("td");
+  categoryCell.appendChild(
+    makeElement("span", "products-chip", product.category || translate(language, "productsAllCategories")),
+  );
+  row.appendChild(categoryCell);
+
+  row.appendChild(productCell("is-right products-mono", formatMoney(product.cost_price)));
+  row.appendChild(productCell("is-right products-mono products-price", formatMoney(product.price)));
+
+  const margin = product.price - product.cost_price;
+  const marginCell = makeElement("td", "is-right products-cell-margin");
+  marginCell.appendChild(
+    makeElement("div", margin >= 0 ? "products-margin" : "products-margin is-negative", formatMoney(margin)),
+  );
+  const percent = product.price > 0 ? ((margin / product.price) * 100).toFixed(1) : "0.0";
+  marginCell.appendChild(makeElement("div", "products-margin-pct", `${percent}%`));
+  row.appendChild(marginCell);
+
+  const low = isLowStockProduct(product);
+  const stockCell = makeElement("td", "is-center products-cell-stock");
+  const stockStack = makeElement("div", "products-stock-stack");
+  const stockPill = makeElement("span", low ? "products-stock is-low" : "products-stock", "");
+  if (low) {
+    stockPill.innerHTML = `${productIcon("alert")}<span>${product.stock} ${product.unit || "Stk."}</span>`;
+  } else {
+    stockPill.textContent = `${product.stock} ${product.unit || "Stk."}`;
+  }
+  stockStack.appendChild(stockPill);
+  if (low) {
+    stockStack.appendChild(
+      makeElement("span", "products-stock-note", `${translate(language, "productsLow")} (≤ ${product.reorder_level})`),
+    );
+  }
+  stockCell.appendChild(stockStack);
+  row.appendChild(stockCell);
+
+  row.appendChild(productCell("is-center products-muted", "-"));
+
+  const actionsCell = makeElement("td", "is-right products-cell-actions");
+  const actions = makeElement("div", "products-row-actions");
+  if (low) {
+    const reorder = makeElement("button", "products-row-reorder", "");
+    reorder.type = "button";
+    reorder.innerHTML = `${productIcon("cart")}<span>${translate(language, "reorderButton")}</span>`;
+    reorder.addEventListener("click", () => void openReorderDialog());
+    actions.appendChild(reorder);
+  }
+  const book = makeElement("button", "products-row-book", "");
+  book.type = "button";
+  book.innerHTML = `${productIcon("arrowDown")}<span>${translate(language, "productsBookStock")}</span>`;
+  book.addEventListener("click", () => openProductDialog(product));
+  actions.appendChild(book);
+  const iconActions: Array<[keyof typeof PRODUCT_ICONS, string, string, () => void]> = [
+    ["qr", "products-row-icon is-qr", translate(language, "labelButton"), () => void openLabelDialog(product)],
+    ["copy", "products-row-icon", translate(language, "reorderButton"), () => void openReorderDialog()],
+    ["edit", "products-row-icon", translate(language, "edit"), () => openProductDialog(product)],
+    ["trash", "products-row-icon is-danger", translate(language, "delete"), () => void removeProduct(product)],
+  ];
+  for (const [icon, className, title, handler] of iconActions) {
+    const button = makeElement("button", className, "");
+    button.type = "button";
+    button.title = title;
+    button.innerHTML = productIcon(icon);
+    button.addEventListener("click", handler);
+    actions.appendChild(button);
+  }
+  actionsCell.appendChild(actions);
+  row.appendChild(actionsCell);
+  return row;
+}
+
+/// The toolbar, card head and search field carry one inline SVG each. They are painted on the
+/// first render so the icon table above is initialised (module-level `const`s are not hoisted).
+let productChromePainted = false;
+
+function paintProductsChrome(): void {
+  if (productChromePainted) {
     return;
   }
-
-  for (const product of products) {
-    const card = makeElement("article", "entity-card");
-    card.dataset.id = product.id;
-
-    const head = makeElement("div", "entity-card-head");
-    const title = makeElement("div");
-    const productNameText = `${product.image_emoji ? `${product.image_emoji} ` : ""}${product.name}`;
-    title.appendChild(makeElement("h3", undefined, productNameText));
-    if (product.sku) {
-      title.appendChild(makeElement("p", undefined, product.sku));
+  productChromePainted = true;
+  const view = byId<HTMLElement>("view-products");
+  const paint = (selector: string, icon: keyof typeof PRODUCT_ICONS): void => {
+    for (const element of view.querySelectorAll<HTMLElement>(selector)) {
+      element.innerHTML = productIcon(icon);
     }
-    head.appendChild(title);
-    const stockBadge = makeElement(
-      "span",
-      product.reorder_level > 0 && product.stock <= product.reorder_level ? "tag low" : "tag",
-      format(translate(language, "stockCount"), { count: String(product.stock) }),
-    );
-    head.appendChild(stockBadge);
-    card.appendChild(head);
+  };
+  paint(".products-search-icon", "search");
+  paint(".products-card-icon", "boxes");
+  paint(".products-link-icon", "alert");
+  const toolbarIcons = view.querySelectorAll<HTMLElement>(".products-btn-icon");
+  if (toolbarIcons[0]) {
+    toolbarIcons[0].innerHTML = productIcon("cart");
+  }
+  if (toolbarIcons[1]) {
+    toolbarIcons[1].innerHTML = productIcon("packagePlus");
+  }
+  productsReorder.addEventListener("click", () => void openReorderDialog());
+  productsReorderLink.addEventListener("click", () => void openReorderDialog());
+}
 
-    const meta = makeElement("div", "entity-meta");
-    if (product.category) {
-      meta.appendChild(makeElement("span", undefined, product.category));
-    }
-    meta.appendChild(
-      makeElement(
-        "span",
-        undefined,
-        format(translate(language, "productPrice"), {
-          price: formatMoney(product.price),
-        }),
-      ),
-    );
-    if (product.unit) {
-      meta.appendChild(makeElement("span", undefined, product.unit));
-    }
-    card.appendChild(meta);
-
-    const actions = makeElement("div", "entity-actions");
-    addActionButton(actions, "labelButton", "secondary", () => void openLabelDialog(product));
-    addActionButton(actions, "reorderButton", "secondary", () => void openReorderDialog());
-    addActionButton(actions, "edit", "secondary", () => openProductDialog(product));
-    addActionButton(actions, "delete", "danger", () => void removeProduct(product));
-    card.appendChild(actions);
-    productsList.appendChild(card);
+function renderProducts(products: Product[]): void {
+  paintProductsChrome();
+  const shown =
+    productFilter === "all"
+      ? products
+      : productFilter === "__low_stock__"
+        ? products.filter(isLowStockProduct)
+        : products.filter((product) => product.category === productFilter);
+  const lowCount = products.filter(isLowStockProduct).length;
+  productsCount.textContent = format(translate(language, "productsCatalogCount"), {
+    count: numberFormat.format(shown.length),
+  });
+  productsReorderBadge.hidden = lowCount === 0;
+  productsReorderBadge.textContent = String(lowCount);
+  productsReorderLink.hidden = lowCount === 0;
+  productsReorderLinkText.textContent = `${lowCount} ${translate(language, "productsReorderLink")}`;
+  renderProductPills(products);
+  productsList.replaceChildren();
+  if (shown.length === 0) {
+    const row = document.createElement("tr");
+    const cell = productCell("products-empty-cell", translate(language, "productsEmpty"));
+    cell.colSpan = 10;
+    row.appendChild(cell);
+    productsList.appendChild(row);
+    return;
+  }
+  for (const product of shown) {
+    productsList.appendChild(renderProductRow(product));
   }
 }
 
@@ -953,7 +1139,8 @@ async function loadProducts(): Promise<void> {
   try {
     const query = productSearch.value.trim() || null;
     const products = await invoke<Product[]>("list_products", { query });
-    renderProducts(products);
+    productCache = products;
+    renderProducts(productCache);
     productsMessage.textContent = "";
   } catch (error) {
     productsMessage.textContent = format(translate(language, "errorLoadProducts"), {

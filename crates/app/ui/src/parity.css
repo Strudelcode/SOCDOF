@@ -11,13 +11,14 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Bundled Plus Jakarta Sans (SIL OFL, see public/fonts/OFL.txt). The Google
-   Fonts request in the TS shell can fall back silently offline; this copy keeps
-   the exact typeface and variable weight axis available to the webview. */
+
+/* Bundled Plus Jakarta Sans (SIL OFL, see public/fonts/OFL.txt). The TS shell
+   loads the static Google Fonts instances; these are the same files, so glyph
+   advances and weights match the reference capture exactly. */
 @font-face {
   font-family: "Plus Jakarta Sans";
-  src: url("/fonts/plus-jakarta-sans-latin.woff2") format("woff2");
-  font-weight: 200 800;
+  src: url("/fonts/plus-jakarta-sans-400-latin.woff2") format("woff2");
+  font-weight: 400;
   font-style: normal;
   font-display: block;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
@@ -27,8 +28,96 @@
 
 @font-face {
   font-family: "Plus Jakarta Sans";
-  src: url("/fonts/plus-jakarta-sans-latin-ext.woff2") format("woff2");
-  font-weight: 200 800;
+  src: url("/fonts/plus-jakarta-sans-400-latin-ext.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-500-latin.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-500-latin-ext.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-600-latin.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-600-latin-ext.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-700-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-700-latin-ext.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-800-latin.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/fonts/plus-jakarta-sans-800-latin-ext.woff2") format("woff2");
+  font-weight: 800;
   font-style: normal;
   font-display: block;
   unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
@@ -5304,3 +5393,213 @@ body.palette-desktop .desktop-shortcut {
 #view-pos .pos-msg { min-height: 16px; padding: 0 16px; color: #fca5a5; font-size: 12px; }
 #view-pos .pos-empty { grid-column: 1 / -1; padding: 64px 0; text-align: center; color: #64748b; font-size: 14px; }
 :root[data-theme="dark"] #view-pos .pos-page { background: #0f172a; }
+
+/* ==========================================================================
+   Products module (port of SOCDOF - TS/src/components/sales/ProductsModule.tsx)
+   Markup, paddings, radii and colours follow the TS Tailwind classes 1:1:
+   space-y-6, gap-3, p-1 pills, px-3 py-1.5 pills, p-4 cells, text-xs table.
+   ========================================================================== */
+
+#view-products .products-page { display: flex; flex-direction: column; gap: 24px;
+  /* The TS module renders in the body face (Plus Jakarta Sans); the shell's global
+     `--font-sans` rule would otherwise force the system stack onto every heading and control. */
+  font-family: "Plus Jakarta Sans", var(--font-sans);
+  /* Tailwind preflight renders text with grayscale antialiasing; without it the
+     webview synthesises heavier stems and every glyph lands a pixel wide. */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  font-synthesis: none; }
+
+#view-products #products-message { margin: 0; }
+#view-products #products-message:empty { display: none; }
+
+#view-products .products-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#view-products .products-filters { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+#view-products .products-pills {
+  display: flex; align-items: center; gap: 6px; padding: 4px; border-radius: 12px;
+  background: #f1f5f9; overflow-x: auto; max-width: 100%;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+#view-products .products-pills::-webkit-scrollbar { width: 0; height: 0; }
+#view-products .products-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: 0;
+  border-radius: 8px; background: transparent; color: #475569;
+  font-family: inherit; font-size: 12px; font-weight: 600; line-height: 16px;
+  white-space: nowrap; cursor: pointer; transition: background-color 0.15s, color 0.15s;
+}
+#view-products .products-pill:hover { color: #0f172a; }
+#view-products .products-pill.is-active { background: #fff; color: #4f46e5; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
+#view-products .products-pill-low { color: #e11d48; }
+#view-products .products-pill-low svg { width: 12px; height: 12px; }
+#view-products .products-pill-low:hover { background: #fff1f2; color: #e11d48; }
+#view-products .products-pill-low.is-active { background: #f43f5e; color: #fff; }
+#view-products .products-pill-low.is-active:hover { background: #e11d48; }
+
+#view-products .products-actions { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end; min-width: 0; }
+#view-products .products-search { position: relative; display: flex; align-items: center; flex: 1 1 130px; min-width: 130px; max-width: 320px; }
+#view-products .products-search-icon {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  display: inline-flex; color: #94a3b8; pointer-events: none;
+}
+#view-products .products-search-icon svg { width: 16px; height: 16px; }
+#view-products .products-search input {
+  width: 100%; height: 36px; min-height: 0; padding: 0 12px 0 36px; margin: 0;
+  border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #0f172a;
+  font-family: inherit; font-size: 12px; line-height: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+#view-products .products-search input::placeholder { color: #94a3b8; }
+#view-products .products-search input:focus { outline: none; border-color: #6366f1; }
+
+#view-products .products-reorder,
+#view-products .products-new {
+  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px;
+  border: 0; border-radius: 12px; font-family: inherit;
+  font-size: 12px; font-weight: 700; line-height: 16px; cursor: pointer; flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+#view-products .products-reorder { background: linear-gradient(to right, #f59e0b, #d97706); color: #020617; }
+#view-products .products-new { padding: 0 14px; font-weight: 600; background: var(--accent, #4f46e5); color: #fff; }
+#view-products .products-btn-icon { display: inline-flex; }
+#view-products .products-btn-icon svg { width: 14px; height: 14px; }
+#view-products .products-reorder-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 999px; background: #e11d48; color: #fff;
+  font-size: 10px; font-weight: 700;
+}
+
+#view-products .products-card {
+  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); overflow: hidden;
+}
+#view-products .products-card-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px; border-bottom: 1px solid #f1f5f9;
+}
+#view-products .products-card-title {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-family: inherit; font-size: 12px; font-weight: 700; line-height: 16px;
+  letter-spacing: 0.05em; text-transform: uppercase; color: #64748b;
+}
+#view-products .products-card-icon { display: inline-flex; color: #6366f1; }
+#view-products .products-card-icon svg { width: 16px; height: 16px; }
+#view-products .products-reorder-link {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: transparent;
+  color: #d97706; font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+#view-products .products-reorder-link::after { content: "→"; }
+#view-products .products-link-icon { display: inline-flex; }
+#view-products .products-link-icon svg { width: 14px; height: 14px; }
+
+#view-products .products-table-wrap { overflow-x: auto; }
+#view-products .products-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+#view-products .products-table thead tr { background: rgba(248, 250, 252, 0.7); border-bottom: 1px solid #f1f5f9; }
+#view-products .products-table th {
+  padding: 16px; color: #64748b; font-family: inherit;
+  font-size: 12px; font-weight: 600; line-height: 16px;
+}
+#view-products .products-table th.products-th-image { width: 48px; text-align: center; }
+#view-products .products-table td {
+  padding: 16px; color: #0f172a; font-family: inherit; font-size: 12px; line-height: 16px;
+  vertical-align: middle;
+}
+#view-products .products-table tbody tr + tr { border-top: 1px solid #f1f5f9; }
+#view-products .products-table .is-right { text-align: right; }
+#view-products .products-table .is-center { text-align: center; }
+
+#view-products .products-cell-image { text-align: center; }
+#view-products .products-thumb {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border: 1px solid #e2e8f0; border-radius: 12px;
+  background: #f1f5f9; font-size: 18px; line-height: 1;
+}
+#view-products .products-name { font-weight: 600; color: #0f172a; }
+#view-products .products-desc {
+  margin-top: 2px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: #64748b; font-size: 11px; line-height: 14px;
+}
+#view-products .products-source { margin-top: 2px; color: #0284c7; font-family: var(--font-mono); font-size: 10px; }
+#view-products .products-mono { font-family: var(--font-mono); color: #475569; font-weight: 500; }
+#view-products .products-price { color: #0f172a; font-weight: 700; }
+#view-products .products-sku { font-family: var(--font-mono); color: #475569; font-weight: 500; }
+#view-products .products-asin { font-family: var(--font-mono); color: #059669; font-size: 10px; }
+#view-products .products-chip {
+  display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px;
+  background: #f1f5f9; color: #334155; font-size: 10px; font-weight: 600; line-height: 14px;
+}
+#view-products .products-margin { font-family: var(--font-mono); color: #059669; font-weight: 700; }
+#view-products .products-margin.is-negative { color: #e11d48; }
+#view-products .products-margin-pct { font-family: var(--font-mono); color: #94a3b8; font-size: 10px; }
+#view-products .products-stock-stack { display: inline-flex; flex-direction: column; align-items: center; }
+#view-products .products-cell-stock .products-stock svg { width: 12px; height: 12px; flex-shrink: 0; }
+#view-products .products-cell-stock .products-stock {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px;
+  background: #d1fae5; color: #047857; font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  line-height: 16px;
+}
+#view-products .products-cell-stock .products-stock.is-low {
+  border: 1px solid #fda4af; background: #ffe4e6; color: #be123c;
+}
+#view-products .products-stock-note { display: block; margin-top: 1px; color: #f43f5e; font-size: 10px; font-weight: 600; line-height: 14px; white-space: nowrap; }
+#view-products .products-muted { color: #94a3b8; }
+#view-products .products-empty-cell { padding: 32px; text-align: center; color: #94a3b8; }
+
+#view-products .products-row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+#view-products .products-row-reorder,
+#view-products .products-row-book {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border: 0; border-radius: 8px;
+  font-family: inherit; font-size: 12px; font-weight: 700; line-height: 16px; cursor: pointer;
+}
+#view-products .products-row-reorder { background: #f59e0b; color: #fff; }
+#view-products .products-row-reorder:hover { background: #d97706; }
+#view-products .products-row-reorder svg,
+#view-products .products-row-book svg { width: 12px; height: 12px; }
+#view-products .products-row-book { padding: 4px 10px; background: #eef2ff; color: #4f46e5; font-weight: 600; }
+#view-products .products-row-book:hover { background: #e0e7ff; }
+#view-products .products-row-icon {
+  display: inline-flex; align-items: center; justify-content: center; padding: 6px;
+  border: 0; border-radius: 8px; background: transparent; color: #94a3b8; cursor: pointer;
+}
+#view-products .products-row-icon svg { width: 14px; height: 14px; }
+#view-products .products-row-icon.is-qr { color: #6366f1; }
+#view-products .products-row-icon:hover { background: #f1f5f9; color: #4f46e5; }
+#view-products .products-row-icon.is-danger:hover { color: #e11d48; }
+
+:root[data-theme="dark"] #view-products .products-pills { background: rgba(30, 41, 59, 0.8); }
+:root[data-theme="dark"] #view-products .products-pill { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-pill:hover { color: #fff; }
+:root[data-theme="dark"] #view-products .products-pill.is-active { background: #0f172a; color: #818cf8; }
+:root[data-theme="dark"] #view-products .products-pill-low { color: #fb7185; }
+:root[data-theme="dark"] #view-products .products-pill-low:hover { background: rgba(76, 5, 25, 0.6); color: #fb7185; }
+:root[data-theme="dark"] #view-products .products-pill-low.is-active { background: #f43f5e; color: #fff; }
+:root[data-theme="dark"] #view-products .products-search input {
+  background: #0f172a; border-color: #1e293b; color: #f1f5f9;
+}
+:root[data-theme="dark"] #view-products .products-search input::placeholder { color: #64748b; }
+:root[data-theme="dark"] #view-products .products-card { background: #0f172a; border-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-card-head { border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-card-title { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-table thead tr { background: rgba(30, 41, 59, 0.4); border-bottom-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-table th { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-table td { color: #f1f5f9; }
+:root[data-theme="dark"] #view-products .products-table tbody tr + tr { border-top-color: #1e293b; }
+:root[data-theme="dark"] #view-products .products-thumb { background: #1e293b; border-color: #334155; }
+:root[data-theme="dark"] #view-products .products-name,
+:root[data-theme="dark"] #view-products .products-price { color: #fff; }
+:root[data-theme="dark"] #view-products .products-desc { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-source { color: #38bdf8; }
+:root[data-theme="dark"] #view-products .products-mono,
+:root[data-theme="dark"] #view-products .products-sku { color: #cbd5e1; }
+:root[data-theme="dark"] #view-products .products-asin { color: #34d399; }
+:root[data-theme="dark"] #view-products .products-chip { background: #1e293b; color: #cbd5e1; }
+:root[data-theme="dark"] #view-products .products-margin { color: #34d399; }
+:root[data-theme="dark"] #view-products .products-margin.is-negative { color: #fb7185; }
+:root[data-theme="dark"] #view-products .products-cell-stock .products-stock { background: rgba(6, 78, 59, 0.8); color: #6ee7b7; }
+:root[data-theme="dark"] #view-products .products-cell-stock .products-stock.is-low {
+  border-color: #881337; background: rgba(76, 5, 25, 0.8); color: #fda4af;
+}
+:root[data-theme="dark"] #view-products .products-stock-note { color: #fb7185; }
+:root[data-theme="dark"] #view-products .products-muted { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-empty-cell { color: #94a3b8; }
+:root[data-theme="dark"] #view-products .products-row-book { background: rgba(30, 27, 75, 0.6); color: #818cf8; }
+:root[data-theme="dark"] #view-products .products-row-icon:hover { background: #1e293b; }
