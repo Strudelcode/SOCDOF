@@ -6332,14 +6332,14 @@ body.palette-desktop .desktop-shortcut {
 #view-docs .dp-brand { display: flex; align-items: center; gap: 12px; }
 #view-docs .dp-brand-tile {
   flex: 0 0 36px; width: 36px; height: 36px; border-radius: 12px;
-  background: #4f46e5; color: #fff; display: grid; place-items: center;
+  background: #4f39f6; color: #fff; display: grid; place-items: center;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 #view-docs .dp-brand-tile svg { width: 20px; height: 20px; }
 #view-docs .dp-brand-line { display: flex; align-items: center; gap: 8px; }
 #view-docs .dp-brand-line h2 {
-  margin: 0; font-family: "Plus Jakarta Sans", var(--font-sans);
-  font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: -0.2px; color: #0f172a;
+  margin: 0; font-family: "Noto Sans", var(--font-sans);
+  font-size: 14px; line-height: 20px; font-weight: 700; letter-spacing: -0.35px; color: #0f172a;
 }
 #view-docs .dp-version {
   display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 999px;
@@ -6347,7 +6347,7 @@ body.palette-desktop .desktop-shortcut {
   letter-spacing: 0.4px; text-transform: uppercase;
 }
 #view-docs .dp-brand-sub {
-  margin: 0; font-family: "Plus Jakarta Sans", var(--font-sans);
+  margin: 0; font-family: "Noto Sans", var(--font-sans);
   font-size: 11px; line-height: 16px; color: #90a1b9;
 }
 #view-docs .dp-tabs {
@@ -6356,11 +6356,11 @@ body.palette-desktop .desktop-shortcut {
 }
 #view-docs .dp-tab {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 8px;
-  background: transparent; color: #45556c; font-family: "Plus Jakarta Sans", var(--font-sans);
-  font-size: 12px; line-height: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;
+  background: transparent; color: #45556c; font-family: "Noto Sans", var(--font-sans);
+  font-size: 12.3px; line-height: 16px; font-weight: 500; white-space: nowrap; cursor: pointer;
 }
 #view-docs .dp-tab svg { width: 14px; height: 14px; }
-#view-docs .dp-tab.is-active { background: #4f46e5; color: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1); }
+#view-docs .dp-tab.is-active { background: #4f39f6; color: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1); }
 #view-docs .dp-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 #view-docs .dp-body { max-width: 1024px; margin: 0 auto; padding: 24px; }
 #view-docs .dp-sectionhead {
@@ -6368,50 +6368,54 @@ body.palette-desktop .desktop-shortcut {
   padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;
 }
 #view-docs .dp-sectionhead h3 {
-  display: flex; align-items: center; gap: 8px; margin: 0;
-  font-family: "Liberation Sans", var(--font-sans);
-  font-size: 17px; line-height: 24px; font-weight: 700; color: #0f172a;
+  display: flex; align-items: center; gap: 8px; margin: 0; position: relative; top: 1px;
+  font-family: "Noto Sans", var(--font-sans);
+  font-size: 16.9px; line-height: 24px; font-weight: 700; color: #0f172a;
 }
-#view-docs .dp-sectionhead-icon { display: grid; place-items: center; color: #4f46e5; }
+#view-docs .dp-sectionhead-icon { display: grid; place-items: center; color: #4f39f6; }
 #view-docs .dp-sectionhead-icon svg { width: 20px; height: 20px; }
 #view-docs .dp-local {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-family: "Plus Jakarta Sans", var(--font-sans);
+  display: inline-flex; align-items: center; gap: 6px; position: relative; top: 1px;
+  font-family: "Noto Sans", var(--font-sans);
   font-size: 12px; line-height: 16px; font-weight: 600; color: #009966;
 }
 #view-docs .dp-local svg { width: 16px; height: 16px; }
-#view-docs .dp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 16px; row-gap: 15px; margin-top: 16px; }
+#view-docs .dp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 16px; row-gap: 16.5px; margin-top: 16px; }
 #view-docs .dp-grid-manual { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0; }
 #view-docs .dp-card {
   padding: 16px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+#view-docs .dp-card.is-ring {
+  border-color: #d8d6f9;
+  box-shadow: 0 0 0 4px rgba(79, 57, 246, 0.035), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 #view-docs .dp-card-icon {
   display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; border: 1px solid transparent;
 }
 #view-docs .dp-card-icon svg { width: 20px; height: 20px; }
 #view-docs .dp-card-title {
-  margin: 8px 0 0; font-family: "Liberation Sans", var(--font-sans);
-  font-size: 15px; line-height: 20px; font-weight: 700; letter-spacing: 0.35px; color: #0f172a;
+  margin: 8px 0 0;   font-family: "Noto Sans", var(--font-sans);
+  font-size: 14.4px; line-height: 20px; font-weight: 700; color: #0f172a;
 }
 #view-docs .dp-card-body {
-  margin: 8px 0 0; font-family: "Liberation Sans", var(--font-sans);
-  font-size: 12px; line-height: 20px; color: #45556c;
+  margin: 9px 0 0; font-family: "Noto Sans", var(--font-sans);
+  font-size: 12px; line-height: 19.5px; color: #45556c;
 }
 #view-docs .dp-card-badge {
-  display: flex; align-items: center; gap: 8px; margin-top: 16px;
-  font-family: "Plus Jakarta Sans", var(--font-sans);
+  display: flex; align-items: center; gap: 8px; margin-top: 16px; position: relative; top: 1px;
+  font-family: "Noto Sans", var(--font-sans);
   font-size: 10px; line-height: 15px; font-weight: 700; color: #009966;
 }
 #view-docs .dp-card-badge svg { width: 14px; height: 14px; }
-#view-docs .dp-card-icon.is-indigo { background: #eef2ff; border-color: #c6d2ff; color: #4f46e5; }
-#view-docs .dp-card-icon.is-teal { background: #f0fdfa; border-color: #96f7e4; color: #0d9488; }
-#view-docs .dp-card-icon.is-violet { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+#view-docs .dp-card-icon.is-indigo { background: #eef2ff; border-color: #c6d2ff; color: #4f39f6; }
+#view-docs .dp-card-icon.is-teal { background: #f0fdfa; border-color: #96f7e4; color: #009689; }
+#view-docs .dp-card-icon.is-violet { background: #f5f3ff; border-color: #ddd6ff; color: #7f22fe; }
 #view-docs .dp-card-icon.is-emerald { background: #ecfdf5; border-color: #a4f4cf; color: #009966; }
-#view-docs .dp-card-icon.is-amber { background: #fffbeb; border-color: #fee685; color: #d97706; }
-#view-docs .dp-card-icon.is-blue { background: #eff6ff; border-color: #bedbff; color: #2563eb; }
-#view-docs .dp-card-icon.is-orange { background: #fff7ed; border-color: #ffd6a8; color: #ea580c; }
-#view-docs .dp-card-icon.is-cyan { background: #ecfeff; border-color: #a2f4fd; color: #0891b2; }
+#view-docs .dp-card-icon.is-amber { background: #fffbeb; border-color: #fee685; color: #e17100; }
+#view-docs .dp-card-icon.is-blue { background: #eff6ff; border-color: #bedbff; color: #155dfc; }
+#view-docs .dp-card-icon.is-orange { background: #fff7ed; border-color: #ffd7a8; color: #f54a00; }
+#view-docs .dp-card-icon.is-cyan { background: #ecfeff; border-color: #a2f4fd; color: #0092b8; }
 #view-docs .dp-manualbar { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 #view-docs .dp-search { position: relative; display: flex; align-items: center; }
 #view-docs .dp-search-icon { position: absolute; left: 12px; display: grid; place-items: center; color: #90a1b9; }
@@ -6427,22 +6431,23 @@ body.palette-desktop .desktop-shortcut {
 :root[data-theme="dark"] #view-docs .dp-brand-sub { color: #90a1b9; }
 :root[data-theme="dark"] #view-docs .dp-tabs { background: rgba(29, 41, 61, 0.8); border-color: rgba(49, 65, 85, 0.8); }
 :root[data-theme="dark"] #view-docs .dp-tab { color: #cad5e2; }
-:root[data-theme="dark"] #view-docs .dp-tab.is-active { background: #4f46e5; color: #fff; }
+:root[data-theme="dark"] #view-docs .dp-tab.is-active { background: #4f39f6; color: #fff; }
 :root[data-theme="dark"] #view-docs .dp-sectionhead { border-bottom-color: #1d293d; }
 :root[data-theme="dark"] #view-docs .dp-sectionhead h3 { color: #f8fafc; }
 :root[data-theme="dark"] #view-docs .dp-sectionhead-icon { color: #818cf8; }
-:root[data-theme="dark"] #view-docs .dp-local { color: #34d399; }
+:root[data-theme="dark"] #view-docs .dp-local { color: #00d492; }
 :root[data-theme="dark"] #view-docs .dp-card { background: #0f172b; border-color: #1d293d; }
+:root[data-theme="dark"] #view-docs .dp-card.is-ring { border-color: #222563; box-shadow: 0 0 0 4px rgba(79, 57, 246, 0.07), 0 1px 2px rgba(0, 0, 0, 0.3); }
 :root[data-theme="dark"] #view-docs .dp-card-title { color: #f8fafc; }
 :root[data-theme="dark"] #view-docs .dp-card-body { color: #90a1b9; }
-:root[data-theme="dark"] #view-docs .dp-card-badge { color: #34d399; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-indigo { background: rgba(30, 27, 75, 0.5); border-color: #372aac; color: #a3b3ff; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-teal { background: rgba(4, 47, 46, 0.5); border-color: #0b4f4a; color: #5ee9d5; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-violet { background: rgba(47, 15, 88, 0.5); border-color: #5b21b6; color: #c4b5fd; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-emerald { background: rgba(0, 46, 32, 0.5); border-color: #005f3d; color: #34d399; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-amber { background: rgba(70, 36, 4, 0.5); border-color: #733e0a; color: #fbbf24; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-blue { background: rgba(23, 37, 84, 0.5); border-color: #1c398e; color: #8ec5ff; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-orange { background: rgba(67, 20, 7, 0.5); border-color: #7e2a0c; color: #ffb86a; }
-:root[data-theme="dark"] #view-docs .dp-card-icon.is-cyan { background: rgba(5, 51, 60, 0.5); border-color: #005f78; color: #53eafd; }
+:root[data-theme="dark"] #view-docs .dp-card-badge { color: #00d492; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-indigo { background: #1e1a4d; border-color: #372aac; color: #7c86ff; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-teal { background: #022f2e; border-color: #005f5a; color: #00d5be; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-violet { background: #2f0d68; border-color: #5d0ec0; color: #a684ff; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-emerald { background: #002c22; border-color: #00805a; color: #00d492; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-amber { background: #461901; border-color: #973c00; color: #ffb900; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-blue { background: #162456; border-color: #193cb8; color: #51a2ff; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-orange { background: #441306; border-color: #9f2d00; color: #ff8904; }
+:root[data-theme="dark"] #view-docs .dp-card-icon.is-cyan { background: #053345; border-color: #005f78; color: #00d3f3; }
 :root[data-theme="dark"] #view-docs .dp-search input { background: #1d293d; border-color: #314158; color: #f8fafc; }
 :root[data-theme="dark"] #view-docs .dp-empty { color: #90a1b9; }

@@ -15,19 +15,24 @@
   emerald 009966, amber f59e0b for the supplier count). One documented content residual: the supplier
   KPI reads `5` against the reference's `6` because the parity database holds five `vendor` contacts
   plus one `customer`, and seeding a sixth vendor would break the contacts pair.
-- **The Manual (`view-docs`) is now a port of `documents/DocumentationApp.tsx`**: docs 97.27/0.8334 light,
-  docs 97.31/0.8315 dark, up from 94.73/0.6391 and 92.90/0.5117. The old handbook screen was
-  replaced by the portal markup: the ribbon (36 px icon tile, 14/20 title with the `v25.2.27` chip, 11/16
-  subtitle, six-pill tab bar on `#f1f5f9` with a 28 px active pill), the section head with its rule at
-  y=230, and the 3 × 3 feature grid at x=182/513/843 with 315 px cards at y=247/463/678 and 16 px gaps.
-  Measured corrections, each re-captured: the shell's 24 px workspace padding does not exist in the
-  full-bleed reference, so the view cancels it with a -24 px inset; the grid row gap is 15 px so the
-  second row starts on the reference's y=463; the card titles are 15/20 with 0.35 px tracking and the
-  descriptions are 12/20 Liberation Sans, which reproduces the reference's three line breaks word for
-  word; the card tone tiles, dark palette (`#020618` page, `#0f172b` cards, `#1d293d` borders) and the
-  green chip colours were sampled from the capture. Both targets stay open (0.73 window pixel, 0.067
-  window SSIM) and the residual is glyph rasterisation: blurring the window crop lifts the pair to
-  0.9076/0.9379 (light) and 0.9045/0.9331 (dark) SSIM, so no screen element is missing.
+- **The Manual (`view-docs`) now meets both targets in both themes: docs 98.35/0.9102 light,
+  docs 98.43/0.9081 dark**, up from 94.73/0.6391 and 92.90/0.5117 and from the 97.27/0.8334 and
+  97.31/0.8315 an earlier pass stopped at. The old handbook screen was replaced by the portal markup
+  (ribbon with the 36 px icon tile and the `v25.2.27` chip, six-pill tab bar, section rule at y=230,
+  3 × 3 grid at x=182/513/843 with 315 px cards at y=247/463/678); what moved the last 0.07 SSIM was a
+  font measurement, not a layout one. Fitting all nine card-title widths showed the reference's
+  `system-ui` resolves to **Noto Sans**: it reproduces them with 0.7 px mean error (max 2.2) where
+  Liberation Sans Bold needs 2.6 px (max 8.2). The portal text therefore loads Noto Sans at the
+  reference's sizes — 14.4/20 card titles, 16.9/24 section head, 12/19.5 descriptions, 10/15 badges,
+  12.3/16 tab labels — and the descriptions then break on the reference's own three lines without a
+  forced break, the card rows land on 247/463/678 with a 16.5 px gap, and one-pixel offsets line up the
+  section head, the green chip and the badges. The tone palette moved to the capture's Tailwind v4
+  values (`#4f39f6` indigo, `#155dfc` blue, `#7f22fe` violet, `#e17100` amber, `#f54a00` orange,
+  `#0092b8` cyan, `#009689` teal) with opaque `*-950` tiles in dark, and the six cards the reference
+  paints with the light indigo edge plus its 4 px halo carry it too (`#d8d6f9` / `#222563`). Measured and
+  discarded: 15 px Liberation titles with 0.35 px tracking (0.8334), 14 px Liberation titles (0.7884 in
+  the mixed step), Liberation descriptions after the font switch. σ=1.5 blur lifts the finished pair to
+  0.9779/0.9746, so the rest is glyph phase.
 - **Accounting reaches both targets in both themes: window pixel/SSIM accounting 98.56/0.9090 light,
   accounting 98.21/0.9031 dark**, up from 95.25/0.7621 and 92.75/0.6033. The screen
   was rebuilt as a port of `SOCDOF - TS/src/components/sales/AccountingModule.tsx` instead of being
@@ -50,12 +55,12 @@
 - The manual booking form moved into a dialog behind a keyboard-reachable control, so the journal
   entry smoke path (`accounting-new` → `accounting-form` → `accounting-list`) still runs while the
   screen keeps the reference's report-only pixels.
-- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9004 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.64/0.9086 light, calendar 98.22/0.9023 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 98.09/0.8549 light, purchases 97.63/0.8407 dark, docs 94.73/0.6391 light, docs 92.90/0.5117 dark. Apart from Accounting and Purchases the
-  numbers are unchanged except for capture jitter of 0.0001 SSIM on products light (0.9005 → 0.9004)
-  and docs light (0.6390 → 0.6391), both re-measured from this run and updated in the README.
-  `check_consistency.py` reports 2 open module screens (Purchases on SSIM, Manual on both).
+- Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9004 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.65/0.9087 light, calendar 98.23/0.9027 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 98.09/0.8549 light, purchases 97.63/0.8407 dark, docs 98.35/0.9102 light, docs 98.43/0.9081 dark. Apart from the Manual the
+  numbers are unchanged except for capture jitter on calendar light (98.64/0.9086 → 98.65/0.9087) and
+  calendar dark (98.22/0.9023 → 98.23/0.9027), both re-measured from this run and updated in the README.
+  `check_consistency.py` reports 1 open module screen (Purchases on SSIM).
 
-- **Calendar reaches both targets in both themes: 98.64 / 0.9086 light, 98.22 / 0.9023 dark.**
+- **Calendar reaches both targets in both themes: 98.65 / 0.9087 light, 98.23 / 0.9027 dark.**
   The view was not retouched but rebuilt as a port of `SOCDOF - TS/src/components/apps/
   CalendarModule.tsx`: the two-row command header (sidebar toggle, indigo tile and title, *Neuer
   Termin*, the *Heute* group with ‹ ›, the period label, the 384 px search field, then the

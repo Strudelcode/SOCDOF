@@ -163,11 +163,13 @@ interface FeatureCard {
   title: string;
   body: string;
   badge: string;
+  ring?: boolean;
 }
 
 const FEATURES: FeatureCard[] = [
   {
     tone: "indigo",
+    ring: true,
     icon: "receipt",
     title: "DIN 5008 Fakturierung",
     body: "Rechtssichere Rechnungen, individuelle Briefköpfe mit Hintergrundgrafiken, Rabatte, Zahlungsziele und PDF-Export.",
@@ -182,6 +184,7 @@ const FEATURES: FeatureCard[] = [
   },
   {
     tone: "violet",
+    ring: true,
     icon: "card",
     title: "POS Touch-Kasse",
     body: "Schnellkasse für Ladengeschäfte, Touch-Eingabe, Barcode-Scanner-Support, Bar-/Kartenzahlung und Bondruck.",
@@ -189,6 +192,7 @@ const FEATURES: FeatureCard[] = [
   },
   {
     tone: "emerald",
+    ring: true,
     icon: "calculator",
     title: "Abrechnung & BWA",
     body: "Automatische GoBD-Buchungssätze für Rechnungen und Kasse, Einnahmen-Überschuss-Rechnung (EÜR) und BWA.",
@@ -196,6 +200,7 @@ const FEATURES: FeatureCard[] = [
   },
   {
     tone: "amber",
+    ring: true,
     icon: "layers",
     title: "Warenwirtschaft & Lager",
     body: "Lagerbestandsführung in Echtzeit, Wareneingang und -ausgang, Mindestbestände und Bestandsbewertung.",
@@ -217,6 +222,7 @@ const FEATURES: FeatureCard[] = [
   },
   {
     tone: "orange",
+    ring: true,
     icon: "utensils",
     title: "Gastronomie & Restaurant",
     body: "Interaktiver Tischplan mit Farbstatus, Bon-Druck für Küche/Bar, Gang-Timing und Rechnungs-Splits.",
@@ -224,6 +230,7 @@ const FEATURES: FeatureCard[] = [
   },
   {
     tone: "cyan",
+    ring: true,
     icon: "headphones",
     title: "Kundendienst & Tickets",
     body: "Ticket-System mit absturzsicherem Live-Timer, Außendienst-Protokollen und Zeiterfassungs-Export.",
@@ -253,7 +260,7 @@ function tabBar(): string {
 
 function featureGrid(): string {
   return FEATURES.map(
-    (card) => `<article class="dp-card">
+    (card) => `<article class="dp-card${card.ring ? " is-ring" : ""}">
         <div class="dp-card-icon is-${card.tone}">${ICON[card.icon]}</div>
         <h4 class="dp-card-title">${escapeHtml(card.title)}</h4>
         <p class="dp-card-body">${escapeHtml(card.body)}</p>

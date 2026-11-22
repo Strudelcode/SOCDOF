@@ -6,7 +6,7 @@ Both editions were captured live at **1440 × 900**, in **German**, with the sam
 Manual and POS were captured with the **TS demo catalogue seeded** on both sides. Screenshots are the
 rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces both data states.
 
-> **Status (2026-11-21):** every pair in this document except Purchases and the Manual meets **both**
+> **Status (2026-11-22):** every pair in this document except Purchases meets **both**
 > window targets (≥98.00 pixel and ≥0.90 SSIM). Accounting closed at **98.56 / 0.9090** (light) and
 > **98.21 / 0.9031** (dark), up from 95.25/0.7621 and 92.75/0.6033. Products closes the last gap at
 > **98.60 / 0.9004** (light) and **98.39 / 0.9000** (dark), up from 94.32/0.6390 and 93.28/0.5713.
@@ -36,16 +36,24 @@ rendered applications, not mockups; `artifacts/parity-capture-all.sh` reproduces
 > pixel target is met in the light theme, the SSIM target is not.
 >
 > The Manual (`view-docs`) was then rebuilt as a port of `documents/DocumentationApp.tsx` instead of a
-> restyled handbook, and moved from 94.73/0.6391 to **97.27 / 0.8334** (light) and from 92.90/0.5117 to
-> **97.31 / 0.8315** (dark). The measured corrections: the portal ribbon (36 px icon tile at 121/70,
-> 14/20 title with the `v25.2.27` chip, 11/16 subtitle, six-pill tab bar on `#f1f5f9` with a 28 px active
-> pill), the section rule at y=230, the 3 × 3 feature grid at x=182/513/843 with 315 px cards at
-> y=247/463/678 and 16 px gaps, the type ramp (14/20 Plus Jakarta Sans in the ribbon, 15/20 card titles,
-> 12/20 Liberation Sans descriptions that wrap on the reference's three lines, 17/24 section head), and
-> the shell's 24 px workspace padding, which the full-bleed reference does not have and which the view now
-> cancels with a -24 px inset. Both targets stay open by 0.73 window pixel and 0.067 window SSIM; the
-> residual is glyph rasterisation (WebKitGTK against Chromium), not a missing element, and blurring the
-> crop lifts the pair to 0.9076 / 0.9379 (light) and 0.9045 / 0.9331 (dark) SSIM.
+> restyled handbook, and closed at **98.35 / 0.9102** (light) and **98.43 / 0.9081** (dark), up from
+> 94.73/0.6391 and 92.90/0.5117 and from the 97.27/0.8334 and 97.31/0.8315 an earlier pass stopped at.
+> The portal geometry (36 px icon tile at 121/70, 14/20 title with the `v25.2.27` chip, 11/16 subtitle,
+> six-pill tab bar on `#f1f5f9` with a 28 px active pill, section rule at y=230, 3 × 3 grid at
+> x=182/513/843 with 315 px cards at y=247/463/678 and 16.5 px row gaps, shell inset cancelled with a
+> -24 px margin) was already right; the remaining 0.07 SSIM was the **font face, not the metrics**. The
+> reference resolves `system-ui` through this sysroot's fontconfig to **Noto Sans**, and the card titles
+> proved it arithmetically: across all nine module titles Noto Sans Bold 14 px reproduces the reference
+> widths with a mean error of 0.7 px (max 2.2), Liberation Sans Bold 14 px needs 2.6 px (max 8.2). The
+> port now loads Noto Sans for titles, section head, descriptions, badges, tab labels and the ribbon
+> copy, keeps the measured sizes (14.4/20 card titles, 16.9/24 section head, 12/19.5 descriptions,
+> 10/15 badges) and lets the reference's three-line wraps fall where they fall. The tone palette moved
+> from Tailwind v3 hex to the v4 OKLCH values the capture actually contains (`#4f39f6` indigo-600,
+> `#155dfc` blue-600, `#7f22fe` violet-600, `#e17100` amber-600, `#f54a00` orange-600, `#0092b8`
+> cyan-600, `#009689` teal-600), and the dark icon tiles are the opaque 950 tones the reference paints
+> instead of 50 % blends. Six of the nine cards also carry the reference's light indigo edge
+> (`#d8d6f9` light, `#222563` dark) with its 4 px halo. Blurring the window crop still lifts the pair to
+> 0.9638 / 0.9779 (light) and 0.9615 / 0.9746 (dark), so what is left is glyph phase.
 > No threshold was lowered and no blur, scale, transform or global antialiasing setting is used.
 >
 > Accounting was rebuilt the same way, as a port of `AccountingModule.tsx`: the header block at 82–170
@@ -130,7 +138,7 @@ The GUI smoke renders all 20 registered views through the real navigation path a
 | Purchases (`view-purchases`) | image pair, light + dark | pixel, **98.09 / 97.63**, SSIM 0.8549 / 0.8407 (SSIM below target) |
 | Reports (`view-reports`) | DOM audit | structural — no equivalent TS screen (TS `feedback` is a different app) |
 | Documents (`view-documents`) | DOM audit | structural — no TS module |
-| Manual (`view-docs`) | image pair, light + dark | pixel, 97.27 / 97.31, SSIM 0.8334 / 0.8315 (below target) |
+| Manual (`view-docs`) | image pair, light + dark | pixel, **98.35 / 98.43**, SSIM **0.9102 / 0.9081** (both targets met) |
 | Users (`view-users`) | DOM audit | structural — no TS module |
 | Templates (`view-templates`) | DOM audit | structural — no TS module |
 
@@ -190,7 +198,7 @@ their KPI rows; before that fix the smoke audit reported `heading=""` for both v
   `diff.csv`; it also requires the release-checkout copies `artifacts/diff.json` and
   `artifacts/diff.csv` to be byte-identical to the `docs/parity` files, exactly 11 views × 2 themes,
   both reference images per pair, the documented thresholds to still be the enforced 98.00 / 0.90,
-  and no pair outside Calendar, Accounting, Purchases and the Manual to sit below them.
+  and no pair outside Purchases to sit below them.
 
 Measured light/dark separation of the six new views (window crop): luminance 245.4→19.9 (Products),
 76.1→23.5 (POS), 247.3→21.1 (Calendar), 243.8→20.5 (Accounting), 243.1→20.4 (Purchases),
@@ -212,31 +220,31 @@ difference is the window chrome and desktop backdrop.
 | Contacts | light | 97.32 | **98.90** | **0.9131** | 97.03 % |
 | Contacts | dark | 96.88 | **98.54** | **0.9002** | 94.15 % |
 | Settings | light | 97.28 | **98.84** | **0.9139** | 96.07 % |
-| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.26 % |
+| Settings | dark | 96.82 | **98.44** | **0.9025** | 94.27 % |
 | Command Palette | light | 98.39 | **98.23** | **0.9298** | 95.70 % |
 | Command Palette | dark | 98.76 | **98.73** | **0.9243** | 96.32 % |
 | Products | light | 97.15 | **98.60** | 0.9004 | 95.67 % |
 | Products | dark | 96.81 | **98.39** | 0.9000 | 93.32 % |
 | POS | light | 97.21 | **98.68** | **0.9176** | 95.30 % |
 | POS | dark | 96.96 | **98.61** | **0.9143** | 95.17 % |
-| Calendar | light | 97.19 | **98.64** | **0.9086** | 96.23 % |
-| Calendar | dark | 96.71 | **98.22** | **0.9023** | 95.24 % |
+| Calendar | light | 97.19 | **98.65** | **0.9087** | 96.27 % |
+| Calendar | dark | 96.71 | **98.23** | **0.9027** | 95.27 % |
 | Accounting | light | 97.13 | **98.56** | **0.9090** | 96.11 % |
 | Accounting | dark | 96.67 | **98.21** | **0.9031** | 95.39 % |
 | Purchases | light | 96.82 | 98.09 | 0.8549 | 94.35 % |
 | Purchases | dark | 96.31 | 97.63 | 0.8407 | 93.33 % |
-| Manual | light | 96.28 | 97.27 | 0.8334 | 92.97 % |
-| Manual | dark | 96.10 | 97.31 | 0.8315 | 92.07 % |
+| Manual | light | 96.99 | **98.35** | **0.9102** | 94.90 % |
+| Manual | dark | 96.84 | **98.43** | **0.9081** | 94.60 % |
 
 Bold values meet the respective target (window pixel score ≥98.00; window SSIM ≥0.90). The ten
 original pairs and POS meet both targets, and Products (98.60 / 0.9004 light, 98.39 / 0.9000 dark),
-Calendar (98.64 / 0.9086 light, 98.22 / 0.9023 dark) and Accounting (98.56 / 0.9090 light,
-98.21 / 0.9031 dark) clear them at the end of the module list. Purchases and the Manual do not and are
-printed unbolded for that reason. The passing module pairs are ports of the TS markup, and their
-remaining distance is glyph placement rather than a missing screen element (blurring the window crop
-lifts them to 0.94–0.97 SSIM, see *Quantified residual (module screens)* below). The two open screens
-still differ structurally: both editions show the same seeded catalogue, and their residual survives
-blurring (0.51–0.85 SSIM at σ=1.5), so it is the screen layout itself.
+Calendar (98.65 / 0.9087 light, 98.23 / 0.9027 dark), Accounting (98.56 / 0.9090 light,
+98.21 / 0.9031 dark) and the Manual (98.35 / 0.9102 light, 98.43 / 0.9081 dark) clear them at the end of
+the module list. Purchases does not and is printed unbolded for that reason. The passing module pairs
+are ports of the TS markup, and their remaining distance is glyph placement rather than a missing
+screen element (blurring the window crop lifts them to 0.94–0.98 SSIM, see *Quantified residual (module
+screens)* below). Purchases still differs structurally: both editions show the same seeded catalogue,
+and its residual survives blurring (0.94 SSIM at σ=1.5), so it is the table anatomy itself.
 Settings moved from 98.11/0.8507 (light) and 97.67/0.8432 (dark) by fixing
 measured layout deltas, not by retouching the screenshot: the sidebar card now starts at y=177 and is
 clipped at y=739, every sidebar label/nav line sits on the TS row grid, the hero copy/kicker/CTA use
@@ -248,22 +256,22 @@ the reference offsets, the quick panel starts at y=360 with cards at y=439, the 
 Products, Calendar, Accounting, Purchases and the Manual were re-captured this round with the same
 seeded catalogue on both sides. Purchases still renders a different table anatomy than its TS
 counterpart, so part of its distance is structure rather than antialiasing. The Manual is now a port of
-the portal markup and lands at 0.90–0.94 under the same blur, so what is left there is glyph phase, not
-layout. Products, Calendar, Accounting and POS are ports of the same markup and land at 0.94–0.97 under
+the portal markup and lands at 0.96–0.98 under the same blur, so what is left there is glyph phase, not
+layout. Products, Calendar, Accounting and POS are ports of the same markup and land at 0.95–0.97 under
 the same blur, because only glyph edges differ:
 
 | View | Theme | Window SSIM | σ=1 blur | σ=1.5 blur | Pixels Δ>8 | Δ>32 |
 |---|---|---:|---:|---:|---:|---:|
 | Products | light | 0.9004 | 0.9524 | 0.9668 | 6.3 % | 3.1 % |
 | Products | dark | 0.9000 | 0.9469 | 0.9593 | 8.4 % | 3.7 % |
-| Calendar | light | 0.9086 | 0.9552 | 0.9682 | 7.4 % | 2.4 % |
-| Calendar | dark | 0.9023 | 0.9459 | 0.9595 | 9.2 % | 2.8 % |
-| Accounting | light | 0.9090 | 0.9465 | 0.9626 | 6.1 % | 2.7 % |
-| Accounting | dark | 0.9031 | 0.9398 | 0.9536 | 8.1 % | 3.0 % |
+| Calendar | light | 0.9087 | 0.9560 | 0.9692 | 7.4 % | 2.4 % |
+| Calendar | dark | 0.9027 | 0.9476 | 0.9611 | 9.2 % | 2.8 % |
+| Accounting | light | 0.9090 | 0.9478 | 0.9620 | 6.1 % | 2.7 % |
+| Accounting | dark | 0.9031 | 0.9404 | 0.9535 | 8.1 % | 3.0 % |
 | Purchases | light | 0.8549 | 0.9149 | 0.9385 | 7.1 % | 3.9 % |
 | Purchases | dark | 0.8407 | 0.8994 | 0.9213 | 9.8 % | 4.4 % |
-| Manual | light | 0.8334 | 0.9076 | 0.9379 | 9.5 % | 6.2 % |
-| Manual | dark | 0.8315 | 0.9045 | 0.9331 | 14.8 % | 6.9 % |
+| Manual | light | 0.9102 | 0.9638 | 0.9779 | 6.1 % | 4.0 % |
+| Manual | dark | 0.9081 | 0.9615 | 0.9746 | 6.5 % | 3.9 % |
 | POS (reference) | light | 0.9176 | 0.9517 | 0.9649 | 6.1 % | 2.5 % |
 | POS (reference) | dark | 0.9143 | 0.9488 | 0.9621 | 6.4 % | 2.7 % |
 
@@ -314,10 +322,20 @@ The concrete deltas, taken from the two captures of each pair:
   tile, title with the `v25.2.27` chip, subtitle, six-pill tab bar with the indigo active pill), the
   "Integrierte Business-Module im Überblick" heading with the green "100 % Lokale Datenhaltung &
   Offline-Betrieb" chip, and the 3 × 3 grid of feature cards (toned icon tile, bold title, three-line
-  description, green bullet line), plus a working Handbuch tab with the reference search field. What is
-  left is text rasterisation: the reference's system-ui stack resolves to Arial metrics here, which the
-  descriptions now match character for character (their three line breaks land on the same words), but
-  the bold titles and the 17 px section head still rasterise half a pixel wider in Chromium.
+  description, green bullet line), plus a working Handbuch tab with the reference search field. The
+  earlier pass stopped at 97.27/0.8334 and blamed "the reference font is wider"; the measurement that
+  broke it open was a width fit over all nine card titles: the reference's `system-ui` resolves to
+  **Noto Sans** in this sysroot, which reproduces every title width with 0.7 px mean error where
+  Liberation Sans needs 2.6 px, and the descriptions' three-line wraps then fall on the reference's own
+  words without any forced break. Loading Noto Sans for the portal text, correcting the section head to
+  16.9/24 (the reference's `text-base` renders 304 px of ink where the old 17 px Liberation line drew
+  288) and one-pixel offsets on the section head, chip and badges took the pair from 0.8334/0.8315 to
+  0.9102/0.9081. The tone palette was replaced with the capture's own Tailwind v4 values (`#4f39f6`,
+  `#155dfc`, `#7f22fe`, `#e17100`, `#f54a00`, `#0092b8`, `#009689`, opaque `*-950` tiles in dark), and
+  the six cards that the reference paints with the light indigo edge plus its 4 px halo now carry it too
+  (`#d8d6f9` / `#222563`). Measured and discarded: 15 px Liberation titles with 0.35 px tracking
+  (0.8334), 14 px Liberation titles (0.7884 with the other changes of that step), and Liberation for the
+  descriptions after the font switch.
 
 ## Quantified residual (POS)
 
@@ -368,7 +386,7 @@ explain the scores above.
 | Accounting screen | Period pill + cash-book/export/print actions, four KPI cards, BWA/UStVA/OPOS/Z-Bon tab row, BWA card with emerald total and indigo profit bands | Same header rows, KPI grid, tab row, BWA card and bands at the measured boxes | **Closed.** 98.56/0.9090 light, 98.21/0.9031 dark. |
 | Accounting figures | `14682.80 €` invoice revenue from three posted invoices in the TS session, `2600.00 €` purchases, `0` POS | Purchases and POS match, but the parity database holds no invoices, so the invoice-derived cells read `0.00 €` | **Known content residual.** The TS reference frame was taken in a session with posted invoices while its own invoice journal shows `0 Einträge`; seeding invoices would break the empty-journal invoice pair, so the screen is measured with the data that exists. Layout, bands and totals arithmetic match. |
 | Purchases screen | Supplier letter tiles, three icon actions per row, chevron-free status badge | Same table, document glyph and one "Wareneingang buchen" button per row | **Open on SSIM.** 98.09/0.8549 light, 97.63/0.8407 dark; layout, KPIs, filter row and table anatomy ported. |
-| Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Same portal: ribbon, version chip, six-pill tab bar, section rule at y=230, 3 × 3 card grid at y=247/463/678, working Handbuch tab | **Open on SSIM.** 97.27/0.8334 light, 97.31/0.8315 dark; layout and wraps ported, residual is glyph phase (σ=1.5 blur 0.9379/0.9331). |
+| Manual screen | Documentation portal: version chip, six-pill tab bar, feature-card grid | Same portal: ribbon, version chip, six-pill tab bar, section rule at y=230, 3 × 3 card grid at y=247/463/678, working Handbuch tab, Noto Sans in every portal line, v4 tone palette and the six indigo-edged cards | **Closed.** 98.35/0.9102 light, 98.43/0.9081 dark; σ=1.5 blur 0.9779/0.9746. |
 | Data states | Empty DB for the original views, demo catalogue for the six module views | Reproduced by `artifacts/parity-capture-all.sh` (two sessions) and `artifacts/parity-seed-profile.py` | **Closed, except the accounting invoice figures** (see above): every pair is measured in the state its TS reference uses. |
 
 Technical note: the native window is intentionally captured at the full `1440×900` display size. The
