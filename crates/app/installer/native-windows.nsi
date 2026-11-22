@@ -34,6 +34,15 @@ VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 VIAddVersionKey "FileDescription" "${APP_NAME} Native Desktop Installer"
 VIAddVersionKey "FileVersion" "${APP_VERSION}"
 
+; Branding: the wizard uses the SOCDOF icon plus the same header, welcome and uninstall
+; bitmaps that ship with the desktop application.
+!define MUI_ICON "assets/icon.ico"
+!define MUI_UNICON "assets/icon.ico"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_BITMAP "assets/installerHeader.bmp"
+!define MUI_HEADERIMAGE_UNBITMAP "assets/installerHeader.bmp"
+!define MUI_WELCOMEFINISHPAGE_BITMAP "assets/installerSidebar.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "assets/uninstallerSidebar.bmp"
 !define MUI_ABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "Welcome to SOCDOF"
 !define MUI_WELCOMEPAGE_TEXT "This wizard installs the native SOCDOF desktop application for the current Windows user.$\r$\n$\r$\nYour business database remains in your Windows application-data folder and is not removed when you uninstall the application."
