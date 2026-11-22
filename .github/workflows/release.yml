@@ -243,8 +243,14 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
           test -s "artifacts/SOCDOF-${version}-macos-universal-native.zip"
 
+      - name: Build native Rust Windows executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
+
       # The NSIS script packs WebView2Loader.dll and the Evergreen bootstrapper from
-      # SOURCE_DIR; cargo builds neither, so they are staged with pinned checksums.
+      # SOURCE_DIR; cargo builds neither, so they are staged with pinned checksums
+      # after the executable exists and before makensis runs.
       - name: Prepare WebView2 files for the native installer
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -255,7 +261,6 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
           $version = '${{ needs.prepare.outputs.version }}'
           $makensis = Get-Command makensis.exe -ErrorAction SilentlyContinue
           if (-not $makensis) {
