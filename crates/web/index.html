@@ -41,7 +41,9 @@
     </style>
   </head>
   <body>
-    <canvas id="socdof-canvas" tabindex="0"></canvas>
+    <!-- The backing store is the fixed logical grid of the app; CSS scales it to the viewport so the
+         egui screen rectangle never follows a panel resize. -->
+    <canvas id="socdof-canvas" width="1512" height="982" tabindex="0"></canvas>
     <div id="loading">SOCDOF lädt …</div>
   </body>
 </html>

@@ -1326,30 +1326,6 @@ pub fn app_tile(
     )
 }
 
-/// Lays out `text` on one line, shortening it with an ellipsis when it does not fit.
-fn one_line(
-    painter: &egui::Painter,
-    text: &str,
-    font: FontId,
-    color: Color32,
-    max_width: f32,
-) -> std::sync::Arc<egui::Galley> {
-    let full = painter.layout_no_wrap(text.to_owned(), font.clone(), color);
-    if full.size().x <= max_width {
-        return full;
-    }
-    let mut characters: Vec<char> = text.chars().collect();
-    while !characters.is_empty() {
-        characters.pop();
-        let candidate = format!("{}…", characters.iter().collect::<String>());
-        let galley = painter.layout_no_wrap(candidate, font.clone(), color);
-        if galley.size().x <= max_width {
-            return galley;
-        }
-    }
-    painter.layout_no_wrap("…".to_owned(), font, color)
-}
-
 /// Draws one template card of the app-template grid and reports activation.
 #[allow(clippy::too_many_arguments)]
 pub fn template_tile(
@@ -1392,7 +1368,13 @@ fn tile(
 ) -> bool {
     let id = ui.make_persistent_id(("socdof-tile", salt));
     let focused = focus.register(id);
-    let height = if template { 104.0 } else { 88.0 };
+    // Two title rows and up to three description rows are what the copy needs; the tile is tall
+    // enough to show them all, so no label is cut mid word.
+    const TITLE_ROWS: usize = 2;
+    const DESCRIPTION_ROWS: usize = 5;
+    // The two column grid leaves little room next to the icon and the check mark, so a full
+    // description needs four to five lines; every tile is sized for that instead of clipping.
+    let height = 136.0;
     let (rect, response) =
         ui.allocate_exact_size(Vec2::new(ui.available_width(), height), Sense::click());
     if response.clicked() {
@@ -1432,35 +1414,52 @@ fn tile(
     let text_x = icon_rect.right() + 12.0;
     let check_size = 20.0;
     let text_width = (rect.right() - check_size - 22.0 - text_x).max(80.0);
-    // The reference truncates tile titles to one line (`truncate`), so the description always
-    // starts on the same row and never collides with a wrapped title.
+    // The reference keeps titles on one line, which cuts long module names in half at this tile
+    // width; wrapping to two lines shows the whole name and the description follows underneath.
     let title_font = FontId::new(if template { 14.5 } else { 13.5 }, semibold());
-    let title_galley = one_line(
-        ui.painter(),
-        title,
-        title_font.clone(),
+    let title_galley = ui.painter().layout(
+        title.to_owned(),
+        title_font,
         theme.palette.text,
         text_width,
     );
-    let title_height = title_font.size;
-    ui.painter().galley(
-        Pos2::new(text_x, rect.top() + 13.0),
-        title_galley,
-        theme.palette.text,
-    );
-    let description_top = rect.top() + 13.0 + title_height + 3.0;
+    let title_top = rect.top() + 13.0;
+    let title_height = title_galley
+        .rows
+        .get(TITLE_ROWS.saturating_sub(1))
+        .map_or(title_galley.size().y, |row| row.rect.bottom())
+        .min(title_galley.size().y);
+    ui.painter()
+        .with_clip_rect(Rect::from_min_size(
+            Pos2::new(text_x, title_top),
+            Vec2::new(text_width, title_height),
+        ))
+        .galley(
+            Pos2::new(text_x, title_top),
+            title_galley,
+            theme.palette.text,
+        );
+    let description_top = title_top + title_height + 3.0;
     let description_galley = ui.painter().layout(
         description.to_owned(),
         FontId::proportional(11.5),
         theme.palette.text_muted,
         text_width,
     );
-    let rows = description_galley.rows.len().min(2);
-    let description_height = if rows == 0 {
-        0.0
-    } else {
-        description_galley.rows[rows - 1].rect.bottom()
-    };
+    // Clip to the rows that fit between the title and the tile edge, not to a fixed count.
+    let room = (rect.bottom() - 10.0 - description_top).max(14.0);
+    let rows = description_galley
+        .rows
+        .iter()
+        .take(DESCRIPTION_ROWS)
+        .filter(|row| row.rect.bottom() <= room)
+        .count()
+        .max(1)
+        .min(description_galley.rows.len().max(1));
+    let description_height = description_galley
+        .rows
+        .get(rows - 1)
+        .map_or(0.0, |row| row.rect.bottom());
     let description_clip = Rect::from_min_size(
         Pos2::new(text_x, description_top),
         Vec2::new(text_width, description_height),

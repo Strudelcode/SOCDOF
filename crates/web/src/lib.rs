@@ -123,7 +123,7 @@ struct WebApp {
 
 impl WebApp {
     /// Builds the application for the given browser session.
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         let language = browser_language();
         let texts = UiTexts::embedded(language).expect("embedded UI catalogue");
         let store = Store::open_in_memory().expect("in-memory SQLite store");
@@ -138,11 +138,10 @@ impl WebApp {
         Self {
             store,
             texts,
-            appearance: if cc.egui_ctx.style().visuals.dark_mode {
-                Appearance::Dark
-            } else {
-                Appearance::Light
-            },
+            // The reference desktop opens in the dark theme. eframe's browser default visuals are
+            // light, so the host starts dark and lets a stored preference replace it once the
+            // snapshot has been read.
+            appearance: Appearance::Dark,
             accent_id: DEFAULT_ACCENT.to_string(),
             focus: FocusState::default(),
             auth,
@@ -708,7 +707,9 @@ impl WebApp {
         };
         let mut sign_out = false;
         egui::Area::new(Id::new("socdof-web-account"))
-            .anchor(Align2::RIGHT_TOP, egui::vec2(-18.0, 14.0))
+            // Above the taskbar in the free right-hand area, so the chip never covers the desktop
+            // icons or the window controls in the top right corner.
+            .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-18.0, -76.0))
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 egui::Frame::none()
@@ -756,6 +757,9 @@ impl WebApp {
 
 impl eframe::App for WebApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+        // Keeps the backing store on the CSS box, so painting and pointer positions stay on one
+        // grid after the panel or the browser window changed size.
+        sync_canvas_size();
         sync_canvas_size();
         self.focus.begin_frame(ctx);
         // The browser reads the stored database asynchronously, therefore the first frames are a hint.
@@ -845,12 +849,18 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
     IconGrid::new(icons)
 }
 
-/// Keeps the canvas backing store in sync with its CSS box.
+/// Fixed logical render size of the browser host.
 ///
-/// A panel that changes size before the app starts (split views, restored tabs, opened dev tools)
-/// leaves the canvas at a stale size. `egui` then paints into a larger point space than the one it
-/// maps pointer positions to, so clicks land beside the widget under the cursor. Syncing the
-/// backing store to the CSS box in device pixels keeps painting and pointer positions on one grid.
+/// The canvas keeps this backing store for its whole life and `index.html` scales it to the
+/// viewport. Following the CSS box instead couples the egui screen rectangle to panel resizes: the
+/// app then keeps painting the old point space while the browser stretches the surface, and pointer
+/// positions stop matching the widgets. A fixed grid keeps painting and pointer mapping identical
+/// in every viewport.
+pub const CANVAS_WIDTH: u32 = 1512;
+/// Height of the fixed logical canvas grid, in pixels.
+pub const CANVAS_HEIGHT: u32 = 982;
+
+/// Pins the canvas backing store to [`CANVAS_WIDTH`] × [`CANVAS_HEIGHT`].
 fn sync_canvas_size() {
     let Some(window) = web_sys::window() else {
         return;
@@ -864,14 +874,11 @@ fn sync_canvas_size() {
     let Some(canvas) = canvas else {
         return;
     };
-    let ratio = window.device_pixel_ratio();
-    let width = (f64::from(canvas.client_width()) * ratio).round().max(0.0) as u32;
-    let height = (f64::from(canvas.client_height()) * ratio).round().max(0.0) as u32;
-    if width > 0 && canvas.width() != width {
-        canvas.set_width(width);
+    if canvas.width() != CANVAS_WIDTH {
+        canvas.set_width(CANVAS_WIDTH);
     }
-    if height > 0 && canvas.height() != height {
-        canvas.set_height(height);
+    if canvas.height() != CANVAS_HEIGHT {
+        canvas.set_height(CANVAS_HEIGHT);
     }
 }
 
@@ -900,6 +907,8 @@ pub fn start() {
     {
         loading.remove();
     }
+    // A panel that changes size before the app starts leaves the canvas at a stale size.
+    sync_canvas_size();
     let options = eframe::WebOptions::default();
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()

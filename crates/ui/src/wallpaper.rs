@@ -255,12 +255,14 @@ fn plain_image(width: usize, height: usize, accent: Color32, dark: bool) -> Colo
             0.25_f32,
             accent,
         ),
+        // The reference wallpaper keeps a teal glow in the right half (the second `bg-teal-500/20`
+        // disc), which is what makes the desktop read as blue-green instead of plain violet.
         (
             width as f32 * 0.75 - 275.0,
             height as f32 * 2.0 / 3.0 - 275.0,
             275.0_f32,
-            0.20_f32,
-            crate::tokens::adjust(accent, -12),
+            0.22_f32,
+            Color32::from_rgb(0x0d, 0x94, 0x88),
         ),
     ];
     let mut rgb = Vec::with_capacity(width * height * 3);

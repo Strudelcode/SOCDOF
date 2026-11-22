@@ -3509,8 +3509,9 @@ mod tests {
         );
         assert_eq!(
             state.desktop_icons.icons().len(),
-            socdof_core::domain::permission::ALL_MODULES.len() + 3,
-            "the start menu keeps every permission module and the always-available utilities"
+            socdof_core::domain::permission::ALL_MODULES.len() + 3
+                - socdof_core::app_store::REFERENCE_STARTUP_DISABLED.len(),
+            "the start menu lists the reference start set plus the always-available utilities"
         );
     }
 
@@ -4238,7 +4239,7 @@ mod tests {
         state.shell.onboarding.finish();
         let screen = Rect::from_min_size(Pos2::ZERO, Vec2::new(1280.0, 800.0));
 
-        for (index, slug) in ["projects", "fleet"].into_iter().enumerate() {
+        for (index, slug) in ["projects", "calendar"].into_iter().enumerate() {
             let app = AppId::new(slug);
             let title = state
                 .desktop_icons
@@ -4252,7 +4253,7 @@ mod tests {
         }
         assert_eq!(
             state.desktop_windows.active(),
-            Some(AppId::new("fleet")),
+            Some(AppId::new("calendar")),
             "the last opened module should own keyboard focus"
         );
 

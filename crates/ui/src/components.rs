@@ -223,11 +223,13 @@ pub fn card<R>(
         .rounding(Rounding::same(RADIUS_CARD))
         .inner_margin(egui::Margin::same(CARD_PADDING))
         .show(ui, add_contents);
+    // A neutral shadow keeps the card edge calm; an accent coloured one turns every card into a
+    // violet halo, which the reference design does not have.
     let shapes: Vec<egui::Shape> = shadow_layers(
         response.response.rect,
         RADIUS_CARD,
         ShadowStrength::Card,
-        theme.accent.base,
+        Color32::BLACK,
     )
     .into_iter()
     .map(|layer| egui::Shape::rect_filled(layer.rect, Rounding::same(layer.rounding), layer.color))

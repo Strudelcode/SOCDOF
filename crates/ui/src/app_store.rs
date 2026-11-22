@@ -388,7 +388,11 @@ mod tests {
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
         assert_eq!(state.modules.len(), 18);
-        assert_eq!(state.active_count(), 18);
+        // The reference start set leaves out four modules until they are enabled in the store.
+        assert_eq!(
+            state.active_count(),
+            18 - socdof_core::app_store::REFERENCE_STARTUP_DISABLED.len()
+        );
         let mut texts = texts();
         state.query = "therapie".to_string();
         let filtered = state.filtered(&texts);
@@ -446,10 +450,11 @@ mod tests {
         state.refresh(&store).expect("catalogue");
         assert!(!state.toggle(&store, AppModule::Dashboard));
         assert_eq!(state.error, Some("app_store_error_required"));
-        assert!(state.toggle(&store, AppModule::Therapy));
-        assert!(!app_store::is_active(&store, AppModule::Therapy).expect("state"));
-        assert!(state.toggle(&store, AppModule::Therapy));
-        assert!(app_store::is_active(&store, AppModule::Therapy).expect("state"));
+        // `Calendar` starts enabled, so the toggle switches it off and back on again.
+        assert!(state.toggle(&store, AppModule::Calendar));
+        assert!(!app_store::is_active(&store, AppModule::Calendar).expect("state"));
+        assert!(state.toggle(&store, AppModule::Calendar));
+        assert!(app_store::is_active(&store, AppModule::Calendar).expect("state"));
     }
 
     #[test]

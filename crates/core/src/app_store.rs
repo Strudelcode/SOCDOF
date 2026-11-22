@@ -237,7 +237,17 @@ const MODULES: [ModuleDefinition; 18] = [
 #[serde(default)]
 struct Activation {
     disabled: BTreeSet<String>,
+    /// Modules the user switched on explicitly, which overrides the reference start-up set.
+    enabled: BTreeSet<String>,
 }
+
+/// Modules the reference first run leaves deactivated.
+///
+/// The shipped TypeScript desktop starts with twelve tiles (dashboard, app store, handbook,
+/// settings, invoices, accounting, contacts, products, stock, purchasing, calendar, calculator);
+/// the modules that only exist in the Rust edition stay in the App Store until the user enables
+/// them, so the first screen matches the original grid.
+pub const REFERENCE_STARTUP_DISABLED: [&str; 4] = ["support", "reports", "therapy", "fleet"];
 
 fn load(store: &Store) -> CoreResult<Activation> {
     match store.get_setting(APP_STORE_SETTINGS_KEY)? {
@@ -258,9 +268,19 @@ fn module_definition(module: AppModule) -> &'static ModuleDefinition {
 }
 
 fn resolved_active(definition: &ModuleDefinition, activation: &Activation) -> bool {
-    definition.required
-        || (definition.license != ModuleLicense::Locked
-            && !activation.disabled.contains(definition.module.as_str()))
+    if definition.required {
+        return true;
+    }
+    if definition.license == ModuleLicense::Locked {
+        return false;
+    }
+    if activation.disabled.contains(definition.module.as_str()) {
+        return false;
+    }
+    if activation.enabled.contains(definition.module.as_str()) {
+        return true;
+    }
+    !REFERENCE_STARTUP_DISABLED.contains(&definition.module.as_str())
 }
 
 /// Loads the complete catalogue with the persisted activation state.
@@ -324,8 +344,10 @@ pub fn set_active(store: &Store, id: &str, active: bool) -> CoreResult<()> {
 
     if active {
         activation.disabled.remove(module.as_str());
+        activation.enabled.insert(module.as_str().to_string());
     } else {
         activation.disabled.insert(module.as_str().to_string());
+        activation.enabled.remove(module.as_str());
     }
     save(store, &activation)
 }

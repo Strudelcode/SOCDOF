@@ -5,7 +5,7 @@
 //! clock/avatar sign-in screen. State and core calls stay in [`crate::auth`]; this module paints and
 //! reports what the user asked for.
 
-use egui::{Align, Layout, Pos2, RichText, Ui, Vec2};
+use egui::{Align, Layout, Pos2, Rect, RichText, Ui, Vec2};
 use socdof_core::domain::settings::{Language, ThemeMode};
 use socdof_core::domain::user::User;
 use socdof_core::store::Store;
@@ -441,12 +441,15 @@ pub fn setup(
     };
     let top = ((ui.available_height() - height) * 0.5).max(4.0);
     let page_width = kit::page_width(ui);
+    // A short window gets the compact rhythm of the reference's `sm:` breakpoint, so the longest
+    // step keeps its fields and its footer visible instead of scrolling the last one away.
+    let dense = ui.ctx().screen_rect().height() < 1000.0;
     ui.add_space(top);
     kit::card_sized(
         ui,
         theme,
         kit::WIZARD_CARD_WIDTH,
-        kit::card_padding(ui),
+        if dense { 20.0 } else { kit::card_padding(ui) },
         height,
         |ui| {
             // The legacy wizard header carries only the language selector; the step label lives in
@@ -456,19 +459,40 @@ pub fn setup(
                     language_selector(ui, theme, texts, state);
                 });
             });
-            ui.add_space(10.0);
-            kit::icon_tile(ui, Icon::Shield, 44.0, theme.accent.base);
-            ui.add_space(10.0);
+            ui.add_space(if dense { 6.0 } else { 10.0 });
+            kit::icon_tile(
+                ui,
+                Icon::Shield,
+                if dense { 36.0 } else { 44.0 },
+                theme.accent.base,
+            );
+            ui.add_space(if dense { 6.0 } else { 10.0 });
             kit::heading(ui, theme, texts.get("setup_wizard_welcome_title"));
             ui.add_space(2.0);
             // `flex items-center justify-between`: the step line takes the space that is left once
             // the required-fields notice on the right is reserved, so the two never overlap.
             let notice = texts.get("setup_required_notice");
-            let step = format!(
-                "{} · {}",
-                texts.get("setup_account_heading"),
-                texts.get("setup_chip_account")
-            );
+            // The chip names the current step instead of always announcing the account step; the
+            // welcome page has no number of its own, so it shows the heading alone.
+            let step_prefix = match texts.language() {
+                Language::De => "Schritt",
+                Language::En => "Step",
+                Language::Fr => "Étape",
+                _ => "Paso",
+            };
+            let chip = match state.setup_step {
+                2 => texts.get("setup_chip_account").to_owned(),
+                3 => format!("{step_prefix} 3: {}", texts.get("setup_step_appearance")),
+                4 => format!("{step_prefix} 4: {}", texts.get("setup_step_apps")),
+                5 => format!("{step_prefix} 5: {}", texts.get("setup_step_finish")),
+                _ => String::new(),
+            };
+            let heading = texts.get("setup_account_heading").to_owned();
+            let step = if chip.is_empty() {
+                heading
+            } else {
+                format!("{heading} · {chip}")
+            };
             let notice_galley = ui.painter().layout_no_wrap(
                 notice.to_owned(),
                 egui::FontId::new(12.0, crate::theme::semibold()),
@@ -496,31 +520,42 @@ pub fn setup(
                 notice_galley,
                 theme.palette.danger,
             );
-            ui.add_space(10.0);
+            ui.add_space(if dense { 8.0 } else { 10.0 });
 
-            let footer_height = 44.0 + 10.0 + 24.0;
-            let body_height = (ui.available_height() - footer_height).max(80.0);
-            egui::ScrollArea::vertical()
-                .max_height(body_height)
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    // `space-y-3.5` of the legacy form; egui would add its own 8 point gap on top.
-                    ui.spacing_mut().item_spacing.y = 0.0;
-                    match state.setup_step {
-                        1 => {
-                            kit::muted(ui, theme, texts.get("setup_wizard_welcome_body"));
+            // Body and footer get disjoint rectangles instead of an arithmetic reservation: the
+            // scroll area then cannot paint past the band the footer keeps, which is what made the
+            // last row overlap the buttons and swallow their clicks.
+            let full = ui.available_rect_before_wrap();
+            let footer_height = 44.0;
+            let footer_top = (full.bottom() - footer_height).max(full.top());
+            let body_rect = Rect::from_min_max(
+                full.min,
+                Pos2::new(full.right(), (footer_top - 10.0).max(full.top())),
+            );
+            let footer_rect = Rect::from_min_max(Pos2::new(full.left(), footer_top), full.max);
+            ui.allocate_ui_at_rect(body_rect, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(body_rect.height())
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        // `space-y-3.5` of the legacy form; egui would add its own 8 point gap.
+                        ui.spacing_mut().item_spacing.y = 0.0;
+                        match state.setup_step {
+                            1 => {
+                                kit::muted(ui, theme, texts.get("setup_wizard_welcome_body"));
+                            }
+                            2 => account_step(ui, theme, texts, focus, state),
+                            3 => appearance_step(ui, theme, texts, focus, state),
+                            4 => apps_step(ui, theme, texts, focus, state, store),
+                            5 => finish_step(ui, theme, texts, state),
+                            _ => {}
                         }
-                        2 => account_step(ui, theme, texts, focus, state),
-                        3 => appearance_step(ui, theme, texts, focus, state),
-                        4 => apps_step(ui, theme, texts, focus, state, store),
-                        5 => finish_step(ui, theme, texts, state),
-                        _ => {}
-                    }
-                    ui.add_space(10.0);
-                    messages(ui, theme, texts, state, now);
-                });
+                        ui.add_space(10.0);
+                        messages(ui, theme, texts, state, now);
+                    });
+            });
 
-            ui.add_space(10.0);
+            ui.allocate_ui_at_rect(footer_rect, |ui| {
             if state.setup_step == 1 {
                 if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
                     next = true;
@@ -560,6 +595,7 @@ pub fn setup(
                     }
                 });
             }
+            });
         },
     );
 
@@ -650,11 +686,17 @@ fn language_step(
             ui.add_space(4.0);
             kit::muted(ui, theme, texts.get("setup_language_subtitle"));
             ui.add_space(12.0);
-            let list_height = (ui.available_height() - 44.0 - 12.0).max(80.0);
-            egui::ScrollArea::vertical()
-                .max_height(list_height)
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
+            // Disjoint bands, as in the wizard card: the list scrolls above, the button keeps its
+            // own strip, so the last row can never overlap the button.
+            let full = ui.available_rect_before_wrap();
+            let footer_top = (full.bottom() - 44.0).max(full.top());
+            let list_rect = Rect::from_min_max(
+                full.min,
+                Pos2::new(full.right(), (footer_top - 6.0).max(full.top())),
+            );
+            let footer_rect = Rect::from_min_max(Pos2::new(full.left(), footer_top), full.max);
+            ui.allocate_ui_at_rect(list_rect, |ui| {
+                {
                     for (language, badge, subtitle_key) in LANGUAGES {
                         if kit::language_row(
                             ui,
@@ -670,11 +712,13 @@ fn language_step(
                         }
                         ui.add_space(10.0);
                     }
-                });
-            ui.add_space(6.0);
-            if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
-                state.setup_step = 1;
-            }
+                }
+            });
+            ui.allocate_ui_at_rect(footer_rect, |ui| {
+                if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
+                    state.setup_step = 1;
+                }
+            });
         },
     );
 }
@@ -740,7 +784,7 @@ fn account_step(
         }
     });
 
-    ui.add_space(12.0);
+    ui.add_space(10.0);
     kit::field_label(ui, theme, texts.get("setup_profile_picture"), false);
     ui.add_space(6.0);
     kit::panel(ui, theme, |ui| {
@@ -751,7 +795,11 @@ fn account_step(
                 theme,
                 state.avatar.as_ref(),
                 &kit::initials(&state.display_name),
-                64.0,
+                if ui.ctx().screen_rect().height() < 1000.0 {
+                    48.0
+                } else {
+                    56.0
+                },
             );
             ui.vertical(|ui| {
                 if kit::small_button(
@@ -781,7 +829,7 @@ fn account_step(
         business_panel(ui, theme, texts, focus, state);
     }
 
-    ui.add_space(12.0);
+    ui.add_space(10.0);
     kit::field_label(ui, theme, texts.get("auth_password"), true);
     ui.add_space(4.0);
     kit::password_input(

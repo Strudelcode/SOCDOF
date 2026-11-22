@@ -29,7 +29,6 @@ use crate::tokens::{
     with_alpha, FONT_BODY, FONT_SMALL, RADIUS_CARD, RADIUS_CONTROL, RADIUS_DIALOG,
 };
 use crate::wallpaper::paint as paint_wallpaper;
-use crate::widgets::widgets;
 
 type DesktopWindowRenderer<'a> = dyn FnMut(
         AppId,
@@ -1081,6 +1080,86 @@ fn day_of_month(millis: i64) -> u32 {
     (day_of_year - (153 * month_index + 2) / 5 + 1) as u32
 }
 
+/// Width of the locale pill in the taskbar tray.
+const LANGUAGE_PILL_WIDTH: f32 = 40.0;
+
+/// 24 hour clock label with seconds, as the reference taskbar prints it (`12:36:11`).
+fn taskbar_clock(millis: i64) -> String {
+    let total_seconds = millis.div_euclid(1_000);
+    let hour = total_seconds.div_euclid(3_600).rem_euclid(24);
+    let minute = total_seconds.div_euclid(60).rem_euclid(60);
+    let second = total_seconds.rem_euclid(60);
+    format!("{hour:02}:{minute:02}:{second:02}")
+}
+
+/// `DD.MM.YYYY` date under the taskbar clock.
+fn taskbar_date(millis: i64) -> String {
+    let (year, month, day) = civil_date(millis);
+    format!("{day:02}.{month:02}.{year:04}")
+}
+
+/// Civil date of a millisecond timestamp (Howard Hinnant's `civil_from_days`).
+fn civil_date(millis: i64) -> (i32, u32, u32) {
+    let z = millis.div_euclid(86_400_000) + 719_468;
+    let day_of_era = z.rem_euclid(146_097);
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + (z - day_of_era) / 146_097 * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_index = (5 * day_of_year + 2) / 153;
+    let day = (day_of_year - (153 * month_index + 2) / 5 + 1) as u32;
+    let month = if month_index < 10 {
+        month_index + 3
+    } else {
+        month_index - 9
+    } as u32;
+    (year as i32, month, day)
+}
+
+/// Paints the German locale pill of the reference tray in front of the clock.
+fn language_pill(painter: &egui::Painter, theme: &Theme, bar: Rect, right: f32) {
+    let rect = Rect::from_min_size(
+        Pos2::new(right - LANGUAGE_PILL_WIDTH, bar.center().y - 11.0),
+        Vec2::new(LANGUAGE_PILL_WIDTH, 22.0),
+    );
+    painter.rect(
+        rect,
+        Rounding::same(11.0),
+        theme.palette.surface,
+        Stroke::new(1.0_f32, theme.palette.border),
+    );
+    let flag = Rect::from_min_size(
+        Pos2::new(rect.left() + 6.0, rect.center().y - 5.0),
+        Vec2::new(16.0, 10.0),
+    );
+    let stripe = flag.height() / 3.0;
+    for (index, color) in [
+        Color32::from_rgb(0x1f, 0x29, 0x37),
+        Color32::from_rgb(0xdd, 0x00, 0x00),
+        Color32::from_rgb(0xff, 0xce, 0x00),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        painter.rect(
+            Rect::from_min_size(
+                Pos2::new(flag.left(), flag.top() + stripe * index as f32),
+                Vec2::new(flag.width(), stripe),
+            ),
+            Rounding::ZERO,
+            color,
+            Stroke::NONE,
+        );
+    }
+    painter.text(
+        Pos2::new(rect.right() - 7.0, rect.center().y),
+        Align2::RIGHT_CENTER,
+        "DE",
+        FontId::new(10.0, crate::theme::semibold()),
+        theme.palette.text,
+    );
+}
+
 /// Paints the live calendar tile of the legacy desktop (`DynamicCalendarIcon.tsx`).
 ///
 /// The tile is a white card with a blue weekday band, the day number in a heavy face and a small
@@ -1424,6 +1503,9 @@ fn desktop_impl(
                     icons.select(index);
                     focus.set_focus(Some(id));
                 }
+                // The reference desktop opens an app on a double click; a single click only selects
+                // the icon (the keyboard opens it with Enter/Space).
+                let double_clicked = !blocked && response.double_clicked();
                 if !blocked && response.drag_stopped() {
                     if let Some(pos) = response.interact_pointer_pos() {
                         let cell = icons.cell_at(area, pos);
@@ -1514,7 +1596,7 @@ fn desktop_impl(
                 if focused {
                     focus_ring(ui, theme, tile);
                 }
-                if !blocked && focus.activate(id) {
+                if double_clicked || focus.activate(id) {
                     if windows.is_open(icon.app()) {
                         windows.focus(icon.app());
                     } else {
@@ -1524,17 +1606,8 @@ fn desktop_impl(
                 }
             }
 
-            // The window controls own the top right corner, so the widget card starts below them
-            // instead of sharing their strip. Narrow desktops keep the icon grid free, the legacy
-            // desktop has no widget layer at all.
-            if area.width() >= 900.0 {
-                let widget_area = Rect::from_min_max(
-                    Pos2::new(area.min.x, area.min.y + DESKTOP_CONTROL_HEIGHT),
-                    area.max,
-                );
-                let mut widget_ui = ui.child_ui(widget_area, *ui.layout());
-                widgets(&mut widget_ui, theme, texts, now, &mut shell.widgets);
-            }
+            // The legacy desktop has no widget layer at all, so the icon grid keeps the whole area
+            // and the window controls stay the only element in the top right corner.
         });
 
     if ctx.input(|input| input.modifiers.command && input.key_pressed(Key::K)) {
@@ -1853,25 +1926,39 @@ fn desktop_impl(
                 with_alpha(theme.palette.surface, 84),
                 Stroke::new(1.0_f32, theme.palette.border),
             );
-            // The legacy tray prints the time in bold monospace with seconds on (`text-[13px]
-            // font-mono font-bold`, `time_show_seconds !== false`); the date stays hidden below the
-            // small breakpoint, which a compact bar never reaches.
+            // The reference tray prints the 24 hour clock with seconds over the date in bold
+            // monospace (`text-[13px] font-mono font-bold` with `time_show_date`), right aligned.
             let clock_color = if theme.appearance.is_dark() {
                 Color32::from_rgb(0xe2, 0xe8, 0xf0)
             } else {
                 Color32::from_rgb(0x1e, 0x29, 0x3b)
             };
+            let date_color = if theme.appearance.is_dark() {
+                Color32::from_rgb(0x94, 0xa3, 0xb8)
+            } else {
+                Color32::from_rgb(0x64, 0x74, 0x8b)
+            };
             let clock = painter.layout_no_wrap(
-                format_clock_seconds(now),
+                taskbar_clock(now),
                 FontId::new(13.0, crate::theme::mono_bold()),
                 clock_color,
             );
-            let clock_left = bar.right() - 14.0 - clock.size().x;
-            painter.galley(
-                Pos2::new(clock_left, bar.center().y - clock.size().y / 2.0),
-                clock,
-                clock_color,
+            let date = painter.layout_no_wrap(
+                taskbar_date(now),
+                FontId::new(10.0, crate::theme::mono_bold()),
+                date_color,
             );
+            let clock_right = bar.right() - 14.0;
+            let clock_left = clock_right - clock.size().x.max(date.size().x);
+            let clock_height = clock.size().y;
+            painter.galley(Pos2::new(clock_left, bar.top() + 8.0), clock, clock_color);
+            painter.galley(
+                Pos2::new(clock_left, bar.top() + 8.0 + clock_height + 1.0),
+                date,
+                date_color,
+            );
+            // The locale pill of the reference tray sits directly in front of the clock.
+            language_pill(&painter, theme, bar, clock_left - 10.0);
 
             let start_rect = Rect::from_min_size(
                 Pos2::new(bar.left() + 12.0, bar.top() + 6.0),
@@ -1917,6 +2004,7 @@ fn desktop_impl(
             // buttons that no longer fit are dropped instead of pushing the clock off the bar.
             let wide = bar.width() >= TASKBAR_SEARCH_MIN_WIDTH;
             let mut reserve = crate::tokens::TASKBAR_BUTTON + 4.0; // tray
+            reserve += LANGUAGE_PILL_WIDTH + 8.0; // locale pill
             if wide {
                 reserve += crate::tokens::TASKBAR_BUTTON + 4.0; // Studio
             }
@@ -2017,33 +2105,13 @@ fn desktop_impl(
                 }
             }
 
-            let mut cursor = clock_left - 10.0;
+            let mut cursor = clock_left - 10.0 - (LANGUAGE_PILL_WIDTH + 8.0);
             let tray_rect = taskbar_slot(&mut cursor, crate::tokens::TASKBAR_BUTTON, bar);
-            let studio_rect =
-                wide.then(|| taskbar_slot(&mut cursor, crate::tokens::TASKBAR_BUTTON, bar));
             let overflow_rect = if !hidden.is_empty() || !wide {
                 Some(taskbar_slot(&mut cursor, 28.0, bar))
             } else {
                 None
             };
-            if let Some(studio_rect) = studio_rect {
-                if taskbar_button(
-                    ui,
-                    theme,
-                    focus,
-                    TaskbarButton {
-                        id: Id::new("socdof-taskbar-studio"),
-                        rect: studio_rect,
-                        icon: Icon::Settings,
-                        logo: false,
-                        label: texts.get("studio_title"),
-                        active: shell.studio.is_open(),
-                    },
-                ) {
-                    shell.studio.toggle(store);
-                }
-            }
-
             if wide
                 && taskbar_button(
                     ui,
@@ -2106,31 +2174,47 @@ fn desktop_impl(
             }
 
             if bar.width() >= TASKBAR_STATUS_MIN_WIDTH {
-                let pill = Rect::from_min_size(
-                    Pos2::new(right_limit + 3.0, bar.top() + 12.0),
-                    Vec2::new(84.0, 24.0),
+                // The reference tray shows the notification bell and the brightness control in the
+                // strip where this bar used to print its version pill.
+                let slot = Rect::from_min_size(
+                    Pos2::new(right_limit + 3.0, bar.top() + 6.0),
+                    Vec2::new(84.0, crate::tokens::TASKBAR_BUTTON),
                 );
-                painter.rect(
-                    pill,
-                    Rounding::same(12.0),
-                    with_alpha(theme.palette.surface_muted, 90),
-                    Stroke::new(1.0_f32, theme.palette.border),
-                );
-                painter.circle_filled(
-                    Pos2::new(pill.left() + 12.0, pill.center().y),
-                    3.5,
-                    theme.companion().base,
-                );
-                painter.text(
-                    Pos2::new(pill.left() + 22.0, pill.center().y),
-                    Align2::LEFT_CENTER,
-                    format!("v{}", env!("CARGO_PKG_VERSION")),
-                    FontId::proportional(11.0),
-                    theme.palette.text_muted,
-                );
-                let _ = ui
-                    .interact(pill, Id::new("socdof-taskbar-status"), Sense::hover())
-                    .on_hover_text(texts.get("taskbar_status"));
+                // The tray already carries the notification bell, so this strip only adds the
+                // brightness control the reference bar shows next to it.
+                for (index, (icon, id)) in [(Icon::Sun, "socdof-taskbar-brightness")]
+                    .into_iter()
+                    .enumerate()
+                {
+                    let rect = Rect::from_min_size(
+                        Pos2::new(
+                            slot.left() + index as f32 * (slot.width() * 0.5),
+                            slot.top(),
+                        ),
+                        Vec2::new(slot.width() * 0.5, slot.height()),
+                    );
+                    let id = Id::new(id);
+                    let focused = focus.register(id);
+                    let response = ui.interact(rect, id, Sense::click());
+                    if response.hovered() || focused {
+                        painter.rect(
+                            rect.shrink(2.0),
+                            Rounding::same(RADIUS_CONTROL),
+                            theme.palette.surface_muted,
+                            Stroke::NONE,
+                        );
+                    }
+                    if focused {
+                        focus_ring(ui, theme, rect);
+                    }
+                    icon.draw(
+                        &painter,
+                        Rect::from_center_size(rect.center(), Vec2::splat(16.0)),
+                        theme.palette.text_muted,
+                        1.8,
+                    );
+                    response.on_hover_text(texts.get("taskbar_status"));
+                }
             }
 
             let task_view_id = Id::new("socdof-taskbar-taskview");

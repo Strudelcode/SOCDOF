@@ -307,6 +307,9 @@ pub fn app_title_bar(
                         .strong()
                         .color(theme.palette.text),
                 );
+                // The theme zeroes the item spacing, so the badge needs an explicit gap to read
+                // as "Dashboard [DASHBOARD]" instead of running into the title.
+                ui.add_space(6.0);
                 ui.label(
                     RichText::new(format!("[{}]", app.slug.to_uppercase()))
                         .size(10.0)
