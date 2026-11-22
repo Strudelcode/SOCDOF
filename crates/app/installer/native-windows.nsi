@@ -18,6 +18,14 @@ Unicode true
 !define APP_EXE "socdof-ui-desktop.exe"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\SOCDOF Native"
 
+; WebView2 is a runtime dependency of the app. The Evergreen bootstrapper (~1.8 MB) is
+; shipped instead of the offline runtime: it installs the current runtime per user and
+; works without administrator rights, which matches the per-user setup below.
+!define WEBVIEW2_CLIENT_GUID "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+!define WEBVIEW2_DOWNLOAD_URL "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+!define WEBVIEW2_BOOTSTRAPPER "MicrosoftEdgeWebview2Setup.exe"
+!define SETUP_LOG "$TEMP\SOCDOF-Setup.log"
+
 Name "${APP_NAME} ${APP_VERSION}"
 Caption "${APP_NAME} ${APP_VERSION} Setup"
 OutFile "${OUTPUT_FILE}"
@@ -90,7 +98,59 @@ Section /o "Start SOCDOF when I sign in" SecStartup
   CreateShortCut "$SMSTARTUP\SOCDOF.lnk" "$INSTDIR\${APP_EXE}" "" "$INSTDIR\${APP_EXE}" 0
 SectionEnd
 
+; Appends $R9 to %TEMP%\SOCDOF-Setup.log so a silent run leaves a trace.
+Function LogLine
+  FileOpen $9 "${SETUP_LOG}" a
+  FileSeek $9 0 END
+  FileWrite $9 "$R9$\r$\n"
+  FileClose $9
+FunctionEnd
+
+; Sets $0 to 1 when the Evergreen WebView2 runtime is installed.
+Function DetectWebView2
+  StrCpy $0 0
+  SetRegView 64
+  ReadRegStr $1 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\${WEBVIEW2_CLIENT_GUID}" "pv"
+  StrCmp $1 "" 0 wv2_found
+  SetRegView 32
+  ReadRegStr $1 HKLM "SOFTWARE\Microsoft\EdgeUpdate\Clients\${WEBVIEW2_CLIENT_GUID}" "pv"
+  StrCmp $1 "" 0 wv2_found
+  ReadRegStr $1 HKCU "Software\Microsoft\EdgeUpdate\Clients\${WEBVIEW2_CLIENT_GUID}" "pv"
+  StrCmp $1 "" 0 wv2_found
+  IfFileExists "$PROGRAMFILES32\Microsoft\EdgeWebView\Application\*.*" wv2_found
+  IfFileExists "$LOCALAPPDATA\Microsoft\EdgeWebView\Application\*.*" wv2_found
+  Goto wv2_done
+wv2_found:
+  StrCpy $0 1
+wv2_done:
+  SetRegView 32
+FunctionEnd
+
 Function .onInit
+  ; The app cannot start without WebView2. Install the runtime when it is missing and
+  ; refuse to install an unusable application when that fails.
+  InitPluginsDir
+  Call DetectWebView2
+  StrCmp $0 "1" webview2_ready
+  StrCpy $R9 "webview2=missing"
+  Call LogLine
+  File /oname=$PLUGINSDIR\${WEBVIEW2_BOOTSTRAPPER} "${SOURCE_DIR}\${WEBVIEW2_BOOTSTRAPPER}"
+  DetailPrint "Installing the Microsoft Edge WebView2 runtime..."
+  nsExec::ExecToStack '"$PLUGINSDIR\${WEBVIEW2_BOOTSTRAPPER}" /silent /install'
+  Pop $2
+  Pop $3
+  StrCpy $R9 "webview2_bootstrapper_exit=$2"
+  Call LogLine
+  Call DetectWebView2
+  StrCmp $0 "1" webview2_ready
+  StrCpy $R9 "webview2=still_missing_after_bootstrapper"
+  Call LogLine
+  IfSilent webview2_abort
+  MessageBox MB_ICONSTOP|MB_OK "SOCDOF needs the Microsoft Edge WebView2 runtime and it is not installed on this computer. The bundled installer could not add it (exit code $2).$\r$\n$\r$\nInstall it from ${WEBVIEW2_DOWNLOAD_URL} and run this setup again."
+webview2_abort:
+  SetErrorLevel 3
+  Abort
+webview2_ready:
   ; Never force-kill the app during an update: the user may have unsaved form state.
   nsExec::ExecToStack '"$SYSDIR\cmd.exe" /C ""$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXE}" /NH | "$SYSDIR\findstr.exe" /I /C:"${APP_EXE}"'
   Pop $0

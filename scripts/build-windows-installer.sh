@@ -9,6 +9,7 @@
 #                        binutils-mingw-w64-x86-64, mingw-w64-*-dev/common)
 #   makensis (nsis package)
 #   curl and unzip (to fetch WebView2Loader.dll, or set WEBVIEW2_LOADER_DLL)
+#   network access for the WebView2 bootstrapper (or set WEBVIEW2_BOOTSTRAPPER)
 #
 # Point MINGW_PREFIX at the toolchain prefix when it is not on PATH.
 set -euo pipefail
@@ -57,6 +58,24 @@ fi
 echo "$webview2_sha256  $webview2_dll" | sha256sum -c - >/dev/null \
   || { echo "WebView2Loader.dll checksum mismatch" >&2; exit 1; }
 cp "$webview2_dll" "$stage/WebView2Loader.dll"
+
+# The app needs the WebView2 runtime. Ship Microsoft's Evergreen bootstrapper (~1.8 MB)
+# instead of the offline runtime; the installer runs it when the runtime is missing.
+webview2_setup_url="https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+webview2_setup_sha256="fc2972da71d43e0c57b8d85a5cb9b200ed221f723cf43052d08ca722eb0bb22e"
+webview2_setup="${WEBVIEW2_BOOTSTRAPPER:-}"
+if [ -z "$webview2_setup" ]; then
+  cache="${TMPDIR:-/tmp}/socdof-webview2-setup"
+  webview2_setup="$cache/MicrosoftEdgeWebview2Setup.exe"
+  if [ ! -f "$webview2_setup" ]; then
+    mkdir -p "$cache"
+    curl -fsSL "$webview2_setup_url" -o "$webview2_setup"
+  fi
+fi
+[ -f "$webview2_setup" ] || { echo "WebView2 bootstrapper missing" >&2; exit 1; }
+echo "$webview2_setup_sha256  $webview2_setup" | sha256sum -c - >/dev/null \
+  || { echo "WebView2 bootstrapper checksum mismatch" >&2; exit 1; }
+cp "$webview2_setup" "$stage/MicrosoftEdgeWebview2Setup.exe"
 
 mkdir -p "$root/dist"
 makensis \
