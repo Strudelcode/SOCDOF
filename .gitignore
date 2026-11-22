@@ -24,3 +24,6 @@
 # Python bytecode from the parity gate scripts
 __pycache__/
 *.pyc
+
+# Built installers collected for hand-off (see scripts/build-linux-packages.sh)
+/dist/

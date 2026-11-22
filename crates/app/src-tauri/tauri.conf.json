@@ -30,6 +30,13 @@
     "active": true,
     "targets": "all",
     "category": "Business",
+    "shortDescription": "Offline-first business workspace for contacts, products, invoices and purchasing",
+    "longDescription": "SOCDOF is an offline-first business desktop application covering contacts, products, invoices, purchase orders and reporting. All business data is stored locally in a single SQLite database under the user data directory (SOCDOF/SOCDOF.db).",
+    "linux": {
+      "deb": {
+        "section": "Office"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
