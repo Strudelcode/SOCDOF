@@ -256,6 +256,17 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-windows-installer.ps1 -SourceDir target/release
 
+      # Signing needs a certificate with SmartScreen reputation; without one the
+      # script only warns and the release continues unsigned.
+      - name: Sign the native Windows executable
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: ./scripts/sign-windows-artifacts.ps1 -Paths target/release/socdof-ui-desktop.exe
+
       - name: Build native Rust Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -274,6 +285,15 @@ jobs:
           & $makensis.Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" 'crates/app/installer/native-windows.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw 'Native NSIS installer build failed' }
           ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
+      - name: Sign the native Windows installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: ./scripts/sign-windows-artifacts.ps1 -Paths (Get-ChildItem artifacts -Filter '*native-setup.exe' | ForEach-Object FullName)
 
       - name: Build native Rust Windows portable package
         if: matrix.platform == 'windows'

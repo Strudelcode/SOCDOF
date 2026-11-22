@@ -106,6 +106,32 @@ The updater endpoint is
 The updater signature is independent of operating-system code signing. Tauri
 requires a signed updater archive; the private key above provides that.
 
+### Windows code signing and SmartScreen
+
+SmartScreen cannot be switched off from the project side. Windows stops warning
+only for binaries signed with a certificate that has built reputation:
+
+| Option | Effort | Reputation |
+|---|---|---|
+| **Azure Trusted Signing** (Microsoft, ~10 USD/month) | Azure account + identity validation | builds within days |
+| **EV code-signing certificate** (Sectigo, DigiCert, GlobalSign) | certificate purchase + hardware token | immediate |
+| OV code-signing certificate | certificate purchase | weeks of downloads before warnings stop |
+
+The pipeline signs three files when credentials are present
+(`scripts/sign-windows-artifacts.ps1`): `socdof-ui-desktop.exe`, the native NSIS
+setup and — before zipping — the executable inside the portable package. The
+timestamp server keeps signatures valid after the certificate expires.
+
+Configure **one** of these:
+
+- Secrets `WINDOWS_CERTIFICATE` (base64 of the `.pfx`) and
+  `WINDOWS_CERTIFICATE_PASSWORD`.
+- Secret `WINDOWS_CERTIFICATE_THUMBPRINT` when the certificate is already
+  installed in the runner's certificate store.
+
+Without any of them the script only prints a warning and the release continues
+unsigned, so the pipeline never blocks on a missing certificate.
+
 macOS builds in CI are currently unsigned. They can be built and smoke-tested,
 but Gatekeeper will warn on first launch and macOS auto-update installation
 needs a properly signed and notarized `.app`. Add an Apple Developer ID
@@ -113,7 +139,8 @@ certificate and notarization credentials before treating the macOS artifact as
 a normal end-user release. Windows artifacts currently carry publisher metadata for **Yuri / Strudel**
 but are not Authenticode-signed in CI. SmartScreen may therefore warn on first
 launch. Add the developer code-signing certificate and protected signing
-secrets before treating the Windows installer as a signed public release.
+secrets (see *Windows code signing and SmartScreen* above) before treating the
+Windows installer as a signed public release.
 
 ## Local verification
 

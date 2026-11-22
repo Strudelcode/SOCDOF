@@ -50,6 +50,16 @@ jobs:
         shell: pwsh
         run: ./scripts/prepare-windows-installer.ps1 -SourceDir target/release
 
+      # Signing needs a certificate with SmartScreen reputation; without one the
+      # script only warns and the build continues unsigned.
+      - name: Sign the desktop executable
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: ./scripts/sign-windows-artifacts.ps1 -Paths target/release/socdof-ui-desktop.exe
+
       - name: Install NSIS
         shell: pwsh
         run: |
@@ -80,6 +90,14 @@ jobs:
             throw "Native NSIS installer build failed"
           }
           ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
+      - name: Sign the installer
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: ./scripts/sign-windows-artifacts.ps1 -Paths (Get-ChildItem artifacts -Filter '*native-setup.exe' | ForEach-Object FullName)
 
       - name: Create Windows portable package
         shell: pwsh
