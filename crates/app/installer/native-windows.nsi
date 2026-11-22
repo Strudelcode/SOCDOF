@@ -26,6 +26,9 @@ Unicode true
 !define WEBVIEW2_BOOTSTRAPPER "MicrosoftEdgeWebview2Setup.exe"
 !define SETUP_LOG "$TEMP\SOCDOF-Setup.log"
 
+; Exit code of the bundled WebView2 bootstrapper, kept for the hint text.
+Var BootstrapperExit
+
 Name "${APP_NAME} ${APP_VERSION}"
 Caption "${APP_NAME} ${APP_VERSION} Setup"
 OutFile "${OUTPUT_FILE}"
@@ -137,16 +140,24 @@ Function .onInit
   File /oname=$PLUGINSDIR\${WEBVIEW2_BOOTSTRAPPER} "${SOURCE_DIR}\${WEBVIEW2_BOOTSTRAPPER}"
   DetailPrint "Installing the Microsoft Edge WebView2 runtime..."
   nsExec::ExecToStack '"$PLUGINSDIR\${WEBVIEW2_BOOTSTRAPPER}" /silent /install'
-  Pop $2
+  Pop $BootstrapperExit
   Pop $3
-  StrCpy $R9 "webview2_bootstrapper_exit=$2"
+  StrCpy $R9 "webview2_bootstrapper_exit=$BootstrapperExit"
   Call LogLine
   Call DetectWebView2
   StrCmp $0 "1" webview2_ready
   StrCpy $R9 "webview2=still_missing_after_bootstrapper"
   Call LogLine
   IfSilent webview2_abort
-  MessageBox MB_ICONSTOP|MB_OK "SOCDOF needs the Microsoft Edge WebView2 runtime and it is not installed on this computer. The bundled installer could not add it (exit code $2).$\r$\n$\r$\nInstall it from ${WEBVIEW2_DOWNLOAD_URL} and run this setup again."
+  ; NSIS' MessageBox parent is the installer window, which does not exist yet at this
+  ; point; Windows and Wine then leave the box unmapped, so it would block unseen.
+  ; An ownerless message box is shown immediately.
+  StrCpy $R9 "webview2=interactive_hint_shown"
+  Call LogLine
+  System::Call 'user32::MessageBoxW(p 0, w "SOCDOF needs the Microsoft Edge WebView2 runtime and it is not installed on this computer. The bundled installer could not add it (exit code $BootstrapperExit).$\r$\n$\r$\nInstall it from ${WEBVIEW2_DOWNLOAD_URL} and run this setup again.", w "${APP_NAME} ${APP_VERSION} Setup", i 0x00000010) i .r2'
+  StrCpy $R9 "webview2=interactive_hint_dismissed_abort"
+  Call LogLine
+  Goto webview2_abort
 webview2_abort:
   SetErrorLevel 3
   Abort
