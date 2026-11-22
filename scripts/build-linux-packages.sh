@@ -86,7 +86,7 @@ cp "$bundle/appimage/SOCDOF_${version}_amd64.AppImage" "$dist/SOCDOF-${version}-
 cp "$bundle/portable/$name.tar.gz" "$dist/"
 cp -a "$app/installer" "$dist/windows-installer"
 chmod -R a+rX "$dist/windows-installer"
-(cd "$dist" && sha256sum *.deb *.AppImage *.tar.gz > SHA256SUMS)
+(cd "$dist" && sha256sum $(ls *.deb *.AppImage *.tar.gz *.exe 2>/dev/null) > SHA256SUMS)
 
 cat <<EOF
 Built SOCDOF $version
