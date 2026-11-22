@@ -77,6 +77,15 @@ echo "$webview2_setup_sha256  $webview2_setup" | sha256sum -c - >/dev/null \
   || { echo "WebView2 bootstrapper checksum mismatch" >&2; exit 1; }
 cp "$webview2_setup" "$stage/MicrosoftEdgeWebview2Setup.exe"
 
+# Portable package: same files, started by run-socdof.cmd, data folder next to it.
+portable_name="SOCDOF-${version}-windows-x64-native-portable"
+portable_stage="$(mktemp -d)"
+mkdir -p "$portable_stage/$portable_name"
+cp "$stage/${APP_EXE:-socdof-ui-desktop.exe}" "$portable_stage/$portable_name/socdof-ui-desktop.exe"
+cp "$stage/WebView2Loader.dll" "$portable_stage/$portable_name/WebView2Loader.dll"
+cp "$app/portable/run-socdof.cmd" "$portable_stage/$portable_name/run-socdof.cmd"
+cp "$app/portable/README-PORTABLE.txt" "$portable_stage/$portable_name/README.txt"
+
 mkdir -p "$root/dist"
 makensis \
   -DAPP_VERSION="$version" \
@@ -85,5 +94,9 @@ makensis \
   "$root/crates/app/installer/native-windows.nsi"
 rm -rf "$stage"
 
-(cd "$root/dist" && sha256sum $(ls *.deb *.AppImage *.tar.gz *.exe 2>/dev/null) > SHA256SUMS)
+( cd "$portable_stage" && zip -qr "$root/dist/$portable_name.zip" "$portable_name" )
+rm -rf "$portable_stage"
+
+(cd "$root/dist" && sha256sum $(ls *.deb *.AppImage *.tar.gz *.zip *.exe 2>/dev/null) > SHA256SUMS)
 echo "Built dist/SOCDOF-${version}-windows-x64-native-setup.exe"
+echo "Built dist/$portable_name.zip"
