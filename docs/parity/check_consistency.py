@@ -43,9 +43,9 @@ VIEWS = {
 THEMES = {"light", "dark"}
 # The README tables label two screens by their user-facing name.
 ALIASES = {"manual": "docs", "pos-(reference)": "pos"}
-# Module screens whose Rust layout still differs from the TS markup. They were below the
-# targets before this work started and stay documented as such; nothing else may be.
-OPEN_BELOW_TARGET = {"purchases"}
+# Module screens whose Rust layout still differs from the TS markup. Every module screen now meets
+# both targets, so this set is empty and the check fails if any pair drops below them.
+OPEN_BELOW_TARGET: set[str] = set()
 
 
 def table_rows(text: str, header_words: tuple[str, ...]) -> list[list[str]]:

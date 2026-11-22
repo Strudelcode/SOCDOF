@@ -2,7 +2,28 @@
 
 ## Unreleased
 
-- **Purchases reaches the pixel target in the light theme: window pixel/SSIM purchases 98.09/0.8549
+- **Purchases closes the last open pair: purchases 98.85/0.9174 light, purchases 98.48/0.9061 dark**,
+  from 98.09/0.8549 and 97.63/0.8407. Every pair of the 22-pair set now meets both targets, so
+  `docs/parity/check_consistency.py` reports no open module screen and `OPEN_BELOW_TARGET` is empty.
+  The blocking cause was the font family rather than the table: the shell's
+  `h1, p, button, input { font-family: var(--font-sans) }` rule pinned every heading and copy line on
+  the screen to Plus Jakarta Sans, and the title measured 297 px against the reference's 266 px. The
+  bundled variable Noto file had also never applied on any module screen, because its `@font-face`
+  declares `format("truetype-variations")`, which WebKitGTK drops silently and Chromium accepts; it is
+  now declared a second time as `format("truetype")` and the module page pins that family and undoes
+  the shell's heading/copy rule, which puts title and subtitle on the reference ink exactly (266 px and
+  330 px, rows 112–136 and 142–155). Measured table corrections after that: the global
+  `th, td { border-bottom }` doubled every divider; the rules are the module's indigo edge (`#d8d6f9`
+  light, `#222563` dark cards, `#1d293d` dark row rules); the card halo is a 12 px (light) / 8 px (dark)
+  indigo blur rather than a 4 px ring; header cells take 14 px padding with a 14 px line box and body
+  cells 14/15 px, which lands the rows on the reference's 74 px without moving the text ink; the seven
+  columns are pinned with `table-layout: fixed` to the measured 147/156/128/132/116/115/242 px, which is
+  what lets the receipt button fill its column and centre its two lines; the KPI volume is proportional
+  because the reference's `font-mono` resolves to the body face here; the tiles are 26 px on
+  `rgba(51, 65, 85, 0.7)`; and the dark palette moved to the v4 tones in the capture (`#62748e`,
+  `#314158`, `#90a1b9`, `#1d293d` pills and row rules, `#314158` input edge).
+  Full 22-pair re-capture on this tree, window pixel/SSIM: dashboard 98.87/0.9491 light, dashboard 98.44/0.9310 dark, invoices 98.89/0.9174 light, invoices 98.58/0.9101 dark, contacts 98.90/0.9131 light, contacts 98.54/0.9002 dark, settings 98.84/0.9139 light, settings 98.44/0.9025 dark, command-palette 98.23/0.9298 light, command-palette 98.73/0.9243 dark, products 98.60/0.9005 light, products 98.39/0.9000 dark, pos 98.68/0.9176 light, pos 98.61/0.9143 dark, calendar 98.65/0.9087 light, calendar 98.23/0.9027 dark, accounting 98.56/0.9090 light, accounting 98.21/0.9031 dark, purchases 98.85/0.9174 light, purchases 98.48/0.9061 dark, docs 98.35/0.9102 light, docs 98.43/0.9081 dark. Every pair meets both targets; `check_consistency.py` reports 0 open module screens.
+- **Purchases met the pixel target in the light theme on the earlier pass: window pixel/SSIM purchases 98.09/0.8549
   light, purchases 97.63/0.8407 dark**, up from 95.03/0.7447 and 94.15/0.6665. The screen was rebuilt
   as a port of `SOCDOF - TS/src/components/sales/PurchasesModule.tsx` (header, four KPI cards on the
   248 px grid, search/filter card, seven-column table, editor dialog) instead of being nudged. The

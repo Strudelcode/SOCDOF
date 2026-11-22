@@ -134,6 +134,19 @@
   font-display: block;
 }
 
+/* WebKitGTK rejects the legacy `truetype-variations` keyword above and drops the
+   face silently, which is why module screens fell back to Plus Jakarta Sans. The
+   same variable file loads through the plain `truetype` format, so the reference
+   face is declared twice: once for Chromium-compatible parsers and once for
+   WebKit. */
+@font-face {
+  font-family: "Noto Sans Wkg";
+  src: url("/fonts/noto-sans-var-latin.ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
 /* ==========================================================================
    TS parity layer
    All colour, typography and spacing tokens live here. Both themes resolve
@@ -5276,16 +5289,25 @@ body.palette-desktop .desktop-shortcut {
    ========================================================================== */
 
 #view-purchases { color: #0f172a; }
+/* The shell's global heading/copy rule pins these elements to var(--font-sans);
+   the module page must keep its own reference face instead. */
+#view-purchases .po-page h1,
+#view-purchases .po-page p,
+#view-purchases .po-page button,
+#view-purchases .po-page input,
+#view-purchases .po-page select {
+  font-family: inherit;
+}
 #view-purchases .po-page {
   display: flex; flex-direction: column; gap: 24px; padding: 24px 24px 0;
-  font-family: "Noto Sans Var", var(--font-sans);
+  font-family: "Noto Sans Wkg", "Noto Sans", "Noto Sans Var", var(--font-sans);
   -webkit-font-smoothing: antialiased; text-rendering: geometricPrecision;
 }
 #view-purchases .po-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 #view-purchases .po-head-text { flex: 0 0 auto; }
 #view-purchases .po-title {
   display: flex; align-items: center; gap: 10px; margin: 0;
-  font-size: 22px; line-height: 30px; font-weight: 700; color: #0f172a; letter-spacing: 0;
+  font-size: 24px; line-height: 32px; font-weight: 700; color: #0f172a; letter-spacing: 0;
 }
 #view-purchases .po-title-icon { display: grid; place-items: center; color: #4f46e5; }
 #view-purchases .po-title-icon svg { width: 28px; height: 28px; }
@@ -5293,21 +5315,21 @@ body.palette-desktop .desktop-shortcut {
 #view-purchases .po-head-actions { display: flex; align-items: center; gap: 8px; }
 #view-purchases .po-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 34px; padding: 0 16px; border: 1px solid transparent; border-radius: 12px;
+  height: 32px; padding: 0 16px; border: 1px solid transparent; border-radius: 12px;
   font-family: inherit; font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap;
   cursor: pointer; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 #view-purchases .po-btn svg { width: 16px; height: 16px; }
-#view-purchases .po-btn.is-amber { background: linear-gradient(90deg, #f59e0b, #d97706); color: #020617; font-weight: 700; }
+#view-purchases .po-btn.is-amber { background: linear-gradient(90deg, #f99c00, #e17100); color: #020618; font-weight: 700; }
 #view-purchases .po-btn.is-accent { background: #4f46e5; color: #fff; }
 #view-purchases .po-btn.is-plain { background: #fff; border-color: #e2e8f0; color: #334155; }
 #view-purchases .po-btn.is-danger { background: #fff1f2; border-color: #fecdd3; color: #e11d48; }
 
-#view-purchases .po-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+#view-purchases .po-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 #view-purchases .po-kpi {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17.5px 16px;
-  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 16px 17px;
+  border: 1px solid #d8d6f9; border-radius: 16px; background: #fff;
+  box-shadow: 0 0 12px rgba(129, 122, 202, 0.16), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 #view-purchases .po-kpi-label {
   font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: 0.05em;
@@ -5317,7 +5339,7 @@ body.palette-desktop .desktop-shortcut {
 #view-purchases .po-kpi-value.is-accent { color: #4f46e5; }
 #view-purchases .po-kpi-value.is-emerald { color: #059669; }
 #view-purchases .po-kpi-value.is-amber { color: #f59e0b; }
-#view-purchases .po-kpi-value.is-mono { font-family: "JetBrains Mono", monospace; color: #0f172a; }
+#view-purchases .po-kpi-value.is-mono { color: #0f172a; }
 #view-purchases .po-kpi-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; flex: 0 0 40px; }
 #view-purchases .po-kpi-icon svg { width: 20px; height: 20px; }
 #view-purchases .po-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.12); color: #4f46e5; }
@@ -5326,14 +5348,14 @@ body.palette-desktop .desktop-shortcut {
 
 #view-purchases .po-filter {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  border: 1px solid #d8d6f9; border-radius: 16px; background: #fff;
+  box-shadow: 0 0 12px rgba(129, 122, 202, 0.16), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
 #view-purchases .po-search { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
 #view-purchases .po-search-icon { position: absolute; left: 12px; display: grid; place-items: center; color: #94a3b8; pointer-events: none; }
 #view-purchases .po-search-icon svg { width: 16px; height: 16px; }
 #view-purchases .po-search input {
-  width: 100%; height: 34px; padding: 0 16px 0 36px; border: 1px solid #e2e8f0; border-radius: 12px;
+  width: 100%; height: 34px; min-height: 0; box-sizing: border-box; padding: 0 16px 0 36px; border: 1px solid #e2e8f0; border-radius: 12px;
   background: #f8fafc; color: #0f172a; font-family: inherit; font-size: 12px;
 }
 #view-purchases .po-pills { display: flex; align-items: center; gap: 6px; }
@@ -5344,21 +5366,26 @@ body.palette-desktop .desktop-shortcut {
 #view-purchases .po-pill.is-active { background: #4f46e5; color: #fff; font-weight: 700; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08); }
 
 #view-purchases .po-tablecard {
-  overflow: hidden; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 16px; background: #fff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  overflow: hidden; border: 1px solid #d8d6f9; border-radius: 16px; background: #fff;
+  box-shadow: 0 0 12px rgba(129, 122, 202, 0.16), 0 1px 2px rgba(15, 23, 42, 0.05);
 }
-#view-purchases .po-table { width: 100%; border-collapse: collapse; text-align: left; }
+#view-purchases .po-table {
+  width: 100%; border-collapse: collapse; text-align: left;
+}
+/* The shell paints every cell with a bottom rule; the module separates rows with
+   a top rule instead, so the global one would double every divider. */
+#view-purchases .po-table td { border-bottom: 0; }
 #view-purchases .po-table thead { background: #f8fafc; }
 #view-purchases .po-table th {
-  padding: 12px 20px; border-bottom: 1px solid #e2e8f0;
-  font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
-  color: #64748b;
+  padding: 14px 20px; border-bottom: 1px solid #d8d6f9;
+  font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+  color: #62748e;
 }
 #view-purchases .po-table th.is-right { text-align: right; }
 #view-purchases .po-table th.is-center { text-align: center; }
 #view-purchases .po-table td {
-  height: 73px; padding: 0 20px; border-top: 1px solid #f1f5f9;
-  font-size: 12px; line-height: 16px; color: #334155; vertical-align: middle;
+  padding: 14px 20px 15px; border-top: 1px solid #d8d6f9;
+  font-size: 12px; line-height: 16px; color: #314158; vertical-align: middle;
 }
 #view-purchases .po-table tbody tr:first-child td { border-top: 0; }
 #view-purchases .po-table td.is-center { text-align: center; }
@@ -5372,8 +5399,8 @@ body.palette-desktop .desktop-shortcut {
 }
 #view-purchases .po-file svg { display: block; width: 16px; height: 16px; }
 #view-purchases .po-num { display: inline-block; vertical-align: middle; line-height: 16px; }
-#view-purchases .po-vendor-name { color: #fff; font-weight: 500; line-height: 16px; }
-#view-purchases .po-vendor-company { color: #94a3b8; font-size: 11px; line-height: 16px; }
+#view-purchases .po-vendor-name { display: block; min-height: 16px; color: #fff; font-weight: 500; line-height: 16px; }
+#view-purchases .po-vendor-company { color: #90a1b9; font-size: 11px; line-height: 14px; }
 #view-purchases .po-table td.po-total {
   text-align: right; color: #fff; font-weight: 700; white-space: nowrap;
   font-family: "JetBrains Mono", monospace;
@@ -5392,18 +5419,31 @@ body.palette-desktop .desktop-shortcut {
 }
 #view-purchases .po-badge.is-draft,
 #view-purchases .po-badge.is-cancelled { background: #334155; color: #cbd5e1; }
-#view-purchases .po-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+#view-purchases .po-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+/* Column geometry measured from the reference capture (cell content lefts
+   171/298/454/582, right-aligned total at 830, centred status at 888, actions 944). */
+#view-purchases .po-table { table-layout: fixed; }
+#view-purchases .po-table th:nth-child(1) { width: 147px; }
+#view-purchases .po-table th:nth-child(2) { width: 156px; }
+#view-purchases .po-table th:nth-child(3) { width: 128px; }
+#view-purchases .po-table th:nth-child(4) { width: 132px; }
+#view-purchases .po-table th:nth-child(5) { width: 116px; }
+#view-purchases .po-table th:nth-child(6) { width: 115px; }
+/* The reference table lets the actions column size from its content, which is
+   what wraps the goods-receipt label onto two centred lines. */
+#view-purchases .po-table th:last-child,
+#view-purchases .po-table td:last-child { width: 242px; }
 #view-purchases .po-tile {
-  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
-  border: 0; border-radius: 8px; background: #cbd5e1; color: #475569; cursor: pointer;
+  display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: 8px; background: rgba(51, 65, 85, 0.7); color: #cad5e2; cursor: pointer;
 }
 #view-purchases .po-tile svg { width: 14px; height: 14px; }
 #view-purchases .po-receive {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; border-radius: 8px;
-  background: #009966; color: #fff; font-family: inherit; font-size: 12px; line-height: 14px; font-weight: 700;
-  text-align: left; cursor: pointer; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; padding: 4px 10px; border: 0; border-radius: 8px;
+  background: #009966; color: #fff; font-family: inherit; font-size: 11px; line-height: 16px; font-weight: 500;
+  text-align: center; cursor: pointer; white-space: nowrap;
 }
-#view-purchases .po-receive svg { width: 14px; height: 14px; flex: 0 0 14px; }
+#view-purchases .po-receive svg { width: 12px; height: 12px; flex: 0 0 12px; }
 #view-purchases .po-status-btn {
   height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: #4f46e5; color: #fff;
   font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
@@ -5445,20 +5485,23 @@ body.palette-desktop .desktop-shortcut {
 :root[data-theme="dark"] #view-purchases .po-subtitle { color: #94a3b8; }
 :root[data-theme="dark"] #view-purchases .po-kpi,
 :root[data-theme="dark"] #view-purchases .po-filter,
-:root[data-theme="dark"] #view-purchases .po-tablecard { background: #0f172a; border-color: #1e293b; }
+:root[data-theme="dark"] #view-purchases .po-tablecard {
+  background: #0f172a; border-color: #222563;
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.3), 0 1px 2px rgba(0, 0, 0, 0.3);
+}
 :root[data-theme="dark"] #view-purchases .po-kpi-label,
 :root[data-theme="dark"] #view-purchases .po-table th { color: #94a3b8; }
 :root[data-theme="dark"] #view-purchases .po-kpi-value.is-mono { color: #f8fafc; }
 :root[data-theme="dark"] #view-purchases .po-kpi-icon.is-accent { background: rgba(79, 70, 229, 0.24); color: #818cf8; }
 :root[data-theme="dark"] #view-purchases .po-kpi-icon.is-emerald { background: rgba(6, 78, 59, 0.5); color: #34d399; }
 :root[data-theme="dark"] #view-purchases .po-kpi-icon.is-amber { background: rgba(120, 53, 15, 0.5); color: #fbbf24; }
-:root[data-theme="dark"] #view-purchases .po-search input { background: #1e293b; border-color: #334155; color: #f8fafc; }
-:root[data-theme="dark"] #view-purchases .po-pill { background: #1e293b; color: #94a3b8; }
+:root[data-theme="dark"] #view-purchases .po-search input { background: rgba(29, 41, 61, 0.6); border-color: #314158; color: #f8fafc; }
+:root[data-theme="dark"] #view-purchases .po-pill { background: #1d293d; color: #cad5e2; }
 :root[data-theme="dark"] #view-purchases .po-pill.is-active { background: #4f46e5; color: #fff; }
 :root[data-theme="dark"] #view-purchases .po-table thead { background: rgba(30, 41, 59, 0.8); }
-:root[data-theme="dark"] #view-purchases .po-table th { border-bottom-color: #334155; }
-:root[data-theme="dark"] #view-purchases .po-table td { color: #cbd5e1; border-top-color: #1e293b; }
-:root[data-theme="dark"] #view-purchases .po-tile { background: #1e293b; color: #cbd5e1; }
+:root[data-theme="dark"] #view-purchases .po-table th { border-bottom-color: #1d293d; }
+:root[data-theme="dark"] #view-purchases .po-table td { color: #cbd5e1; border-top-color: #1d293d; }
+:root[data-theme="dark"] #view-purchases .po-tile { background: rgba(49, 65, 88, 0.7); color: #cad5e2; }
 :root[data-theme="dark"] #view-purchases .po-btn.is-plain { background: #1e293b; border-color: #334155; color: #e2e8f0; }
 :root[data-theme="dark"] #view-purchases .po-dialog { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 :root[data-theme="dark"] #view-purchases .po-dialog-head h3 { color: #f1f5f9; }

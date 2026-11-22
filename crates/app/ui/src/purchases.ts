@@ -87,7 +87,7 @@ export function initPurchases(): void {
           <p class="po-subtitle">Lieferantenbestellungen, Preisanfragen (RFQ) &amp; automatische Wareneingangsbuchung</p>
         </div>
         <div class="po-head-actions">
-          <button type="button" class="po-btn is-amber" id="purchases-reorder">${ICON.cart}<span>Nachbestellen (Amazon)</span></button>
+          <button type="button" class="po-btn is-amber" id="purchases-reorder">${ICON.cart}<span>Nachbestellen &amp; Amazon</span></button>
           <button type="button" class="po-btn is-accent" id="purchases-new">${ICON.plus}<span>Neue Bestellung anlegen</span></button>
         </div>
       </header>
