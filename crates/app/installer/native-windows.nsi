@@ -64,6 +64,8 @@ Section "SOCDOF application" SecMain
   SetOutPath "$INSTDIR"
   SetOverwrite on
   File /oname=${APP_EXE} "${SOURCE_DIR}\${APP_EXE}"
+  ; The executable imports this DLL, so the WebView2 loader has to sit next to it.
+  File "/oname=WebView2Loader.dll" "${SOURCE_DIR}\WebView2Loader.dll"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
 
   CreateDirectory "$SMPROGRAMS\SOCDOF"
@@ -155,6 +157,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\SOCDOF\Uninstall SOCDOF.lnk"
   RMDir "$SMPROGRAMS\SOCDOF"
   Delete "$INSTDIR\${APP_EXE}"
+  Delete "$INSTDIR\WebView2Loader.dll"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
