@@ -44,6 +44,12 @@ jobs:
       - name: Build native Rust desktop executable
         run: cargo build --release -p socdof-ui --features window --bin socdof-ui-desktop
 
+      # The NSIS script packs WebView2Loader.dll and the Evergreen bootstrapper from
+      # SOURCE_DIR; cargo builds neither, so they are staged with pinned checksums.
+      - name: Prepare WebView2 files for the installer
+        shell: pwsh
+        run: ./scripts/prepare-windows-installer.ps1 -SourceDir target/release
+
       - name: Install NSIS
         shell: pwsh
         run: |
@@ -75,10 +81,27 @@ jobs:
           }
           ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
 
-      - name: Upload tested installer
+      - name: Create Windows portable package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ steps.version.outputs.value }}'
+          $name = "SOCDOF-$version-windows-x64-native-portable"
+          $stage = Join-Path 'artifacts' $name
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item 'target/release/socdof-ui-desktop.exe' $stage
+          Copy-Item 'target/release/WebView2Loader.dll' $stage
+          Copy-Item 'crates/app/portable/run-socdof.cmd' $stage
+          Copy-Item 'crates/app/portable/README-PORTABLE.txt' (Join-Path $stage 'README.txt')
+          Compress-Archive -Path $stage -DestinationPath "artifacts/$name.zip" -Force
+          if (-not (Test-Path "artifacts/$name.zip")) { throw 'portable package was not written' }
+
+      - name: Upload tested packages
         uses: actions/upload-artifact@v6
         with:
-          name: SOCDOF-Windows-Installer-v${{ steps.version.outputs.value }}
-          path: artifacts/SOCDOF-*-windows-x64-native-setup.exe
+          name: SOCDOF-Windows-v${{ steps.version.outputs.value }}
+          path: |
+            artifacts/SOCDOF-*-windows-x64-native-setup.exe
+            artifacts/SOCDOF-*-windows-x64-native-portable.zip
           if-no-files-found: error
           retention-days: 30

@@ -1,5 +1,19 @@
 # Changelog
 
+## [26.0.0] - 2026-11-22
+
+- **Native Rust edition, Windows first:** the Windows setup (`SOCDOF-26.0.0-windows-x64-native-setup.exe`)
+  installs per user into `%LOCALAPPDATA%\Programs\SOCDOF`, creates Start-menu and desktop shortcuts and
+  removes itself cleanly while keeping `%APPDATA%\SOCDOF\SOCDOF.db`; `SOCDOF-26.0.0-windows-x64-native-portable.zip`
+  runs without installation and keeps its database in `data\` next to the program.
+- **WebView2 runtime is a hard requirement:** the setup detects the Evergreen runtime (EdgeUpdate client
+  `{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}` and the `EdgeWebView\Application` folders), runs the bundled
+  bootstrapper when it is missing and refuses to install an unusable app otherwise (silent exit code 3,
+  interactive blocking hint with the download URL). Every step is traced to `%TEMP%\SOCDOF-Setup.log`.
+- **Existing data keeps working:** the Rust app reads the same `SOCDOF.db` under `%APPDATA%\SOCDOF`, copies an
+  older Tauri profile database once, and imports the export of the TypeScript/Electron edition
+  (`SOCDOF_Enterprise_Local_ERP` JSON) via the in-app restore flow.
+
 ## Unreleased
 
 - **Purchases closes the last open pair: purchases 98.85/0.9174 light, purchases 98.48/0.9061 dark**,

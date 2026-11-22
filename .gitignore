@@ -27,3 +27,6 @@ __pycache__/
 
 # Built installers collected for hand-off (see scripts/build-linux-packages.sh)
 /dist/
+
+# Local hand-off copies of the built packages (release/README.txt explains them)
+/release/

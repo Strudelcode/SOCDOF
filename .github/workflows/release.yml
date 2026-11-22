@@ -1,12 +1,15 @@
 name: Release
 
 on:
-  # Automatic triggers are intentionally disabled while the Rust rewrite is
-  # merged. Run this workflow manually from the Actions tab when needed.
+  # A pushed version tag starts the release (build, publish, updater manifest,
+  # Discord announcement). Manual runs stay available for re-publishing a tag.
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build and publish (for example v0.1.0)"
+        description: "Release tag to build and publish (for example v26.0.0)"
         required: true
         type: string
 
@@ -31,6 +34,7 @@ jobs:
       version: ${{ steps.notes.outputs.version }}
       title: ${{ steps.notes.outputs.title }}
       prerelease: ${{ steps.notes.outputs.prerelease }}
+      discord: ${{ steps.config.outputs.discord }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,7 +45,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Require updater and Discord configuration
+      - name: Require updater configuration
+        id: config
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_UPDATER_PUBKEY: ${{ vars.TAURI_UPDATER_PUBKEY || secrets.TAURI_UPDATER_PUBKEY }}
@@ -58,16 +63,16 @@ jobs:
             echo "::error::Missing repository variable TAURI_UPDATER_PUBKEY. See docs/RELEASING.md."
             missing=1
           fi
-          if [ -z "${DISCORD_BOT_TOKEN:-}" ]; then
-            echo "::error::Missing repository secret DISCORD_BOT_TOKEN. See docs/RELEASING.md."
-            missing=1
-          fi
-          if [ -z "${DISCORD_THREAD_ID:-}" ]; then
-            echo "::error::Missing repository secret DISCORD_THREAD_ID. See docs/RELEASING.md."
-            missing=1
-          fi
           if [ "$missing" -ne 0 ]; then
             exit 1
+          fi
+          # The Discord announcement is optional: a release without the bot
+          # credentials is published normally and only the notice is skipped.
+          if [ -z "${DISCORD_BOT_TOKEN:-}" ] || [ -z "${DISCORD_THREAD_ID:-}" ]; then
+            echo "::warning::Discord secrets are missing; publishing without an announcement."
+            echo "discord=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "discord=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Validate installable distribution profiles
@@ -238,6 +243,13 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app" "artifacts/SOCDOF-${version}-macos-universal-native.zip"
           test -s "artifacts/SOCDOF-${version}-macos-universal-native.zip"
 
+      # The NSIS script packs WebView2Loader.dll and the Evergreen bootstrapper from
+      # SOURCE_DIR; cargo builds neither, so they are staged with pinned checksums.
+      - name: Prepare WebView2 files for the native installer
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/prepare-windows-installer.ps1 -SourceDir target/release
+
       - name: Build native Rust Windows installer
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -257,6 +269,22 @@ jobs:
           & $makensis.Source "/DAPP_VERSION=$version" "/DSOURCE_DIR=$source" "/DOUTPUT_FILE=$installer" 'crates/app/installer/native-windows.nsi'
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw 'Native NSIS installer build failed' }
           ./scripts/test-native-windows-installer.ps1 -InstallerPath $installer
+
+      - name: Build native Rust Windows portable package
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '${{ needs.prepare.outputs.version }}'
+          $name = "SOCDOF-$version-windows-x64-native-portable"
+          $stage = Join-Path 'artifacts' $name
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item 'target/release/socdof-ui-desktop.exe' $stage
+          Copy-Item 'target/release/WebView2Loader.dll' $stage
+          Copy-Item 'crates/app/portable/run-socdof.cmd' $stage
+          Copy-Item 'crates/app/portable/README-PORTABLE.txt' (Join-Path $stage 'README.txt')
+          Compress-Archive -Path $stage -DestinationPath "artifacts/$name.zip" -Force
+          if (-not (Test-Path "artifacts/$name.zip")) { throw 'portable package was not written' }
 
       - name: Stage release assets
         run: >-
@@ -368,6 +396,7 @@ jobs:
   notify:
     name: Announce on Discord
     needs: [prepare, publish]
+    if: needs.prepare.outputs.discord == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

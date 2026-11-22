@@ -13,8 +13,10 @@ the published `distribution-manifest.json` is generated from the same registry.
 
 - Linux: `SOCDOF-<version>-linux-x86_64.AppImage` (signed updater bundle) and
   `SOCDOF-<version>-linux-amd64.deb`.
-- Windows: `SOCDOF-<version>-windows-x64-setup.exe` (signed NSIS updater
-  bundle) and `SOCDOF-<version>-windows-x64.msi`.
+- Windows (primary platform): `SOCDOF-<version>-windows-x64-setup.exe` (signed
+  NSIS updater bundle), `SOCDOF-<version>-windows-x64.msi`, plus the native Rust
+  packages `SOCDOF-<version>-windows-x64-native-setup.exe` and
+  `SOCDOF-<version>-windows-x64-native-portable.zip`.
 - macOS: `SOCDOF-<version>-macos-universal.dmg` and the signed universal
   `SOCDOF-<version>-macos-universal.app.tar.gz` updater archive.
 - Per-platform SHA-256 checksum files, `latest.json`, and a GitHub Release whose
@@ -29,9 +31,15 @@ the published `distribution-manifest.json` is generated from the same registry.
    `## [0.1.0] - 2026-11-07`.
 3. Commit the changes and push the tag `v0.1.0`. The tag must match the app
    version exactly; `release-notes.mjs` rejects a mismatch.
-4. The workflow can also be started manually with **Release → Run workflow** and
-   an existing release tag. Do not dispatch it for a tag whose changelog section
-   is missing.
+4. Pushing a tag `v*` starts the pipeline automatically. The workflow can also be
+   started manually with **Release → Run workflow** and an existing release tag.
+   Do not dispatch it for a tag whose changelog section is missing.
+
+The Discord announcement is optional: without `DISCORD_BOT_TOKEN` and
+`DISCORD_THREAD_ID` the release is built and published normally and only the
+announcement is skipped (the job runs with a warning). The updater signing key and
+public key stay mandatory, because a release without them cannot produce
+installable updates.
 
 ## Required GitHub configuration
 
@@ -79,7 +87,13 @@ inline announcement failed, start that fallback manually with the tag.
 | Linux x86_64 | AppImage | `.deb` installations do not self-update; download the new package. |
 | Windows x64 | NSIS setup | The MSI is a manual installer and is not used by the updater. |
 | macOS universal | Tauri `.app.tar.gz` | Signed updater archive; the app must also be signed/notarized for normal distribution. |
-| Native Rust desktop | Windows NSIS / Linux portable tarball | Installed separately from the Tauri transition build. Native Rust self-update is not yet enabled; download and install the matching native package. macOS currently uses the Tauri universal build until the native eframe dependency chain is compatible. |
+| Native Rust desktop (Windows first) | Windows NSIS / Windows portable ZIP / Linux portable tarball | Installed separately from the Tauri transition build. Native Rust self-update is not yet enabled; download and install the matching native package. macOS currently uses the Tauri universal build until the native eframe dependency chain is compatible. |
+
+The native Windows installer packs `WebView2Loader.dll` and the Evergreen
+bootstrapper; `scripts/prepare-windows-installer.ps1` stages both with pinned
+SHA-256 checksums before `makensis` runs (`cargo build` alone does not produce
+them). The portable ZIP holds the executable, the loader DLL, `run-socdof.cmd`
+and `README-PORTABLE.txt`.
 
 The native Rust packages are published alongside the Tauri transition packages so each platform has an installable native desktop build. The native Linux archive uses a colocated `data` directory by default; the Windows native installer uses the per-user `%APPDATA%\\SOCDOF` profile; the macOS native app uses `~/Library/Application Support/SOCDOF`. All support `SOCDOF_DATA_DIR` for an explicitly selected profile. Native packages preserve this data directory on uninstall or replacement.
 
