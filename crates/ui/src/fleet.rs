@@ -543,40 +543,27 @@ pub fn fleet_window(
             },
             &mut state.back,
         );
-        ui.horizontal_wrapped(|ui| {
-            card(ui, theme, |ui| {
-                ui.label(
-                    RichText::new(texts.get("fleet_kpi_vehicles"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                ui.heading(stats.active_vehicles.to_string());
-            });
-            card(ui, theme, |ui| {
-                ui.label(
-                    RichText::new(texts.get("fleet_kpi_distance"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                ui.heading(km(stats.total_km));
-            });
-            card(ui, theme, |ui| {
-                ui.label(
-                    RichText::new(texts.get("fleet_kpi_fuel"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                ui.heading(money(stats.fuel_cost_cents, &currency));
-            });
-            card(ui, theme, |ui| {
-                ui.label(
-                    RichText::new(texts.get("fleet_kpi_allowance"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                ui.heading(money(stats.tax_allowance_cents, &currency));
-            });
-        });
+        // Shared width-aware rows: four cards on wide windows, two at 432 px, so no card is
+        // squeezed into the leftover strip.
+        let kpis: Vec<(String, String)> = vec![
+            (
+                texts.get("fleet_kpi_vehicles").to_string(),
+                stats.active_vehicles.to_string(),
+            ),
+            (
+                texts.get("fleet_kpi_distance").to_string(),
+                km(stats.total_km),
+            ),
+            (
+                texts.get("fleet_kpi_fuel").to_string(),
+                money(stats.fuel_cost_cents, &currency),
+            ),
+            (
+                texts.get("fleet_kpi_allowance").to_string(),
+                money(stats.tax_allowance_cents, &currency),
+            ),
+        ];
+        crate::components::kpi_cards(ui, theme, &kpis);
         messages(ui, theme, texts, state);
         ui.horizontal_wrapped(|ui| {
             for (view, key) in [
@@ -593,6 +580,10 @@ pub fn fleet_window(
                 }
             }
             ui.separator();
+        });
+        // The two filter boxes used to share the tab row; on the phone the second one was pushed
+        // to x 480 and grew the panel to 612 px. They get their own wrapping row at every width.
+        ui.horizontal_wrapped(|ui| {
             egui::ComboBox::from_id_source("fleet-filter-vehicle")
                 .selected_text(
                     state
@@ -645,6 +636,11 @@ pub fn fleet_window(
                         );
                     }
                 });
+        });
+
+        // The date range and the search field get their own rows: inside the wrapped tab row
+        // the trailing "To" field was pushed past the window edge at 432 px.
+        ui.horizontal(|ui| {
             ui.label(texts.get("fleet_filter_from"));
             ui.add(
                 egui::TextEdit::singleline(&mut state.date_from)
@@ -657,8 +653,14 @@ pub fn fleet_window(
                     .desired_width(92.0)
                     .hint_text("YYYY-MM-DD"),
             );
-            ui.label(texts.get("fleet_search"));
-            ui.text_edit_singleline(&mut state.query);
+        });
+        ui.horizontal(|ui| {
+            let label = ui.label(texts.get("fleet_search"));
+            // `available_width` inside a horizontal row is the row width, not the space left of
+            // the label; subtracting only 8 px drew the field from x 77 to x 447 at 432 px.
+            let width = (ui.available_width() - label.rect.width() - ui.spacing().item_spacing.x)
+                .max(120.0);
+            ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(width));
         });
 
         if let Some(vehicle) = state.vehicle_draft.as_mut() {

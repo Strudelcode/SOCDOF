@@ -14,7 +14,7 @@ use egui::{
     Vec2, WidgetInfo, WidgetType,
 };
 
-use crate::focus::{focus_ring, FocusState};
+use crate::focus::{focus_ring, focus_ring_round, FocusState};
 use crate::icons::Icon;
 use crate::theme::{semibold, Theme};
 use crate::tokens::{adjust, shadow_layers, with_alpha, ShadowStrength};
@@ -113,8 +113,12 @@ pub fn backdrop(ui: &mut Ui, theme: &Theme) {
 
 /// Centers a fixed-width column in the available width.
 pub fn centered<R>(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui) -> R) -> R {
-    let width = width.min(ui.available_width());
-    let side = ((ui.available_width() - width) * 0.5).max(0.0);
+    // A form wider than the window would otherwise inflate the available width of the scroll area
+    // (immediate mode reports the content width), which dragged the card to the right and clipped
+    // it. Centering therefore never uses more than the screen.
+    let available = ui.available_width().min(ui.ctx().screen_rect().width());
+    let width = width.min(available);
+    let side = ((available - width) * 0.5).max(0.0);
     ui.horizontal_top(|ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         ui.add_space(side);
@@ -140,7 +144,8 @@ pub fn compact(ui: &Ui) -> bool {
 
 /// Horizontal space a card may occupy once the page margin is taken off.
 pub fn page_width(ui: &Ui) -> f32 {
-    (ui.available_width() - PAGE_MARGIN * 2.0).max(160.0)
+    let available = ui.available_width().min(ui.ctx().screen_rect().width());
+    (available - PAGE_MARGIN * 2.0).max(160.0)
 }
 
 /// Card padding of the wizard card (`p-5` compact, `p-7` on wider windows).
@@ -205,7 +210,11 @@ pub fn card_sized<R>(
             .inner_margin(Margin::same(padding))
             .show(ui, |ui| {
                 let inner = (height - padding * 2.0).max(120.0);
-                ui.set_width((width - padding * 2.0).max(120.0));
+                let inner_width = (width - padding * 2.0).max(120.0);
+                ui.set_width(inner_width);
+                // `set_width` only sets the minimum: paragraphs inside the card then saw an
+                // unbounded width, did not wrap and were cut at the card's right edge.
+                ui.set_max_width(inner_width);
                 ui.set_height(inner);
                 // `set_height` only grows the minimum height; clamping the maximum keeps the content
                 // inside the card instead of letting it push the frame past `h-[610px]`.
@@ -237,7 +246,10 @@ pub fn card<R>(
             .rounding(Rounding::same(radius))
             .inner_margin(Margin::same(padding))
             .show(ui, |ui| {
-                ui.set_width((width - padding * 2.0).max(120.0));
+                let inner_width = (width - padding * 2.0).max(120.0);
+                ui.set_width(inner_width);
+                // Without the maximum the labels of a card never wrap (see `card_sized`).
+                ui.set_max_width(inner_width);
                 add(ui)
             });
         card_shadow(ui, response.response.rect, radius, slot);
@@ -453,20 +465,25 @@ pub fn input(
     hint_text: &str,
     label: &str,
 ) -> Response {
+    // The 16/11 padding lives in the editor's own margin, so its hit box covers the whole field.
+    // With the padding on the frame instead, egui only reported clicks on the glyph run and a click
+    // on the padding left the caret in the previously focused field.
     let inner = egui::Frame::none()
         .fill(field_fill(theme))
         .stroke(Stroke::new(1.0_f32, hairline(theme)))
         .rounding(Rounding::same(12.0))
-        .inner_margin(Margin::symmetric(16.0, 11.0))
         .show(ui, |ui| {
             ui.add(
                 egui::TextEdit::singleline(value)
+                    // A stable id per field: auto ids can repeat inside the frames of one form, and a
+                    // shared id made the focus jump between two fields while typing.
+                    .id(egui::Id::new(("socdof-field", label)))
                     .hint_text(hint_text)
                     .frame(false)
                     .desired_width(f32::INFINITY)
                     .text_color(theme.palette.text)
                     .font(FontId::new(14.0, egui::FontFamily::Proportional))
-                    .margin(Margin::ZERO),
+                    .margin(Margin::symmetric(16.0, 11.0)),
             )
         });
     let response = inner.inner;
@@ -497,7 +514,12 @@ pub fn password_input(
         mut reveal,
         autofocus,
     } = options;
-    let mut masked = reveal.is_none();
+    // `reveal: None` is always masked; `reveal: Some(flag)` follows the eye toggle, so a false
+    // flag has to keep the text masked instead of showing the password in clear text.
+    let mut masked = match reveal.as_deref() {
+        Some(visible) => !*visible,
+        None => true,
+    };
     // On the dark sign-in backdrop the legacy field is `rounded-2xl border border-white/20
     // bg-black/30 py-3 focus:ring-2 focus:ring-white/40`: a translucent black pill with a 16 point
     // radius and a white focus ring that sits on the border box (ring offset 0).
@@ -521,21 +543,28 @@ pub fn password_input(
         .fill(fill)
         .stroke(border)
         .rounding(Rounding::same(radius))
-        .inner_margin(Margin::symmetric(16.0, padding))
         .show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
                 let eye = if reveal.is_some() { 26.0 } else { 0.0 };
-                let width = (ui.available_width() - eye).max(80.0);
+                // The field padding (16 left, 12 right) belongs to the editor's hit box: with it on
+                // the frame, a click on the padding left the caret in the previously focused field.
+                let width = (ui.available_width() - eye - 6.0 - 12.0 - 16.0 - 12.0).max(80.0);
                 let response = ui.add(
                     egui::TextEdit::singleline(value)
+                        .id(egui::Id::new(("socdof-field", label)))
                         .password(masked)
                         .hint_text(hint_text)
                         .frame(false)
                         .desired_width(width)
                         .text_color(theme.palette.text)
                         .font(FontId::new(14.0, egui::FontFamily::Proportional))
-                        .margin(Margin::ZERO),
+                        .margin(Margin {
+                            left: 16.0,
+                            right: 12.0,
+                            top: padding,
+                            bottom: padding,
+                        }),
                 );
                 if let Some(reveal) = reveal.as_mut() {
                     let (rect, toggle) = ui.allocate_exact_size(Vec2::splat(22.0), Sense::click());
@@ -550,6 +579,7 @@ pub fn password_input(
                         masked = !**reveal;
                     }
                 }
+                ui.add_space(12.0);
                 response
             })
             .inner
@@ -595,9 +625,12 @@ fn register_field(
     if response.clicked() {
         focus.set_focus(Some(response.id));
     }
-    if focused {
+    if focused || response.clicked() {
+        // A click moves both focus owners at once: egui's TextEdit requested the focus itself while
+        // handling the click, and surrendering it here would hand the caret back to the field that
+        // was focused before, so the following keystrokes kept landing in the old field.
         ui.memory_mut(|memory| memory.request_focus(response.id));
-        if accent_ring {
+        if accent_ring && focused {
             focus_ring(ui, theme, response.rect.expand(11.0));
         }
     } else {
@@ -886,8 +919,10 @@ pub fn language_row(
             Color32::WHITE,
         );
     }
-    if focused {
-        focus_ring(ui, theme, rect);
+    // The selected row already carries the accent border; a second accent outline around it read
+    // as a doubled frame. Keyboard focus on the selected row is shown by the button badge instead.
+    if focused && !selected {
+        focus_ring_round(ui, theme, rect, ROW_RADIUS);
     }
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, name));
     activated
@@ -1006,8 +1041,8 @@ pub fn choice(
         galley,
         color,
     );
-    if focused {
-        focus_ring(ui, theme, rect);
+    if focused && !selected {
+        focus_ring_round(ui, theme, rect, 12.0);
     }
     response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label));
     activated
@@ -1322,35 +1357,19 @@ pub fn app_tile(
         title,
         description,
         selected,
-        false,
     )
 }
 
-/// Draws one template card of the app-template grid and reports activation.
-#[allow(clippy::too_many_arguments)]
-pub fn template_tile(
-    ui: &mut Ui,
-    theme: &Theme,
-    focus: &mut FocusState,
-    salt: &str,
-    icon: Icon,
-    tint: Color32,
-    title: &str,
-    description: &str,
-    selected: bool,
-) -> bool {
-    tile(
-        ui,
-        theme,
-        focus,
-        salt,
-        icon,
-        tint,
-        title,
-        description,
-        selected,
-        true,
-    )
+/// Width below which a wizard tile stacks its icon row and its copy.
+///
+/// Next to a 40 point icon and the 20 point check mark a phone tile only keeps a narrow text column,
+/// and the title used to wrap under the badge. Below this width the title and description move to
+/// their own rows, above it they stay beside the icon like the reference.
+pub const TILE_STACK_WIDTH: f32 = 210.0;
+
+/// Whether a tile of the given width stacks the copy below the icon row.
+pub fn tile_stacks(width: f32) -> bool {
+    width < TILE_STACK_WIDTH
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1364,7 +1383,6 @@ fn tile(
     title: &str,
     description: &str,
     selected: bool,
-    template: bool,
 ) -> bool {
     let id = ui.make_persistent_id(("socdof-tile", salt));
     let focused = focus.register(id);
@@ -1404,26 +1422,41 @@ fn tile(
         ),
     );
 
-    let tile_size = if template { 40.0 } else { 38.0 };
+    // One tile style for every selection grid of the wizard: same icon size, same title size and
+    // the same check marker, whether it picks a template or an app.
+    let tile_size = 40.0;
+    // Next to the icon the tile only keeps a narrow column once the check mark has its space, and a
+    // title there would be painted underneath the badge. Narrow tiles therefore stack the copy
+    // below the icon row and use the full width; wide tiles keep the reference side-by-side layout.
+    let stacked = tile_stacks(rect.width());
+    let icon_size = if stacked { 34.0 } else { tile_size };
     let icon_rect = Rect::from_min_size(
         Pos2::new(rect.left() + 14.0, rect.top() + 14.0),
-        Vec2::splat(tile_size),
+        Vec2::splat(icon_size),
     );
-    paint_tile(ui.painter(), icon_rect, tint, icon, tile_size * 0.44);
+    paint_tile(ui.painter(), icon_rect, tint, icon, icon_size * 0.44);
 
-    let text_x = icon_rect.right() + 12.0;
     let check_size = 20.0;
-    let text_width = (rect.right() - check_size - 22.0 - text_x).max(80.0);
+    let (text_x, text_width, title_top) = if stacked {
+        (
+            rect.left() + 14.0,
+            (rect.width() - 28.0).max(40.0),
+            icon_rect.bottom() + 8.0,
+        )
+    } else {
+        let text_x = icon_rect.right() + 12.0;
+        (
+            text_x,
+            (rect.right() - check_size - 22.0 - text_x).max(40.0),
+            rect.top() + 13.0,
+        )
+    };
     // The reference keeps titles on one line, which cuts long module names in half at this tile
     // width; wrapping to two lines shows the whole name and the description follows underneath.
-    let title_font = FontId::new(if template { 14.5 } else { 13.5 }, semibold());
-    let title_galley = ui.painter().layout(
-        title.to_owned(),
-        title_font,
-        theme.palette.text,
-        text_width,
-    );
-    let title_top = rect.top() + 13.0;
+    let title_font = FontId::new(14.0, semibold());
+    let title_galley =
+        ui.painter()
+            .layout(title.to_owned(), title_font, theme.palette.text, text_width);
     let title_height = title_galley
         .rows
         .get(TITLE_ROWS.saturating_sub(1))
@@ -1653,6 +1686,15 @@ mod tests {
         assert_eq!(initials("Test"), "T");
         assert_eq!(initials("  "), "");
         assert_eq!(initials("anna maria weber"), "AM");
+    }
+
+    #[test]
+    fn narrow_tiles_stack_their_copy_below_the_icon() {
+        // The two column grid of the wizard on a 432 point phone leaves roughly 150 points per
+        // tile; the card full width leaves the reference layout room.
+        assert!(tile_stacks(154.0));
+        assert!(!tile_stacks(260.0));
+        assert!(!tile_stacks(TILE_STACK_WIDTH + 1.0));
     }
 
     #[test]

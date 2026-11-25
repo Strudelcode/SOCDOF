@@ -2,6 +2,7 @@
 
 use egui::{Context, RichText, TextEdit, Ui};
 
+use crate::chrome::{app_chrome, module_header, ModuleHeader};
 use crate::components::card;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
@@ -13,6 +14,8 @@ use crate::tokens::FONT_TITLE;
 pub struct DocumentationState {
     /// Text used to filter manual sections and their paragraphs.
     pub query: String,
+    /// Set by the header's back button; the host leaves the screen afterwards.
+    pub back: bool,
 }
 
 const TOPICS: [(&str, [&str; 3]); 4] = [
@@ -38,6 +41,43 @@ const TOPICS: [(&str, [&str; 3]); 4] = [
     ),
 ];
 
+/// Renders documentation in the full application work area.
+#[allow(clippy::too_many_arguments)]
+pub fn documentation(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut DocumentationState,
+) {
+    egui::CentralPanel::default()
+        .frame(
+            egui::Frame::none()
+                .fill(theme.palette.background)
+                .inner_margin(egui::Margin::same(24.0)),
+        )
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                module_header(
+                    ui,
+                    theme,
+                    texts,
+                    focus,
+                    ModuleHeader {
+                        app: app_chrome("documentation"),
+                        title: texts.get("docs_title"),
+                        subtitle: texts.get("docs_subtitle"),
+                        status: None,
+                    },
+                    &mut state.back,
+                );
+                ui.add_space(10.0);
+                // The header already carries title and subtitle; the body must not repeat them.
+                documentation_body(ui, theme, texts, state);
+            });
+        });
+}
+
 /// Draws the searchable manual inside its native desktop window.
 pub fn documentation_window(
     _ctx: &Context,
@@ -56,41 +96,46 @@ pub fn documentation_window(
         );
         ui.label(RichText::new(texts.get("docs_subtitle")).color(theme.palette.text_muted));
         ui.add_space(10.0);
-        ui.horizontal(|ui| {
-            ui.label(texts.get("docs_search"));
-            ui.add(
-                TextEdit::singleline(&mut state.query)
-                    .desired_width(300.0)
-                    .hint_text(texts.get("docs_search")),
-            );
-        });
-        ui.add_space(12.0);
-
-        let query = state.query.trim().to_lowercase();
-        let mut visible = 0;
-        for (title_key, paragraph_keys) in TOPICS {
-            if !topic_matches(texts, title_key, &paragraph_keys, &query) {
-                continue;
-            }
-            visible += 1;
-            card(ui, theme, |ui| {
-                ui.label(
-                    RichText::new(texts.get(title_key))
-                        .size(FONT_TITLE)
-                        .strong(),
-                );
-                ui.add_space(8.0);
-                for paragraph_key in paragraph_keys {
-                    ui.label(texts.get(paragraph_key));
-                    ui.add_space(6.0);
-                }
-            });
-            ui.add_space(10.0);
-        }
-        if visible == 0 {
-            ui.label(texts.get("docs_no_results"));
-        }
+        documentation_body(ui, theme, texts, state);
     });
+}
+
+/// Search field, topics and their paragraphs, without any page heading.
+fn documentation_body(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &mut DocumentationState) {
+    ui.horizontal(|ui| {
+        ui.label(texts.get("docs_search"));
+        ui.add(
+            TextEdit::singleline(&mut state.query)
+                .desired_width(300.0)
+                .hint_text(texts.get("docs_search")),
+        );
+    });
+    ui.add_space(12.0);
+
+    let query = state.query.trim().to_lowercase();
+    let mut visible = 0;
+    for (title_key, paragraph_keys) in TOPICS {
+        if !topic_matches(texts, title_key, &paragraph_keys, &query) {
+            continue;
+        }
+        visible += 1;
+        card(ui, theme, |ui| {
+            ui.label(
+                RichText::new(texts.get(title_key))
+                    .size(FONT_TITLE)
+                    .strong(),
+            );
+            ui.add_space(8.0);
+            for paragraph_key in paragraph_keys {
+                ui.label(texts.get(paragraph_key));
+                ui.add_space(6.0);
+            }
+        });
+        ui.add_space(10.0);
+    }
+    if visible == 0 {
+        ui.label(texts.get("docs_no_results"));
+    }
 }
 
 fn topic_matches(texts: &UiTexts, title: &str, paragraphs: &[&str; 3], query: &str) -> bool {

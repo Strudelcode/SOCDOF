@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, table_cell, table_columns,
-    ButtonVariant, Tone, TABLE_ROW_HEIGHT,
+    toolbar, ButtonVariant, Tone, TABLE_ROW_HEIGHT,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
@@ -587,7 +587,9 @@ pub fn contacts_window(
         .open(&mut batch_open)
         .collapsible(false)
         .resizable(true)
-        .default_width(720.0)
+        // A fixed 720 px window shrank to 361 px but still crossed the 360 px panel; the window
+        // now starts at the width that is left and keeps a readable minimum.
+        .default_width((ctx.screen_rect().width() - 64.0).clamp(280.0, 720.0))
         .show(ctx, |ui| {
             ui.label(texts.get("contacts_batch_hint"));
             ui.add_space(8.0);
@@ -680,7 +682,9 @@ pub fn contacts_window(
         .open(&mut import_open)
         .collapsible(false)
         .resizable(true)
-        .default_width(640.0)
+        // A fixed 640 px window ended 1 px outside the phone panel; the window takes the screen
+        // width minus its frame instead and never shrinks below a readable minimum.
+        .default_width((ctx.screen_rect().width() - 64.0).clamp(320.0, 640.0))
         .show(ctx, |ui| {
             ui.label(format!(
                 "{} · {}",
@@ -715,7 +719,7 @@ pub fn contacts_window(
                 .max_height(360.0)
                 .show(ui, |ui| {
                     for (index, contact) in state.import_preview.iter().enumerate() {
-                        ui.horizontal(|ui| {
+                        ui.horizontal_wrapped(|ui| {
                             ui.label(contact.display_name());
                             ui.label(contact.email.as_deref().unwrap_or(""));
                             ui.label(contact.phone.as_deref().unwrap_or(""));
@@ -821,89 +825,93 @@ fn list_view(
     let mut import = false;
     let mut export_csv = false;
     let mut export_vcard = false;
-    ui.horizontal_wrapped(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("contacts_search"),
-            150.0,
-        );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_batch"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            batch = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_import"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            import = true;
-        }
-        egui::ComboBox::from_id_source("contacts-export-scope")
-            .selected_text(if state.export_filtered {
-                texts.get("contacts_export_filtered")
-            } else {
-                texts.get("contacts_export_all")
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut state.export_filtered,
-                    false,
-                    texts.get("contacts_export_all"),
-                );
-                ui.selectable_value(
-                    &mut state.export_filtered,
-                    true,
-                    texts.get("contacts_export_filtered"),
-                );
-            });
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_export_csv"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            export_csv = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("contacts_export_vcard"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            export_vcard = true;
-        }
-    });
+    let export_filtered = &mut state.export_filtered;
+    toolbar(
+        ui,
+        focus,
+        660.0,
+        |ui, focus, reserve| {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("contacts_search"),
+                reserve,
+            );
+        },
+        |ui, focus| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("contacts_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("contacts_batch"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                batch = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("contacts_import"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                import = true;
+            }
+            egui::ComboBox::from_id_source("contacts-export-scope")
+                .selected_text(if *export_filtered {
+                    texts.get("contacts_export_filtered")
+                } else {
+                    texts.get("contacts_export_all")
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(export_filtered, false, texts.get("contacts_export_all"));
+                    ui.selectable_value(
+                        export_filtered,
+                        true,
+                        texts.get("contacts_export_filtered"),
+                    );
+                });
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("contacts_export_csv"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                export_csv = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("contacts_export_vcard"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                export_vcard = true;
+            }
+        },
+    );
     if create {
         state.start_new();
         return;

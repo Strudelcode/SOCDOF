@@ -142,17 +142,6 @@ fn money(value: Money) -> String {
     value.format_localized(CURRENCY)
 }
 
-fn kpi(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str) {
-    card(ui, theme, |ui| {
-        ui.label(
-            RichText::new(label)
-                .size(FONT_SMALL)
-                .color(theme.palette.text_muted),
-        );
-        ui.add_space(4.0);
-        ui.label(RichText::new(value).size(FONT_TITLE).strong());
-    });
-}
 /// Renders the reports screen into the context.
 /// Renders reports in the full application work area.
 pub fn reports(
@@ -261,54 +250,39 @@ fn body(
     };
 
     ui.add_space(12.0);
-    ui.columns(4, |columns| {
-        kpi(
-            &mut columns[0],
-            theme,
-            texts.get("reports_kpi_invoices"),
-            &report.summary.invoices.to_string(),
-        );
-        kpi(
-            &mut columns[1],
-            theme,
-            texts.get("reports_kpi_gross"),
-            &money(report.summary.gross),
-        );
-        kpi(
-            &mut columns[2],
-            theme,
-            texts.get("reports_kpi_paid"),
-            &money(report.summary.paid),
-        );
-        kpi(
-            &mut columns[3],
-            theme,
-            texts.get("reports_kpi_open"),
-            &money(report.summary.open),
-        );
-    });
-
-    ui.add_space(12.0);
-    ui.columns(3, |columns| {
-        kpi(
-            &mut columns[0],
-            theme,
-            texts.get("reports_kpi_net"),
-            &money(report.summary.net),
-        );
-        kpi(
-            &mut columns[1],
-            theme,
-            texts.get("reports_kpi_tax"),
-            &money(report.summary.tax),
-        );
-        kpi(
-            &mut columns[2],
-            theme,
-            texts.get("reports_kpi_hours"),
-            &format!("{:.2} h", report.summary.minutes as f64 / 60.0),
-        );
-    });
+    // Width-aware rows: four fixed columns squeezed the money values into single characters at
+    // 432 px, so the shared helper lays them out two per row there.
+    let kpis: Vec<(String, String)> = vec![
+        (
+            texts.get("reports_kpi_invoices").to_string(),
+            report.summary.invoices.to_string(),
+        ),
+        (
+            texts.get("reports_kpi_gross").to_string(),
+            money(report.summary.gross),
+        ),
+        (
+            texts.get("reports_kpi_paid").to_string(),
+            money(report.summary.paid),
+        ),
+        (
+            texts.get("reports_kpi_open").to_string(),
+            money(report.summary.open),
+        ),
+        (
+            texts.get("reports_kpi_net").to_string(),
+            money(report.summary.net),
+        ),
+        (
+            texts.get("reports_kpi_tax").to_string(),
+            money(report.summary.tax),
+        ),
+        (
+            texts.get("reports_kpi_hours").to_string(),
+            format!("{:.2} h", report.summary.minutes as f64 / 60.0),
+        ),
+    ];
+    crate::components::kpi_cards(ui, theme, &kpis);
 
     ui.add_space(12.0);
     card(ui, theme, |ui| {
@@ -353,6 +327,32 @@ fn body(
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
+            return;
+        }
+        // Five columns with a status badge do not fit the phone panel: the invoice number and
+        // the gross amount lead, the contact, date and status follow on a second line.
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            for row in &report.rows {
+                ui.label(RichText::new(format!("{} · {}", row.number, money(row.gross))).strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(
+                        RichText::new(format!("{} · {}", row.contact, format_date(row.issued_at)))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(STATUS_KEYS[status_index(row.status)]),
+                        match row.status {
+                            socdof_core::domain::invoice::InvoiceStatus::Paid => Tone::Success,
+                            socdof_core::domain::invoice::InvoiceStatus::Overdue => Tone::Danger,
+                            _ => Tone::Accent,
+                        },
+                    );
+                });
+                ui.add_space(6.0);
+            }
             return;
         }
         egui::Grid::new("socdof-reports-table")

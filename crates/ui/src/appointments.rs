@@ -26,7 +26,7 @@ use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
-use crate::tokens::{FONT_SMALL, FONT_TITLE};
+use crate::tokens::{FONT_BODY, FONT_SMALL, FONT_TITLE};
 
 /// Fixed timestamp of the sample appointments, shared with the other module fixtures.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
@@ -992,6 +992,9 @@ fn calendar_view(
     }
 
     ui.add_space(8.0);
+    // On the phone the range label had only ~200 px left after the three buttons and was cut off
+    // at the panel edge; there it gets its own line under the navigation buttons.
+    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
     ui.horizontal(|ui| {
         if button(
             ui,
@@ -1026,9 +1029,14 @@ fn calendar_view(
         {
             state.shift(true);
         }
-        ui.add_space(8.0);
-        ui.label(RichText::new(range_label(state, texts)).strong());
+        if !narrow {
+            ui.add_space(8.0);
+            ui.label(RichText::new(range_label(state, texts)).strong());
+        }
     });
+    if narrow {
+        ui.label(RichText::new(range_label(state, texts)).strong());
+    }
 
     ui.add_space(8.0);
     match state.view {
@@ -1070,54 +1078,136 @@ fn month_view(
     let calendar = state.calendar;
     let mut clicked = None;
     card(ui, theme, |ui| {
-        egui::Grid::new("socdof-calendar-month")
-            .num_columns(7)
-            .spacing(egui::vec2(6.0, 6.0))
-            .show(ui, |ui| {
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Seven day buttons with 28 px padding reached 391.8 px content at 360-412 px. The
+            // compact grid sizes every cell from the width that is actually left.
+            let spacing = 2.0;
+            let cell = ((ui.available_width() - spacing * 6.0) / 7.0).max(28.0);
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = spacing;
                 for index in 1..=7 {
-                    ui.label(
-                        RichText::new(texts.get(&format!("weekday_{index}")))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::Vec2::new(cell, 18.0), egui::Sense::hover());
+                    ui.painter().text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        texts.get(&format!("weekday_{index}")),
+                        egui::FontId::proportional(FONT_SMALL),
+                        theme.palette.text_muted,
                     );
                 }
-                ui.end_row();
-                for row in 0..6 {
-                    for column in 0..7 {
-                        let day = cells[row * 7 + column];
-                        ui.vertical(|ui| {
-                            if let Some(day) = day {
-                                let start = sample_at(calendar, day, 0, 0);
-                                let count = state
-                                    .appointments
-                                    .iter()
-                                    .filter(|appointment| {
-                                        appointment.overlaps(start, start + DAY_MS)
-                                    })
-                                    .count();
-                                let selected = calendar.day == day;
-                                let variant = if selected {
-                                    ButtonVariant::Primary
-                                } else {
-                                    ButtonVariant::Ghost
-                                };
-                                if button(ui, theme, focus, &day.to_string(), variant).activated {
-                                    clicked = Some(day);
-                                }
-                                if count > 0 {
-                                    ui.label(
-                                        RichText::new(format!("{count}"))
-                                            .size(FONT_SMALL)
-                                            .color(theme.accent.base),
-                                    );
-                                }
-                            }
-                        });
+            });
+            let weekday_width = spacing * 6.0 + cell * 7.0;
+            let left = ui.min_rect().left();
+            for row in 0..6 {
+                let top = ui.cursor().top();
+                for column in 0..7 {
+                    let day = cells[row * 7 + column];
+                    let Some(day) = day else {
+                        continue;
+                    };
+                    let rect = egui::Rect::from_min_size(
+                        egui::Pos2::new(left + column as f32 * (cell + spacing), top),
+                        egui::Vec2::new(cell, 40.0),
+                    );
+                    let response =
+                        ui.interact(rect, ui.id().with((row, column)), egui::Sense::click());
+                    let selected = calendar.day == day;
+                    let painter = ui.painter();
+                    if selected {
+                        painter.rect(
+                            rect.shrink(2.0),
+                            egui::Rounding::same(8.0),
+                            theme.accent.base,
+                            egui::Stroke::NONE,
+                        );
+                    }
+                    painter.text(
+                        rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        day.to_string(),
+                        egui::FontId::proportional(FONT_BODY),
+                        if selected {
+                            theme.palette.accent_on
+                        } else {
+                            theme.palette.text
+                        },
+                    );
+                    let start = sample_at(calendar, day, 0, 0);
+                    let count = state
+                        .appointments
+                        .iter()
+                        .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+                        .count();
+                    if count > 0 {
+                        painter.text(
+                            egui::Pos2::new(rect.center().x, rect.bottom() - 4.0),
+                            egui::Align2::CENTER_BOTTOM,
+                            count.to_string(),
+                            egui::FontId::proportional(FONT_SMALL),
+                            theme.accent.base,
+                        );
+                    }
+                    if response.clicked() {
+                        clicked = Some(day);
+                    }
+                }
+                ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+                    egui::Pos2::new(left, top),
+                    egui::Vec2::new(weekday_width, 40.0),
+                ));
+            }
+        } else {
+            egui::Grid::new("socdof-calendar-month")
+                .num_columns(7)
+                .spacing(egui::vec2(6.0, 6.0))
+                .show(ui, |ui| {
+                    for index in 1..=7 {
+                        ui.label(
+                            RichText::new(texts.get(&format!("weekday_{index}")))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
                     }
                     ui.end_row();
-                }
-            });
+                    for row in 0..6 {
+                        for column in 0..7 {
+                            let day = cells[row * 7 + column];
+                            ui.vertical(|ui| {
+                                if let Some(day) = day {
+                                    let start = sample_at(calendar, day, 0, 0);
+                                    let count = state
+                                        .appointments
+                                        .iter()
+                                        .filter(|appointment| {
+                                            appointment.overlaps(start, start + DAY_MS)
+                                        })
+                                        .count();
+                                    let selected = calendar.day == day;
+                                    let variant = if selected {
+                                        ButtonVariant::Primary
+                                    } else {
+                                        ButtonVariant::Ghost
+                                    };
+                                    if button(ui, theme, focus, &day.to_string(), variant).activated
+                                    {
+                                        clicked = Some(day);
+                                    }
+                                    if count > 0 {
+                                        ui.label(
+                                            RichText::new(format!("{count}"))
+                                                .size(FONT_SMALL)
+                                                .color(theme.accent.base),
+                                        );
+                                    }
+                                }
+                            });
+                        }
+                        ui.end_row();
+                    }
+                });
+        }
     });
 
     if let Some(day) = clicked {
@@ -1138,6 +1228,48 @@ fn week_view(
     let (monday, _) = week_bounds(state.calendar);
     let mut chosen = None;
     card(ui, theme, |ui| {
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Seven day columns side by side reached 561 px; on the phone each day gets a block
+            // that spans the card so appointment titles keep the full panel width.
+            ui.set_min_width(ui.available_width());
+            for offset in 0..7 {
+                let start = monday + offset * DAY_MS;
+                ui.label(
+                    RichText::new(format_date(start))
+                        .size(FONT_SMALL)
+                        .strong()
+                        .color(theme.palette.text_muted),
+                );
+                let items: Vec<&Appointment> = state
+                    .visible()
+                    .into_iter()
+                    .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+                    .collect();
+                if items.is_empty() {
+                    ui.label(
+                        RichText::new("—")
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                for appointment in items {
+                    if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated
+                    {
+                        chosen = Some(appointment.id);
+                    }
+                    ui.label(
+                        RichText::new(format_time(appointment.starts_at))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                }
+                ui.add_space(4.0);
+            }
+            if let Some(id) = chosen {
+                state.select(id);
+            }
+            return;
+        }
         ui.horizontal_wrapped(|ui| {
             for offset in 0..7 {
                 let start = monday + offset * DAY_MS;
@@ -1268,6 +1400,36 @@ fn agenda(
         }
 
         let mut chosen = None;
+        // Five columns of date, time, title, contact and status do not fit the phone panel, so
+        // below the stacking width the title leads and the remaining values follow underneath.
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            for appointment in items {
+                if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated {
+                    chosen = Some(appointment.id);
+                }
+                ui.label(
+                    RichText::new(format!(
+                        "{} · {} · {}",
+                        format_date(appointment.starts_at),
+                        format_range(appointment),
+                        contact_name(&state.contacts, appointment.contact_id)
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                badge(
+                    ui,
+                    theme,
+                    texts.get(status_key(appointment.status)),
+                    status_tone(appointment.status),
+                );
+                ui.add_space(6.0);
+            }
+            if let Some(id) = chosen {
+                state.select(id);
+            }
+            return;
+        }
         egui::Grid::new("socdof-calendar-agenda")
             .num_columns(5)
             .spacing(egui::vec2(16.0, 8.0))
@@ -1523,35 +1685,59 @@ fn form_view(
             None,
         );
         ui.add_space(6.0);
-        ui.columns(3, |columns| {
-            text_field(
-                &mut columns[0],
-                theme,
-                focus,
-                &mut state.draft.date,
-                texts.get("appointments_date"),
-                texts.get("appointments_date_hint"),
-                None,
-            );
-            text_field(
-                &mut columns[1],
-                theme,
-                focus,
-                &mut state.draft.start,
-                texts.get("appointments_start"),
-                texts.get("appointments_start_hint"),
-                None,
-            );
-            text_field(
-                &mut columns[2],
-                theme,
-                focus,
-                &mut state.draft.duration,
-                texts.get("appointments_duration"),
-                texts.get("appointments_duration_hint"),
-                None,
-            );
-        });
+        let date_width = ui.available_width();
+        if date_width < crate::components::FORM_STACK_WIDTH {
+            for (value, label, hint) in [
+                (
+                    &mut state.draft.date,
+                    texts.get("appointments_date"),
+                    texts.get("appointments_date_hint"),
+                ),
+                (
+                    &mut state.draft.start,
+                    texts.get("appointments_start"),
+                    texts.get("appointments_start_hint"),
+                ),
+                (
+                    &mut state.draft.duration,
+                    texts.get("appointments_duration"),
+                    texts.get("appointments_duration_hint"),
+                ),
+            ] {
+                text_field(ui, theme, focus, value, label, hint, None);
+                ui.add_space(4.0);
+            }
+        } else {
+            ui.columns(3, |columns| {
+                text_field(
+                    &mut columns[0],
+                    theme,
+                    focus,
+                    &mut state.draft.date,
+                    texts.get("appointments_date"),
+                    texts.get("appointments_date_hint"),
+                    None,
+                );
+                text_field(
+                    &mut columns[1],
+                    theme,
+                    focus,
+                    &mut state.draft.start,
+                    texts.get("appointments_start"),
+                    texts.get("appointments_start_hint"),
+                    None,
+                );
+                text_field(
+                    &mut columns[2],
+                    theme,
+                    focus,
+                    &mut state.draft.duration,
+                    texts.get("appointments_duration"),
+                    texts.get("appointments_duration_hint"),
+                    None,
+                );
+            });
+        }
         ui.add_space(6.0);
         text_field(
             ui,
@@ -1573,7 +1759,9 @@ fn form_view(
             None,
         );
         ui.add_space(6.0);
-        ui.horizontal(|ui| {
+        let select_width = ui.available_width();
+        let stack_selects = select_width < crate::components::FORM_STACK_WIDTH;
+        if stack_selects {
             ui.label(
                 RichText::new(texts.get("appointments_contact"))
                     .size(FONT_SMALL)
@@ -1591,7 +1779,7 @@ fn form_view(
                 &mut state.draft.contact,
                 &labels,
             );
-            ui.add_space(12.0);
+            ui.add_space(4.0);
             ui.label(
                 RichText::new(texts.get("appointments_status"))
                     .size(FONT_SMALL)
@@ -1611,7 +1799,47 @@ fn form_view(
                 &mut state.draft.status,
                 &status_labels,
             );
-        });
+        } else {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get("appointments_contact"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                let mut names: Vec<String> = vec![texts.get("appointments_no_contact").to_string()];
+                names.extend(state.contacts.iter().map(contact_label));
+                let labels: Vec<&str> = names.iter().map(String::as_str).collect();
+                select(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.contact_popup,
+                    "appointment-contact",
+                    &mut state.draft.contact,
+                    &labels,
+                );
+                ui.add_space(12.0);
+                ui.label(
+                    RichText::new(texts.get("appointments_status"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                let status_names: Vec<String> = STATUSES
+                    .iter()
+                    .map(|status| texts.get(status_key(*status)).to_string())
+                    .collect();
+                let status_labels: Vec<&str> = status_names.iter().map(String::as_str).collect();
+                select(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.status_popup,
+                    "appointment-status",
+                    &mut state.draft.status,
+                    &status_labels,
+                );
+            });
+        }
     });
 
     ui.add_space(12.0);

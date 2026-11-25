@@ -52,12 +52,24 @@ enum Scene {
     Drawer,
     Dashboard,
     Contacts,
+    ContactsBatch,
     Products,
+    ProductsJournal,
+    ProductsForm,
     Invoices,
+    InvoicesForm,
     Accounting,
+    AccountingVat,
+    AccountingCustom,
     Purchases,
+    PurchasesDetail,
+    PurchasesForm,
+    PurchasesError,
+    PurchasesDelete,
     Pos,
     Calendar,
+    CalendarWeek,
+    CalendarForm,
     Users,
     UserDetail,
     Editor,
@@ -67,6 +79,7 @@ enum Scene {
     Support,
     Reports,
     Therapie,
+    TherapieList,
     AuthLogin,
     AuthLocked,
     AuthLanguage,
@@ -74,8 +87,14 @@ enum Scene {
     AuthSetup,
     AuthAppearance,
     AuthApps,
+    AuthFinish,
+    AuthRecover,
+    AuthPasswordChange,
     AuthUnlocked,
     Settings(SettingsTab),
+    SettingsRoleForm,
+    SettingsDelete,
+    SettingsRestore,
     DesktopCalculator,
     DesktopWidgets,
     DesktopEditor,
@@ -108,6 +127,17 @@ impl Scene {
             Scene::Invoices => "invoices".to_string(),
             Scene::Accounting => "accounting".to_string(),
             Scene::Purchases => "purchases".to_string(),
+            Scene::PurchasesDetail => "purchases-detail".to_string(),
+            Scene::PurchasesForm => "purchases-form".to_string(),
+            Scene::PurchasesError => "purchases-error".to_string(),
+            Scene::PurchasesDelete => "purchases-delete".to_string(),
+            Scene::ContactsBatch => "contacts-batch".to_string(),
+            Scene::AccountingVat => "accounting-vat".to_string(),
+            Scene::AccountingCustom => "accounting-custom".to_string(),
+            Scene::InvoicesForm => "invoices-form".to_string(),
+            Scene::ProductsJournal => "products-journal".to_string(),
+            Scene::CalendarWeek => "calendar-week".to_string(),
+            Scene::CalendarForm => "calendar-form".to_string(),
             Scene::Pos => "pos".to_string(),
             Scene::Calendar => "calendar".to_string(),
             Scene::Users => "users".to_string(),
@@ -119,6 +149,8 @@ impl Scene {
             Scene::Support => "support".to_string(),
             Scene::Reports => "reports".to_string(),
             Scene::Therapie => "therapy".to_string(),
+            Scene::TherapieList => "therapy-list".to_string(),
+            Scene::ProductsForm => "products-form".to_string(),
             Scene::AuthLogin => "auth-login".to_string(),
             Scene::AuthLocked => "auth-locked".to_string(),
             Scene::AuthLanguage => "auth-language".to_string(),
@@ -126,8 +158,14 @@ impl Scene {
             Scene::AuthSetup => "auth-setup".to_string(),
             Scene::AuthAppearance => "auth-appearance".to_string(),
             Scene::AuthApps => "auth-apps".to_string(),
+            Scene::AuthFinish => "auth-finish".to_string(),
+            Scene::AuthRecover => "auth-recover".to_string(),
+            Scene::AuthPasswordChange => "auth-password-change".to_string(),
             Scene::AuthUnlocked => "auth-unlocked".to_string(),
             Scene::Settings(tab) => format!("settings-{}", settings_id(tab)),
+            Scene::SettingsRoleForm => "settings-role-form".to_string(),
+            Scene::SettingsDelete => "settings-delete".to_string(),
+            Scene::SettingsRestore => "settings-restore".to_string(),
         }
     }
 
@@ -152,8 +190,20 @@ impl Scene {
             Scene::Contacts => "Contacts".to_string(),
             Scene::Products => "Products & stock".to_string(),
             Scene::Invoices => "Invoices".to_string(),
+            Scene::ProductsForm => "Products · Form".to_string(),
             Scene::Accounting => "Accounting".to_string(),
             Scene::Purchases => "Purchases".to_string(),
+            Scene::PurchasesDetail => "Purchases · Order".to_string(),
+            Scene::PurchasesForm => "Purchases · Form".to_string(),
+            Scene::PurchasesError => "Purchases · Long error badge".to_string(),
+            Scene::PurchasesDelete => "Purchases · Delete dialog".to_string(),
+            Scene::ContactsBatch => "Contacts · Batch dialog".to_string(),
+            Scene::AccountingVat => "Accounting · VAT return".to_string(),
+            Scene::AccountingCustom => "Accounting · Custom range".to_string(),
+            Scene::InvoicesForm => "Invoices · Form".to_string(),
+            Scene::ProductsJournal => "Products · Movement journal".to_string(),
+            Scene::CalendarWeek => "Calendar · Week".to_string(),
+            Scene::CalendarForm => "Calendar · Appointment form".to_string(),
             Scene::Pos => "POS / cash register".to_string(),
             Scene::Calendar => "Calendar".to_string(),
             Scene::Users => "User management".to_string(),
@@ -165,6 +215,7 @@ impl Scene {
             Scene::Support => "Support · Tickets".to_string(),
             Scene::Reports => "Reports · Period totals".to_string(),
             Scene::Therapie => "Therapy · Client detail".to_string(),
+            Scene::TherapieList => "Therapy · Clients".to_string(),
             Scene::AuthLogin => "Login".to_string(),
             Scene::AuthLocked => "Lock screen".to_string(),
             Scene::AuthLanguage => "First-run language".to_string(),
@@ -172,8 +223,14 @@ impl Scene {
             Scene::AuthSetup => "First-run account".to_string(),
             Scene::AuthAppearance => "First-run appearance".to_string(),
             Scene::AuthApps => "First-run apps".to_string(),
+            Scene::AuthFinish => "First-run finish".to_string(),
+            Scene::AuthRecover => "Password recovery".to_string(),
+            Scene::AuthPasswordChange => "Password change".to_string(),
             Scene::AuthUnlocked => "Signed in".to_string(),
             Scene::Settings(tab) => format!("Settings · {}", settings_title(tab)),
+            Scene::SettingsRoleForm => "Settings · Role editor".to_string(),
+            Scene::SettingsDelete => "Settings · Delete dialog".to_string(),
+            Scene::SettingsRestore => "Settings · Restore dialog".to_string(),
             Scene::DesktopCalculator => "Desktop · Calculator window".to_string(),
             Scene::DesktopWidgets => "Desktop · Widgets window".to_string(),
             Scene::DesktopEditor => "Desktop · Text editor window".to_string(),
@@ -203,7 +260,9 @@ impl Scene {
             Scene::AuthLanguage => (900.0, 780.0),
             Scene::AuthWelcome => (900.0, 620.0),
             Scene::AuthSetup | Scene::AuthAppearance => (900.0, 1000.0),
-            Scene::AuthApps => (900.0, 1400.0),
+            Scene::AuthApps => (900.0, 1700.0),
+            Scene::AuthFinish => (900.0, 1000.0),
+            Scene::AuthRecover | Scene::AuthPasswordChange => (900.0, 1060.0),
             Scene::DesktopCalculator | Scene::DesktopWidgets | Scene::DesktopEditor => {
                 (COMPACT_WIDTH, COMPACT_HEIGHT)
             }
@@ -371,6 +430,86 @@ impl Scene {
             Scene::Invoices => state.invoices_open = true,
             Scene::Accounting => state.accounting_open = true,
             Scene::Purchases => state.purchases_open = true,
+            Scene::PurchasesDetail => {
+                state.purchases_open = true;
+                let _ = state.purchases.refresh(&state.store);
+                if let Some(id) = state.purchases.orders.first().map(|order| order.id) {
+                    state.purchases.select(id);
+                }
+            }
+            Scene::PurchasesForm => {
+                state.purchases_open = true;
+                let _ = state.purchases.refresh(&state.store);
+                state.purchases.start_new(socdof_core::now_millis());
+            }
+            Scene::PurchasesError => {
+                state.purchases_open = true;
+                let _ = state.purchases.refresh(&state.store);
+                state.purchases.error = Some("accounting_error_period");
+            }
+            Scene::PurchasesDelete => {
+                state.purchases_open = true;
+                let _ = state.purchases.refresh(&state.store);
+                if let Some(id) = state.purchases.orders.first().map(|order| order.id) {
+                    state.purchases.select(id);
+                }
+                state.purchases.confirm_delete = true;
+            }
+            Scene::ContactsBatch => {
+                state.contacts_open = true;
+                let _ = state.contacts.refresh(&state.store);
+                state.contacts.start_batch();
+            }
+            Scene::AccountingVat => {
+                state.accounting_open = true;
+                state.accounting.tab = socdof_ui::accounting::AccountingTab::VatReturn;
+                let _ = state
+                    .accounting
+                    .refresh(&state.store, socdof_core::now_millis());
+            }
+            Scene::AccountingCustom => {
+                state.accounting_open = true;
+                state.accounting.period = socdof_ui::accounting::AccountingPeriod::Custom;
+                state.accounting.custom_from = "2026-01-01".to_string();
+                state.accounting.custom_to = "2026-12-31".to_string();
+                let _ = state
+                    .accounting
+                    .refresh(&state.store, socdof_core::now_millis());
+            }
+            Scene::InvoicesForm => {
+                state.invoices_open = true;
+                let _ = state.invoices.refresh(&state.store);
+                state.invoices.start_new(socdof_core::now_millis());
+            }
+            Scene::ProductsForm => {
+                state.products_open = true;
+                let _ = state.products.refresh(&state.store);
+                state.products.start_new();
+            }
+            Scene::TherapieList => {
+                let _ = state.therapie.reset_for_open(&state.store);
+                state.therapie.view = socdof_ui::therapie::TherapieView::List;
+                state.therapie_open = true;
+            }
+            Scene::ProductsJournal => {
+                state.products_open = true;
+                let _ = state.products.refresh(&state.store);
+                state.products.view = socdof_ui::products::ProductsView::Journal;
+            }
+            Scene::CalendarWeek => {
+                state.appointments_open = true;
+                state.appointments.screen = socdof_ui::appointments::AppointmentsDetail::Calendar;
+                let _ = state.appointments.refresh(&state.store);
+                state
+                    .appointments
+                    .set_view(socdof_ui::appointments::AppointmentsView::Week);
+            }
+            Scene::CalendarForm => {
+                state.appointments_open = true;
+                state.appointments.screen = socdof_ui::appointments::AppointmentsDetail::Form;
+                let _ = state.appointments.refresh(&state.store);
+                state.appointments.start_new();
+            }
             Scene::Pos => state.pos_open = true,
             Scene::Calendar => {
                 state.appointments_open = true;
@@ -455,6 +594,24 @@ impl Scene {
                 .collect();
                 state.auth_open = true;
             }
+            Scene::AuthFinish => {
+                state.auth.show_setup();
+                state.auth.setup_step = 5;
+                state.auth.display_name = "Alex Administrator".to_string();
+                state.auth.username = "admin".to_string();
+                state.auth_open = true;
+            }
+            Scene::AuthRecover => {
+                state.auth.view = socdof_ui::auth::AuthView::Recover;
+                state.auth.username = "admin".to_string();
+                state.auth.status = None;
+                state.auth_open = true;
+            }
+            Scene::AuthPasswordChange => {
+                state.auth.view = socdof_ui::auth::AuthView::ChangePassword;
+                state.auth.username = "admin".to_string();
+                state.auth_open = true;
+            }
             Scene::AuthUnlocked => {
                 state.auth.show_unlocked();
                 state.auth_open = true;
@@ -474,6 +631,47 @@ impl Scene {
             Scene::Settings(tab) => {
                 state.settings_open = true;
                 state.settings.set_tab(tab);
+            }
+            Scene::SettingsRoleForm => {
+                state.settings_open = true;
+                let _ = state.settings.refresh(&state.store);
+                state
+                    .settings
+                    .set_tab(socdof_ui::settings::SettingsTab::Roles);
+                if let Some(id) = state.settings.roles().first().map(|role| role.id) {
+                    state.settings.dispatch(
+                        socdof_ui::settings::SettingsIntent::EditRole(id),
+                        &state.store,
+                    );
+                }
+            }
+            Scene::SettingsDelete => {
+                state.settings_open = true;
+                let _ = state.settings.refresh(&state.store);
+                state
+                    .settings
+                    .set_tab(socdof_ui::settings::SettingsTab::Users);
+                if let Some(id) = state.settings.users().first().map(|user| user.id) {
+                    state.settings.dispatch(
+                        socdof_ui::settings::SettingsIntent::DeleteUser(id),
+                        &state.store,
+                    );
+                }
+            }
+            Scene::SettingsRestore => {
+                state.settings_open = true;
+                let _ = state.settings.refresh(&state.store);
+                state
+                    .settings
+                    .set_tab(socdof_ui::settings::SettingsTab::Backup);
+                state.settings.dispatch(
+                    socdof_ui::settings::SettingsIntent::RequestRestore {
+                        archive: "Backups/SOCDOF/2026-11-23/socdof-backup-2026-11-23-1200.zip"
+                            .to_string(),
+                        target: "Restore/SOCDOF-2026-11-23".to_string(),
+                    },
+                    &state.store,
+                );
             }
         }
     }
@@ -537,12 +735,24 @@ fn scenes() -> Vec<Scene> {
         Scene::Drawer,
         Scene::Dashboard,
         Scene::Contacts,
+        Scene::ContactsBatch,
         Scene::Products,
+        Scene::ProductsJournal,
+        Scene::ProductsForm,
         Scene::Invoices,
+        Scene::InvoicesForm,
         Scene::Accounting,
+        Scene::AccountingVat,
+        Scene::AccountingCustom,
         Scene::Purchases,
+        Scene::PurchasesDetail,
+        Scene::PurchasesForm,
+        Scene::PurchasesError,
+        Scene::PurchasesDelete,
         Scene::Pos,
         Scene::Calendar,
+        Scene::CalendarWeek,
+        Scene::CalendarForm,
         Scene::Users,
         Scene::UserDetail,
         Scene::Editor,
@@ -552,6 +762,7 @@ fn scenes() -> Vec<Scene> {
         Scene::Support,
         Scene::Reports,
         Scene::Therapie,
+        Scene::TherapieList,
         Scene::AuthLogin,
         Scene::AuthLocked,
         Scene::AuthLanguage,
@@ -559,9 +770,15 @@ fn scenes() -> Vec<Scene> {
         Scene::AuthSetup,
         Scene::AuthAppearance,
         Scene::AuthApps,
+        Scene::AuthFinish,
+        Scene::AuthRecover,
+        Scene::AuthPasswordChange,
         Scene::AuthUnlocked,
     ];
     scenes.extend(SettingsTab::ALL.into_iter().map(Scene::Settings));
+    scenes.push(Scene::SettingsRoleForm);
+    scenes.push(Scene::SettingsDelete);
+    scenes.push(Scene::SettingsRestore);
     scenes
 }
 

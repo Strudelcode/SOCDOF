@@ -619,7 +619,10 @@ pub fn templates_modal(
         &mut open,
         texts.get("invoices_templates_title"),
         |ui| {
-            ui.set_min_width(760.0);
+            // The template editor needs a wide dialog, but its minimum width must follow the
+            // window: a fixed 760 points pushed the dialog past a narrow screen.
+            let available = ui.available_width().min(760.0);
+            ui.set_min_width(available);
             ui.label(
                 RichText::new(texts.get("invoices_templates_hint"))
                     .size(FONT_SMALL)
@@ -635,7 +638,9 @@ pub fn templates_modal(
             }
             ui.add_space(6.0);
 
-            ui.horizontal_top(|ui| {
+            // List and editor sit side by side on a wide window and stack when the dialog is
+            // narrow, instead of squeezing the editor into a few points.
+            ui.horizontal_wrapped(|ui| {
                 ui.vertical(|ui| {
                     ui.set_min_width(190.0);
                     ui.label(RichText::new(texts.get("invoices_templates_list")).strong());

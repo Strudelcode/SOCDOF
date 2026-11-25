@@ -41,8 +41,8 @@
     </style>
   </head>
   <body>
-    <!-- The backing store is the fixed logical grid of the app; CSS scales it to the viewport so the
-         egui screen rectangle never follows a panel resize. -->
+    <!-- The host keeps the backing store on the CSS box at the display scale (see lib.rs), so the
+         egui point space equals the panel size and pointer positions stay on the widget grid. -->
     <canvas id="socdof-canvas" width="1512" height="982" tabindex="0"></canvas>
     <div id="loading">SOCDOF lädt …</div>
   </body>

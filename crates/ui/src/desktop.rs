@@ -102,9 +102,9 @@ pub const ICON_GLYPH: f32 = 24.0;
 /// Wrap width of the icon captions.
 ///
 /// The legacy caption is `text-xs font-semibold ... max-w-[90px]`
-/// (`DesktopWindowWorkspace.tsx:2914`), so "Taschenrechner" breaks into two lines while shorter
-/// names stay on one.
-pub const ICON_LABEL_WIDTH: f32 = 86.0;
+/// (`DesktopWindowWorkspace.tsx:2914`); the cell itself is 96 points wide. The wrap width uses the
+/// whole cell so "Taschenrechner" stays on one line instead of breaking inside the word.
+pub const ICON_LABEL_WIDTH: f32 = 94.0;
 /// Distance between the desktop edge and the first icon cell.
 pub const DESKTOP_MARGIN: f32 = 24.0;
 /// Height of the desktop window control bar in the top right corner (`h-8`).
@@ -585,13 +585,44 @@ pub const COMPACT_DESKTOP_WIDTH: f32 = 640.0;
 /// Columns of the compact grid.
 pub const COMPACT_COLUMNS: u32 = 3;
 /// Row pitch of the compact grid (`const offsetY = 16 + row * 114`, `DesktopWindowWorkspace.tsx:893`).
+///
+/// This is the reference pitch and the upper bound: [`compact_step_y`] shortens it when the rows
+/// would otherwise run into the session chip band at the bottom of the desktop.
 pub const COMPACT_STEP_Y: f32 = 114.0;
-/// Top inset of the first compact row, measured to the icon button (`offsetY` starts at 16).
-pub const COMPACT_ORIGIN_Y: f32 = 16.0;
+
+/// Vertical gap between two compact grid cells.
+pub const COMPACT_GAP_Y: f32 = 8.0;
+
+/// Height band at the bottom of the work area that stays free for the session chip.
+///
+/// The chip is drawn by the browser host eight points above the taskbar; reserving its height here
+/// keeps the last icon row — labels included — clear of it at every viewport size.
+pub const SESSION_CHIP_BAND: f32 = 60.0;
+
+/// Smallest compact row pitch before cells get too tight to hold a tile and its label.
+pub const COMPACT_MIN_STEP_Y: f32 = 96.0;
+/// Top inset of the first compact row (`offsetY` starts at 16 in the reference).
+///
+/// The desktop control bar occupies the top right corner, so the first row starts below it; the
+/// reference shell has no such bar and could start at 16.
+pub const COMPACT_ORIGIN_Y: f32 = DESKTOP_CONTROL_HEIGHT + 8.0;
 /// Side inset the compact columns are distributed inside (`screenW - 24`).
 pub const COMPACT_INSET_X: f32 = 12.0;
 /// Width of one compact item before the remaining column width is split around it (`itemWidth`).
 pub const COMPACT_ITEM_WIDTH: f32 = 80.0;
+
+/// Row pitch of the compact grid for a desktop of this height.
+///
+/// Six rows with the reference pitch need 16 + 5 × 114 + 108 = 694 points. On a 432 × 768 viewport
+/// the work area is 720 points high and the session chip keeps the bottom 60 points free, so the
+/// pitch shrinks until the last row ends above it. Wide desktops keep the reference pitch.
+pub fn compact_step_y(desktop: Rect) -> f32 {
+    let rows = ICON_ROWS as f32;
+    let limit = desktop.bottom() - SESSION_CHIP_BAND;
+    let usable = limit - desktop.top() - COMPACT_ORIGIN_Y - COMPACT_GAP_Y * (rows - 1.0);
+    let pitch = usable / rows + COMPACT_GAP_Y;
+    pitch.clamp(COMPACT_MIN_STEP_Y, COMPACT_STEP_Y)
+}
 
 /// Reports whether a desktop is narrow enough for the compact icon grid.
 pub fn compact(desktop: Rect) -> bool {
@@ -720,7 +751,7 @@ impl IconGrid {
                 + COMPACT_INSET_X
                 + column_width * column as f32
                 + ((column_width - COMPACT_ITEM_WIDTH) * 0.5).floor().max(0.0);
-            let top = desktop.min.y + COMPACT_ORIGIN_Y + row as f32 * COMPACT_STEP_Y;
+            let top = desktop.min.y + COMPACT_ORIGIN_Y + row as f32 * compact_step_y(desktop);
             return Rect::from_min_size(Pos2::new(left, top), ICON_CELL);
         }
         let left = desktop.min.x + DESKTOP_MARGIN + cell.0 as f32 * ICON_STEP_X;
@@ -737,7 +768,8 @@ impl IconGrid {
             let inset = ((column_width - COMPACT_ITEM_WIDTH) * 0.5).floor().max(0.0);
             let column =
                 ((point.x - desktop.min.x - COMPACT_INSET_X - inset) / column_width).floor();
-            let row = ((point.y - desktop.min.y - COMPACT_ORIGIN_Y) / COMPACT_STEP_Y).floor();
+            let row =
+                ((point.y - desktop.min.y - COMPACT_ORIGIN_Y) / compact_step_y(desktop)).floor();
             let column = (column.max(0.0) as u32).min(COMPACT_COLUMNS - 1);
             let row = (row.max(0.0) as u32).min(ICON_ROWS - 1);
             let index = row * COMPACT_COLUMNS + column;
@@ -3216,23 +3248,50 @@ mod tests {
     #[test]
     fn the_compact_grid_matches_the_legacy_phone_layout() {
         let desktop = Rect::from_min_size(Pos2::ZERO, Vec2::new(432.0, 723.0));
+        let step = compact_step_y(desktop);
         let first = IconGrid::cell_rect(desktop, (0, 0));
-        assert_eq!((first.left(), first.top()), (40.0, 16.0));
+        assert_eq!((first.left(), first.top()), (40.0, COMPACT_ORIGIN_Y));
         assert_eq!(first.center().x, 88.0, "tile centre of the first column");
         assert_eq!(IconGrid::cell_rect(desktop, (0, 1)).left(), 176.0);
         assert_eq!(IconGrid::cell_rect(desktop, (0, 2)).left(), 312.0);
         let second_row = IconGrid::cell_rect(desktop, (0, 3));
-        assert_eq!((second_row.left(), second_row.top()), (40.0, 130.0));
+        assert_eq!(second_row.left(), 40.0);
+        assert_eq!(second_row.top(), COMPACT_ORIGIN_Y + step);
         let grid = IconGrid::new(vec![
             DesktopIcon::new(AppId::new("a"), "a", Icon::User),
             DesktopIcon::new(AppId::new("b"), "b", Icon::User),
             DesktopIcon::new(AppId::new("c"), "c", Icon::User),
             DesktopIcon::new(AppId::new("d"), "d", Icon::User),
         ]);
-        assert_eq!(grid.cell_at(desktop, Pos2::new(88.0, 40.0)), (0, 0));
-        assert_eq!(grid.cell_at(desktop, Pos2::new(224.0, 40.0)), (0, 1));
-        assert_eq!(grid.cell_at(desktop, Pos2::new(88.0, 154.0)), (0, 3));
+        assert_eq!(grid.cell_at(desktop, first.center()), (0, 0));
+        assert_eq!(
+            grid.cell_at(desktop, IconGrid::cell_rect(desktop, (0, 1)).center()),
+            (0, 1)
+        );
+        assert_eq!(grid.cell_at(desktop, second_row.center()), (0, 3));
         assert_eq!(IconGrid::columns(desktop), COMPACT_COLUMNS);
+    }
+
+    #[test]
+    fn the_compact_grid_stays_clear_of_the_control_bar_and_the_session_chip() {
+        // The browser viewport at 432 x 768 leaves a 720 point work area above the taskbar.
+        let desktop = Rect::from_min_size(Pos2::ZERO, Vec2::new(432.0, 720.0));
+        let first = IconGrid::cell_rect(desktop, (0, 0));
+        assert!(
+            first.top() >= DESKTOP_CONTROL_HEIGHT,
+            "the first row starts below the desktop control bar"
+        );
+        let last = IconGrid::cell_rect(desktop, (2, ICON_ROWS - 1));
+        // Tile offset, tile, gap and a two line caption are the lowest painted content of a cell.
+        let content_bottom = last.top() + 8.0 + ICON_TILE + 8.0 + 30.0;
+        assert!(
+            content_bottom <= desktop.bottom() - SESSION_CHIP_BAND,
+            "the last row ends above the session chip band ({content_bottom})"
+        );
+        assert!(
+            compact_step_y(desktop) >= COMPACT_MIN_STEP_Y,
+            "the compressed pitch still holds a tile and its label"
+        );
     }
 
     #[test]

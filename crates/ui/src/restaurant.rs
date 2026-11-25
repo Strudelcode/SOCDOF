@@ -574,42 +574,41 @@ pub fn restaurant_window(
             .sum();
         let card_sales = revenue - cash_sales;
         let tax_total: i64 = today_paid.iter().map(|o| o.tax_total_cents).sum();
-        ui.horizontal_wrapped(|ui| {
-            for (label, value) in [
-                (texts.get("restaurant_kpi_open"), open.to_string()),
-                (texts.get("restaurant_kpi_kitchen"), kitchen.to_string()),
-                (
-                    texts.get("restaurant_kpi_revenue"),
-                    money(revenue, &currency),
-                ),
-                (
-                    texts.get("restaurant_kpi_menu"),
-                    state.menu.len().to_string(),
-                ),
-                (
-                    texts.get("restaurant_kpi_today_orders"),
-                    today_paid.len().to_string(),
-                ),
-                (
-                    texts.get("restaurant_kpi_cash"),
-                    money(cash_sales, &currency),
-                ),
-                (
-                    texts.get("restaurant_kpi_card"),
-                    money(card_sales, &currency),
-                ),
-                (texts.get("restaurant_kpi_tax"), money(tax_total, &currency)),
-            ] {
-                crate::components::card(ui, theme, |ui| {
-                    ui.label(
-                        RichText::new(label)
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                    );
-                    ui.heading(value);
-                });
-            }
-        });
+        let kpis: Vec<(String, String)> = vec![
+            (
+                texts.get("restaurant_kpi_open").to_string(),
+                open.to_string(),
+            ),
+            (
+                texts.get("restaurant_kpi_kitchen").to_string(),
+                kitchen.to_string(),
+            ),
+            (
+                texts.get("restaurant_kpi_revenue").to_string(),
+                money(revenue, &currency),
+            ),
+            (
+                texts.get("restaurant_kpi_menu").to_string(),
+                state.menu.len().to_string(),
+            ),
+            (
+                texts.get("restaurant_kpi_today_orders").to_string(),
+                today_paid.len().to_string(),
+            ),
+            (
+                texts.get("restaurant_kpi_cash").to_string(),
+                money(cash_sales, &currency),
+            ),
+            (
+                texts.get("restaurant_kpi_card").to_string(),
+                money(card_sales, &currency),
+            ),
+            (
+                texts.get("restaurant_kpi_tax").to_string(),
+                money(tax_total, &currency),
+            ),
+        ];
+        crate::components::kpi_cards(ui, theme, &kpis);
         feedback(ui, theme, texts, state);
         ui.horizontal_wrapped(|ui| {
             for (view, key) in [
@@ -663,8 +662,16 @@ pub fn restaurant_window(
                     .filter(|t| state.area_filter == "all" || t.area == state.area_filter)
                     .cloned()
                     .collect();
+                // Four table cards need 424 points; on the phone panel they pushed the row to
+                // x 448 and cut the fourth table off. Below the stacking width the floor shows
+                // two tables per row instead.
+                let table_columns = if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+                    2
+                } else {
+                    4
+                };
                 egui::Grid::new("restaurant-floor")
-                    .num_columns(4)
+                    .num_columns(table_columns)
                     .spacing([10.0, 10.0])
                     .show(ui, |ui| {
                         for (i, table) in tables.iter().enumerate() {
@@ -685,7 +692,7 @@ pub fn restaurant_window(
                             {
                                 state.selected_table = table.name.clone();
                             }
-                            if i % 4 == 3 {
+                            if i % table_columns == table_columns - 1 {
                                 ui.end_row();
                             }
                         }
@@ -763,8 +770,14 @@ pub fn restaurant_window(
                         let mut notes = item.notes.clone();
                         ui.horizontal(|ui| {
                             ui.label(texts.get("restaurant_item_note"));
+                            // A fixed 260 point field pushed the row to x 448 at 432 px; the field
+                            // takes what is left of the panel instead.
+                            let note_width = (ui.available_width() - 8.0).max(120.0);
                             if ui
-                                .add(egui::TextEdit::singleline(&mut notes).desired_width(260.0))
+                                .add(
+                                    egui::TextEdit::singleline(&mut notes)
+                                        .desired_width(note_width),
+                                )
                                 .lost_focus()
                             {
                                 if let Err(e) =
@@ -846,8 +859,12 @@ pub fn restaurant_window(
                 ui.separator();
                 ui.heading(texts.get("restaurant_quick_menu"));
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(texts.get("restaurant_search"));
-                    ui.text_edit_singleline(&mut state.query);
+                    let label = ui.label(texts.get("restaurant_search"));
+                    // Same narrow row as the menu tab: the field ends where the panel ends.
+                    let width =
+                        (ui.available_width() - label.rect.width() - ui.spacing().item_spacing.x)
+                            .max(120.0);
+                    ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(width));
                     egui::ComboBox::from_id_source("restaurant-quick-category")
                         .selected_text(if state.category_filter == "all" {
                             texts.get("restaurant_all").to_string()
@@ -947,8 +964,17 @@ pub fn restaurant_window(
             }
             RestaurantView::Menu => {
                 ui.horizontal_wrapped(|ui| {
-                    ui.label(texts.get("restaurant_search"));
-                    ui.text_edit_singleline(&mut state.query);
+                    let label = ui.label(texts.get("restaurant_search"));
+                    // A default-width field next to the label ended at x 448 in the phone panel;
+                    // it takes the space that is left of the label instead.
+                    let width =
+                        (ui.available_width() - label.rect.width() - ui.spacing().item_spacing.x)
+                            .max(120.0);
+                    ui.add(egui::TextEdit::singleline(&mut state.query).desired_width(width));
+                    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+                    if narrow {
+                        ui.end_row();
+                    }
                     egui::ComboBox::from_id_source("restaurant-menu-category")
                         .selected_text(if state.category_filter == "all" {
                             texts.get("restaurant_all").to_string()
@@ -975,61 +1001,101 @@ pub fn restaurant_window(
                 if let Some(dish) = state.dish_draft.as_mut() {
                     crate::components::card(ui, theme, |ui| {
                         ui.heading(texts.get("restaurant_dish_editor"));
-                        egui::Grid::new("restaurant-dish-form")
-                            .num_columns(2)
-                            .show(ui, |ui| {
-                                ui.label(texts.get("restaurant_name"));
-                                ui.text_edit_singleline(&mut dish.name);
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_category"));
-                                egui::ComboBox::from_id_source("restaurant-dish-cat")
-                                    .selected_text(dish.category.clone())
-                                    .show_ui(ui, |ui| {
-                                        for cat in restaurant::CATEGORIES {
-                                            ui.selectable_value(
-                                                &mut dish.category,
-                                                cat.into(),
-                                                cat,
-                                            );
-                                        }
-                                    });
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_price_cents"));
-                                ui.add(
-                                    egui::DragValue::new(&mut dish.price_cents)
-                                        .clamp_range(0..=100_000_000),
-                                );
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_tax_bp"));
-                                ui.add(
-                                    egui::DragValue::new(&mut dish.tax_rate_bp)
-                                        .clamp_range(0..=10_000),
-                                );
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_ingredients"));
-                                ui.text_edit_singleline(&mut dish.ingredients);
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_allergens"));
-                                let mut allergens = dish.allergens.join(", ");
-                                if ui.text_edit_singleline(&mut allergens).changed() {
-                                    dish.allergens = allergens
-                                        .split(',')
-                                        .map(|value| value.trim().to_string())
-                                        .filter(|value| !value.is_empty())
-                                        .collect();
-                                }
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_prep"));
-                                ui.add(
-                                    egui::DragValue::new(&mut dish.prep_time_minutes)
-                                        .clamp_range(0..=600),
-                                );
-                                ui.end_row();
-                                ui.label(texts.get("restaurant_available"));
-                                ui.checkbox(&mut dish.is_available, "");
-                                ui.end_row();
-                            });
-                        ui.horizontal(|ui| {
+                        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+                            // Label and control side by side reached 516 px; the phone stacks them.
+                            ui.label(texts.get("restaurant_name"));
+                            ui.text_edit_singleline(&mut dish.name);
+                            ui.label(texts.get("restaurant_category"));
+                            egui::ComboBox::from_id_source("restaurant-dish-cat")
+                                .selected_text(dish.category.clone())
+                                .show_ui(ui, |ui| {
+                                    for cat in restaurant::CATEGORIES {
+                                        ui.selectable_value(&mut dish.category, cat.into(), cat);
+                                    }
+                                });
+                            ui.label(texts.get("restaurant_price_cents"));
+                            ui.add(
+                                egui::DragValue::new(&mut dish.price_cents)
+                                    .clamp_range(0..=100_000_000),
+                            );
+                            ui.label(texts.get("restaurant_tax_bp"));
+                            ui.add(
+                                egui::DragValue::new(&mut dish.tax_rate_bp).clamp_range(0..=10_000),
+                            );
+                            ui.label(texts.get("restaurant_ingredients"));
+                            ui.text_edit_singleline(&mut dish.ingredients);
+                            ui.label(texts.get("restaurant_allergens"));
+                            let mut allergens = dish.allergens.join(", ");
+                            if ui.text_edit_singleline(&mut allergens).changed() {
+                                dish.allergens = allergens
+                                    .split(',')
+                                    .map(|value| value.trim().to_string())
+                                    .filter(|value| !value.is_empty())
+                                    .collect();
+                            }
+                            ui.label(texts.get("restaurant_prep"));
+                            ui.add(
+                                egui::DragValue::new(&mut dish.prep_time_minutes)
+                                    .clamp_range(0..=600),
+                            );
+                            ui.checkbox(&mut dish.is_available, texts.get("restaurant_available"));
+                        } else {
+                            egui::Grid::new("restaurant-dish-form")
+                                .num_columns(2)
+                                .show(ui, |ui| {
+                                    ui.label(texts.get("restaurant_name"));
+                                    ui.text_edit_singleline(&mut dish.name);
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_category"));
+                                    egui::ComboBox::from_id_source("restaurant-dish-cat")
+                                        .selected_text(dish.category.clone())
+                                        .show_ui(ui, |ui| {
+                                            for cat in restaurant::CATEGORIES {
+                                                ui.selectable_value(
+                                                    &mut dish.category,
+                                                    cat.into(),
+                                                    cat,
+                                                );
+                                            }
+                                        });
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_price_cents"));
+                                    ui.add(
+                                        egui::DragValue::new(&mut dish.price_cents)
+                                            .clamp_range(0..=100_000_000),
+                                    );
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_tax_bp"));
+                                    ui.add(
+                                        egui::DragValue::new(&mut dish.tax_rate_bp)
+                                            .clamp_range(0..=10_000),
+                                    );
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_ingredients"));
+                                    ui.text_edit_singleline(&mut dish.ingredients);
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_allergens"));
+                                    let mut allergens = dish.allergens.join(", ");
+                                    if ui.text_edit_singleline(&mut allergens).changed() {
+                                        dish.allergens = allergens
+                                            .split(',')
+                                            .map(|value| value.trim().to_string())
+                                            .filter(|value| !value.is_empty())
+                                            .collect();
+                                    }
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_prep"));
+                                    ui.add(
+                                        egui::DragValue::new(&mut dish.prep_time_minutes)
+                                            .clamp_range(0..=600),
+                                    );
+                                    ui.end_row();
+                                    ui.label(texts.get("restaurant_available"));
+                                    ui.checkbox(&mut dish.is_available, "");
+                                    ui.end_row();
+                                });
+                        }
+                        ui.horizontal_wrapped(|ui| {
                             if button(
                                 ui,
                                 theme,
@@ -1078,13 +1144,18 @@ pub fn restaurant_window(
                     .cloned()
                     .collect();
                 for dish in dishes {
-                    ui.horizontal_wrapped(|ui| {
-                        ui.label(format!(
+                    // The name, price and three actions in one wrapped row scrolled the menu
+                    // sideways on the phone; the actions get their own wrapping line.
+                    ui.label(
+                        RichText::new(format!(
                             "{} {} · {}",
                             dish.emoji,
                             dish.name,
                             money(dish.gross().cents(), &currency)
-                        ));
+                        ))
+                        .strong(),
+                    );
+                    ui.horizontal_wrapped(|ui| {
                         if ui
                             .button(if dish.is_available {
                                 texts.get("restaurant_available")
@@ -1126,6 +1197,7 @@ pub fn restaurant_window(
                             }
                         }
                     });
+                    ui.add_space(4.0);
                 }
             }
             RestaurantView::History => {

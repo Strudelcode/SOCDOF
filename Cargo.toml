@@ -45,6 +45,7 @@ web-sys = { version = "0.3", features = [
     "IdbRequest",
     "IdbTransaction",
     "IdbTransactionMode",
+    "KeyboardEvent",
     "Navigator",
     "Window",
 ] }

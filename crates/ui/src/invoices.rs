@@ -874,38 +874,76 @@ fn list_view(
 
     let mut create = false;
     let mut templates = false;
-    ui.horizontal(|ui| {
+    // "Vorlagen" and "Neue Rechnung" kept 310 px next to the search field; on phones below the
+    // stacked breakpoint the buttons wrapped past the panel (431.6 px at 360 px and 412 px).
+    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+    if narrow {
         search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("invoices_search"),
-            310.0,
+            0.0,
         );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("invoices_templates_button"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            templates = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("invoices_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
-    });
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("invoices_templates_button"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                templates = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("invoices_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+        });
+    } else {
+        ui.horizontal(|ui| {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("invoices_search"),
+                310.0,
+            );
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("invoices_templates_button"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                templates = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("invoices_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+        });
+    }
     if templates {
         state.templates.open(store);
     }
@@ -940,70 +978,114 @@ fn list_view(
     let mut chosen = None;
     card(ui, theme, |ui| {
         let gap = 16.0;
+        let stacked = ui.available_width() < crate::components::FORM_STACK_WIDTH;
         let widths = table_columns(ui.available_width(), &[0.18, 0.28, 0.16, 0.20, 0.18], gap);
-        ui.spacing_mut().item_spacing.x = gap;
-        ui.horizontal(|ui| {
-            for (key, width) in [
-                "invoices_col_number",
-                "invoices_col_contact",
-                "invoices_col_date",
-                "invoices_col_total",
-                "invoices_col_status",
-            ]
-            .into_iter()
-            .zip(&widths)
-            {
-                table_cell(ui, *width, |ui| {
-                    ui.label(
-                        RichText::new(texts.get(key))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
-                    );
-                });
-            }
-        });
+        if !stacked {
+            ui.spacing_mut().item_spacing.x = gap;
+            ui.horizontal(|ui| {
+                for (key, width) in [
+                    "invoices_col_number",
+                    "invoices_col_contact",
+                    "invoices_col_date",
+                    "invoices_col_total",
+                    "invoices_col_status",
+                ]
+                .into_iter()
+                .zip(&widths)
+                {
+                    table_cell(ui, *width, |ui| {
+                        ui.label(
+                            RichText::new(texts.get(key))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    });
+                }
+            });
+        }
+
+        // A stacked row is narrow (number, customer, total, status); the card would shrink to its
+        // content and leave half of the 360 px panel empty, so it keeps the full width.
+        if stacked {
+            ui.set_min_width(ui.available_width());
+        }
 
         // Virtualised like the contact list: 100k invoices must not be laid out per frame.
+        // A stacked row is taller than a grid row, so the virtualised height follows the layout.
         egui::ScrollArea::vertical()
             .id_source("socdof-invoices-rows")
             .max_height(ui.available_height().clamp(TABLE_ROW_HEIGHT, 720.0))
-            .show_rows(ui, TABLE_ROW_HEIGHT, state.invoices.len(), |ui, range| {
-                ui.spacing_mut().item_spacing.x = gap;
-                for invoice in &state.invoices[range] {
-                    let customer = state
-                        .contact_labels
-                        .get(&invoice.contact_id)
-                        .cloned()
-                        .unwrap_or_default();
-                    ui.horizontal(|ui| {
-                        table_cell(ui, widths[0], |ui| {
+            .show_rows(
+                ui,
+                if stacked { 62.0 } else { TABLE_ROW_HEIGHT },
+                state.invoices.len(),
+                |ui, range| {
+                    ui.spacing_mut().item_spacing.x = gap;
+                    for invoice in &state.invoices[range] {
+                        let customer = state
+                            .contact_labels
+                            .get(&invoice.contact_id)
+                            .cloned()
+                            .unwrap_or_default();
+                        // The five fixed columns of the grid named the status cell too narrow for its
+                        // badge at 432 px. The stacked row keeps the number, the contact and date and
+                        // the total next to the status, each on its own line.
+                        if stacked {
                             if button(ui, theme, focus, &invoice.number, ButtonVariant::Ghost)
                                 .activated
                             {
                                 chosen = Some(invoice.id);
                             }
-                        });
-                        table_cell(ui, widths[1], |ui| {
-                            ui.label(customer);
-                        });
-                        table_cell(ui, widths[2], |ui| {
-                            ui.label(format_date(invoice.issued_at));
-                        });
-                        table_cell(ui, widths[3], |ui| {
-                            ui.label(money(&invoice.currency_symbol, invoice.total_gross()));
-                        });
-                        table_cell(ui, widths[4], |ui| {
-                            badge(
-                                ui,
-                                theme,
-                                texts.get(status_key(invoice.status)),
-                                status_tone(invoice.status),
+                            ui.label(
+                                RichText::new(format!(
+                                    "{customer} · {}",
+                                    format_date(invoice.issued_at)
+                                ))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
                             );
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(money(&invoice.currency_symbol, invoice.total_gross()));
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get(status_key(invoice.status)),
+                                    status_tone(invoice.status),
+                                );
+                            });
+                            ui.add_space(6.0);
+                            continue;
+                        }
+                        ui.horizontal(|ui| {
+                            table_cell(ui, widths[0], |ui| {
+                                if button(ui, theme, focus, &invoice.number, ButtonVariant::Ghost)
+                                    .activated
+                                {
+                                    chosen = Some(invoice.id);
+                                }
+                            });
+                            table_cell(ui, widths[1], |ui| {
+                                ui.label(customer);
+                            });
+                            table_cell(ui, widths[2], |ui| {
+                                ui.label(format_date(invoice.issued_at));
+                            });
+                            table_cell(ui, widths[3], |ui| {
+                                ui.label(money(&invoice.currency_symbol, invoice.total_gross()));
+                            });
+                            table_cell(ui, widths[4], |ui| {
+                                badge(
+                                    ui,
+                                    theme,
+                                    texts.get(status_key(invoice.status)),
+                                    status_tone(invoice.status),
+                                );
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                },
+            );
     });
     if let Some(id) = chosen {
         state.select(id);
@@ -1037,7 +1119,7 @@ fn detail_view(
     ui.add_space(6.0);
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(&invoice.number).size(FONT_TITLE).strong());
             badge(
                 ui,
@@ -1074,36 +1156,66 @@ fn detail_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("invoices_lines_title")).strong());
         ui.add_space(6.0);
-        egui::Grid::new("socdof-invoice-lines")
-            .num_columns(6)
-            .spacing(egui::vec2(14.0, 6.0))
-            .show(ui, |ui| {
-                for key in [
-                    "invoices_line_description",
-                    "invoices_line_quantity",
-                    "invoices_line_price",
-                    "invoices_total_net",
-                    "invoices_total_tax",
-                    "invoices_total_gross",
-                ] {
-                    ui.label(
-                        RichText::new(texts.get(key))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
-                    );
-                }
-                ui.end_row();
-                for line in &invoice.lines {
-                    ui.label(&line.description);
-                    ui.label(milli_text(line.quantity_milli));
-                    ui.label(money(&invoice.currency_symbol, line.unit_price));
-                    ui.label(money(&invoice.currency_symbol, line.net()));
-                    ui.label(money(&invoice.currency_symbol, line.tax()));
-                    ui.label(money(&invoice.currency_symbol, line.gross()));
+        // Six columns of amounts do not fit the phone panel: below the stacking width every line
+        // shows its description first and the figures underneath.
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            for line in &invoice.lines {
+                ui.label(RichText::new(&line.description).strong());
+                ui.label(
+                    RichText::new(format!(
+                        "{} × {} = {}",
+                        milli_text(line.quantity_milli),
+                        money(&invoice.currency_symbol, line.unit_price),
+                        money(&invoice.currency_symbol, line.gross())
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                ui.label(
+                    RichText::new(format!(
+                        "{} {} · {} {}",
+                        texts.get("invoices_total_net"),
+                        money(&invoice.currency_symbol, line.net()),
+                        texts.get("invoices_total_tax"),
+                        money(&invoice.currency_symbol, line.tax())
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                ui.add_space(6.0);
+            }
+        } else {
+            egui::Grid::new("socdof-invoice-lines")
+                .num_columns(6)
+                .spacing(egui::vec2(14.0, 6.0))
+                .show(ui, |ui| {
+                    for key in [
+                        "invoices_line_description",
+                        "invoices_line_quantity",
+                        "invoices_line_price",
+                        "invoices_total_net",
+                        "invoices_total_tax",
+                        "invoices_total_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(key))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
                     ui.end_row();
-                }
-            });
+                    for line in &invoice.lines {
+                        ui.label(&line.description);
+                        ui.label(milli_text(line.quantity_milli));
+                        ui.label(money(&invoice.currency_symbol, line.unit_price));
+                        ui.label(money(&invoice.currency_symbol, line.net()));
+                        ui.label(money(&invoice.currency_symbol, line.tax()));
+                        ui.label(money(&invoice.currency_symbol, line.gross()));
+                        ui.end_row();
+                    }
+                });
+        }
         ui.add_space(8.0);
         for (label, amount) in [
             ("invoices_total_net", invoice.total_net()),
@@ -1130,7 +1242,8 @@ fn detail_view(
     let mut payment = false;
     let mut print = false;
     let mut templates = false;
-    ui.horizontal(|ui| {
+    // Up to nine actions do not fit one phone line; wrapping keeps every button reachable.
+    ui.horizontal_wrapped(|ui| {
         if invoice.status != InvoiceStatus::Sent && invoice.status != InvoiceStatus::Cancelled {
             let activated = button(
                 ui,
@@ -1410,40 +1523,38 @@ fn form_view(
                 None,
             );
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.quantity,
-                        texts.get("invoices_line_quantity"),
-                        texts.get("invoices_line_quantity_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.unit_price,
-                        texts.get("invoices_line_price"),
-                        texts.get("invoices_line_price_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.tax_rate,
-                        texts.get("invoices_line_tax"),
-                        texts.get("invoices_line_tax_hint"),
-                        None,
-                    );
-                });
+            // Three fields of a full row width reached 648 px on the phone; each control gets its
+            // own line there instead.
+            if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.quantity,
+                    texts.get("invoices_line_quantity"),
+                    texts.get("invoices_line_quantity_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.unit_price,
+                    texts.get("invoices_line_price"),
+                    texts.get("invoices_line_price_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.tax_rate,
+                    texts.get("invoices_line_tax"),
+                    texts.get("invoices_line_tax_hint"),
+                    None,
+                );
                 if button(
                     ui,
                     theme,
@@ -1455,7 +1566,54 @@ fn form_view(
                 {
                     remove_line = Some(index);
                 }
-            });
+            } else {
+                ui.horizontal(|ui| {
+                    ui.vertical(|ui| {
+                        text_field(
+                            ui,
+                            theme,
+                            focus,
+                            &mut line.quantity,
+                            texts.get("invoices_line_quantity"),
+                            texts.get("invoices_line_quantity_hint"),
+                            None,
+                        );
+                    });
+                    ui.vertical(|ui| {
+                        text_field(
+                            ui,
+                            theme,
+                            focus,
+                            &mut line.unit_price,
+                            texts.get("invoices_line_price"),
+                            texts.get("invoices_line_price_hint"),
+                            None,
+                        );
+                    });
+                    ui.vertical(|ui| {
+                        text_field(
+                            ui,
+                            theme,
+                            focus,
+                            &mut line.tax_rate,
+                            texts.get("invoices_line_tax"),
+                            texts.get("invoices_line_tax_hint"),
+                            None,
+                        );
+                    });
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("invoices_line_remove"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        remove_line = Some(index);
+                    }
+                });
+            }
         }
         ui.add_space(8.0);
         if button(

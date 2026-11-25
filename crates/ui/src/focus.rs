@@ -35,6 +35,7 @@ pub struct FocusState {
     overlay: Option<Overlay>,
     collecting_overlay: bool,
     press: bool,
+    enter: bool,
     escape: bool,
 }
 
@@ -55,6 +56,7 @@ impl FocusState {
         }
         self.press =
             ctx.input(|input| input.key_pressed(Key::Enter) || input.key_pressed(Key::Space));
+        self.enter = ctx.input(|input| input.key_pressed(Key::Enter));
         self.escape = ctx.input(|input| input.key_pressed(Key::Escape));
 
         let mut shift = None;
@@ -114,6 +116,14 @@ impl FocusState {
         self.focused
     }
 
+    /// Controls registered during the last frame, in draw order.
+    ///
+    /// Diagnostics and end-to-end input tests use this to address a control painted in the previous
+    /// frame; the screen itself only needs [`Self::focused`].
+    pub fn order(&self) -> &[Id] {
+        &self.order
+    }
+
     /// Moves the focus, for example after a click on a control.
     pub fn set_focus(&mut self, id: Option<Id>) {
         self.focused = id;
@@ -132,6 +142,15 @@ impl FocusState {
     /// Whether Enter or Space was pressed this frame.
     pub fn press(&self) -> bool {
         self.press
+    }
+
+    /// Whether Enter alone was pressed this frame.
+    ///
+    /// Popup rows take the Enter key; Space confirms the highlighted row at the control itself, so
+    /// removing Space from a control's confirmation really removes the key instead of leaving a
+    /// second, invisible path open.
+    pub fn enter(&self) -> bool {
+        self.enter
     }
 
     /// Whether Escape was pressed this frame.
@@ -210,14 +229,22 @@ impl FocusState {
 
 /// Paints the focus ring from the accent tokens around a control.
 pub fn focus_ring(ui: &Ui, theme: &Theme, rect: Rect) {
+    focus_ring_round(ui, theme, rect, RADIUS_CONTROL);
+}
+
+/// Paints the focus ring with the corner radius of the control it surrounds.
+///
+/// The ring follows the control's own rounding instead of the 12 point control radius: on a
+/// `rounded-2xl` row the ring otherwise cut its corners and read as a second, offset frame.
+pub fn focus_ring_round(ui: &Ui, theme: &Theme, rect: Rect, radius: f32) {
     ui.painter().rect_stroke(
         rect.expand(2.0),
-        Rounding::same(RADIUS_CONTROL + 2.0),
+        Rounding::same(radius + 2.0),
         Stroke::new(2.0_f32, theme.accent.ring),
     );
     ui.painter().rect_stroke(
         rect.expand(2.0),
-        Rounding::same(RADIUS_CONTROL + 2.0),
+        Rounding::same(radius + 2.0),
         Stroke::new(1.0_f32, theme.accent.border),
     );
 }

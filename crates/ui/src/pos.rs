@@ -10,7 +10,7 @@
 //! Views are list, detail and form. Every control registers in the shared [`FocusState`], every
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
-use egui::{Context, RichText};
+use egui::{Align, Context, Layout, RichText, Vec2};
 use socdof_core::date;
 use socdof_core::domain::pos::{summarize, PaymentMethod, PosOrder, PosOrderLine};
 use socdof_core::domain::product::Product;
@@ -21,7 +21,8 @@ use socdof_core::CoreError;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    badge, button, card, empty_state, form_columns, modal, search_field_reserved, toolbar,
+    ButtonVariant, Tone, FORM_STACK_WIDTH, TOOLBAR_STACK_WIDTH,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
@@ -806,78 +807,76 @@ fn list_view(
             );
         });
         ui.add_space(6.0);
-        ui.horizontal_wrapped(|ui| {
-            for (label, value) in [
-                ("pos_summary_receipts", day.receipts.to_string()),
-                ("pos_summary_net", money("€", day.net)),
-                ("pos_summary_tax", money("€", day.tax)),
-                ("pos_summary_gross", money("€", day.gross)),
-                ("pos_summary_cash", money("€", day.cash)),
-                ("pos_summary_card", money("€", day.card)),
-                ("pos_summary_nfc", money("€", day.nfc)),
-            ] {
-                ui.vertical(|ui| {
-                    ui.label(
-                        RichText::new(texts.get(label))
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                    );
-                    ui.label(RichText::new(value).strong());
-                });
-                ui.add_space(18.0);
-            }
-        });
+        let day_entries: [(&str, String); 7] = [
+            ("pos_summary_receipts", day.receipts.to_string()),
+            ("pos_summary_net", money("€", day.net)),
+            ("pos_summary_tax", money("€", day.tax)),
+            ("pos_summary_gross", money("€", day.gross)),
+            ("pos_summary_cash", money("€", day.cash)),
+            ("pos_summary_card", money("€", day.card)),
+            ("pos_summary_nfc", money("€", day.nfc)),
+        ];
+        day_summary(ui, theme, texts, &day_entries);
     });
 
     ui.add_space(12.0);
     let mut create = false;
-    ui.horizontal(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("pos_search"),
-            220.0,
-        );
-        let mut names: Vec<String> = vec![texts.get("pos_all_payments").to_string()];
-        names.extend(
-            PAYMENTS
-                .iter()
-                .map(|method| texts.get(payment_key(*method)).to_string()),
-        );
-        let labels: Vec<&str> = names.iter().map(String::as_str).collect();
-        let previous = state.payment_choice;
-        select(
-            ui,
-            theme,
-            focus,
-            &mut state.filter_popup,
-            "pos-payment-filter",
-            &mut state.payment_choice,
-            &labels,
-        );
-        if state.payment_choice != previous {
-            let method = state
-                .payment_choice
-                .checked_sub(1)
-                .and_then(|index| PAYMENTS.get(index))
-                .copied();
-            state.payment_filter = method;
-            state.reload = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("pos_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
-    });
+    let payment_filter = &mut state.payment_filter;
+    let reload = &mut state.reload;
+    toolbar(
+        ui,
+        focus,
+        370.0,
+        |ui, focus, reserve| {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("pos_search"),
+                reserve,
+            );
+        },
+        |ui, focus| {
+            let mut names: Vec<String> = vec![texts.get("pos_all_payments").to_string()];
+            names.extend(
+                PAYMENTS
+                    .iter()
+                    .map(|method| texts.get(payment_key(*method)).to_string()),
+            );
+            let labels: Vec<&str> = names.iter().map(String::as_str).collect();
+            let previous = state.payment_choice;
+            select(
+                ui,
+                theme,
+                focus,
+                &mut state.filter_popup,
+                "pos-payment-filter",
+                &mut state.payment_choice,
+                &labels,
+            );
+            if state.payment_choice != previous {
+                let method = state
+                    .payment_choice
+                    .checked_sub(1)
+                    .and_then(|index| PAYMENTS.get(index))
+                    .copied();
+                *payment_filter = method;
+                *reload = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("pos_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+        },
+    );
     if create {
         state.start_new(now);
         return;
@@ -907,7 +906,58 @@ fn list_view(
     }
 
     let mut chosen = None;
+    let narrow = ui.available_width() < TOOLBAR_STACK_WIDTH;
     card(ui, theme, |ui| {
+        if narrow {
+            // Six columns never fit a 432 point panel. The narrow layout keeps every value and
+            // wraps instead of scrolling sideways: identity on the first line, figures below it.
+            for order in &state.orders {
+                ui.horizontal_wrapped(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        &order.receipt_number,
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        chosen = Some(order.id);
+                    }
+                    ui.label(format_time(order.paid_at));
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(payment_key(order.payment_method)),
+                        payment_tone(order.payment_method),
+                    );
+                });
+                ui.horizontal_wrapped(|ui| {
+                    for (label, value) in [
+                        (texts.get("pos_col_items"), order.lines.len().to_string()),
+                        (
+                            texts.get("pos_col_total"),
+                            money(&order.currency_symbol, order.total_gross()),
+                        ),
+                        (
+                            texts.get("pos_col_change"),
+                            order
+                                .change()
+                                .map(|change| money(&order.currency_symbol, change))
+                                .unwrap_or_else(|| "—".to_string()),
+                        ),
+                    ] {
+                        ui.label(
+                            RichText::new(format!("{label}: {value}"))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                });
+                ui.add_space(8.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-pos-table")
             .num_columns(6)
             .spacing(egui::vec2(16.0, 8.0))
@@ -961,6 +1011,26 @@ fn list_view(
     });
     if let Some(id) = chosen {
         state.select(id);
+    }
+}
+
+/// Lays the daily close figures in two to five columns so the card never runs off the panel.
+fn day_summary(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, entries: &[(&str, String)]) {
+    let columns = ((ui.available_width() / 150.0).floor() as usize).clamp(2, 5);
+    for row in entries.chunks(columns) {
+        ui.horizontal_wrapped(|ui| {
+            for (label, value) in row {
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.label(RichText::new(value).strong());
+                });
+                ui.add_space(18.0);
+            }
+        });
     }
 }
 
@@ -1057,36 +1127,57 @@ fn detail_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("pos_lines_title")).strong());
         ui.add_space(6.0);
-        egui::Grid::new("socdof-pos-lines")
-            .num_columns(6)
-            .spacing(egui::vec2(14.0, 6.0))
-            .show(ui, |ui| {
-                for key in [
-                    "pos_line_description",
-                    "pos_line_quantity",
-                    "pos_line_price",
-                    "pos_total_net",
-                    "pos_total_tax",
-                    "pos_total_gross",
-                ] {
-                    ui.label(
-                        RichText::new(texts.get(key))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
-                    );
-                }
-                ui.end_row();
-                for line in &order.lines {
-                    ui.label(&line.description);
-                    ui.label(milli_text(line.quantity_milli));
-                    ui.label(money(&order.currency_symbol, line.unit_price));
-                    ui.label(money(&order.currency_symbol, line.net()));
-                    ui.label(money(&order.currency_symbol, line.tax()));
-                    ui.label(money(&order.currency_symbol, line.gross()));
+        // Six columns need room for two amounts side by side; on a phone the same figures are
+        // stacked per position instead of being clipped at the panel edge.
+        if ui.available_width() < FORM_STACK_WIDTH {
+            for line in &order.lines {
+                ui.label(RichText::new(&line.description).strong());
+                ui.label(
+                    RichText::new(format!(
+                        "{} × {} = {}  ·  {} {}",
+                        milli_text(line.quantity_milli),
+                        money(&order.currency_symbol, line.unit_price),
+                        money(&order.currency_symbol, line.gross()),
+                        texts.get("pos_total_tax"),
+                        money(&order.currency_symbol, line.tax()),
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                ui.add_space(6.0);
+            }
+        } else {
+            egui::Grid::new("socdof-pos-lines")
+                .num_columns(6)
+                .spacing(egui::vec2(14.0, 6.0))
+                .show(ui, |ui| {
+                    for key in [
+                        "pos_line_description",
+                        "pos_line_quantity",
+                        "pos_line_price",
+                        "pos_total_net",
+                        "pos_total_tax",
+                        "pos_total_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(key))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
                     ui.end_row();
-                }
-            });
+                    for line in &order.lines {
+                        ui.label(&line.description);
+                        ui.label(milli_text(line.quantity_milli));
+                        ui.label(money(&order.currency_symbol, line.unit_price));
+                        ui.label(money(&order.currency_symbol, line.net()));
+                        ui.label(money(&order.currency_symbol, line.tax()));
+                        ui.label(money(&order.currency_symbol, line.gross()));
+                        ui.end_row();
+                    }
+                });
+        }
         ui.add_space(8.0);
         for (label, amount) in [
             ("pos_total_net", order.total_net()),
@@ -1279,40 +1370,40 @@ fn form_view(
                 None,
             );
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut state.draft.lines[index].quantity,
-                        texts.get("pos_line_quantity"),
-                        texts.get("pos_line_quantity_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut state.draft.lines[index].unit_price,
-                        texts.get("pos_line_price"),
-                        texts.get("pos_line_price_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut state.draft.lines[index].tax_rate,
-                        texts.get("pos_line_tax"),
-                        texts.get("pos_line_tax_hint"),
-                        None,
-                    );
-                });
+            // Quantity, price, tax and the remove button only share one row while all four have room;
+            // on the phone each field takes its own row so the price keeps a usable width.
+            if ui.available_width() < FORM_STACK_WIDTH {
+                let line = &mut state.draft.lines[index];
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.quantity,
+                    texts.get("pos_line_quantity"),
+                    texts.get("pos_line_quantity_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.unit_price,
+                    texts.get("pos_line_price"),
+                    texts.get("pos_line_price_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.tax_rate,
+                    texts.get("pos_line_tax"),
+                    texts.get("pos_line_tax_hint"),
+                    None,
+                );
+                ui.add_space(6.0);
                 if button(
                     ui,
                     theme,
@@ -1324,7 +1415,50 @@ fn form_view(
                 {
                     remove_line = Some(index);
                 }
-            });
+            } else {
+                // A labelled text field fills the width it is given, so the four cells of this row
+                // need explicit widths; otherwise the first field takes the whole row and the price
+                // and tax columns collapse into a letter-per-line sliver.
+                let widths = form_columns(ui, 3, 110.0);
+                ui.horizontal(|ui| {
+                    for (slot, width) in widths.iter().enumerate() {
+                        let line = &mut state.draft.lines[index];
+                        let (value, label, hint) = match slot {
+                            0 => (
+                                &mut line.quantity,
+                                texts.get("pos_line_quantity"),
+                                texts.get("pos_line_quantity_hint"),
+                            ),
+                            1 => (
+                                &mut line.unit_price,
+                                texts.get("pos_line_price"),
+                                texts.get("pos_line_price_hint"),
+                            ),
+                            _ => (
+                                &mut line.tax_rate,
+                                texts.get("pos_line_tax"),
+                                texts.get("pos_line_tax_hint"),
+                            ),
+                        };
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(*width, 0.0),
+                            Layout::top_down(Align::Min),
+                            |ui| text_field(ui, theme, focus, value, label, hint, None),
+                        );
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("pos_line_remove"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        remove_line = Some(index);
+                    }
+                });
+            }
         }
         ui.add_space(8.0);
         if button(
@@ -1431,7 +1565,7 @@ mod tests {
         (store, state, texts)
     }
 
-    fn render(state: &mut PosState, store: &Store) -> String {
+    fn render_at(state: &mut PosState, store: &Store, width: f32) -> String {
         let ctx = crate::theme::headless_context();
         let texts = UiTexts::embedded(Language::De).expect("catalogue");
         let theme = Theme::new(Appearance::Light, "indigo");
@@ -1441,7 +1575,7 @@ mod tests {
             let input = egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
-                    egui::Vec2::new(1000.0, 2400.0),
+                    egui::Vec2::new(width, 2400.0),
                 )),
                 ..Default::default()
             };
@@ -1450,6 +1584,50 @@ mod tests {
             }));
         }
         crate::snapshot::signature(&output.expect("pos frame")).join("\n")
+    }
+
+    fn render(state: &mut PosState, store: &Store) -> String {
+        render_at(state, store, 1000.0)
+    }
+
+    /// Widest right edge of a painted primitive, ignoring the clip rectangles.
+    fn painted_right_edge(signature: &str) -> f32 {
+        let mut widest: f32 = 0.0;
+        for line in signature.lines() {
+            let Some(rest) = line.split("rect(").nth(1) else {
+                continue;
+            };
+            let values: Vec<f32> = rest
+                .split(',')
+                .take(4)
+                .filter_map(|value| value.trim().parse().ok())
+                .collect();
+            if values.len() == 4 {
+                widest = widest.max(values[2]);
+            }
+        }
+        widest
+    }
+
+    #[test]
+    fn the_narrow_panel_keeps_the_whole_receipt_list_inside() {
+        let (store, mut state, texts) = seeded();
+        assert!(!state.orders.is_empty(), "the seed creates receipts");
+        let signature = render_at(&mut state, &store, 432.0);
+        let order = &state.orders[0];
+        assert!(
+            signature.contains(&order.receipt_number),
+            "receipt number missing on a narrow panel"
+        );
+        assert!(
+            signature.contains(texts.get(payment_key(order.payment_method))),
+            "payment method missing on a narrow panel"
+        );
+        assert!(
+            painted_right_edge(&signature) <= 432.5,
+            "a primitive is painted outside the 432 point panel ({})",
+            painted_right_edge(&signature)
+        );
     }
 
     #[test]

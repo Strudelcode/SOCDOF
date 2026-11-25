@@ -641,56 +641,106 @@ fn document_editor(
         spell_panel(ui, theme, texts, focus, state, actions);
         ui.add_space(8.0);
     }
-    ui.horizontal(|ui| {
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("editor_save"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            actions.save = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("editor_new"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            actions.new = true;
-        }
-        ui.add_enabled_ui(state.selected.is_some(), |ui| {
+    let stats = format!(
+        "{} {} · {} {}",
+        state.word_count(),
+        texts.get("editor_words"),
+        state.character_count(),
+        texts.get("editor_characters")
+    );
+    // Save, new and delete plus the right-aligned statistics row reached 370 px at 360 px; on the
+    // phone the buttons wrap and the statistics get their own line.
+    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+    if narrow {
+        ui.horizontal_wrapped(|ui| {
             if button(
                 ui,
                 theme,
                 focus,
-                texts.get("editor_delete"),
-                ButtonVariant::Danger,
+                texts.get("editor_save"),
+                ButtonVariant::Primary,
             )
             .activated
+            {
+                actions.save = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("editor_new"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                actions.new = true;
+            }
+            // `add_enabled_ui` allocates an unbreakable scope, so `horizontal_wrapped` kept the
+            // delete button on the first line and painted it past the 360 px panel.
+            if state.selected.is_some()
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("editor_delete"),
+                    ButtonVariant::Danger,
+                )
+                .activated
             {
                 actions.delete = true;
             }
         });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(
-                RichText::new(format!(
-                    "{} {} · {} {}",
-                    state.word_count(),
-                    texts.get("editor_words"),
-                    state.character_count(),
-                    texts.get("editor_characters")
-                ))
+        ui.label(
+            RichText::new(stats)
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
-            );
+        );
+    } else {
+        ui.horizontal(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("editor_save"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                actions.save = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("editor_new"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                actions.new = true;
+            }
+            ui.add_enabled_ui(state.selected.is_some(), |ui| {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("editor_delete"),
+                    ButtonVariant::Danger,
+                )
+                .activated
+                {
+                    actions.delete = true;
+                }
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(
+                    RichText::new(stats)
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+            });
         });
-    });
+    }
     ui.add_space(4.0);
     ui.label(
         RichText::new(texts.get("editor_format_hint"))
@@ -714,7 +764,9 @@ fn ribbon(
 ) -> Option<Formatting> {
     let mut action = None;
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        // Seven formatting buttons in one unwrapped row reached x 634 at 432 px and stretched the
+        // ribbon card past the panel; wrapping keeps every button inside.
+        ui.horizontal_wrapped(|ui| {
             for (key, formatting) in [
                 ("editor_bold", Formatting::Bold),
                 ("editor_italic", Formatting::Italic),
@@ -848,8 +900,14 @@ fn spell_panel(
 ) {
     let issues = state.spell_issues();
     card(ui, theme, |ui| {
+        // The right-aligned dictionary note painted over the "Rechtschreibprüfung" title and its
+        // badge at 360 px; on the phone the note gets its own line.
+        let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
         ui.horizontal(|ui| {
-            ui.label(RichText::new(texts.get("editor_spell_title")).strong());
+            ui.add(
+                egui::Label::new(RichText::new(texts.get("editor_spell_title")).strong())
+                    .wrap(true),
+            );
             badge(
                 ui,
                 theme,
@@ -860,14 +918,23 @@ fn spell_panel(
                     Tone::Warning
                 },
             );
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(
-                    RichText::new(texts.get("editor_spell_language"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-            });
+            if !narrow {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(
+                        RichText::new(texts.get("editor_spell_language"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                });
+            }
         });
+        if narrow {
+            ui.label(
+                RichText::new(texts.get("editor_spell_language"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        }
         ui.add_space(5.0);
         if issues.is_empty() {
             ui.label(
@@ -975,17 +1042,28 @@ pub fn editor_window(
             ui.add_space(8.0);
             messages(ui, theme, texts, state);
             ui.add_space(6.0);
-            ui.horizontal_top(|ui| {
+            // The document list keeps a fixed column on wide windows. Below that the two columns
+            // cannot fit, so they stack: a side-by-side row pushed the editor past the right edge
+            // and clipped its toolbar on narrow windows.
+            if ui.available_width() < 720.0 {
                 ui.vertical(|ui| {
-                    ui.set_width(310.0);
                     document_list(ui, theme, texts, focus, state, &mut actions);
-                });
-                ui.add_space(14.0);
-                ui.vertical(|ui| {
-                    ui.set_min_width(ui.available_width());
+                    ui.add_space(12.0);
                     document_editor(ui, theme, texts, focus, state, &mut actions);
                 });
-            });
+            } else {
+                ui.horizontal_top(|ui| {
+                    ui.vertical(|ui| {
+                        ui.set_width(310.0);
+                        document_list(ui, theme, texts, focus, state, &mut actions);
+                    });
+                    ui.add_space(14.0);
+                    ui.vertical(|ui| {
+                        ui.set_min_width(ui.available_width());
+                        document_editor(ui, theme, texts, focus, state, &mut actions);
+                    });
+                });
+            }
         });
 
     if actions.save || ctx.input(|input| input.modifiers.ctrl && input.key_pressed(egui::Key::S)) {

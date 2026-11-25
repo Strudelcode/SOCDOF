@@ -400,7 +400,9 @@ fn status_tone(status: InvoiceStatus) -> Tone {
 
 fn kpi_card(ui: &mut egui::Ui, theme: &Theme, label: &str, value: &str, hint: &str, tone: Tone) {
     card(ui, theme, |ui| {
-        ui.set_min_width(150.0);
+        // The card fills its column; a fixed minimum width used to push the row past the window.
+        let column = ui.available_width().max(96.0);
+        ui.set_min_width(column);
         ui.label(
             RichText::new(label)
                 .size(FONT_SMALL)
@@ -550,8 +552,19 @@ pub fn dashboard_window(
                 Tone::Neutral,
             ),
         ];
-        for row in kpis.chunks(4) {
-            ui.columns(4, |columns| {
+        // Four KPI cards side by side need a wide window; below that the row ran past the right
+        // edge of the window (the cards had a 150 point minimum width each). Two columns keep
+        // every card readable and inside the window; on the phone even two columns squeeze the
+        // unbreakable German labels, so each card takes a full row there.
+        let per_row = if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            1
+        } else if ui.available_width() < 700.0 {
+            2
+        } else {
+            4
+        };
+        for row in kpis.chunks(per_row) {
+            ui.columns(per_row, |columns| {
                 for (index, (label, value, hint, tone)) in row.iter().enumerate() {
                     kpi_card(&mut columns[index], theme, label, value, hint, *tone);
                 }

@@ -438,53 +438,129 @@ pub fn module_header(
     } = header;
     let mut clicked_back = false;
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
-            let (tile, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
-            ui.painter().rect(
-                tile,
-                Rounding::same(14.0),
-                theme.accent.light,
-                Stroke::new(1.0_f32, with_alpha(theme.accent.base, 40)),
-            );
-            app.icon.draw(
-                ui.painter(),
-                Rect::from_center_size(tile.center(), Vec2::splat(22.0)),
-                theme.accent_text(),
-                1.7,
-            );
-            ui.add_space(4.0);
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    ui.label(
-                        RichText::new(title)
-                            .size(22.0)
-                            .strong()
-                            .color(theme.palette.text),
+        let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+        if narrow {
+            // On a 360 px phone the reserved back button left the title ~150 px; "Benutzerkonto"
+            // and the admin badges then painted under the button. The header stacks instead.
+            ui.horizontal(|ui| {
+                let (tile, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
+                ui.painter().rect(
+                    tile,
+                    Rounding::same(14.0),
+                    theme.accent.light,
+                    Stroke::new(1.0_f32, with_alpha(theme.accent.base, 40)),
+                );
+                app.icon.draw(
+                    ui.painter(),
+                    Rect::from_center_size(tile.center(), Vec2::splat(22.0)),
+                    theme.accent_text(),
+                    1.7,
+                );
+                ui.add_space(4.0);
+                ui.vertical(|ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(title)
+                                    .size(22.0)
+                                    .strong()
+                                    .color(theme.palette.text),
+                            )
+                            .wrap(true),
+                        );
+                        if let Some((label, tone)) = status {
+                            badge(ui, theme, label, tone);
+                        }
+                    });
+                    ui.add(
+                        egui::Label::new(
+                            RichText::new(subtitle)
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        )
+                        .wrap(true),
                     );
-                    if let Some((label, tone)) = status {
-                        badge(ui, theme, label, tone);
+                });
+            });
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("module_back"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                clicked_back = true;
+            }
+        } else {
+            ui.horizontal(|ui| {
+                let (tile, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
+                ui.painter().rect(
+                    tile,
+                    Rounding::same(14.0),
+                    theme.accent.light,
+                    Stroke::new(1.0_f32, with_alpha(theme.accent.base, 40)),
+                );
+                app.icon.draw(
+                    ui.painter(),
+                    Rect::from_center_size(tile.center(), Vec2::splat(22.0)),
+                    theme.accent_text(),
+                    1.7,
+                );
+                ui.add_space(4.0);
+                // The text column keeps exactly the space the Back button needs. Inside a plain
+                // horizontal row the label saw an unbounded width, did not wrap, and ran under the
+                // button and out of the card on a narrow window; a guessed reserve would also wrap
+                // subtitles that still fit.
+                let back_label = texts.get("module_back");
+                let back_galley = ui.painter().layout_no_wrap(
+                    back_label.to_owned(),
+                    egui::FontId::proportional(crate::tokens::FONT_BODY),
+                    theme.palette.text,
+                );
+                let reserve = back_galley.size().x + 28.0 + 8.0;
+                let text_width = (ui.available_width() - reserve).max(120.0);
+                ui.allocate_ui_with_layout(
+                    Vec2::new(text_width, 0.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(title)
+                                    .size(22.0)
+                                    .strong()
+                                    .color(theme.palette.text),
+                            );
+                            if let Some((label, tone)) = status {
+                                badge(ui, theme, label, tone);
+                            }
+                        });
+                        ui.add(
+                            egui::Label::new(
+                                RichText::new(subtitle)
+                                    .size(FONT_SMALL)
+                                    .color(theme.palette.text_muted),
+                            )
+                            .wrap(true),
+                        );
+                    },
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("module_back"),
+                        ButtonVariant::Secondary,
+                    )
+                    .activated
+                    {
+                        clicked_back = true;
                     }
                 });
-                ui.label(
-                    RichText::new(subtitle)
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
             });
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if button(
-                    ui,
-                    theme,
-                    focus,
-                    texts.get("module_back"),
-                    ButtonVariant::Secondary,
-                )
-                .activated
-                {
-                    clicked_back = true;
-                }
-            });
-        });
+        }
     });
     if clicked_back {
         *back = true;

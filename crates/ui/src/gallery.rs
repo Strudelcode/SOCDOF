@@ -348,6 +348,11 @@ fn apply_setup_template(state: &mut GalleryState) {
     state.desktop_pinned = state.desktop_icons.pinned(&PINNED_DESKTOP);
 }
 
+/// Setting key the demo action menu stores its accepted choice under.
+const MENU_ACTION_SETTING: &str = "gallery:menu_action";
+/// Labels of the demo action menu in paint order; the index is the value the menu stands for.
+const MENU_ACTIONS: [&str; 4] = ["menu_open", "menu_duplicate", "menu_archive", "menu_delete"];
+
 /// State of the gallery screen.
 pub struct GalleryState {
     /// Language of every label.
@@ -374,8 +379,40 @@ pub struct GalleryState {
     pub select: usize,
     /// Dropdown state of the payment term.
     pub select_popup: PopupState,
+    /// Selected value of the second dropdown, which deliberately shares the first one's source.
+    pub select_second: usize,
+    /// Dropdown state of that second select; it must stay separate from the first one.
+    pub select_popup_second: PopupState,
+    /// Value of the dropdown that only appears while the draft switch is on.
+    pub select_extra: usize,
+    /// Dropdown state of that conditional select; its identity must survive appearing late.
+    pub select_popup_extra: PopupState,
+    /// Action chosen in the menu that only appears while the draft switch is on.
+    pub menu_choice_extra: Option<usize>,
+    /// Dropdown state of that conditional menu; its identity must survive appearing late.
+    pub menu_popup_extra: PopupState,
+    /// How often the file drop area was activated by pointer or keyboard.
+    pub drop_activations: usize,
+    /// Value of the dropdown that owns the shared popup state.
+    pub mirror_a: usize,
+    /// Value of the dropdown that is handed a copy of that popup state.
+    pub mirror_b: usize,
+    /// Popup state of the first dropdown of the copied-state pair.
+    pub mirror_popup: PopupState,
+    /// Deliberately a copy of `mirror_popup`, handed to the second dropdown in the same frame.
+    pub mirror_copy: PopupState,
+    /// Whether the copy of the popup state has been taken yet.
+    pub mirror_copied: bool,
     /// Menu state of the actions menu.
     pub menu_popup: PopupState,
+    /// Action chosen in the demo menu, `None` until the menu was used.
+    pub menu_choice: Option<usize>,
+    /// Action the demo form accepted, restored from the store on startup.
+    pub menu_saved: Option<usize>,
+    /// Action chosen in the second, equally labelled menu of the demo row.
+    pub menu_choice_second: Option<usize>,
+    /// Dropdown state of that second menu; it must stay separate from the first one.
+    pub menu_popup_second: PopupState,
     /// Demo checkbox.
     pub draft: bool,
     /// Demo switch.
@@ -526,6 +563,12 @@ impl GalleryState {
                 .required()
                 .email(),
         ]);
+        // The demo menu keeps its accepted action in the store, so a restart starts from the
+        // saved value instead of an empty one.
+        let menu_saved = store
+            .get_setting(MENU_ACTION_SETTING)?
+            .and_then(|value| value.as_str().map(str::to_owned))
+            .and_then(|key| MENU_ACTIONS.iter().position(|action| *action == key));
 
         if seed_demo_data {
             seed_sample(&store, &texts)?;
@@ -616,7 +659,23 @@ impl GalleryState {
             modal_open: false,
             select: 1,
             select_popup: PopupState::default(),
+            select_second: 0,
+            select_popup_second: PopupState::default(),
+            select_extra: 0,
+            select_popup_extra: PopupState::default(),
+            menu_choice_extra: None,
+            menu_popup_extra: PopupState::default(),
+            drop_activations: 0,
+            mirror_a: 1,
+            mirror_b: 0,
+            mirror_popup: PopupState::default(),
+            mirror_copy: PopupState::default(),
+            mirror_copied: false,
             menu_popup: PopupState::default(),
+            menu_choice: menu_saved,
+            menu_saved,
+            menu_choice_second: None,
+            menu_popup_second: PopupState::default(),
             draft: false,
             backup: true,
             calendar: CalendarState::from_millis(now_millis()),
@@ -2742,6 +2801,49 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         texts.get("select_net_14"),
                         texts.get("select_net_30"),
                     ];
+                    if state.draft {
+                        // Drawn above the two fixed dropdowns on purpose: a conditional control
+                        // must not shift the identity of the controls painted after it.
+                        select(
+                            ui,
+                            &theme,
+                            &mut state.focus,
+                            &mut state.select_popup_extra,
+                            "socdof-gallery-term",
+                            &mut state.select_extra,
+                            &terms,
+                        );
+                        ui.add_space(8.0);
+                        // Two dropdowns with one source and a copied popup state. The owner is
+                        // painted first and its state is copied straight afterwards, so the copy
+                        // starts with the owner's slot; both are painted in the same frame from the
+                        // first draft frame on and still have to open, choose and keep their value
+                        // apart.
+                        select(
+                            ui,
+                            &theme,
+                            &mut state.focus,
+                            &mut state.mirror_popup,
+                            "socdof-gallery-mirror",
+                            &mut state.mirror_a,
+                            &terms,
+                        );
+                        if !state.mirror_copied {
+                            state.mirror_copy = state.mirror_popup;
+                            state.mirror_copied = true;
+                        }
+                        ui.add_space(8.0);
+                        select(
+                            ui,
+                            &theme,
+                            &mut state.focus,
+                            &mut state.mirror_copy,
+                            "socdof-gallery-mirror",
+                            &mut state.mirror_b,
+                            &terms,
+                        );
+                        ui.add_space(8.0);
+                    }
                     ui.label(
                         RichText::new(texts.get("select_label"))
                             .size(FONT_SMALL)
@@ -2754,6 +2856,19 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         &mut state.select_popup,
                         "socdof-gallery-term",
                         &mut state.select,
+                        &terms,
+                    );
+                    ui.add_space(8.0);
+                    // A second dropdown with the very same source: the catalogue shows that the
+                    // identity is per instance, so both open and keep their own value even though
+                    // the source alone names one control.
+                    select(
+                        ui,
+                        &theme,
+                        &mut state.focus,
+                        &mut state.select_popup_second,
+                        "socdof-gallery-term",
+                        &mut state.select_second,
                         &terms,
                     );
                     ui.add_space(8.0);
@@ -2925,6 +3040,19 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                             );
                             if valid {
                                 state.form.mark_saved();
+                                // Saving accepts the chosen menu action too: the store keeps it,
+                                // so a second save without a new choice writes the same value.
+                                if let Some(index) = state.menu_choice {
+                                    let key =
+                                        MENU_ACTIONS.get(index).copied().unwrap_or(MENU_ACTIONS[0]);
+                                    let stored = state.store.put_setting(
+                                        MENU_ACTION_SETTING,
+                                        &serde_json::Value::String(key.to_owned()),
+                                    );
+                                    if stored.is_ok() {
+                                        state.menu_saved = Some(index);
+                                    }
+                                }
                                 state.toasts.push_titled(
                                     Tone::Success,
                                     texts.get("toast_title_success"),
@@ -2984,7 +3112,31 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 card(ui, &theme, |ui| {
                     ui.label(RichText::new(texts.get("section_overlay")).strong());
                     ui.add_space(6.0);
-                    ui.horizontal(|ui| {
+                    if state.draft {
+                        // A third menu with the same caption, painted above the fixed pair: its
+                        // appearance must not move the identity of the two menus below it.
+                        if let Some(index) = menu(
+                            ui,
+                            &theme,
+                            &mut state.focus,
+                            &mut state.menu_popup_extra,
+                            texts.get("menu_actions"),
+                            &[
+                                texts.get("menu_open"),
+                                texts.get("menu_duplicate"),
+                                texts.get("menu_archive"),
+                                texts.get("menu_delete"),
+                            ],
+                        ) {
+                            state.menu_choice_extra = Some(index);
+                            let key = MENU_ACTIONS.get(index).copied().unwrap_or(MENU_ACTIONS[0]);
+                            state.toasts.push(Tone::Neutral, texts.get(key), now);
+                        }
+                        ui.add_space(6.0);
+                    }
+                    // Two menus plus the drawer button no longer fit one phone row, so the row
+                    // wraps instead of pushing the drawer button past the panel edge.
+                    ui.horizontal_wrapped(|ui| {
                         if let Some(index) = menu(
                             ui,
                             &theme,
@@ -2998,9 +3150,31 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                                 texts.get("menu_delete"),
                             ],
                         ) {
-                            let keys =
-                                ["menu_open", "menu_duplicate", "menu_archive", "menu_delete"];
-                            let key = keys.get(index).copied().unwrap_or("menu_open");
+                            // The chosen row is the menu's value; the form's save button accepts
+                            // it into the store, the toast only reports it.
+                            state.menu_choice = Some(index);
+                            let key = MENU_ACTIONS.get(index).copied().unwrap_or(MENU_ACTIONS[0]);
+                            state.toasts.push(Tone::Neutral, texts.get(key), now);
+                        }
+                        // A deliberate second instance with the same caption: the catalogue shows
+                        // that the control's identity is per instance, so both menus open, select
+                        // and remember independently. Only the first menu's choice is accepted by
+                        // the form's save button above.
+                        if let Some(index) = menu(
+                            ui,
+                            &theme,
+                            &mut state.focus,
+                            &mut state.menu_popup_second,
+                            texts.get("menu_actions"),
+                            &[
+                                texts.get("menu_open"),
+                                texts.get("menu_duplicate"),
+                                texts.get("menu_archive"),
+                                texts.get("menu_delete"),
+                            ],
+                        ) {
+                            state.menu_choice_second = Some(index);
+                            let key = MENU_ACTIONS.get(index).copied().unwrap_or(MENU_ACTIONS[0]);
                             state.toasts.push(Tone::Neutral, texts.get(key), now);
                         }
                         let hit = button(
@@ -3016,13 +3190,16 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         }
                     });
                     ui.add_space(8.0);
-                    drop_zone(
+                    let drop = drop_zone(
                         ui,
                         &theme,
                         &mut state.focus,
                         texts.get("drop_hint"),
                         state.drop_hovering,
                     );
+                    if drop.activated {
+                        state.drop_activations += 1;
+                    }
                 });
 
                 ui.add_space(12.0);
@@ -4412,5 +4589,1105 @@ mod tests {
         state.guard.confirm_discard();
         state.form.discard();
         assert!(!state.form.is_dirty());
+    }
+
+    /// Drives the gallery with real pointer and keyboard events at one phone size.
+    struct GalleryInput {
+        ctx: Context,
+        state: GalleryState,
+        width: f32,
+        height: f32,
+        time: f64,
+    }
+
+    impl GalleryInput {
+        fn at(width: f32, height: f32, appearance: Appearance) -> Self {
+            let mut state =
+                GalleryState::new(Language::De, appearance, "indigo").expect("gallery state");
+            // The onboarding card is a foreground overlay; it would swallow the wheel input the
+            // harness uses to reach the controls further down.
+            state.shell.onboarding.finish();
+            Self {
+                ctx: crate::theme::headless_context(),
+                state,
+                width,
+                height,
+                time: 1.0,
+            }
+        }
+
+        fn frame(&mut self, events: Vec<egui::Event>) {
+            self.time += 1.0 / 60.0;
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(
+                    Pos2::ZERO,
+                    Vec2::new(self.width, self.height),
+                )),
+                events,
+                time: Some(self.time),
+                ..Default::default()
+            };
+            let Self { ctx, state, .. } = self;
+            let _ = ctx.run(input, |ctx| gallery(ctx, state));
+            // The kit owns the keyboard, egui keeps a second focus next to it. A Tab sequence
+            // moves that focus onto some widget that Enter would then click, so it is dropped
+            // whenever it disagrees with the kit. A focused text field is the same id in both and
+            // keeps its focus, because egui reads the typed text through its own memory.
+            let kit_focus = self.state.focus.focused();
+            self.ctx.memory_mut(|memory| {
+                if let Some(focused) = memory.focused() {
+                    if Some(focused) != kit_focus {
+                        memory.surrender_focus(focused);
+                    }
+                }
+            });
+        }
+
+        fn viewport(&self) -> Rect {
+            Rect::from_min_size(Pos2::ZERO, Vec2::new(self.width, self.height))
+        }
+
+        fn menu_id(&self, occurrence: usize) -> Id {
+            crate::controls::menu_id(self.state.texts.get("menu_actions"), occurrence)
+        }
+
+        fn row_id(&self, occurrence: usize, index: usize) -> Id {
+            self.menu_id(occurrence).with(("item", index))
+        }
+
+        fn select_id(&self, slot: usize) -> Id {
+            crate::controls::select_id("socdof-gallery-term", slot)
+        }
+
+        fn option_id(&self, slot: usize, index: usize) -> Id {
+            self.select_id(slot).with(("option", index))
+        }
+
+        /// Id of the file drop area, recognised by the height only it paints with.
+        fn drop_zone_id(&mut self) -> Id {
+            self.frame(Vec::new());
+            let ids: Vec<Id> = self.state.focus.order().to_vec();
+            let found: Vec<Id> = ids
+                .into_iter()
+                .filter(|id| {
+                    self.ctx
+                        .read_response(*id)
+                        .map(|response| {
+                            (response.rect.height() - 96.0).abs() < 0.5
+                                && response.rect.width() > 200.0
+                        })
+                        .unwrap_or(false)
+                })
+                .collect();
+            assert_eq!(found.len(), 1, "expected exactly one drop area");
+            found[0]
+        }
+
+        /// Lets the smoothed wheel scrolling come to rest before geometry is compared.
+        fn settle(&mut self) {
+            for _ in 0..10 {
+                self.frame(Vec::new());
+            }
+        }
+
+        fn rect_of(&self, id: Id) -> Rect {
+            self.ctx
+                .read_response(id)
+                .expect("control was painted")
+                .rect
+        }
+
+        /// Scrolls until the control is fully visible with room for `rows` popup rows below it.
+        fn scroll_with_room(&mut self, id: Id, rows: usize) -> Rect {
+            let mut previous = None;
+            for _ in 0..40 {
+                self.frame(Vec::new());
+                let rect = self.rect_of(id);
+                let room = rect.bottom() + 8.0 + 33.0 * rows as f32;
+                if self.viewport().contains_rect(rect) && room <= self.height {
+                    // The wheel scroll is animated, so the rectangle has to stay put for a frame
+                    // before a click may address it.
+                    if previous == Some(rect) {
+                        assert!(
+                            rect.right() <= self.width + 0.5,
+                            "the gallery control ends at {} px, the panel ends at {} px",
+                            rect.right(),
+                            self.width + 0.5
+                        );
+                        return rect;
+                    }
+                } else {
+                    assert!(
+                        previous != Some(rect),
+                        "the gallery does not scroll to the control: it stays at {rect:?} outside \
+                         the {} × {} viewport",
+                        self.width,
+                        self.height
+                    );
+                    let step = if rect.top() < 0.0 { 240.0 } else { -240.0 };
+                    let pos = Pos2::new(self.width / 2.0, self.height / 2.0);
+                    self.frame(vec![
+                        egui::Event::PointerMoved(pos),
+                        egui::Event::Scroll(Vec2::new(0.0, step)),
+                    ]);
+                }
+                previous = Some(rect);
+            }
+            panic!(
+                "the gallery never brought the control into the {} × {} viewport",
+                self.width, self.height
+            );
+        }
+
+        fn scroll_to(&mut self, id: Id) -> Rect {
+            self.scroll_with_room(id, 0)
+        }
+
+        /// Moves, presses and releases the primary pointer at `pos`; the move gets its own frame
+        /// because egui hit-tests a press against the controls it knew from the frame before.
+        fn click_at(&mut self, pos: Pos2) {
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            };
+            self.frame(vec![egui::Event::PointerMoved(pos)]);
+            self.frame(vec![egui::Event::PointerMoved(pos), button(true)]);
+            self.frame(vec![button(false)]);
+        }
+
+        /// Clicks the field and types `text` into it.
+        fn type_into(&mut self, id: Id, text: &str) {
+            let rect = self.scroll_to(id);
+            self.click_at(rect.center());
+            // The field takes the focus at the end of the release frame, after it has already read
+            // that frame's events; the idle frame lets it start the next one focused.
+            self.frame(Vec::new());
+            self.frame(vec![egui::Event::Text(text.to_string())]);
+        }
+
+        /// Id of the control painted `back` positions before the menu (1 = directly before it).
+        fn control_before_menu(&mut self, back: usize) -> Id {
+            self.frame(Vec::new());
+            let order = self.state.focus.order().to_vec();
+            let menu = order
+                .iter()
+                .position(|id| *id == self.menu_id(0))
+                .expect("the action menu was painted");
+            assert!(
+                menu >= back,
+                "only {menu} controls were painted before the menu"
+            );
+            order[menu - back]
+        }
+
+        fn key(key: Key) -> egui::Event {
+            egui::Event::Key {
+                key,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }
+        }
+
+        fn stored_action(&self) -> Option<String> {
+            self.state
+                .store
+                .get_setting(MENU_ACTION_SETTING)
+                .expect("read the stored menu action")
+                .and_then(|value| value.as_str().map(str::to_owned))
+        }
+    }
+
+    #[test]
+    fn the_action_menu_opens_with_one_click_and_saves_the_choice_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                // The form paints its two fields, then save, discard and the secondary button;
+                // the action menu follows them in the form's sibling card.
+                let company = h.control_before_menu(5);
+                let email = h.control_before_menu(4);
+                let save = h.control_before_menu(3);
+                h.type_into(company, "Muster AG");
+                h.type_into(email, "kunde@example.org");
+                assert_eq!(
+                    h.state.form.fields[0].value, "Muster AG",
+                    "typing at {width} px, {appearance:?} did not reach the company field"
+                );
+
+                // The popup paints below the control, so the menu needs room for its four rows.
+                let rect = h.scroll_with_room(h.menu_id(0), 4);
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.menu_popup.open,
+                    Some(0),
+                    "one click at {width} px, {appearance:?} did not open the action menu"
+                );
+
+                let row = h.rect_of(h.row_id(0, 2));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the popup row at {width} px, {appearance:?} is painted outside the viewport: \
+                     {row:?}"
+                );
+                assert!(
+                    row.right() <= width + 0.5,
+                    "the popup row at {width} px, {appearance:?} reaches {} px, the panel ends at \
+                     {} px",
+                    row.right(),
+                    width + 0.5
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(2),
+                    "clicking the third row at {width} px, {appearance:?} did not choose it"
+                );
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "the popup stayed open at {width} px, {appearance:?} after choosing"
+                );
+
+                let rect = h.scroll_to(save);
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.menu_saved,
+                    Some(2),
+                    "saving at {width} px, {appearance:?} did not accept the chosen action"
+                );
+                assert_eq!(
+                    h.stored_action().as_deref(),
+                    Some("menu_archive"),
+                    "the store at {width} px, {appearance:?} holds a different action"
+                );
+
+                // A second save without a new choice writes the same value again.
+                let rect = h.scroll_to(save);
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.menu_saved,
+                    Some(2),
+                    "the second save at {width} px, {appearance:?} changed the action"
+                );
+                assert_eq!(
+                    h.stored_action().as_deref(),
+                    Some("menu_archive"),
+                    "the second save at {width} px, {appearance:?} changed the stored action"
+                );
+                assert!(
+                    !h.state.form.is_dirty(),
+                    "the second save at {width} px, {appearance:?} left the form dirty"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_action_menu_opens_and_chooses_with_the_keyboard() {
+        let mut h = GalleryInput::at(360.0, 768.0, Appearance::Light);
+        h.scroll_to(h.menu_id(0));
+        let mut reached = false;
+        for _ in 0..400 {
+            h.frame(vec![GalleryInput::key(Key::Tab)]);
+            if h.state.focus.is_focused(h.menu_id(0)) {
+                reached = true;
+                break;
+            }
+        }
+        assert!(
+            reached,
+            "tabbing never moved the focus onto the action menu"
+        );
+
+        h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+        assert_eq!(
+            h.state.menu_popup.open,
+            Some(0),
+            "the keyboard did not open the action menu"
+        );
+        h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+        h.frame(vec![GalleryInput::key(Key::Enter)]);
+        assert_eq!(
+            h.state.menu_choice,
+            Some(1),
+            "Enter did not choose the highlighted row"
+        );
+        assert_eq!(
+            h.state.menu_popup.open, None,
+            "the keyboard left the menu open"
+        );
+        assert!(
+            h.state.focus.is_focused(h.menu_id(0)),
+            "closing the menu did not return the focus to it"
+        );
+    }
+
+    #[test]
+    fn the_two_menus_with_the_same_label_keep_their_own_state_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                assert_ne!(
+                    h.menu_id(0),
+                    h.menu_id(1),
+                    "both menus share one id at {width} px, {appearance:?}"
+                );
+
+                // Both menus sit in one row; the popup of each needs room below it.
+                let first = h.scroll_with_room(h.menu_id(0), 4);
+                let second = h.rect_of(h.menu_id(1));
+                assert_ne!(first, second, "both menus paint on the same rectangle");
+                assert!(
+                    h.viewport().contains_rect(second),
+                    "the second menu at {width} px, {appearance:?} is outside the viewport: \
+                     {second:?}"
+                );
+                assert!(
+                    second.right() <= width + 0.5,
+                    "the second menu at {width} px, {appearance:?} reaches {} px, the panel ends \
+                     at {} px",
+                    second.right(),
+                    width + 0.5
+                );
+
+                h.click_at(second.center());
+                assert_eq!(
+                    h.state.menu_popup_second.open,
+                    Some(0),
+                    "one click at {width} px, {appearance:?} did not open the second menu"
+                );
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "opening the second menu at {width} px, {appearance:?} opened the first one too"
+                );
+                h.frame(vec![GalleryInput::key(Key::Escape)]);
+                assert_eq!(
+                    h.state.menu_popup_second.open, None,
+                    "Escape left the second menu open at {width} px, {appearance:?}"
+                );
+
+                // Choosing in the first menu leaves the second one's value alone.
+                let rect = h.scroll_with_room(h.menu_id(0), 4);
+                h.click_at(rect.center());
+                let row = h.rect_of(h.row_id(0, 1));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the row of the first menu at {width} px, {appearance:?} is outside the \
+                     viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(1),
+                    "the first menu did not choose its row at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice_second, None,
+                    "choosing in the first menu at {width} px, {appearance:?} changed the second \
+                     menu's value"
+                );
+                assert_eq!(h.state.menu_popup.open, None);
+                assert_eq!(h.state.menu_popup_second.open, None);
+
+                // The second menu opens and chooses on its own, with a different row.
+                let rect = h.rect_of(h.menu_id(1));
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.menu_popup_second.open,
+                    Some(0),
+                    "the second menu did not open at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "opening the second menu at {width} px, {appearance:?} opened the first one too"
+                );
+                let row = h.rect_of(h.row_id(1, 3));
+                assert_ne!(
+                    h.row_id(1, 3),
+                    h.row_id(0, 3),
+                    "both menus share their popup row ids"
+                );
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the row of the second menu at {width} px, {appearance:?} is outside the \
+                     viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.menu_choice_second,
+                    Some(3),
+                    "the second menu did not choose its row at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(1),
+                    "choosing in the second menu at {width} px, {appearance:?} changed the first \
+                     menu's value"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_action_menu_keyboard_covers_escape_home_and_end_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                h.scroll_to(h.menu_id(0));
+                let mut reached = false;
+                for _ in 0..400 {
+                    h.frame(vec![GalleryInput::key(Key::Tab)]);
+                    if h.state.focus.is_focused(h.menu_id(0)) {
+                        reached = true;
+                        break;
+                    }
+                }
+                assert!(
+                    reached,
+                    "tabbing never focused the first menu at {width} px, {appearance:?}"
+                );
+
+                // Arrow opens, Escape closes again without touching the value.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                assert_eq!(
+                    h.state.menu_popup.open,
+                    Some(0),
+                    "the arrow key did not open the menu at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::Escape)]);
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "Escape left the menu open at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice, None,
+                    "Escape changed the value at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice_second, None,
+                    "Escape changed the second value at {width} px, {appearance:?}"
+                );
+
+                // Arrow moves the highlight, Enter takes it.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(1),
+                    "the arrow key plus Enter did not choose the second row at {width} px, \
+                     {appearance:?}"
+                );
+
+                // End jumps to the last row.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::End)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(3),
+                    "End plus Enter did not choose the last row at {width} px, {appearance:?}"
+                );
+
+                // Home jumps back to the first row.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Home)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(0),
+                    "Home plus Enter did not choose the first row at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice_second, None,
+                    "the keyboard at {width} px, {appearance:?} changed the second menu's value"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_two_dropdowns_with_a_copied_popup_state_keep_their_own_identity_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                // The demo copies the owner's popup state right after the owner painted, so the
+                // copy starts with the owner's slot and both are painted in the same frame.
+                h.state.draft = true;
+                h.frame(Vec::new());
+                let owner = h.state.mirror_popup.slot().expect("owner slot");
+                let copy = h.state.mirror_copy.slot().expect("copy slot");
+                assert_ne!(
+                    owner, copy,
+                    "the copied popup state kept the owner's slot at {width} px, {appearance:?}"
+                );
+                // Painting again keeps both identities instead of handing out new ones.
+                h.frame(Vec::new());
+                assert_eq!(h.state.mirror_popup.slot(), Some(owner));
+                assert_eq!(h.state.mirror_copy.slot(), Some(copy));
+                let owner_id = crate::controls::select_id("socdof-gallery-mirror", owner);
+                let copy_id = crate::controls::select_id("socdof-gallery-mirror", copy);
+                assert_ne!(owner_id, copy_id);
+                let owner_rect = h.rect_of(owner_id);
+                let copy_rect = h.rect_of(copy_id);
+                assert_ne!(owner_rect, copy_rect);
+                assert!(
+                    copy_rect.right() <= width + 0.5,
+                    "the copied dropdown at {width} px, {appearance:?} reaches {} px, the panel \
+                     ends at {} px",
+                    copy_rect.right(),
+                    width + 0.5
+                );
+
+                // The owner opens and chooses under its own id.
+                let owner_rect = h.scroll_with_room(owner_id, 3);
+                h.click_at(owner_rect.center());
+                assert_eq!(
+                    h.state.mirror_popup.open,
+                    Some(1),
+                    "one click at {width} px, {appearance:?} did not open the owning dropdown"
+                );
+                assert_eq!(
+                    h.state.mirror_copy.open, None,
+                    "opening the owning dropdown at {width} px, {appearance:?} opened the copy"
+                );
+                let row = h.rect_of(owner_id.with(("option", 2)));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the option at {width} px, {appearance:?} is outside the viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.mirror_a, 2,
+                    "the owning dropdown did not choose at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.mirror_b, 0,
+                    "choosing in the owning dropdown changed the copy at {width} px, {appearance:?}"
+                );
+
+                // The copy opens and chooses on its own.
+                let copy_rect = h.scroll_with_room(copy_id, 3);
+                h.click_at(copy_rect.center());
+                assert_eq!(
+                    h.state.mirror_copy.open,
+                    Some(0),
+                    "the copied dropdown did not open at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.mirror_popup.open, None,
+                    "opening the copied dropdown at {width} px, {appearance:?} opened the owner"
+                );
+                assert_ne!(
+                    copy_id.with(("option", 1)),
+                    owner_id.with(("option", 1)),
+                    "both dropdowns share their option ids"
+                );
+                let row = h.rect_of(copy_id.with(("option", 1)));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the copy's option at {width} px, {appearance:?} is outside the viewport: \
+                     {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.mirror_b, 1,
+                    "the copied dropdown did not choose at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.mirror_a,
+                    2,
+                    "choosing in the copied dropdown changed the owner at {width} px, {appearance:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_menu_ids_survive_a_conditional_menu_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                assert_ne!(h.menu_id(0), h.menu_id(2));
+                assert_ne!(h.select_id(0), h.menu_id(0));
+
+                h.scroll_with_room(h.menu_id(0), 4);
+                h.settle();
+                let first_rect = h.rect_of(h.menu_id(0));
+                h.click_at(first_rect.center());
+                assert_eq!(
+                    h.state.menu_popup.open,
+                    Some(0),
+                    "one click at {width} px, {appearance:?} did not open the first menu"
+                );
+                h.frame(vec![GalleryInput::key(Key::Escape)]);
+                assert_eq!(h.state.menu_popup.open, None);
+                assert_eq!(
+                    h.state.focus.focused(),
+                    Some(h.menu_id(0)),
+                    "the focus did not return to the first menu at {width} px, {appearance:?}"
+                );
+
+                // A third menu with the same caption appears above the fixed pair.
+                h.state.draft = true;
+                h.frame(Vec::new());
+                let extra = h.rect_of(h.menu_id(2));
+                assert!(
+                    extra.top() < h.rect_of(h.menu_id(0)).top(),
+                    "the conditional menu at {width} px, {appearance:?} was not painted above the \
+                     existing ones"
+                );
+                assert!(
+                    extra.right() <= width + 0.5,
+                    "the conditional menu at {width} px, {appearance:?} reaches {} px, the panel \
+                     ends at {} px",
+                    extra.right(),
+                    width + 0.5
+                );
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "the conditional menu opened on its own at {width} px, {appearance:?}"
+                );
+                assert_eq!(h.state.menu_choice, None);
+                assert_eq!(h.state.menu_choice_extra, None);
+
+                // Hiding and showing keeps the rectangle and the identity; nothing was chosen yet,
+                // so no toast changes the layout while the rectangles are compared.
+                h.state.draft = false;
+                h.frame(Vec::new());
+                h.settle();
+                assert_eq!(
+                    h.rect_of(h.menu_id(0)),
+                    first_rect,
+                    "the first menu moved to a different rectangle at {width} px, {appearance:?}"
+                );
+                h.state.draft = true;
+                h.frame(Vec::new());
+                h.settle();
+                assert_eq!(
+                    h.rect_of(h.menu_id(2)),
+                    extra,
+                    "the returning menu got a different identity at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.focus.focused(),
+                    Some(h.menu_id(0)),
+                    "the first menu lost the focus while the third one returned at {width} px, \
+                     {appearance:?}"
+                );
+
+                // The arrow still belongs to the first menu; the conditional one stays closed.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                assert_eq!(
+                    h.state.menu_popup.open,
+                    Some(0),
+                    "the first menu lost its keyboard at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_popup_extra.open, None,
+                    "the conditional menu took the arrow at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(1),
+                    "the first menu did not choose its row at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice_extra, None,
+                    "choosing in the first menu changed the conditional value at {width} px, \
+                     {appearance:?}"
+                );
+
+                // The conditional menu opens and chooses under its own id.
+                let rect = h.scroll_with_room(h.menu_id(2), 4);
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.menu_popup_extra.open,
+                    Some(0),
+                    "one click at {width} px, {appearance:?} did not open the conditional menu"
+                );
+                assert_eq!(
+                    h.state.menu_popup.open, None,
+                    "opening the conditional menu opened the first one at {width} px, \
+                     {appearance:?}"
+                );
+                let row = h.rect_of(h.row_id(2, 2));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the row of the conditional menu at {width} px, {appearance:?} is outside the \
+                     viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.menu_choice_extra,
+                    Some(2),
+                    "the conditional menu did not choose its row at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.menu_choice,
+                    Some(1),
+                    "choosing in the conditional menu changed the first value at {width} px, \
+                     {appearance:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_drop_area_activates_with_space_like_enter_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                let id = h.drop_zone_id();
+                let rect = h.scroll_with_room(id, 0);
+                assert!(
+                    h.viewport().contains_rect(rect),
+                    "the drop area at {width} px, {appearance:?} is outside the viewport: {rect:?}"
+                );
+                assert!(
+                    rect.right() <= width + 0.5,
+                    "the drop area at {width} px, {appearance:?} reaches {} px, the panel ends at \
+                     {} px",
+                    rect.right(),
+                    width + 0.5
+                );
+
+                // The pointer hits the control under its own id.
+                h.click_at(rect.center());
+                assert_eq!(
+                    h.state.drop_activations, 1,
+                    "one click at {width} px, {appearance:?} did not activate the drop area"
+                );
+                assert_eq!(
+                    h.state.focus.focused(),
+                    Some(id),
+                    "the click did not focus the drop area at {width} px, {appearance:?}"
+                );
+
+                // Enter and Space activate it with the same result.
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.drop_activations, 2,
+                    "Enter did not activate the drop area at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::Space)]);
+                assert_eq!(
+                    h.state.drop_activations, 3,
+                    "Space did not activate the drop area at {width} px, {appearance:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_select_ids_survive_a_conditional_dropdown_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                let first_rect = h.scroll_with_room(h.select_id(0), 3);
+                h.click_at(first_rect.center());
+                assert_eq!(
+                    h.state.select_popup.open,
+                    Some(1),
+                    "one click at {width} px, {appearance:?} did not open the first select"
+                );
+                h.frame(vec![GalleryInput::key(Key::Escape)]);
+                assert_eq!(h.state.select_popup.open, None);
+                assert_eq!(
+                    h.state.focus.focused(),
+                    Some(h.select_id(0)),
+                    "the focus did not return to the first select at {width} px, {appearance:?}"
+                );
+
+                // A third dropdown with the same source appears above the two existing ones.
+                h.state.draft = true;
+                h.frame(Vec::new());
+                let extra = h.rect_of(h.select_id(2));
+                assert!(
+                    extra.top() < h.rect_of(h.select_id(0)).top(),
+                    "the conditional select at {width} px, {appearance:?} was not painted above \
+                     the existing ones"
+                );
+                assert!(
+                    extra.right() <= width + 0.5,
+                    "the conditional select at {width} px, {appearance:?} reaches {} px, the panel \
+                     ends at {} px",
+                    extra.right(),
+                    width + 0.5
+                );
+
+                // The arrow still belongs to the first select, which kept its identity and focus;
+                // the conditional one stays closed and selects nothing.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                assert_eq!(
+                    h.state.select_popup.open,
+                    Some(1),
+                    "the first select lost its keyboard at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_popup_extra.open, None,
+                    "the conditional select took the arrow at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.select, 2,
+                    "the first select did not choose its option at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_extra, 0,
+                    "choosing in the first select changed the conditional value at {width} px, \
+                     {appearance:?}"
+                );
+
+                // The conditional dropdown goes away and comes back with the same identity.
+                h.state.draft = false;
+                h.frame(Vec::new());
+                assert_eq!(
+                    h.rect_of(h.select_id(0)),
+                    first_rect,
+                    "the first select moved back to a different rectangle at {width} px, \
+                     {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select, 2,
+                    "hiding the conditional select changed the value"
+                );
+                h.state.draft = true;
+                h.frame(Vec::new());
+                assert_eq!(
+                    h.rect_of(h.select_id(2)),
+                    extra,
+                    "the returning select got a different identity at {width} px, {appearance:?}"
+                );
+                assert_ne!(h.select_id(0), h.select_id(2));
+                assert_ne!(h.select_id(1), h.select_id(2));
+                assert_eq!(h.state.select, 2);
+                assert_eq!(h.state.select_second, 0);
+                assert_eq!(h.state.select_extra, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn the_drawer_closes_with_space_like_enter_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+
+                // The drawer focuses its close button when it opens; Enter closes it.
+                h.state.drawer_open = true;
+                h.frame(Vec::new());
+                assert!(
+                    h.state.drawer_open,
+                    "the drawer did not open at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert!(
+                    !h.state.drawer_open,
+                    "Enter did not close the drawer at {width} px, {appearance:?}"
+                );
+
+                // The same button takes Space with the same result.
+                h.state.drawer_open = true;
+                h.frame(Vec::new());
+                assert!(h.state.drawer_open);
+                h.frame(vec![GalleryInput::key(Key::Space)]);
+                assert!(
+                    !h.state.drawer_open,
+                    "Space did not close the drawer at {width} px, {appearance:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_two_selects_with_the_same_source_keep_their_own_state_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                assert_ne!(
+                    h.select_id(0),
+                    h.select_id(1),
+                    "both selects share one id at {width} px, {appearance:?}"
+                );
+
+                let first = h.scroll_with_room(h.select_id(0), 3);
+                let second = h.rect_of(h.select_id(1));
+                assert_ne!(first, second, "both selects paint on the same rectangle");
+                assert!(
+                    second.right() <= width + 0.5,
+                    "the second select at {width} px, {appearance:?} reaches {} px, the panel ends \
+                     at {} px",
+                    second.right(),
+                    width + 0.5
+                );
+
+                // One click opens the first dropdown only, and it opens at its own value.
+                h.click_at(first.center());
+                assert_eq!(
+                    h.state.select_popup.open,
+                    Some(1),
+                    "one click at {width} px, {appearance:?} did not open the first select"
+                );
+                assert_eq!(
+                    h.state.select_popup_second.open, None,
+                    "opening the first select at {width} px, {appearance:?} opened the second one too"
+                );
+
+                let row = h.rect_of(h.option_id(0, 2));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the option of the first select at {width} px, {appearance:?} is outside the \
+                     viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.select, 2,
+                    "the first select did not choose its option at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_second, 0,
+                    "choosing in the first select at {width} px, {appearance:?} changed the second \
+                     one's value"
+                );
+                assert_eq!(h.state.select_popup.open, None);
+                assert_eq!(h.state.select_popup_second.open, None);
+
+                // The second dropdown then opens and chooses on its own.
+                let second = h.scroll_with_room(h.select_id(1), 3);
+                h.click_at(second.center());
+                assert_eq!(
+                    h.state.select_popup_second.open,
+                    Some(0),
+                    "the second select did not open at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_popup.open, None,
+                    "opening the second select at {width} px, {appearance:?} opened the first one too"
+                );
+                let row = h.rect_of(h.option_id(1, 1));
+                assert!(
+                    h.viewport().contains_rect(row),
+                    "the option of the second select at {width} px, {appearance:?} is outside the \
+                     viewport: {row:?}"
+                );
+                h.click_at(row.center());
+                assert_eq!(
+                    h.state.select_second, 1,
+                    "the second select did not choose its option at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select, 2,
+                    "choosing in the second select at {width} px, {appearance:?} changed the first \
+                     one's value"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_select_keyboard_covers_space_escape_home_and_end_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = GalleryInput::at(width, 768.0, appearance);
+                h.scroll_with_room(h.select_id(0), 3);
+                let mut reached = false;
+                for _ in 0..400 {
+                    h.frame(vec![GalleryInput::key(Key::Tab)]);
+                    if h.state.focus.is_focused(h.select_id(0)) {
+                        reached = true;
+                        break;
+                    }
+                }
+                assert!(
+                    reached,
+                    "tabbing never focused the first select at {width} px, {appearance:?}"
+                );
+
+                // The arrow opens at the current value, Escape closes without a value change.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                assert_eq!(
+                    h.state.select_popup.open,
+                    Some(1),
+                    "the arrow key did not open the select at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Escape)]);
+                assert_eq!(
+                    h.state.select_popup.open, None,
+                    "Escape left the select open at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select, 1,
+                    "Escape changed the value at {width} px, {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_second, 0,
+                    "Escape changed the second value at {width} px, {appearance:?}"
+                );
+
+                // End then Space takes the last row, just like Enter does.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::End)]);
+                h.frame(vec![GalleryInput::key(Key::Space)]);
+                assert_eq!(
+                    h.state.select, 2,
+                    "End plus Space did not choose the last row at {width} px, {appearance:?}"
+                );
+
+                // Home then Enter takes the first row.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Home)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.select, 0,
+                    "Home plus Enter did not choose the first row at {width} px, {appearance:?}"
+                );
+
+                // Space and Enter confirm the highlighted row the same way: one step down from the
+                // first row is the second row for both keys.
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Space)]);
+                assert_eq!(
+                    h.state.select, 1,
+                    "Space did not confirm the highlighted row at {width} px, {appearance:?}"
+                );
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Home)]);
+                h.frame(vec![GalleryInput::key(Key::ArrowDown)]);
+                h.frame(vec![GalleryInput::key(Key::Enter)]);
+                assert_eq!(
+                    h.state.select, 1,
+                    "Enter did not confirm the same highlighted row as Space at {width} px, \
+                     {appearance:?}"
+                );
+                assert_eq!(
+                    h.state.select_second, 0,
+                    "the keyboard at {width} px, {appearance:?} changed the second select's value"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_action_menu_restores_the_saved_choice_from_the_store() {
+        let store = Store::open_in_memory().expect("store");
+        store
+            .put_setting(
+                MENU_ACTION_SETTING,
+                &serde_json::Value::String("menu_delete".to_string()),
+            )
+            .expect("seed the stored action");
+        let state = GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+            .expect("persistent state");
+        assert_eq!(state.menu_saved, Some(3));
+        assert_eq!(state.menu_choice, Some(3));
     }
 }

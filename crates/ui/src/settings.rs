@@ -30,7 +30,7 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
 };
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::display::{detect_connected_monitors, DisplayMonitor};
@@ -509,6 +509,39 @@ enum DeleteTarget {
     Role(Uuid),
 }
 
+/// User-visible settings command.
+///
+/// The screen and any embedder dispatch these instead of touching the editor or dialog drafts
+/// directly; [`SettingsState::dispatch`] is the single reducer path for them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SettingsIntent {
+    /// Opens an empty account draft.
+    NewUser,
+    /// Opens the account editor for an existing account.
+    EditUser(Uuid),
+    /// Opens an empty role draft.
+    NewRole,
+    /// Opens the role editor for an existing role.
+    EditRole(Uuid),
+    /// Opens the delete confirmation for an account.
+    DeleteUser(Uuid),
+    /// Opens the delete confirmation for a role.
+    DeleteRole(Uuid),
+    /// Opens the restore confirmation for a backup archive and target.
+    RequestRestore {
+        /// Archive file the backup tab selected.
+        archive: String,
+        /// Restore target the backup tab selected.
+        target: String,
+    },
+    /// Confirms the open delete dialog and deletes the account or role.
+    ConfirmDelete,
+    /// Confirms the open restore dialog and restores the archive.
+    ConfirmRestore,
+    /// Opens the language dropdown.
+    OpenLanguagePopup,
+}
+
 /// State of the settings screen.
 #[derive(Debug, Clone)]
 pub struct SettingsState {
@@ -621,6 +654,16 @@ impl SettingsState {
     /// Current tab.
     pub fn tab(&self) -> SettingsTab {
         self.tab
+    }
+
+    /// Accounts loaded for the users tab.
+    pub fn users(&self) -> &[User] {
+        &self.users
+    }
+
+    /// Roles loaded for the roles tab.
+    pub fn roles(&self) -> &[Role] {
+        &self.roles
     }
 
     /// Returns the persisted UI scale as an egui zoom factor.
@@ -1013,7 +1056,14 @@ impl SettingsState {
         self.status = None;
     }
 
-    fn edit_role(&mut self, id: Uuid) {
+    fn edit_role(&mut self, id: Uuid, store: &Store) {
+        // Saving a role invalidates the cached snapshot. Usually the next render refreshes it, but
+        // an action can reopen the editor before that frame (keyboard navigation after a save);
+        // reloading here keeps the draft from writing the stale permissions back on the next save.
+        if !self.loaded && self.refresh(store).is_err() {
+            self.error = Some("settings_error_load");
+            return;
+        }
         if let Some(role) = self.roles.iter().find(|role| role.id == id) {
             self.role_editor = Some(RoleDraft::from_role(role));
             self.role_level_popups = vec![PopupState::default(); ALL_MODULES.len()];
@@ -1715,6 +1765,19 @@ fn tab_icon(tab: SettingsTab) -> Icon {
 /// Gives every settings section a consistent visual anchor and clear hierarchy.
 fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, tab: SettingsTab) {
     card(ui, theme, |ui| {
+        let badge_text = format!("{:02} / 11", tab.index() + 1);
+        // The badge width is reserved up front, so the wrapping subtitle can never run
+        // underneath it on narrow windows (same metrics `badge` uses to size itself).
+        let badge_width = ui
+            .painter()
+            .layout_no_wrap(
+                badge_text.clone(),
+                egui::FontId::proportional(FONT_SMALL),
+                theme.accent.light,
+            )
+            .size()
+            .x
+            + 20.0;
         ui.horizontal(|ui| {
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
             ui.painter()
@@ -1726,7 +1789,9 @@ fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, t
                 1.8,
             );
             ui.add_space(6.0);
+            let text_width = (ui.available_width() - badge_width - 12.0).max(96.0);
             ui.vertical(|ui| {
+                ui.set_max_width(text_width);
                 ui.label(
                     RichText::new(texts.get(tab.label_key()))
                         .size(crate::tokens::FONT_HEADING)
@@ -1739,12 +1804,7 @@ fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, t
                 );
             });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                badge(
-                    ui,
-                    theme,
-                    &format!("{:02} / 11", tab.index() + 1),
-                    Tone::Accent,
-                );
+                badge(ui, theme, &badge_text, Tone::Accent);
             });
         });
     });
@@ -1865,8 +1925,11 @@ pub fn settings_content(
                 });
             });
         } else {
+            // Width must fill the row, but the height has to shrink to the tab strip:
+            // a non-shrinking height made the strip claim the whole remaining viewport
+            // and pushed the section heading and its content below the visible area.
             egui::ScrollArea::horizontal()
-                .auto_shrink([false, false])
+                .auto_shrink([false, true])
                 .show(ui, |ui| {
                     if settings_tabs(ui, theme, focus, texts, &mut selected) {
                         state.set_tab(SettingsTab::from_index(selected));
@@ -1941,7 +2004,7 @@ pub fn settings_window(
 
     settings_content(ui, theme, texts, focus, state, store, now);
     delete_modal(ctx, theme, texts, focus, state, store);
-    restore_modal(ctx, theme, texts, focus, state);
+    restore_modal(ctx, theme, texts, focus, state, store);
 }
 
 /// Renders the full-screen settings workflow.
@@ -1983,7 +2046,7 @@ pub fn settings(
         });
 
     delete_modal(ctx, theme, texts, focus, state, store);
-    restore_modal(ctx, theme, texts, focus, state);
+    restore_modal(ctx, theme, texts, focus, state, store);
 }
 
 fn display_tab(
@@ -2772,7 +2835,11 @@ fn appearance_tab(
             );
             return;
         }
-        ui.columns(2, |columns| {
+        // Two columns squeeze the accent swatches and the theme choices past the phone panel;
+        // below the stacking width both sections share one column instead.
+        let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+        let second = if narrow { 0 } else { 1 };
+        ui.columns(if narrow { 1 } else { 2 }, |columns| {
             columns[0].label(
                 RichText::new(texts.get("settings_accent"))
                     .size(FONT_SMALL)
@@ -2784,14 +2851,17 @@ fn appearance_tab(
                     accent_swatch(ui, theme, focus, id, &mut state.appearance.accent);
                 }
             });
+            if narrow {
+                columns[0].add_space(12.0);
+            }
 
-            columns[1].label(
+            columns[second].label(
                 RichText::new(texts.get("settings_theme"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
-            columns[1].add_space(6.0);
-            columns[1].horizontal_wrapped(|ui| {
+            columns[second].add_space(6.0);
+            columns[second].horizontal_wrapped(|ui| {
                 theme_choice(
                     ui,
                     theme,
@@ -2829,14 +2899,14 @@ fn appearance_tab(
                         .map(|module| texts.get(module_label_key(*module))),
                 )
                 .collect();
-            columns[1].add_space(12.0);
-            columns[1].label(
+            columns[second].add_space(12.0);
+            columns[second].label(
                 RichText::new(texts.get("settings_startup"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
             select(
-                &mut columns[1],
+                &mut columns[second],
                 theme,
                 focus,
                 &mut state.startup_popup,
@@ -3272,11 +3342,9 @@ fn backup_tab(
         state.verify_backup(&path);
     }
     if restore {
-        if state.restore_archive.trim().is_empty() || state.restore_target.trim().is_empty() {
-            state.error = Some("settings_error_restore_path");
-        } else {
-            state.restore_confirm = true;
-        }
+        let archive = state.restore_archive.clone();
+        let target = state.restore_target.clone();
+        state.dispatch(SettingsIntent::RequestRestore { archive, target }, store);
     }
 }
 
@@ -3297,13 +3365,16 @@ fn users_tab(
     let mut new_user = false;
     let mut edit = None;
     let mut delete = None;
-    ui.horizontal(|ui| {
-        search_field(
+    ui.horizontal_wrapped(|ui| {
+        // The field fills the row and left the "New user" action outside the phone panel; keep
+        // room for the action so both wrap within it.
+        search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("settings_users_search"),
+            150.0,
         );
         if button(
             ui,
@@ -3328,6 +3399,60 @@ fn users_tab(
                 texts.get("settings_users_empty"),
                 texts.get("settings_users_empty_hint"),
             );
+        } else if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Five columns do not fit the phone panel: each account keeps its name on the first
+            // line and username, role, status and actions below it.
+            for user in users {
+                ui.label(RichText::new(&user.display_name).strong());
+                ui.label(
+                    RichText::new(format!(
+                        "{} · {}",
+                        user.username,
+                        user_role_name(user, &state.roles, texts)
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    badge(
+                        ui,
+                        theme,
+                        if user.active {
+                            texts.get("settings_active")
+                        } else {
+                            texts.get("settings_inactive")
+                        },
+                        if user.active {
+                            Tone::Success
+                        } else {
+                            Tone::Neutral
+                        },
+                    );
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("settings_edit"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        edit = Some(user.id);
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("settings_delete"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        delete = Some(user.id);
+                    }
+                });
+                ui.add_space(6.0);
+            }
         } else {
             egui::Grid::new("socdof-settings-users")
                 .num_columns(5)
@@ -3397,13 +3522,13 @@ fn users_tab(
     });
 
     if new_user {
-        state.start_new_user();
+        state.dispatch(SettingsIntent::NewUser, store);
     }
     if let Some(id) = edit {
-        state.edit_user(id, store);
+        state.dispatch(SettingsIntent::EditUser(id), store);
     }
     if let Some(id) = delete {
-        state.delete_target = Some(DeleteTarget::User(id));
+        state.dispatch(SettingsIntent::DeleteUser(id), store);
     }
 }
 
@@ -3565,7 +3690,7 @@ fn user_form(
     }
     if delete {
         if let Some(id) = draft.id {
-            state.delete_target = Some(DeleteTarget::User(id));
+            state.dispatch(SettingsIntent::DeleteUser(id), store);
         }
     }
 }
@@ -3587,13 +3712,15 @@ fn roles_tab(
     let mut new_role = false;
     let mut edit = None;
     let mut delete = None;
-    ui.horizontal(|ui| {
-        search_field(
+    ui.horizontal_wrapped(|ui| {
+        // Keep room for the action so it wraps inside the phone panel instead of beside it.
+        search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("settings_roles_search"),
+            150.0,
         );
         if button(
             ui,
@@ -3618,6 +3745,61 @@ fn roles_tab(
                 texts.get("settings_roles_empty"),
                 texts.get("settings_roles_empty_hint"),
             );
+        } else if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Five columns do not fit the phone panel: the role name leads and description,
+            // type and actions follow on the next lines.
+            for role in roles {
+                ui.label(RichText::new(role_name(role, texts)).strong());
+                ui.label(
+                    RichText::new(&role.description)
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    badge(
+                        ui,
+                        theme,
+                        if role.is_builtin {
+                            texts.get("settings_role_builtin")
+                        } else {
+                            texts.get("settings_role_custom")
+                        },
+                        if role.is_builtin {
+                            Tone::Neutral
+                        } else {
+                            Tone::Accent
+                        },
+                    );
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        if role.is_builtin {
+                            texts.get("settings_roles_view")
+                        } else {
+                            texts.get("settings_edit")
+                        },
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        edit = Some(role.id);
+                    }
+                    if !role.is_builtin
+                        && button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("settings_delete"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                    {
+                        delete = Some(role.id);
+                    }
+                });
+                ui.add_space(6.0);
+            }
         } else {
             egui::Grid::new("socdof-settings-roles")
                 .num_columns(5)
@@ -3690,13 +3872,13 @@ fn roles_tab(
     });
 
     if new_role {
-        state.start_new_role();
+        state.dispatch(SettingsIntent::NewRole, store);
     }
     if let Some(id) = edit {
-        state.edit_role(id);
+        state.dispatch(SettingsIntent::EditRole(id), store);
     }
     if let Some(id) = delete {
-        state.delete_target = Some(DeleteTarget::Role(id));
+        state.dispatch(SettingsIntent::DeleteRole(id), store);
     }
 }
 
@@ -3729,9 +3911,11 @@ fn role_form(
         );
         ui.add_space(6.0);
         if let Some(draft) = state.role_editor.as_mut() {
-            ui.columns(2, |columns| {
+            let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+            if narrow {
+                // Two fixed columns reached 504 px on the phone; the fields stack there.
                 text_field(
-                    &mut columns[0],
+                    ui,
                     theme,
                     focus,
                     &mut draft.name,
@@ -3739,8 +3923,9 @@ fn role_form(
                     texts.get("settings_role_name_hint"),
                     None,
                 );
+                ui.add_space(4.0);
                 text_field(
-                    &mut columns[1],
+                    ui,
                     theme,
                     focus,
                     &mut draft.description,
@@ -3748,14 +3933,42 @@ fn role_form(
                     texts.get("settings_role_description_hint"),
                     None,
                 );
-            });
+            } else {
+                ui.columns(2, |columns| {
+                    text_field(
+                        &mut columns[0],
+                        theme,
+                        focus,
+                        &mut draft.name,
+                        texts.get("settings_roles_col_name"),
+                        texts.get("settings_role_name_hint"),
+                        None,
+                    );
+                    text_field(
+                        &mut columns[1],
+                        theme,
+                        focus,
+                        &mut draft.description,
+                        texts.get("settings_roles_col_description"),
+                        texts.get("settings_role_description_hint"),
+                        None,
+                    );
+                });
+            }
             ui.add_space(8.0);
             for (index, module) in ALL_MODULES.iter().enumerate() {
+                // A 220 px label plus a 220 px select reached 504 px; the phone puts the select
+                // below the module name.
+                if narrow {
+                    ui.label(texts.get(module_label_key(*module)));
+                }
                 ui.horizontal(|ui| {
-                    ui.add_sized(
-                        [220.0, 22.0],
-                        egui::Label::new(texts.get(module_label_key(*module))),
-                    );
+                    if !narrow {
+                        ui.add_sized(
+                            [220.0, 22.0],
+                            egui::Label::new(texts.get(module_label_key(*module))),
+                        );
+                    }
                     let mut current = level_index(
                         draft
                             .levels
@@ -3834,7 +4047,7 @@ fn role_form(
     }
     if delete {
         if let Some(id) = draft.id {
-            state.delete_target = Some(DeleteTarget::Role(id));
+            state.dispatch(SettingsIntent::DeleteRole(id), store);
         }
     }
 }
@@ -4042,11 +4255,11 @@ fn delete_modal(
             close
         },
     );
+    if confirm {
+        state.dispatch(SettingsIntent::ConfirmDelete, store);
+    }
     if !open {
         state.delete_target = None;
-    }
-    if confirm {
-        state.delete_confirmed(store);
     }
 }
 
@@ -4056,6 +4269,7 @@ fn restore_modal(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut SettingsState,
+    store: &Store,
 ) {
     if !state.restore_confirm {
         return;
@@ -4102,11 +4316,48 @@ fn restore_modal(
             close
         },
     );
+    if confirm {
+        state.dispatch(SettingsIntent::ConfirmRestore, store);
+    }
     if !open {
         state.restore_confirm = false;
     }
-    if confirm {
-        state.restore_backup();
+}
+
+impl SettingsState {
+    /// Applies one settings command.
+    ///
+    /// This is the same path the buttons take, so tests, scenes and embedders exercise the real
+    /// reducer instead of poking at private drafts. Unknown ids are ignored like the UI does.
+    pub fn dispatch(&mut self, intent: SettingsIntent, store: &Store) {
+        match intent {
+            SettingsIntent::NewUser => self.start_new_user(),
+            SettingsIntent::EditUser(id) => self.edit_user(id, store),
+            SettingsIntent::NewRole => self.start_new_role(),
+            SettingsIntent::EditRole(id) => self.edit_role(id, store),
+            SettingsIntent::DeleteUser(id) => {
+                self.delete_target = Some(DeleteTarget::User(id));
+            }
+            SettingsIntent::DeleteRole(id) => {
+                self.delete_target = Some(DeleteTarget::Role(id));
+            }
+            SettingsIntent::RequestRestore { archive, target } => {
+                self.restore_archive = archive;
+                self.restore_target = target;
+                if self.restore_archive.trim().is_empty() || self.restore_target.trim().is_empty() {
+                    self.error = Some("settings_error_restore_path");
+                } else {
+                    self.restore_confirm = true;
+                }
+            }
+            SettingsIntent::ConfirmDelete => {
+                self.delete_confirmed(store);
+            }
+            SettingsIntent::ConfirmRestore => {
+                self.restore_backup();
+            }
+            SettingsIntent::OpenLanguagePopup => self.language_popup.open = Some(0),
+        }
     }
 }
 
@@ -4122,6 +4373,308 @@ mod tests {
         let mut state = SettingsState::new();
         state.refresh(&store).expect("refresh");
         (store, state, texts)
+    }
+
+    /// Drives the real settings screen with synthetic pointer input.
+    struct DialogInput {
+        ctx: Context,
+        focus: FocusState,
+        theme: Theme,
+        texts: UiTexts,
+        store: Store,
+        state: SettingsState,
+        now: i64,
+        /// Frame clock. It has to advance: the settings content scrolls with egui's animated
+        /// scroll state, which stands still when every frame reports the same time.
+        time: f64,
+        width: f32,
+        height: f32,
+    }
+
+    impl DialogInput {
+        fn new() -> Self {
+            Self::at(1000.0, 900.0, Appearance::Light)
+        }
+
+        fn at(width: f32, height: f32, appearance: Appearance) -> Self {
+            let (store, state, texts) = seeded();
+            Self {
+                ctx: crate::theme::headless_context(),
+                focus: FocusState::default(),
+                theme: Theme::new(appearance, "indigo"),
+                texts,
+                store,
+                state,
+                now: SAMPLE_NOW_MS,
+                time: 1.0,
+                width,
+                height,
+            }
+        }
+
+        fn frame(&mut self, events: Vec<egui::Event>) {
+            self.time += 1.0 / 60.0;
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::Vec2::new(self.width, self.height),
+                )),
+                events,
+                time: Some(self.time),
+                ..Default::default()
+            };
+            let Self {
+                ctx,
+                focus,
+                theme,
+                texts,
+                store,
+                state,
+                now,
+                ..
+            } = self;
+            let _ = ctx.run(input, |ctx| {
+                focus.begin_frame(ctx);
+                settings(ctx, theme, texts, focus, state, store, *now);
+                focus.finish_frame();
+            });
+        }
+
+        /// Paints the open dialog, then presses and releases the primary confirm button.
+        fn click_confirm(&mut self) {
+            self.click_from_end(2);
+        }
+
+        /// Presses and releases the button that is `from_end` controls from the end of the focus
+        /// order (1 = last control, 2 = the one before it).
+        ///
+        /// Buttons below the fold are reached with wheel input, exactly as a user reaches them;
+        /// the viewport is not made taller to hide a control the screen cannot scroll to.
+        fn click_from_end(&mut self, from_end: usize) {
+            let id = self.visible_button(from_end);
+            let rect = self.ctx.read_response(id).expect("button was painted").rect;
+            let pos = rect.center();
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            self.frame(vec![egui::Event::PointerMoved(pos), button(true)]);
+            self.frame(vec![egui::Event::PointerMoved(pos), button(false)]);
+        }
+
+        /// Paints until the control `from_end` from the end stops moving, and returns it with its
+        /// settled rectangle. Scrolling is animated, so reading a rectangle right after a wheel
+        /// event would address a position the control has already left.
+        fn settled_control(&mut self, from_end: usize) -> (egui::Id, egui::Rect) {
+            let mut previous = None;
+            for _ in 0..40 {
+                let id = self.control_from_end(from_end);
+                let rect = self
+                    .ctx
+                    .read_response(id)
+                    .expect("control was painted")
+                    .rect;
+                if previous == Some(rect) {
+                    return (id, rect);
+                }
+                previous = Some(rect);
+            }
+            let id = self.control_from_end(from_end);
+            let rect = self
+                .ctx
+                .read_response(id)
+                .expect("control was painted")
+                .rect;
+            (id, rect)
+        }
+
+        /// Paints and scrolls until the button `from_end` controls from the end is visible.
+        fn visible_button(&mut self, from_end: usize) -> egui::Id {
+            let viewport = egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(self.width, self.height),
+            );
+            let mut previous = None;
+            for _ in 0..12 {
+                let (id, rect) = self.settled_control(from_end);
+                if viewport.contains_rect(rect) {
+                    return id;
+                }
+                assert!(
+                    previous != Some(rect),
+                    "the settings screen does not scroll to the button {from_end} from the end: \
+                     it stays at {rect:?} outside the {}×{} viewport",
+                    self.width,
+                    self.height
+                );
+                previous = Some(rect);
+                // A control above the viewport has to scroll the content back down, not up.
+                let step = if rect.top() < viewport.top() {
+                    240.0
+                } else {
+                    -240.0
+                };
+                let pos = egui::Pos2::new(self.width / 2.0, self.height / 2.0);
+                self.frame(vec![
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::Scroll(egui::Vec2::new(0.0, step)),
+                ]);
+            }
+            panic!(
+                "the settings screen never brought the button {from_end} from the end into the \
+                 viewport"
+            );
+        }
+
+        /// Id of the control `from_end` positions from the end of the focus order.
+        fn control_from_end(&mut self, from_end: usize) -> egui::Id {
+            self.frame(Vec::new());
+            self.frame(Vec::new());
+            let order = self.focus.order().to_vec();
+            assert!(
+                order.len() >= from_end,
+                "the settings screen painted {} controls, so the control {from_end} from the end \
+                 cannot be addressed",
+                order.len()
+            );
+            order[order.len() - from_end]
+        }
+
+        /// Presses and releases the primary pointer at `pos`.
+        ///
+        /// The pointer moves in its own frame first: egui hit-tests a press against the controls
+        /// it knew from the frame before it, so a press in the same frame as the move misses the
+        /// control under the new position.
+        fn click_at(&mut self, pos: egui::Pos2) {
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            self.frame(vec![egui::Event::PointerMoved(pos)]);
+            self.frame(vec![egui::Event::PointerMoved(pos), button(true)]);
+            self.frame(vec![button(false)]);
+        }
+
+        /// Scrolls until the control `from_end` from the end and `rows` popup rows below it fit
+        /// inside the viewport, and returns the control's rectangle.
+        fn control_with_room(&mut self, from_end: usize, rows: usize) -> egui::Rect {
+            let viewport = egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(self.width, self.height),
+            );
+            let mut previous = None;
+            for _ in 0..12 {
+                let (_, rect) = self.settled_control(from_end);
+                // The popup paints eight points below its control; its rows are 30 points tall with
+                // three points between them.
+                let popup_bottom = rect.bottom() + 8.0 + 33.0 * rows as f32;
+                if viewport.contains_rect(rect) && popup_bottom <= self.height {
+                    return rect;
+                }
+                assert!(
+                    previous != Some(rect),
+                    "the settings screen does not scroll to the control {from_end} from the end \
+                     with room for {rows} popup rows: it stays at {rect:?}"
+                );
+                previous = Some(rect);
+                // A control above the viewport has to scroll the content back down, not up.
+                let step = if rect.top() < viewport.top() {
+                    240.0
+                } else {
+                    -240.0
+                };
+                let pos = egui::Pos2::new(self.width / 2.0, self.height / 2.0);
+                self.frame(vec![
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::Scroll(egui::Vec2::new(0.0, step)),
+                ]);
+            }
+            panic!(
+                "the settings screen never brought the control {from_end} from the end with room \
+                 for {rows} popup rows into the viewport"
+            );
+        }
+
+        /// Opens the dropdown `from_end` controls from the end and picks `option` with a pointer
+        /// click on its row.
+        fn choose_option(&mut self, from_end: usize, option: usize) {
+            let rect = self.control_with_room(from_end, 4);
+            self.click_at(rect.center());
+            // The popup paints four points below its control, inside a four point frame, with
+            // 30 point rows; the row is a real popup control and is clicked like any other.
+            let row = egui::Pos2::new(
+                rect.left() + 4.0 + 110.0,
+                rect.bottom() + 8.0 + 33.0 * option as f32 + 15.0,
+            );
+            let viewport = egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::new(self.width, self.height),
+            );
+            assert!(
+                viewport.contains(row),
+                "option {option} of the dropdown {from_end} from the end is painted at {row:?} \
+                 outside the {}×{} viewport",
+                self.width,
+                self.height
+            );
+            self.click_at(row);
+        }
+
+        /// Clicks the field `from_end` controls from the end and types `text` into it.
+        fn type_from_end(&mut self, from_end: usize, text: &str) {
+            let id = self.visible_button(from_end);
+            let rect = self.ctx.read_response(id).expect("field was painted").rect;
+            self.click_at(rect.center());
+            // The field takes the focus at the end of the release frame, after it has already read
+            // that frame's events; the idle frame lets it start the next one focused.
+            self.frame(Vec::new());
+            self.frame(vec![egui::Event::Text(text.to_string())]);
+        }
+
+        /// Clicks at `pos` and types `text` into the field that took the click.
+        fn type_at(&mut self, pos: egui::Pos2, text: &str) {
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            self.frame(vec![egui::Event::PointerMoved(pos), button(true)]);
+            self.frame(vec![egui::Event::PointerMoved(pos), button(false)]);
+            // The field takes the focus at the end of the release frame, after it has already read
+            // that frame's events; the idle frame lets it start the next one focused.
+            self.frame(Vec::new());
+            self.frame(vec![egui::Event::Text(text.to_string())]);
+        }
+
+        /// Fills the open user editor like a person typing into its fields.
+        fn fill_user(&mut self, username: &str, display_name: &str, password: &str) {
+            let draft = self
+                .state
+                .user_editor
+                .as_mut()
+                .expect("user editor is open");
+            draft.username = username.to_string();
+            draft.display_name = display_name.to_string();
+            draft.password = password.to_string();
+            draft.password_confirm = password.to_string();
+        }
+
+        /// Fills the open role editor's name, description and one permission.
+        fn fill_role(&mut self, name: &str, description: &str) {
+            let draft = self
+                .state
+                .role_editor
+                .as_mut()
+                .expect("role editor is open");
+            draft.name = name.to_string();
+            draft.description = description.to_string();
+            draft.levels[3] = PermissionLevel::Edit;
+        }
     }
 
     fn render(state: &mut SettingsState, store: &Store) -> String {
@@ -4280,7 +4833,7 @@ mod tests {
                 .display_name,
             "Umbenannt"
         );
-        state.delete_target = Some(DeleteTarget::User(created.id));
+        state.dispatch(SettingsIntent::DeleteUser(created.id), &store);
         assert!(state.delete_confirmed(&store));
         assert!(store.find_user_by_username("neu").expect("find").is_none());
     }
@@ -4371,7 +4924,7 @@ mod tests {
             .expect("created");
         assert_eq!(role.level(AppModule::Invoices), PermissionLevel::Edit);
 
-        state.delete_target = Some(DeleteTarget::Role(role.id));
+        state.dispatch(SettingsIntent::DeleteRole(role.id), &store);
         assert!(state.delete_confirmed(&store));
         assert!(!store
             .list_roles()
@@ -4397,6 +4950,601 @@ mod tests {
         let restored = Store::open(&target).expect("restored store");
         assert_eq!(restored.user_count().expect("users"), 2);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_delete_dialog_confirm_button_removes_an_account() {
+        let mut h = DialogInput::new();
+        let victim = h.state.users().last().expect("seeded account").id;
+        let before = h.state.users().len();
+        h.state
+            .dispatch(SettingsIntent::DeleteUser(victim), &h.store);
+
+        h.click_confirm();
+        h.state.refresh(&h.store).expect("refresh after delete");
+
+        assert_eq!(
+            h.state.users().len(),
+            before - 1,
+            "user delete dialog confirm button: expected {} accounts, got {}",
+            before - 1,
+            h.state.users().len()
+        );
+        assert!(
+            h.state.users().iter().all(|user| user.id != victim),
+            "user delete dialog confirm button: account {victim} is still listed"
+        );
+        assert!(
+            h.state.delete_target.is_none(),
+            "delete target was not consumed"
+        );
+        assert_eq!(h.state.status, Some("settings_user_deleted"));
+    }
+
+    #[test]
+    fn the_delete_dialog_confirm_button_removes_a_role() {
+        let mut h = DialogInput::new();
+        let role = Role::new("Dialog Delete Confirmation", SAMPLE_NOW_MS);
+        h.store.insert_role(&role).expect("insert role");
+        h.state = SettingsState::new();
+        h.state.refresh(&h.store).expect("refresh after insert");
+        let before = h.state.roles().len();
+        h.state
+            .dispatch(SettingsIntent::DeleteRole(role.id), &h.store);
+
+        h.click_confirm();
+        h.state.refresh(&h.store).expect("refresh after delete");
+
+        assert_eq!(
+            h.state.roles().len(),
+            before - 1,
+            "role delete dialog confirm button: expected {} roles, got {}",
+            before - 1,
+            h.state.roles().len()
+        );
+        assert!(
+            h.state.roles().iter().all(|stored| stored.id != role.id),
+            "role delete dialog confirm button: role {} is still listed",
+            role.id
+        );
+        assert!(
+            h.state.delete_target.is_none(),
+            "delete target was not consumed"
+        );
+        assert_eq!(h.state.status, Some("settings_role_deleted"));
+    }
+
+    #[test]
+    fn the_restore_dialog_confirm_button_writes_the_database() {
+        let dir = std::env::temp_dir().join(format!("socdof-dialog-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        let mut h = DialogInput::new();
+        h.state.profile.backup_folder_path = dir.to_string_lossy().to_string();
+        assert!(h.state.save_profile(&h.store));
+        assert!(h.state.create_backup(&h.store, SAMPLE_NOW_MS));
+        h.state.refresh_backups(&h.store);
+        let archive = h.state.backups[0].path.to_string_lossy().to_string();
+        let target = dir.join("dialog-restored.db");
+        h.state.dispatch(
+            SettingsIntent::RequestRestore {
+                archive,
+                target: target.to_string_lossy().to_string(),
+            },
+            &h.store,
+        );
+
+        h.click_confirm();
+
+        assert!(
+            target.exists(),
+            "restore dialog confirm button: expected restored database at {}, found none",
+            target.display()
+        );
+        let restored = Store::open(&target).expect("restored store");
+        assert_eq!(
+            restored.user_count().expect("restored users"),
+            2,
+            "restore dialog confirm button: restored database does not hold the seeded accounts"
+        );
+        assert!(
+            !h.state.restore_confirm,
+            "restore confirmation flag was not cleared"
+        );
+        assert_eq!(h.state.status, Some("settings_backup_restored"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_user_form_save_button_creates_an_account() {
+        let mut h = DialogInput::new();
+        let before = h.state.users().len();
+        h.state.set_tab(SettingsTab::Users);
+        h.state.dispatch(SettingsIntent::NewUser, &h.store);
+        h.fill_user("button-user", "Button User", "button-password-2026");
+
+        h.click_from_end(2);
+
+        assert!(
+            h.state.user_editor.is_none(),
+            "user form save button: the editor is still open after saving"
+        );
+        let created = h
+            .store
+            .find_user_by_username("button-user")
+            .expect("find created user")
+            .expect(
+                "user form save button: expected the account button-user in the store, found none",
+            );
+        assert_eq!(created.display_name, "Button User");
+        h.state.refresh(&h.store).expect("refresh after save");
+        assert_eq!(
+            h.state.users().len(),
+            before + 1,
+            "user form save button: expected {} accounts, got {}",
+            before + 1,
+            h.state.users().len()
+        );
+        assert_eq!(h.state.status, Some("settings_user_saved"));
+    }
+
+    #[test]
+    fn the_user_form_save_button_updates_an_account() {
+        let mut h = DialogInput::new();
+        h.state.set_tab(SettingsTab::Users);
+        let target = h.state.users().last().expect("seeded account").id;
+        h.state.dispatch(SettingsIntent::EditUser(target), &h.store);
+        h.fill_user("edited-button-user", "Edited By Button", "");
+
+        h.click_from_end(2);
+
+        let stored = h
+            .store
+            .find_user_by_username("edited-button-user")
+            .expect("find edited user")
+            .expect(
+                "user form save button: expected the renamed account edited-button-user, found \
+                 none",
+            );
+        assert_eq!(
+            stored.id, target,
+            "user form save button: saving created a second account instead of updating {target}"
+        );
+        assert_eq!(stored.display_name, "Edited By Button");
+        assert!(
+            h.state.user_editor.is_none(),
+            "user form save button: the editor is still open after saving"
+        );
+        assert_eq!(h.state.status, Some("settings_user_saved"));
+    }
+
+    #[test]
+    fn the_role_form_save_button_creates_a_role() {
+        let mut h = DialogInput::new();
+        h.state.set_tab(SettingsTab::Roles);
+        let before = h.store.list_roles().expect("roles").len();
+        h.state.dispatch(SettingsIntent::NewRole, &h.store);
+        h.fill_role("Button-Rolle", "Über den Button angelegt");
+
+        h.click_from_end(2);
+
+        assert!(
+            h.state.role_editor.is_none(),
+            "role form save button: the editor is still open after saving"
+        );
+        let roles = h.store.list_roles().expect("roles after save");
+        assert_eq!(
+            roles.len(),
+            before + 1,
+            "role form save button: expected {} roles, got {}",
+            before + 1,
+            roles.len()
+        );
+        let role = roles
+            .iter()
+            .find(|role| role.name == "Button-Rolle")
+            .expect(
+                "role form save button: expected the role Button-Rolle in the store, found none",
+            );
+        assert_eq!(role.level(AppModule::Invoices), PermissionLevel::Edit);
+        assert_eq!(h.state.status, Some("settings_role_saved"));
+    }
+
+    #[test]
+    fn the_role_form_save_button_updates_a_role() {
+        let mut h = DialogInput::new();
+        h.state.set_tab(SettingsTab::Roles);
+        let role = Role::new("Button Edit Role", SAMPLE_NOW_MS);
+        h.store.insert_role(&role).expect("insert role");
+        h.state = SettingsState::new();
+        h.state.set_tab(SettingsTab::Roles);
+        h.state.refresh(&h.store).expect("refresh after insert");
+        h.state
+            .dispatch(SettingsIntent::EditRole(role.id), &h.store);
+        h.fill_role("Button Edit Role", "Beschreibung über den Button geändert");
+
+        h.click_from_end(2);
+
+        let stored = h
+            .store
+            .list_roles()
+            .expect("roles after save")
+            .into_iter()
+            .find(|stored| stored.id == role.id)
+            .expect("role form save button: the edited role disappeared from the store");
+        assert_eq!(stored.description, "Beschreibung über den Button geändert");
+        assert!(
+            h.state.role_editor.is_none(),
+            "role form save button: the editor is still open after saving"
+        );
+        assert_eq!(h.state.status, Some("settings_role_saved"));
+    }
+
+    #[test]
+    fn the_user_editor_delete_button_opens_and_confirms_the_dialog() {
+        let mut h = DialogInput::new();
+        h.state.set_tab(SettingsTab::Users);
+        let victim = h.state.users().last().expect("seeded account").id;
+        let before = h.state.users().len();
+        h.state.dispatch(SettingsIntent::EditUser(victim), &h.store);
+
+        // The editor paints delete before save and cancel, so it is the third control from the end.
+        h.click_from_end(3);
+
+        assert_eq!(
+            h.state.delete_target,
+            Some(DeleteTarget::User(victim)),
+            "user editor delete button: expected the delete dialog for {victim}, got {:?}",
+            h.state.delete_target
+        );
+        assert!(
+            h.state.user_editor.is_some(),
+            "user editor delete button: the editor closed before the dialog was confirmed"
+        );
+
+        h.click_confirm();
+        h.state.refresh(&h.store).expect("refresh after delete");
+
+        assert_eq!(
+            h.state.users().len(),
+            before - 1,
+            "user editor delete button: expected {} accounts, got {}",
+            before - 1,
+            h.state.users().len()
+        );
+        assert_eq!(h.state.status, Some("settings_user_deleted"));
+    }
+
+    fn stored_role(store: &Store, id: Uuid) -> Role {
+        store
+            .list_roles()
+            .expect("roles")
+            .into_iter()
+            .find(|role| role.id == id)
+            .expect("role is in the store")
+    }
+
+    #[test]
+    fn the_role_editor_delete_button_removes_a_role_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                let victim = Role::new("Editor-Löschrolle", SAMPLE_NOW_MS);
+                let witness = Role::new("Editor-Zeuge", SAMPLE_NOW_MS);
+                h.store.insert_role(&victim).expect("insert role");
+                h.store.insert_role(&witness).expect("insert witness");
+                h.state = SettingsState::new();
+                h.state.set_tab(SettingsTab::Roles);
+                h.state.refresh(&h.store).expect("refresh");
+                h.state
+                    .dispatch(SettingsIntent::EditRole(victim.id), &h.store);
+
+                // The editor paints delete before save and back: third control from the end.
+                h.click_from_end(3);
+                // The confirmation dialog paints its buttons last: confirm is second from the end.
+                h.click_from_end(2);
+
+                let roles = h.store.list_roles().expect("roles after delete");
+                assert!(
+                    roles.iter().all(|role| role.id != victim.id),
+                    "role editor delete button at {width} px, {appearance:?}: role {} is still in \
+                     the store after confirming",
+                    victim.id
+                );
+                let kept = roles
+                    .iter()
+                    .find(|role| role.id == witness.id)
+                    .unwrap_or_else(|| {
+                        panic!(
+                        "role editor delete button at {width} px, {appearance:?}: the witness role \
+                         was removed too"
+                    )
+                    });
+                assert_eq!(
+                    kept.name, "Editor-Zeuge",
+                    "role editor delete button at {width} px, {appearance:?}: the witness role changed"
+                );
+                assert_eq!(
+                    kept.permissions, witness.permissions,
+                    "role editor delete button at {width} px, {appearance:?}: the witness permissions changed"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_role_permission_dropdown_persists_through_the_form() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                let role = Role::new("Toggle-Rolle", SAMPLE_NOW_MS);
+                h.store.insert_role(&role).expect("insert role");
+                h.state = SettingsState::new();
+                h.state.set_tab(SettingsTab::Roles);
+                h.state.refresh(&h.store).expect("refresh");
+                h.state
+                    .dispatch(SettingsIntent::EditRole(role.id), &h.store);
+
+                // Invoices (module 3) starts at None; pick Edit. The editor paints 18 module
+                // dropdowns, then delete, save and back, so module 3 is the 18th from the end.
+                h.choose_option(18, 2);
+                h.click_from_end(2);
+
+                let mut expected = role.clone();
+                expected.set(AppModule::Invoices, PermissionLevel::Edit);
+                let stored = stored_role(&h.store, role.id);
+                assert_eq!(
+                    stored.level(AppModule::Invoices),
+                    PermissionLevel::Edit,
+                    "role permission dropdown at {width} px, {appearance:?}: expected Invoices \
+                     Edit, got {:?}",
+                    stored.level(AppModule::Invoices)
+                );
+                assert_eq!(
+                    stored.permissions, expected.permissions,
+                    "role permission dropdown at {width} px, {appearance:?}: the saved matrix is \
+                     not exactly the toggled one"
+                );
+
+                // Reopening right after the save and saving again without a toggle must keep the
+                // matrix: the editor has to reload the role it just wrote.
+                h.state
+                    .dispatch(SettingsIntent::EditRole(role.id), &h.store);
+                h.click_from_end(2);
+                let again = stored_role(&h.store, role.id);
+                assert_eq!(
+                    again.permissions, expected.permissions,
+                    "second save without a toggle at {width} px, {appearance:?} changed the \
+                     permissions"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_role_form_assigns_a_fresh_id_and_saves_twice_without_a_duplicate() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                h.state.set_tab(SettingsTab::Roles);
+                let before: Vec<Uuid> = h
+                    .store
+                    .list_roles()
+                    .expect("roles before create")
+                    .into_iter()
+                    .map(|role| role.id)
+                    .collect();
+
+                h.state.dispatch(SettingsIntent::NewRole, &h.store);
+                h.fill_role("Neu-Rolle", "Erste Beschreibung");
+                h.click_from_end(2);
+
+                let roles = h.store.list_roles().expect("roles after create");
+                assert_eq!(
+                    roles.len(),
+                    before.len() + 1,
+                    "new role form save button at {width} px, {appearance:?}: expected {} roles, \
+                     got {}",
+                    before.len() + 1,
+                    roles.len()
+                );
+                let created = roles
+                    .iter()
+                    .find(|role| role.name == "Neu-Rolle")
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "new role form save button at {width} px, {appearance:?}: expected the \
+                             role Neu-Rolle in the store, found none"
+                        )
+                    });
+                assert!(
+                    !before.contains(&created.id),
+                    "new role form save button at {width} px, {appearance:?}: the created role \
+                     reuses the id {} of an existing role",
+                    created.id
+                );
+                assert_eq!(
+                    roles.iter().filter(|role| role.name == "Neu-Rolle").count(),
+                    1,
+                    "new role form save button at {width} px, {appearance:?}: the role was \
+                     written twice"
+                );
+
+                // Saving the same record a second time updates it instead of inserting a copy.
+                h.state
+                    .dispatch(SettingsIntent::EditRole(created.id), &h.store);
+                // The reopened editor paints delete before save and back, so the description is the
+                // 22nd control from the end; typing appends to what the reload loaded.
+                h.type_from_end(22, " Zweite Beschreibung");
+                h.click_from_end(2);
+
+                let roles = h.store.list_roles().expect("roles after second save");
+                assert_eq!(
+                    roles.len(),
+                    before.len() + 1,
+                    "second save at {width} px, {appearance:?}: expected the role count to stay at \
+                     {}, got {}",
+                    before.len() + 1,
+                    roles.len()
+                );
+                let updated = roles
+                    .iter()
+                    .find(|role| role.id == created.id)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "second save at {width} px, {appearance:?}: the role {} disappeared",
+                            created.id
+                        )
+                    });
+                assert!(
+                    updated.description.ends_with("Zweite Beschreibung"),
+                    "second save at {width} px, {appearance:?}: the typed description was not \
+                     saved, the store has {:?}",
+                    updated.description
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_editor_controls_stay_inside_the_phone_panel() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+
+                // A new role paints 18 module dropdowns, save and back.
+                h.state.set_tab(SettingsTab::Roles);
+                h.state.dispatch(SettingsIntent::NewRole, &h.store);
+                h.frame(Vec::new());
+                h.frame(Vec::new());
+                let order = h.focus.order().to_vec();
+                for from_end in 1..=20 {
+                    let rect = h
+                        .ctx
+                        .read_response(order[order.len() - from_end])
+                        .expect("role form control was painted")
+                        .rect;
+                    assert!(
+                        rect.right() <= width + 0.5,
+                        "role form control {from_end} from the end at {width} px, {appearance:?} \
+                         reaches {} px, the panel ends at {} px",
+                        rect.right(),
+                        width + 0.5
+                    );
+                }
+
+                // A new account paints four fields, two dropdowns, two switches, save and cancel.
+                h.state.set_tab(SettingsTab::Users);
+                h.state.dispatch(SettingsIntent::NewUser, &h.store);
+                h.frame(Vec::new());
+                h.frame(Vec::new());
+                let order = h.focus.order().to_vec();
+                for from_end in 1..=10 {
+                    let rect = h
+                        .ctx
+                        .read_response(order[order.len() - from_end])
+                        .expect("user form control was painted")
+                        .rect;
+                    assert!(
+                        rect.right() <= width + 0.5,
+                        "user form control {from_end} from the end at {width} px, {appearance:?} \
+                         reaches {} px, the panel ends at {} px",
+                        rect.right(),
+                        width + 0.5
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_user_form_fields_fit_the_phone_panel() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                h.state.set_tab(SettingsTab::Users);
+                h.state.dispatch(SettingsIntent::NewUser, &h.store);
+                // A new account form paints no delete button: from the end come cancel, save, the
+                // two switches, the two selects and then the four text fields.
+                let fields = [
+                    ("display name", 10usize),
+                    ("username", 9),
+                    ("password", 8),
+                    ("password confirm", 7),
+                ];
+                for (name, from_end) in fields {
+                    let id = h.control_from_end(from_end);
+                    let rect = h.ctx.read_response(id).expect("field was painted").rect;
+                    assert!(
+                        rect.right() <= width + 0.5,
+                        "the user form {name} field at {width} px, {appearance:?} reaches {} px, \
+                         the panel ends at {} px",
+                        rect.right(),
+                        width + 0.5
+                    );
+                    let marker = format!("marker-{from_end}");
+                    h.type_at(rect.center(), &marker);
+                    let draft = h.state.user_editor.as_ref().expect("user editor is open");
+                    let value = match from_end {
+                        10 => &draft.display_name,
+                        9 => &draft.username,
+                        8 => &draft.password,
+                        _ => &draft.password_confirm,
+                    };
+                    assert_eq!(
+                        value, &marker,
+                        "the user form control {from_end} from the end is not the {name} field at \
+                         {width} px, {appearance:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_user_form_save_button_saves_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                h.state.set_tab(SettingsTab::Users);
+                h.state.dispatch(SettingsIntent::NewUser, &h.store);
+                h.fill_user("phone-user", "Phone User", "phone-password-2026");
+
+                h.click_from_end(2);
+
+                assert!(
+                    h.store
+                        .find_user_by_username("phone-user")
+                        .expect("find phone user")
+                        .is_some(),
+                    "user form save button at {width} px, {appearance:?}: expected the account \
+                     phone-user in the store, found none"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_role_form_save_button_saves_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = DialogInput::at(width, 768.0, appearance);
+                h.state.set_tab(SettingsTab::Roles);
+                h.state.dispatch(SettingsIntent::NewRole, &h.store);
+                h.fill_role("Phone-Rolle", "Über den Button am Telefon angelegt");
+
+                h.click_from_end(2);
+
+                assert!(
+                    h.store
+                        .list_roles()
+                        .expect("roles after save")
+                        .iter()
+                        .any(|role| role.name == "Phone-Rolle"),
+                    "role form save button at {width} px, {appearance:?}: expected the role \
+                     Phone-Rolle in the store, found none"
+                );
+            }
+        }
     }
 
     #[test]

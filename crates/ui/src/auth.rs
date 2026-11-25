@@ -16,10 +16,11 @@ use socdof_core::security::{hash_password, MIN_PASSWORD_LENGTH};
 use socdof_core::store::Store;
 use uuid::Uuid;
 
+use crate::auth_kit as kit;
 use crate::components::{badge, button, card, ButtonVariant, Tone};
-use crate::controls::{password_field, text_field};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
+use crate::icons::Icon;
 use crate::theme::Theme;
 use crate::tokens::{FONT_SMALL, FONT_TITLE};
 
@@ -869,19 +870,24 @@ pub fn lock_conflict(
     decided
 }
 
+/// Draws the lock and status messages of a screen. `show_error` is false on the wizard body,
+/// whose error is painted in the band above the footer so a rejected click is always readable.
 pub(crate) fn messages(
     ui: &mut egui::Ui,
     theme: &Theme,
     texts: &UiTexts,
     state: &AuthState,
     now: i64,
+    show_error: bool,
 ) {
-    if let Some(key) = state.error {
-        ui.label(
-            RichText::new(texts.get(key))
-                .size(FONT_SMALL)
-                .color(theme.palette.danger),
-        );
+    if show_error {
+        if let Some(key) = state.error {
+            ui.label(
+                RichText::new(texts.get(key))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.danger),
+            );
+        }
     }
     if state
         .locked_until
@@ -1030,80 +1036,54 @@ fn recovery_form(
 ) {
     let mut reset = false;
     let mut cancel = false;
-    card(ui, theme, |ui| {
-        ui.label(
-            RichText::new(texts.get("auth_recovery_title"))
-                .size(22.0)
-                .strong(),
-        );
-        ui.label(
-            RichText::new(texts.get("auth_recovery_subtitle"))
-                .size(FONT_SMALL)
-                .color(theme.palette.text_muted),
-        );
-        ui.add_space(8.0);
-        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.recovery_answer_one,
-            texts.get("auth_recovery_answer_one"),
-            "",
-            None,
-        );
-        ui.add_space(6.0);
-        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.recovery_answer_two,
-            texts.get("auth_recovery_answer_two"),
-            "",
-            None,
-        );
-        ui.add_space(8.0);
-        password_field(
+    pwd_card(ui, theme, |ui| {
+        kit::heading(ui, theme, texts.get("auth_recovery_title"));
+        ui.add_space(2.0);
+        kit::muted(ui, theme, texts.get("auth_recovery_subtitle"));
+        ui.add_space(12.0);
+        answer_fields(ui, theme, texts, focus, state);
+        ui.add_space(10.0);
+        kit::field_label(ui, theme, texts.get("auth_recovery_new_password"), true);
+        ui.add_space(4.0);
+        kit::password_input(
             ui,
             theme,
             focus,
             &mut state.recovery_new_password,
-            texts.get("auth_recovery_new_password"),
             texts.get("auth_password_hint"),
-            None,
+            texts.get("auth_recovery_new_password"),
+            kit::PasswordField::default(),
         );
-        password_field(
+        ui.add_space(10.0);
+        kit::field_label(ui, theme, texts.get("auth_recovery_confirm"), true);
+        ui.add_space(4.0);
+        kit::password_input(
             ui,
             theme,
             focus,
             &mut state.recovery_confirm_password,
-            texts.get("auth_recovery_confirm"),
             texts.get("auth_password_hint"),
-            None,
+            texts.get("auth_recovery_confirm"),
+            kit::PasswordField::default(),
         );
-        messages(ui, theme, texts, state, now);
-        ui.add_space(8.0);
+        messages(ui, theme, texts, state, now, true);
+        ui.add_space(12.0);
+        // Two full-width buttons in one row push the second one out of the card; both halves share
+        // the row like the wizard footer.
+        let gap = 8.0;
+        let width = ((ui.available_width() - gap) * 0.5).max(80.0);
         ui.horizontal(|ui| {
-            if button(
+            ui.spacing_mut().item_spacing.x = gap;
+            if kit::secondary_button_sized(
                 ui,
                 theme,
                 focus,
                 texts.get("auth_recovery_cancel"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
+                width,
+            ) {
                 cancel = true;
             }
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("auth_recovery_reset"),
-                ButtonVariant::Primary,
-            )
-            .activated
+            if kit::primary_button_sized(ui, theme, focus, texts.get("auth_recovery_reset"), width)
             {
                 reset = true;
             }
@@ -1132,74 +1112,89 @@ fn forced_password_form(
     submit: bool,
 ) {
     let mut save = false;
-    card(ui, theme, |ui| {
-        ui.label(
-            RichText::new(texts.get("auth_force_password_title"))
-                .size(22.0)
-                .strong(),
-        );
-        ui.label(
-            RichText::new(texts.get("auth_force_password_subtitle"))
-                .size(FONT_SMALL)
-                .color(theme.palette.text_muted),
-        );
-        ui.add_space(10.0);
-        password_field(
+    pwd_card(ui, theme, |ui| {
+        kit::heading(ui, theme, texts.get("auth_force_password_title"));
+        ui.add_space(2.0);
+        kit::muted(ui, theme, texts.get("auth_force_password_subtitle"));
+        ui.add_space(12.0);
+        kit::field_label(ui, theme, texts.get("auth_recovery_new_password"), true);
+        ui.add_space(4.0);
+        kit::password_input(
             ui,
             theme,
             focus,
             &mut state.recovery_new_password,
-            texts.get("auth_recovery_new_password"),
             texts.get("auth_password_hint"),
-            None,
+            texts.get("auth_recovery_new_password"),
+            kit::PasswordField::default(),
         );
-        password_field(
+        ui.add_space(10.0);
+        kit::field_label(ui, theme, texts.get("auth_recovery_confirm"), true);
+        ui.add_space(4.0);
+        kit::password_input(
             ui,
             theme,
             focus,
             &mut state.recovery_confirm_password,
-            texts.get("auth_recovery_confirm"),
             texts.get("auth_password_hint"),
-            None,
+            texts.get("auth_recovery_confirm"),
+            kit::PasswordField::default(),
         );
-        ui.add_space(8.0);
-        ui.label(RichText::new(texts.get("auth_recovery_question_one")).strong());
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.recovery_answer_one,
-            texts.get("auth_recovery_answer_one"),
-            "",
-            None,
-        );
-        ui.label(RichText::new(texts.get("auth_recovery_question_two")).strong());
-        text_field(
-            ui,
-            theme,
-            focus,
-            &mut state.recovery_answer_two,
-            texts.get("auth_recovery_answer_two"),
-            "",
-            None,
-        );
-        messages(ui, theme, texts, state, now);
-        ui.add_space(8.0);
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("auth_recovery_reset"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
+        ui.add_space(10.0);
+        answer_fields(ui, theme, texts, focus, state);
+        messages(ui, theme, texts, state, now, true);
+        ui.add_space(12.0);
+        if kit::primary_button(ui, theme, focus, texts.get("auth_recovery_reset")) {
             save = true;
         }
     });
     if save || submit {
         let _ = state.complete_forced_password_change(store, now);
     }
+}
+
+/// Draws the card surface the sign-in and recovery forms share.
+///
+/// The recovery and forced-password forms used the compact component card with plain text edits,
+/// while the sign-in screen and the wizard paint the auth kit card with its icon tile and bordered
+/// fields. Both forms use the kit now, so all auth screens look the same.
+fn pwd_card(ui: &mut egui::Ui, theme: &Theme, add: impl FnOnce(&mut egui::Ui)) {
+    kit::card(ui, theme, 460.0, kit::card_padding(ui), |ui| {
+        kit::icon_tile(ui, Icon::Shield, 44.0, theme.accent.base);
+        ui.add_space(10.0);
+        add(ui);
+    });
+}
+
+/// Draws the two security questions of the recovery and forced-password forms.
+fn answer_fields(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+) {
+    kit::field_label(ui, theme, texts.get("auth_recovery_question_one"), true);
+    ui.add_space(4.0);
+    kit::input(
+        ui,
+        theme,
+        focus,
+        &mut state.recovery_answer_one,
+        texts.get("auth_recovery_answer_one"),
+        texts.get("auth_recovery_question_one"),
+    );
+    ui.add_space(10.0);
+    kit::field_label(ui, theme, texts.get("auth_recovery_question_two"), true);
+    ui.add_space(4.0);
+    kit::input(
+        ui,
+        theme,
+        focus,
+        &mut state.recovery_answer_two,
+        texts.get("auth_recovery_answer_two"),
+        texts.get("auth_recovery_question_two"),
+    );
 }
 
 /// Native name of a language, the same in every interface language.
@@ -1291,16 +1286,18 @@ fn lock_screen(
         })
         .collect();
     card(ui, theme, |ui| {
-        password_field(
+        kit::field_label(ui, theme, texts.get("auth_unlock_password"), true);
+        ui.add_space(4.0);
+        kit::password_input(
             ui,
             theme,
             focus,
             &mut state.password,
-            texts.get("auth_unlock_password"),
             texts.get("auth_password_hint"),
-            None,
+            texts.get("auth_unlock_password"),
+            kit::PasswordField::default(),
         );
-        messages(ui, theme, texts, state, now);
+        messages(ui, theme, texts, state, now, true);
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             if button(
@@ -1490,7 +1487,7 @@ fn unlocked_screen(
                     ui.end_row();
                 });
         }
-        messages(ui, theme, texts, state, now);
+        messages(ui, theme, texts, state, now, true);
         ui.add_space(10.0);
         ui.horizontal(|ui| {
             if button(

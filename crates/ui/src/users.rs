@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    TOOLBAR_STACK_WIDTH,
 };
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
@@ -695,7 +696,62 @@ fn list_view(
 
     let mut chosen = None;
     let roles = state.roles.clone();
+    let narrow = ui.available_width() < TOOLBAR_STACK_WIDTH;
     card(ui, theme, |ui| {
+        if narrow {
+            // The five column grid needs more than a 432 point panel; the narrow layout stacks the
+            // same values under the name instead of scrolling sideways.
+            for id in filtered {
+                let user = state
+                    .users
+                    .iter()
+                    .find(|user| user.id == id)
+                    .expect("filtered user");
+                ui.horizontal_wrapped(|ui| {
+                    if button(ui, theme, focus, &user.display_name, ButtonVariant::Ghost).activated
+                    {
+                        chosen = Some(user.id);
+                    }
+                    ui.label(
+                        RichText::new(format!("@{}", user.username))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                });
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(
+                        RichText::new(role_name(user, &roles, texts))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    badge(
+                        ui,
+                        theme,
+                        if user.active {
+                            texts.get("users_active")
+                        } else {
+                            texts.get("users_inactive")
+                        },
+                        if user.active {
+                            Tone::Success
+                        } else {
+                            Tone::Neutral
+                        },
+                    );
+                    if user.is_admin() {
+                        badge(ui, theme, texts.get("users_admin_badge"), Tone::Accent);
+                    }
+                    if user.must_change_password {
+                        badge(ui, theme, texts.get("users_must_change"), Tone::Warning);
+                    }
+                    if user.role_id.is_some() {
+                        badge(ui, theme, texts.get("users_custom_role"), Tone::Neutral);
+                    }
+                });
+                ui.add_space(8.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-users-table")
             .num_columns(5)
             .spacing(egui::vec2(16.0, 8.0))
@@ -789,7 +845,8 @@ fn detail_view(
     ui.add_space(6.0);
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        // A long account name plus two badges grew the detail card to 371 px on a 360 px screen.
+        ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(&user.display_name).size(FONT_TITLE).strong());
             badge(
                 ui,
@@ -810,48 +867,62 @@ fn detail_view(
             }
         });
         ui.add_space(8.0);
-        egui::Grid::new("socdof-user-detail")
-            .num_columns(2)
-            .spacing(egui::vec2(18.0, 6.0))
-            .show(ui, |ui| {
-                for (label, value) in [
-                    ("users_col_username", user.username.clone()),
-                    (
-                        "users_col_role",
-                        role_name(&user, &roles, texts).to_string(),
-                    ),
-                    ("users_sessions", format!("{}", state.sessions)),
-                    (
-                        "users_must_change_label",
-                        if user.must_change_password {
-                            texts.get("users_yes").to_string()
-                        } else {
-                            texts.get("users_no").to_string()
-                        },
-                    ),
-                    (
-                        "users_security_status",
-                        if state.security_configured {
-                            texts.get("users_security_configured").to_string()
-                        } else {
-                            texts.get("users_security_missing").to_string()
-                        },
-                    ),
-                ] {
-                    ui.label(
-                        RichText::new(texts.get(label))
-                            .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
-                    );
-                    ui.label(value);
-                    ui.end_row();
-                }
-            });
+        let details = [
+            ("users_col_username", user.username.clone()),
+            (
+                "users_col_role",
+                role_name(&user, &roles, texts).to_string(),
+            ),
+            ("users_sessions", format!("{}", state.sessions)),
+            (
+                "users_must_change_label",
+                if user.must_change_password {
+                    texts.get("users_yes").to_string()
+                } else {
+                    texts.get("users_no").to_string()
+                },
+            ),
+            (
+                "users_security_status",
+                if state.security_configured {
+                    texts.get("users_security_configured").to_string()
+                } else {
+                    texts.get("users_security_missing").to_string()
+                },
+            ),
+        ];
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Two columns of long security labels reached 433.6 px; the phone stacks them.
+            for (label, value) in details {
+                ui.label(
+                    RichText::new(texts.get(label))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(value);
+                ui.add_space(4.0);
+            }
+        } else {
+            egui::Grid::new("socdof-user-detail")
+                .num_columns(2)
+                .spacing(egui::vec2(18.0, 6.0))
+                .show(ui, |ui| {
+                    for (label, value) in details {
+                        ui.label(
+                            RichText::new(texts.get(label))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                        ui.label(value);
+                        ui.end_row();
+                    }
+                });
+        }
         ui.add_space(10.0);
         let mut edit = false;
         let mut delete = false;
         let mut revoke = false;
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if button(
                 ui,
                 theme,

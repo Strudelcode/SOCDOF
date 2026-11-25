@@ -25,6 +25,18 @@ use crate::tokens::{
 pub struct PopupState {
     /// Highlighted entry while the popup is open.
     pub open: Option<usize>,
+    /// Identity slot of the control that owns this popup, assigned once on its first paint.
+    ///
+    /// The slot lives with the caller's state instead of with the paint order, so a control that
+    /// is painted conditionally cannot shift the identity of the controls drawn after it.
+    slot: Option<u64>,
+}
+
+impl PopupState {
+    /// Identity slot this state's control claimed, once it has been painted.
+    pub fn slot(&self) -> Option<usize> {
+        self.slot.map(|slot| slot as usize)
+    }
 }
 
 /// Translated labels the calendar needs.
@@ -40,6 +52,76 @@ pub struct CalendarLabels<'a> {
     pub next: &'a str,
 }
 
+/// Identity of the select that owns the state slot `slot` under this source.
+///
+/// The id is computable from outside, so tests and diagnostics can address exactly the rectangle
+/// that focus and pointer input use.
+pub fn select_id(id_source: &str, slot: usize) -> Id {
+    Id::new(("socdof-select", id_source, slot))
+}
+
+/// Hands the control that owns `popup` its identity slot, allocating one on the first paint.
+///
+/// The slot is stored in the caller's [`PopupState`] and handed out from a persistent counter per
+/// `namespace`, so it stays with that instance across frames and across a conditional control
+/// appearing or disappearing before it. A slot is never reused, so a returning control cannot
+/// collide with the ones that stayed on screen. Selects and menus count in separate namespaces, so
+/// neither control type shifts the other type's slots.
+///
+/// Because [`PopupState`] is `Copy`, two controls in one frame can be handed copies of the same
+/// state and would otherwise share one id. The frame keeps a claim count per slot: the first
+/// claimant keeps the slot, every further one gets `base + 1_000_000 * claim` and writes it back
+/// into its own copy, so the identity follows the instance instead of the copied value. The
+/// duplicate slot is derived from the base and the claim number rather than taken from a counter,
+/// so it stays the same when the same state is painted in another context; the derivation holds as
+/// long as one screen paints fewer than a million popups.
+fn popup_slot(ui: &mut Ui, popup: &mut PopupState, namespace: &str) -> usize {
+    let base = match popup.slot {
+        Some(slot) => slot,
+        None => {
+            let slot = next_slot(ui, namespace);
+            popup.slot = Some(slot);
+            slot
+        }
+    };
+    // The claim count is per frame: temporary data survives frames, so the frame number is part of
+    // the stored value.
+    let frame = ui.ctx().frame_nr();
+    let claims = ui.ctx().data_mut(|data| {
+        let key = Id::new(("socdof-slot-claim", namespace, base));
+        let seen = match data.get_temp::<(u64, u64)>(key) {
+            Some((stored, seen)) if stored == frame => seen,
+            _ => 0,
+        };
+        data.insert_temp(key, (frame, seen + 1));
+        seen
+    });
+    if claims == 0 {
+        return base as usize;
+    }
+    // The duplicate slot is derived from the base and the claim number instead of a counter, so the
+    // value is stable across frames and across contexts that share the same state.
+    let slot = base + DUPLICATE_SLOT_STRIDE * claims;
+    popup.slot = Some(slot);
+    slot as usize
+}
+
+/// Distance between a copied instance's slot and the slot it was copied from.
+///
+/// Normal slots grow by one per control, so a duplicated slot cannot collide with an ordinary one
+/// in any realistic screen.
+const DUPLICATE_SLOT_STRIDE: u64 = 1_000_000;
+
+/// Hands out one fresh identity slot for this namespace.
+fn next_slot(ui: &mut Ui, namespace: &str) -> u64 {
+    ui.ctx().data_mut(|data| {
+        let key = Id::new(("socdof-slot-next", namespace));
+        let next = data.get_persisted::<u64>(key).unwrap_or(0);
+        data.insert_persisted(key, next + 1);
+        next
+    })
+}
+
 /// Draws a dropdown and returns whether the selection changed.
 pub fn select(
     ui: &mut Ui,
@@ -50,11 +132,17 @@ pub fn select(
     selected: &mut usize,
     labels: &[&str],
 ) -> bool {
-    let id = ui.make_persistent_id(("socdof-select", id_source));
+    // Two selects may name the same source in one screen. The slot lives in the owning popup
+    // state, so the identity belongs to the instance and not to its place in this frame's paint
+    // order; pointer input, focus and diagnostics still address the same rectangle.
+    let id = select_id(id_source, popup_slot(ui, popup, "select"));
     let focused = focus.register(id);
     let current = labels.get(*selected).copied().unwrap_or_default();
     let width = 220.0;
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, CONTROL_HEIGHT), Sense::click());
+    // Interact under the id the focus state registers, not an auto id: the two ids have to be the
+    // same control for pointer input, focus and diagnostics to address the same rectangle.
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, CONTROL_HEIGHT), Sense::hover());
+    let response = ui.interact(rect, id, Sense::click());
     if response.clicked() {
         focus.set_focus(Some(id));
     }
@@ -65,10 +153,13 @@ pub fn select(
     let mut changed = false;
     let mut release_focus = false;
 
-    if !was_open && focused {
-        let arrow =
-            ui.input(|input| input.key_pressed(Key::ArrowDown) || input.key_pressed(Key::ArrowUp));
-        if response.clicked() || focus.activate(id) || arrow {
+    // A click has to open the dropdown even though the click itself only moves the focus onto the
+    // control in this frame; requiring `focused` here made the first click do nothing.
+    if !was_open && (focused || response.clicked()) {
+        let arrow = ui.input(|input| {
+            focused && (input.key_pressed(Key::ArrowDown) || input.key_pressed(Key::ArrowUp))
+        });
+        if response.clicked() || (focused && (focus.activate(id) || arrow)) {
             open = Some(*selected);
             highlight = *selected;
             focus.open_overlay(id);
@@ -202,6 +293,17 @@ pub fn select(
 }
 
 /// Draws a menu button and returns the index of the chosen entry.
+/// Id of the `occurrence`-th menu with this label in a frame.
+///
+/// Identity of the menu that owns the state slot `slot` under this caption.
+///
+/// Tests and diagnostics address the control with this id; the control interacts under exactly
+/// this id.
+pub fn menu_id(label: &str, slot: usize) -> Id {
+    Id::new(("socdof-menu", label, slot))
+}
+
+/// Draws a dropdown menu; the chosen row is the value.
 pub fn menu(
     ui: &mut Ui,
     theme: &Theme,
@@ -210,7 +312,12 @@ pub fn menu(
     label: &str,
     items: &[&str],
 ) -> Option<usize> {
-    let id = ui.make_persistent_id(("socdof-menu", label));
+    // The label alone does not identify an instance: two action menus with the same caption can sit
+    // next to each other in one row, and a widget-tree-relative id gives both the same id there.
+    // The slot lives in the owning popup state, so the identity belongs to the instance and not to
+    // its place in this frame's paint order; focus, diagnostics and pointer input keep naming one
+    // rectangle.
+    let id = menu_id(label, popup_slot(ui, popup, "menu"));
     let focused = focus.register(id);
     let galley = ui.painter().layout_no_wrap(
         label.to_owned(),
@@ -218,7 +325,8 @@ pub fn menu(
         theme.palette.text,
     );
     let width = galley.size().x + 44.0;
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, CONTROL_HEIGHT), Sense::click());
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, CONTROL_HEIGHT), Sense::hover());
+    let response = ui.interact(rect, id, Sense::click());
     if response.clicked() {
         focus.set_focus(Some(id));
     }
@@ -229,7 +337,9 @@ pub fn menu(
     let mut chosen = None;
     let mut release_focus = false;
 
-    if !was_open && focused {
+    // A click has to open the menu even though it only moves the focus onto the control in that
+    // frame; requiring `focused` made the first click do nothing.
+    if !was_open && (focused || response.clicked()) {
         let arrow =
             ui.input(|input| input.key_pressed(Key::ArrowDown) || input.key_pressed(Key::ArrowUp));
         if response.clicked() || focus.activate(id) || arrow {
@@ -448,12 +558,28 @@ pub fn switch(
 ) -> Activated {
     let id = ui.next_auto_id();
     let focused = focus.register(id);
-    let galley = ui.painter().layout_no_wrap(
-        label.to_owned(),
-        FontId::proportional(FONT_BODY),
-        theme.palette.text,
+    let font = FontId::proportional(FONT_BODY);
+    let single = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), font.clone(), theme.palette.text);
+    // Long German labels ("Nicht für Nachbestellungen berücksichtigen") used to grow the switch
+    // past the card at 360 px; the label wraps into the width that is left and the row grows.
+    let max_text = (ui.available_width() - 48.0).max(80.0);
+    let wrapped = single.size().x > max_text;
+    let galley = if wrapped {
+        ui.painter()
+            .layout(label.to_owned(), font, theme.palette.text, max_text)
+    } else {
+        single
+    };
+    let size = Vec2::new(
+        40.0 + 8.0 + galley.size().x,
+        if wrapped {
+            (galley.size().y + 10.0).max(CONTROL_HEIGHT)
+        } else {
+            CONTROL_HEIGHT
+        },
     );
-    let size = Vec2::new(40.0 + 8.0 + galley.size().x, CONTROL_HEIGHT);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if response.clicked() {
         focus.set_focus(Some(id));
@@ -893,11 +1019,14 @@ fn popup_row(ui: &mut Ui, theme: &Theme, focus: &mut FocusState, row: PopupRow<'
         suppress_activation,
     } = row;
     let focused = focus.register(id);
-    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::click());
+    // Interact under the id the caller handed in: focus, diagnostics and pointer input have to
+    // address the same rectangle instead of an auto id next to it.
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::hover());
+    let response = ui.interact(rect, id, Sense::click());
     if response.clicked() {
         focus.set_focus(Some(id));
     }
-    let keyboard = !suppress_activation && focus.activate(id);
+    let keyboard = !suppress_activation && focus.is_focused(id) && focus.enter();
     let activated = response.clicked() || keyboard;
     let color = if focused || active {
         theme.accent_text()
@@ -939,3 +1068,201 @@ pub type ControlResponse = Response;
 
 /// Convenience alias for the rectangle helper used by tests.
 pub type ControlRect = Rect;
+
+#[cfg(test)]
+mod keyboard_confirm_tests {
+    use super::*;
+    use crate::theme::{headless_context, Appearance};
+    use egui::{Modifiers, Pos2, RawInput, Rect, Vec2};
+
+    struct Harness {
+        ctx: egui::Context,
+        appearance: Appearance,
+        focus: FocusState,
+        checked: bool,
+        on: bool,
+        time: f64,
+    }
+
+    impl Harness {
+        fn new(appearance: Appearance) -> Self {
+            Self {
+                ctx: headless_context(),
+                appearance,
+                focus: FocusState::default(),
+                checked: false,
+                on: false,
+                time: 1.0,
+            }
+        }
+
+        fn viewport(&self, width: f32) -> Rect {
+            Rect::from_min_size(Pos2::ZERO, Vec2::new(width, 768.0))
+        }
+
+        fn frame(&mut self, width: f32, events: Vec<egui::Event>) {
+            self.time += 1.0 / 60.0;
+            let input = RawInput {
+                screen_rect: Some(self.viewport(width)),
+                events,
+                time: Some(self.time),
+                ..Default::default()
+            };
+            let theme = Theme::new(self.appearance, "indigo");
+            let Self {
+                ctx,
+                focus,
+                checked,
+                on,
+                ..
+            } = self;
+            let _ = ctx.run(input, |ctx| {
+                focus.begin_frame(ctx);
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    // The spacer pushes both controls below the fold, so the wheel has to bring
+                    // them into the viewport before a pointer may address them.
+                    egui::ScrollArea::vertical()
+                        .auto_shrink([false, false])
+                        .show(ui, |ui| {
+                            ui.add_space(900.0);
+                            checkbox(ui, &theme, focus, checked, "Entwurf");
+                            ui.add_space(12.0);
+                            switch(ui, &theme, focus, on, "Sicherung");
+                        });
+                });
+                focus.finish_frame();
+            });
+        }
+
+        fn ids(&self) -> Vec<Id> {
+            self.focus.order().to_vec()
+        }
+
+        fn rect_of(&self, id: Id) -> Rect {
+            self.ctx
+                .read_response(id)
+                .expect("control was painted")
+                .rect
+        }
+
+        fn scroll_into_view(&mut self, width: f32, id: Id) -> Rect {
+            let mut previous = None;
+            for _ in 0..40 {
+                self.frame(width, Vec::new());
+                let rect = self.rect_of(id);
+                if self.viewport(width).contains_rect(rect) {
+                    if previous == Some(rect) {
+                        assert!(
+                            rect.right() <= width + 0.5,
+                            "the control ends at {} px, the panel ends at {} px",
+                            rect.right(),
+                            width + 0.5
+                        );
+                        return rect;
+                    }
+                } else {
+                    assert!(
+                        previous != Some(rect),
+                        "the harness does not scroll to the control: it stays at {rect:?}"
+                    );
+                    let step = if rect.top() < 0.0 { 240.0 } else { -240.0 };
+                    let pos = self.viewport(width).center();
+                    self.frame(
+                        width,
+                        vec![
+                            egui::Event::PointerMoved(pos),
+                            egui::Event::Scroll(Vec2::new(0.0, step)),
+                        ],
+                    );
+                }
+                previous = Some(rect);
+            }
+            panic!("the harness never brought the control into the viewport");
+        }
+
+        fn click(&mut self, width: f32, pos: Pos2) {
+            let button = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            };
+            self.frame(width, vec![egui::Event::PointerMoved(pos)]);
+            self.frame(width, vec![egui::Event::PointerMoved(pos), button(true)]);
+            self.frame(width, vec![button(false)]);
+        }
+    }
+
+    fn key(key: egui::Key) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    #[test]
+    fn checkbox_and_switch_confirm_with_space_like_enter_at_every_phone_width() {
+        for width in [360.0, 390.0, 412.0, 432.0] {
+            for appearance in [Appearance::Light, Appearance::Dark] {
+                let mut h = Harness::new(appearance);
+                h.frame(width, Vec::new());
+                let ids = h.ids();
+                assert_eq!(
+                    ids.len(),
+                    2,
+                    "expected the checkbox and the switch at {width} px, {appearance:?}"
+                );
+                let (check, toggle) = (ids[0], ids[1]);
+
+                // Checkbox: pointer hit, then Enter and Space toggle the state on and off alike.
+                let rect = h.scroll_into_view(width, check);
+                assert!(
+                    h.viewport(width).contains_rect(rect),
+                    "the checkbox at {width} px, {appearance:?} is outside the viewport: {rect:?}"
+                );
+                h.click(width, rect.center());
+                assert!(
+                    h.checked,
+                    "one click at {width} px, {appearance:?} did not toggle the checkbox"
+                );
+                assert_eq!(h.focus.focused(), Some(check));
+                h.frame(width, vec![key(egui::Key::Enter)]);
+                assert!(
+                    !h.checked,
+                    "Enter did not toggle the checkbox at {width} px, {appearance:?}"
+                );
+                h.frame(width, vec![key(egui::Key::Space)]);
+                assert!(
+                    h.checked,
+                    "Space did not toggle the checkbox at {width} px, {appearance:?}"
+                );
+
+                // Switch: the same sequence against its own state.
+                let rect = h.scroll_into_view(width, toggle);
+                assert!(
+                    h.viewport(width).contains_rect(rect),
+                    "the switch at {width} px, {appearance:?} is outside the viewport: {rect:?}"
+                );
+                h.click(width, rect.center());
+                assert!(
+                    h.on,
+                    "one click at {width} px, {appearance:?} did not toggle the switch"
+                );
+                assert_eq!(h.focus.focused(), Some(toggle));
+                h.frame(width, vec![key(egui::Key::Enter)]);
+                assert!(
+                    !h.on,
+                    "Enter did not toggle the switch at {width} px, {appearance:?}"
+                );
+                h.frame(width, vec![key(egui::Key::Space)]);
+                assert!(
+                    h.on,
+                    "Space did not toggle the switch at {width} px, {appearance:?}"
+                );
+            }
+        }
+    }
+}

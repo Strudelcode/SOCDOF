@@ -36,15 +36,21 @@ use socdof_ui::chrome::{app_chrome, app_window};
 use socdof_ui::components::{button, ButtonVariant};
 use socdof_ui::contacts::{contacts, ContactsState};
 use socdof_ui::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
-use socdof_ui::desktop::{desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager};
+use socdof_ui::desktop::{
+    desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager, TASKBAR_HEIGHT,
+};
+use socdof_ui::documentation::{documentation, DocumentationState};
 use socdof_ui::editor::{editor, EditorState};
+use socdof_ui::fleet::{fleet, FleetState};
 use socdof_ui::focus::FocusState;
 use socdof_ui::i18n::UiTexts;
 use socdof_ui::invoices::{invoices, InvoicesState};
 use socdof_ui::pos::{pos, PosState};
 use socdof_ui::products::{products, ProductsState};
+use socdof_ui::projects::{projects, ProjectsState};
 use socdof_ui::purchases::{purchases, PurchasesState};
 use socdof_ui::reports::{reports, ReportsState};
+use socdof_ui::restaurant::{restaurant, RestaurantState};
 use socdof_ui::settings::{settings, SettingsState};
 use socdof_ui::shell::{Onboarding, ShellState};
 use socdof_ui::support::{support, SupportState};
@@ -109,6 +115,14 @@ struct WebApp {
     reports: ReportsState,
     /// Therapy module.
     therapie: TherapieState,
+    /// Projects module.
+    projects: ProjectsState,
+    /// Fleet module.
+    fleet: FleetState,
+    /// Restaurant module.
+    restaurant: RestaurantState,
+    /// Documentation module.
+    documentation: DocumentationState,
     /// Catalogue key of a startup failure.
     error: Option<&'static str>,
     /// IndexedDB handle that keeps the database image of this browser.
@@ -119,6 +133,8 @@ struct WebApp {
     last_saved: Vec<u8>,
     /// Last change check, in milliseconds.
     last_check: i64,
+    /// Whether the stored image could not be applied and must not be replaced.
+    protect_snapshot: bool,
 }
 
 impl WebApp {
@@ -164,11 +180,16 @@ impl WebApp {
             support: SupportState::new(),
             reports: ReportsState::new(),
             therapie: TherapieState::new(),
+            projects: ProjectsState::new(),
+            fleet: FleetState::new(),
+            restaurant: RestaurantState::new(),
+            documentation: DocumentationState::default(),
             error: None,
             storage: storage::Storage::start(),
             loaded: false,
             last_saved: Vec::new(),
             last_check: 0,
+            protect_snapshot: false,
         }
     }
 
@@ -188,10 +209,16 @@ impl WebApp {
                 if self.store.restore_snapshot(&bytes).is_err() {
                     self.error = Some("web_storage_error");
                     self.store = Store::open_in_memory().expect("in-memory SQLite store");
+                    // The stored image is still the user's data: the empty stand-in must never be
+                    // written over it, otherwise a failed read would destroy the database.
+                    self.protect_snapshot = true;
                 }
             }
             Ok(None) => {}
-            Err(()) => self.error = Some("web_storage_error"),
+            Err(()) => {
+                self.error = Some("web_storage_error");
+                self.protect_snapshot = true;
+            }
         }
         if !self.storage.is_writable() {
             self.error = Some("web_storage_error");
@@ -218,8 +245,15 @@ impl WebApp {
     }
 
     /// Writes the database image to IndexedDB when it changed.
-    fn persist(&mut self, now: i64) {
-        if !self.loaded || now.saturating_sub(self.last_check) < 400 {
+    ///
+    /// `user_acted` is set on frames that handled a press, a key or text: those are written right
+    /// away, because the browser can hide or unload the tab before the debounce expires and the
+    /// last change (a created account, for example) would be lost.
+    fn persist(&mut self, now: i64, user_acted: bool) {
+        if !self.loaded || self.protect_snapshot {
+            return;
+        }
+        if !socdof_core::store::snapshot_due(now, self.last_check, user_acted) {
             return;
         }
         self.last_check = now;
@@ -273,6 +307,10 @@ impl WebApp {
             "support" => self.support.reset_for_open(&self.store)?,
             "reports" => self.reports.reset_for_open(&self.store, now)?,
             "therapy" => self.therapie.reset_for_open(&self.store)?,
+            "projects" => self.projects.reset_for_open(&self.store)?,
+            "fleet" => self.fleet.reset_for_open(&self.store)?,
+            "restaurant" => self.restaurant.reset_for_open(&self.store)?,
+            "documentation" => self.documentation.back = false,
             _ => return Ok(()),
         }
         self.open = Some(app);
@@ -288,6 +326,12 @@ impl WebApp {
     fn leave_screen(&mut self, now: i64) {
         if let Some(app) = self.open.take() {
             self.windows.close(app, now);
+            // The App Store changes which modules are enabled. The launcher grid is built once at
+            // start-up, so it has to be rebuilt here — otherwise a freshly activated module keeps
+            // its missing tile until the host restarts.
+            if app.as_str() == "app-store" {
+                self.icons = desktop_icons(&self.texts, &self.active_modules());
+            }
         }
     }
 
@@ -571,6 +615,82 @@ impl WebApp {
                     self.leave_screen(now);
                 }
             }
+            "projects" => {
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("projects"),
+                    |focus| {
+                        projects(
+                            ctx,
+                            theme,
+                            texts,
+                            focus,
+                            &mut self.projects,
+                            &self.store,
+                            now,
+                        )
+                    },
+                );
+                let back = std::mem::take(&mut self.projects.back);
+                if action.close || action.minimize || back {
+                    self.leave_screen(now);
+                }
+            }
+            "fleet" => {
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("fleet"),
+                    |focus| fleet(ctx, theme, texts, focus, &mut self.fleet, &self.store, now),
+                );
+                let back = std::mem::take(&mut self.fleet.back);
+                if action.close || action.minimize || back {
+                    self.leave_screen(now);
+                }
+            }
+            "restaurant" => {
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("restaurant"),
+                    |focus| {
+                        restaurant(
+                            ctx,
+                            theme,
+                            texts,
+                            focus,
+                            &mut self.restaurant,
+                            &self.store,
+                            now,
+                        )
+                    },
+                );
+                let back = std::mem::take(&mut self.restaurant.back);
+                if action.close || action.minimize || back {
+                    self.leave_screen(now);
+                }
+            }
+            "documentation" => {
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("documentation"),
+                    |focus| documentation(ctx, theme, texts, focus, &mut self.documentation),
+                );
+                let back = std::mem::take(&mut self.documentation.back);
+                if action.close || action.minimize || back {
+                    self.leave_screen(now);
+                }
+            }
             "app-store" => {
                 let action = app_window(
                     ctx,
@@ -698,6 +818,10 @@ impl WebApp {
                 self.error = Some("auth_error_storage");
             }
         }
+        // The browser host draws every module as a full screen, so the desktop never needs its own
+        // windows. Left in the manager they would linger as empty frames that only show the desktop
+        // hint once the screen closes.
+        self.windows = WindowManager::default();
     }
 
     /// Draws the session chip with the signed-in account and the sign-out action.
@@ -707,9 +831,12 @@ impl WebApp {
         };
         let mut sign_out = false;
         egui::Area::new(Id::new("socdof-web-account"))
-            // Above the taskbar in the free right-hand area, so the chip never covers the desktop
-            // icons or the window controls in the top right corner.
-            .anchor(Align2::RIGHT_BOTTOM, egui::vec2(-18.0, -76.0))
+            // Directly above the taskbar in the free right-hand area. The icon grid reserves the
+            // same band (`desktop::SESSION_CHIP_BAND`), so the chip never covers icon labels.
+            .anchor(
+                Align2::RIGHT_BOTTOM,
+                egui::vec2(-18.0, -(TASKBAR_HEIGHT + 8.0)),
+            )
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
                 egui::Frame::none()
@@ -760,7 +887,6 @@ impl eframe::App for WebApp {
         // Keeps the backing store on the CSS box, so painting and pointer positions stay on one
         // grid after the panel or the browser window changed size.
         sync_canvas_size();
-        sync_canvas_size();
         self.focus.begin_frame(ctx);
         // The browser reads the stored database asynchronously, therefore the first frames are a hint.
         if !self.loaded && !self.load_snapshot() {
@@ -795,6 +921,16 @@ impl eframe::App for WebApp {
                 &self.store,
                 now,
             );
+            // The language card of the wizard switches the whole interface, so the host reloads
+            // the catalogue as soon as the choice changes; the desktop gallery applies it the
+            // same way. The choice itself stays in the state, which stores it with the account.
+            if let Some(language) = self.auth.language_choice {
+                if language != self.texts.language() {
+                    if let Ok(texts) = UiTexts::embedded(language) {
+                        self.texts = texts;
+                    }
+                }
+            }
             if let Some(key) = self.error {
                 egui::TopBottomPanel::bottom("socdof-web-error").show(ctx, |ui| {
                     ui.label(
@@ -811,7 +947,17 @@ impl eframe::App for WebApp {
             self.account_chip(ctx, &theme, &texts, now);
         }
         self.focus.finish_frame();
-        self.persist(now);
+        let user_acted = ctx.input(|input| {
+            input.events.iter().any(|event| {
+                matches!(
+                    event,
+                    egui::Event::Text(_)
+                        | egui::Event::Key { pressed: true, .. }
+                        | egui::Event::PointerButton { .. }
+                )
+            })
+        });
+        self.persist(now, user_acted);
     }
 }
 
@@ -835,6 +981,8 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Editor, "editor"),
         (AppModule::Projects, "projects"),
         (AppModule::Fleet, "fleet"),
+        (AppModule::Restaurant, "restaurant"),
+        (AppModule::Documentation, "documentation"),
     ] {
         if !active.contains(&module) {
             continue;
@@ -849,18 +997,18 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
     IconGrid::new(icons)
 }
 
-/// Fixed logical render size of the browser host.
-///
-/// The canvas keeps this backing store for its whole life and `index.html` scales it to the
-/// viewport. Following the CSS box instead couples the egui screen rectangle to panel resizes: the
-/// app then keeps painting the old point space while the browser stretches the surface, and pointer
-/// positions stop matching the widgets. A fixed grid keeps painting and pointer mapping identical
-/// in every viewport.
+/// Reference grid of the browser host; the panel is expected to be this large.
 pub const CANVAS_WIDTH: u32 = 1512;
-/// Height of the fixed logical canvas grid, in pixels.
+/// Height of the reference grid, in pixels.
 pub const CANVAS_HEIGHT: u32 = 982;
 
-/// Pins the canvas backing store to [`CANVAS_WIDTH`] × [`CANVAS_HEIGHT`].
+/// Keeps the canvas backing store on the CSS box at the current display scale.
+///
+/// eframe converts pointers with `client position / zoom` while it paints `pixels_per_point` device
+/// pixels per point, so the backing store has to be `client size × devicePixelRatio`. A pinned
+/// 1512 × 982 store (the previous approach) drifted by the display scale: at a 1.25 scale the app
+/// painted 1.25 pixels per point into a surface that matched the CSS box 1:1, which moved every
+/// widget around and made clicks land next to the control they aimed at.
 fn sync_canvas_size() {
     let Some(window) = web_sys::window() else {
         return;
@@ -874,11 +1022,14 @@ fn sync_canvas_size() {
     let Some(canvas) = canvas else {
         return;
     };
-    if canvas.width() != CANVAS_WIDTH {
-        canvas.set_width(CANVAS_WIDTH);
+    let scale = window.device_pixel_ratio().max(1.0);
+    let width = ((canvas.client_width().max(1) as f64 * scale).round() as u32).max(1);
+    let height = ((canvas.client_height().max(1) as f64 * scale).round() as u32).max(1);
+    if canvas.width() != width {
+        canvas.set_width(width);
     }
-    if canvas.height() != CANVAS_HEIGHT {
-        canvas.set_height(CANVAS_HEIGHT);
+    if canvas.height() != height {
+        canvas.set_height(height);
     }
 }
 
@@ -896,6 +1047,26 @@ fn browser_language() -> Language {
     }
 }
 
+/// Stops the browser from acting on keys the interface already uses.
+///
+/// Without this the browser moves the DOM focus off the canvas on `Tab`: the interface still paints
+/// the caret in the focused field, but every following key press goes to the browser instead of the
+/// form, so a user could tab into a field and type nothing.
+fn keep_keyboard_focus() {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let callback = wasm_bindgen::closure::Closure::<dyn FnMut(web_sys::KeyboardEvent)>::new(
+        move |event: web_sys::KeyboardEvent| {
+            if event.key() == "Tab" {
+                event.prevent_default();
+            }
+        },
+    );
+    let _ = window.add_event_listener_with_callback("keydown", callback.as_ref().unchecked_ref());
+    callback.forget();
+}
+
 /// Starts the WASM application on the `socdof-canvas` element of `index.html`.
 #[wasm_bindgen::prelude::wasm_bindgen(start)]
 pub fn start() {
@@ -909,6 +1080,7 @@ pub fn start() {
     }
     // A panel that changes size before the app starts leaves the canvas at a stale size.
     sync_canvas_size();
+    keep_keyboard_focus();
     let options = eframe::WebOptions::default();
     wasm_bindgen_futures::spawn_local(async {
         eframe::WebRunner::new()

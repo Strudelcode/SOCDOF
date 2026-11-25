@@ -1950,6 +1950,19 @@ impl Store {
     }
 }
 
+/// Debounce of the browser database image, in milliseconds.
+const SNAPSHOT_DEBOUNCE_MS: i64 = 400;
+
+/// Whether the browser host has to write the database image in this frame.
+///
+/// A frame that handled a press, a key or text writes immediately: the browser can hide or unload
+/// the tab at any time, and a write that waits for the debounce would lose the user's last change
+/// (the created administrator, for example). Idle frames keep the debounce so the image is not
+/// serialized on every repaint.
+pub fn snapshot_due(now: i64, last_check: i64, user_acted: bool) -> bool {
+    user_acted || now.saturating_sub(last_check) >= SNAPSHOT_DEBOUNCE_MS
+}
+
 /// Schema v13: fleet vehicles, logbook trips and fuel receipts.
 const SCHEMA_V13: &str = r#"
 -- Fleet vehicles, logbook trips and fuel receipts of the TypeScript FleetModule.
@@ -2228,6 +2241,16 @@ mod tests {
     use crate::money::Money;
     use crate::now_millis;
     use uuid::Uuid;
+
+    #[test]
+    fn a_user_action_is_saved_without_waiting_for_the_debounce() {
+        // The created administrator of the first-run wizard lands in the same frame as the click;
+        // a debounced write would lose it when the tab is hidden or reloaded right away.
+        assert!(snapshot_due(1_000, 999, true));
+        assert!(snapshot_due(1_000, 0, false));
+        assert!(!snapshot_due(1_399, 1_000, false));
+        assert!(snapshot_due(1_400, 1_000, false));
+    }
 
     fn contact(store: &Store) -> Contact {
         let mut contact = Contact::new(ContactKind::Company, now_millis());

@@ -5,7 +5,7 @@
 //! clock/avatar sign-in screen. State and core calls stay in [`crate::auth`]; this module paints and
 //! reports what the user asked for.
 
-use egui::{Align, Layout, Pos2, Rect, RichText, Ui, Vec2};
+use egui::{Align, FontFamily, FontId, Layout, Pos2, Rect, RichText, Ui, Vec2};
 use socdof_core::domain::settings::{Language, ThemeMode};
 use socdof_core::domain::user::User;
 use socdof_core::store::Store;
@@ -21,6 +21,12 @@ use crate::theme::Theme;
 use crate::tokens::with_alpha;
 
 /// Built-in languages of the first-run screen: language, three letter badge, subtitle key.
+/// Space between the band's border and its message.
+const ERROR_BAND_PADDING: f32 = 8.0;
+/// Clear space between the scrolled body and the band: a row that is cut off at the body edge keeps
+/// this distance, so no line ever sits on the band's border.
+const ERROR_BAND_GAP: f32 = 16.0;
+
 const LANGUAGES: [(Language, &str, &str); 4] = [
     (Language::De, "DE", "setup_lang_de_subtitle"),
     (Language::En, "US", "setup_lang_en_subtitle"),
@@ -212,7 +218,7 @@ pub fn login(
                 }
             });
             ui.add_space(8.0);
-            messages(ui, theme, texts, state, now);
+            messages(ui, theme, texts, state, now, true);
             ui.add_space(4.0);
             let link_color = if crate::auth_kit::dark(theme) {
                 with_alpha(theme.palette.text, 75)
@@ -307,15 +313,17 @@ pub fn login(
                         theme.palette.text_muted,
                         1.5,
                     );
+                    // The caption wraps inside the tile: the label is longer than the 86 point
+                    // column, and a single line was clipped at the tile edge.
                     let galley = ui.painter().layout(
                         texts.get("setup_other_user").to_owned(),
                         egui::FontId::proportional(11.0),
                         theme.palette.text_muted,
-                        120.0,
+                        86.0,
                     );
                     let caption = egui::Rect::from_min_size(
                         Pos2::new(rect.center().x - 43.0, tile.bottom() + 6.0),
-                        Vec2::new(86.0, 14.0),
+                        Vec2::new(86.0, 30.0),
                     );
                     ui.painter().with_clip_rect(caption).galley(
                         Pos2::new(rect.center().x - galley.size().x * 0.5, caption.top()),
@@ -471,7 +479,13 @@ pub fn setup(
             ui.add_space(2.0);
             // `flex items-center justify-between`: the step line takes the space that is left once
             // the required-fields notice on the right is reserved, so the two never overlap.
-            let notice = texts.get("setup_required_notice");
+            // Only the account step marks mandatory fields with an asterisk, so only that step
+            // carries the legend; the other steps have no required field to explain.
+            let notice = if state.setup_step == 2 {
+                texts.get("setup_required_notice")
+            } else {
+                ""
+            };
             // The chip names the current step instead of always announcing the account step; the
             // welcome page has no number of its own, so it shows the heading alone.
             let step_prefix = match texts.language() {
@@ -528,11 +542,50 @@ pub fn setup(
             let full = ui.available_rect_before_wrap();
             let footer_height = 44.0;
             let footer_top = (full.bottom() - footer_height).max(full.top());
-            let body_rect = Rect::from_min_max(
-                full.min,
-                Pos2::new(full.right(), (footer_top - 10.0).max(full.top())),
-            );
+            let mut body_bottom = (footer_top - 10.0).max(full.top());
+            // A rejected "Continue" has to be readable without scrolling. The message owns a band
+            // between the scrolling body and the footer instead of trailing the scrolled fields,
+            // where a full form pushed it below the fold and the click looked like nothing.
+            let mut error_band = None;
+            if let Some(key) = state.error {
+                let galley = ui.painter().layout(
+                    texts.get(key).to_owned(),
+                    egui::FontId::proportional(crate::tokens::FONT_SMALL),
+                    theme.palette.danger,
+                    (full.width() - 28.0).max(80.0),
+                );
+                let band = (galley.size().y + ERROR_BAND_PADDING * 2.0)
+                    .min((body_bottom - full.top()).max(0.0));
+                let top = body_bottom - band;
+                error_band = Some((
+                    Rect::from_min_max(
+                        Pos2::new(full.left(), top),
+                        Pos2::new(full.right(), body_bottom),
+                    ),
+                    galley,
+                ));
+                body_bottom = (top - ERROR_BAND_GAP).max(full.top());
+            }
+            let body_rect = Rect::from_min_max(full.min, Pos2::new(full.right(), body_bottom));
             let footer_rect = Rect::from_min_max(Pos2::new(full.left(), footer_top), full.max);
+            if let Some((rect, galley)) = error_band {
+                let painter = ui.painter();
+                painter.rect(
+                    rect,
+                    egui::Rounding::same(10.0),
+                    with_alpha(theme.palette.danger, 12),
+                    egui::Stroke::new(1.0_f32, with_alpha(theme.palette.danger, 45)),
+                );
+                painter.galley(
+                    Pos2::new(
+                        rect.left() + 14.0,
+                        rect.top()
+                            + ERROR_BAND_PADDING.max((rect.height() - galley.size().y) * 0.5),
+                    ),
+                    galley,
+                    theme.palette.danger,
+                );
+            }
             ui.allocate_ui_at_rect(body_rect, |ui| {
                 egui::ScrollArea::vertical()
                     .max_height(body_rect.height())
@@ -551,50 +604,51 @@ pub fn setup(
                             _ => {}
                         }
                         ui.add_space(10.0);
-                        messages(ui, theme, texts, state, now);
+                        messages(ui, theme, texts, state, now, false);
                     });
             });
 
             ui.allocate_ui_at_rect(footer_rect, |ui| {
-            if state.setup_step == 1 {
-                if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
-                    next = true;
-                }
-            } else {
-                // `flex items-center gap-2` with two `flex-1` buttons: both halves share the row,
-                // so each one is drawn at its computed width instead of the full row width.
-                let gap = 8.0;
-                // The card body is wider than its visible frame here, so derive the half width from
-                // the card geometry instead of the parent's available width.
-                let inner = (kit::WIZARD_CARD_WIDTH.min(page_width) - kit::card_padding(ui) * 2.0)
-                    .max(160.0);
-                let width = ((inner - gap) * 0.5).max(80.0);
-                let last = state.setup_step + 1 == SETUP_STEPS;
-                let label = if last {
-                    texts.get("auth_create_admin")
+                if state.setup_step == 1 {
+                    if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
+                        next = true;
+                    }
                 } else {
-                    texts.get("setup_next")
-                };
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = gap;
-                    if kit::secondary_button_sized(
-                        ui,
-                        theme,
-                        focus,
-                        texts.get("setup_step_back"),
-                        width,
-                    ) {
-                        back = true;
-                    }
-                    if kit::primary_button_sized(ui, theme, focus, label, width) {
-                        if last {
-                            create = true;
-                        } else {
-                            next = true;
+                    // `flex items-center gap-2` with two `flex-1` buttons: both halves share the row,
+                    // so each one is drawn at its computed width instead of the full row width.
+                    let gap = 8.0;
+                    // The card body is wider than its visible frame here, so derive the half width from
+                    // the card geometry instead of the parent's available width.
+                    let inner = (kit::WIZARD_CARD_WIDTH.min(page_width)
+                        - kit::card_padding(ui) * 2.0)
+                        .max(160.0);
+                    let width = ((inner - gap) * 0.5).max(80.0);
+                    let last = state.setup_step + 1 == SETUP_STEPS;
+                    let label = if last {
+                        texts.get("auth_create_admin")
+                    } else {
+                        texts.get("setup_next")
+                    };
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = gap;
+                        if kit::secondary_button_sized(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("setup_step_back"),
+                            width,
+                        ) {
+                            back = true;
                         }
-                    }
-                });
-            }
+                        if kit::primary_button_sized(ui, theme, focus, label, width) {
+                            if last {
+                                create = true;
+                            } else {
+                                next = true;
+                            }
+                        }
+                    });
+                }
             });
         },
     );
@@ -696,23 +750,28 @@ fn language_step(
             );
             let footer_rect = Rect::from_min_max(Pos2::new(full.left(), footer_top), full.max);
             ui.allocate_ui_at_rect(list_rect, |ui| {
-                {
-                    for (language, badge, subtitle_key) in LANGUAGES {
-                        if kit::language_row(
-                            ui,
-                            theme,
-                            focus,
-                            badge,
-                            language_label(language),
-                            texts.get(subtitle_key),
-                            selected == language,
-                            texts.get("setup_current_selection"),
-                        ) {
-                            state.language_choice = Some(language);
+                // The comment above describes a scrolling list; without the scroll area the rows
+                // below the band were cut off in a short window and the wheel moved nothing.
+                egui::ScrollArea::vertical()
+                    .max_height(list_rect.height())
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        for (language, badge, subtitle_key) in LANGUAGES {
+                            if kit::language_row(
+                                ui,
+                                theme,
+                                focus,
+                                badge,
+                                language_label(language),
+                                texts.get(subtitle_key),
+                                selected == language,
+                                texts.get("setup_current_selection"),
+                            ) {
+                                state.language_choice = Some(language);
+                            }
+                            ui.add_space(10.0);
                         }
-                        ui.add_space(10.0);
-                    }
-                }
+                    });
             });
             ui.allocate_ui_at_rect(footer_rect, |ui| {
                 if kit::primary_button(ui, theme, focus, texts.get("setup_next")) {
@@ -901,15 +960,30 @@ fn warning(ui: &mut Ui, theme: &Theme, text: &str) {
         .rounding(egui::Rounding::same(12.0))
         .inner_margin(egui::Margin::same(12.0))
         .show(ui, |ui| {
+            // A label inside a horizontal row sees an unbounded width and does not wrap, so the
+            // warning ran out of the card in a narrow window. The text gets its own column, which
+            // wraps at the width the icon leaves over.
+            let text_width = (ui.available_width() - 16.0 - 8.0).max(40.0);
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = 8.0;
                 let (rect, _) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
                 Icon::Info.draw(ui.painter(), rect, theme.palette.warning, 1.5);
-                ui.label(RichText::new(text).size(12.0).color(if kit::dark(theme) {
-                    theme.palette.warning
-                } else {
-                    egui::Color32::from_rgb(0x92, 0x40, 0x0e)
-                }));
+                ui.allocate_ui_with_layout(
+                    Vec2::new(text_width, 0.0),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        ui.add(
+                            egui::Label::new(RichText::new(text).size(12.0).color(
+                                if kit::dark(theme) {
+                                    theme.palette.warning
+                                } else {
+                                    egui::Color32::from_rgb(0x92, 0x40, 0x0e)
+                                },
+                            ))
+                            .wrap(true),
+                        );
+                    },
+                );
             });
         });
 }
@@ -1255,55 +1329,39 @@ fn apps_step(
             .map(|slug| (*slug).to_owned())
             .collect();
     }
-    kit::panel(ui, theme, |ui| {
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 12.0;
-            kit::icon_tile(ui, Icon::Grid, 36.0, theme.accent.base);
-            ui.label(
-                RichText::new(texts.get("setup_apps_panel_title"))
-                    .size(15.0)
-                    .family(crate::theme::semibold())
-                    .color(theme.palette.text),
-            );
+    section_row(ui, theme, texts.get("setup_apps_panel_title"), None);
+    ui.add_space(8.0);
+    for row in TEMPLATES.chunks(2) {
+        kit::columns(ui, 10.0, 2, |ui, index, _| {
+            if let Some((template, icon, title_key, description_key, color)) = row.get(index) {
+                if kit::app_tile(
+                    ui,
+                    theme,
+                    focus,
+                    &format!("template-{:?}", template),
+                    *icon,
+                    tint(*color),
+                    texts.get(title_key),
+                    texts.get(description_key),
+                    state.template_choice == *template,
+                ) {
+                    state.template_choice = *template;
+                    state.setup_apps = template_apps(*template)
+                        .iter()
+                        .map(|slug| (*slug).to_owned())
+                        .collect();
+                }
+            }
         });
         ui.add_space(10.0);
-        for row in TEMPLATES.chunks(2) {
-            kit::columns(ui, 10.0, 2, |ui, index, _| {
-                if let Some((template, icon, title_key, description_key, color)) = row.get(index) {
-                    if kit::template_tile(
-                        ui,
-                        theme,
-                        focus,
-                        &format!("template-{:?}", template),
-                        *icon,
-                        tint(*color),
-                        texts.get(title_key),
-                        texts.get(description_key),
-                        state.template_choice == *template,
-                    ) {
-                        state.template_choice = *template;
-                        state.setup_apps = template_apps(*template)
-                            .iter()
-                            .map(|slug| (*slug).to_owned())
-                            .collect();
-                    }
-                }
-            });
-            ui.add_space(10.0);
-        }
-    });
-    ui.add_space(12.0);
-    ui.horizontal(|ui| {
-        ui.label(
-            RichText::new(texts.get("setup_apps_select"))
-                .size(13.0)
-                .family(crate::theme::semibold())
-                .color(theme.palette.text),
-        );
-        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-            kit::hint(ui, theme, texts.get("setup_apps_hint"));
-        });
-    });
+    }
+    ui.add_space(2.0);
+    section_row(
+        ui,
+        theme,
+        texts.get("setup_apps_select"),
+        Some(texts.get("setup_apps_hint")),
+    );
     ui.add_space(8.0);
     let modules = socdof_core::app_store::modules(store).unwrap_or_default();
     let rows: Vec<_> = modules
@@ -1339,6 +1397,57 @@ fn apps_step(
     }
 }
 
+/// Paints a section heading with an optional hint.
+///
+/// The hint sits on the right of the same row while both texts and a 24 point gap fit into the
+/// panel; on a phone it moves below the heading instead of being painted over it.
+fn section_row(ui: &mut Ui, theme: &Theme, label: &str, hint: Option<&str>) {
+    let label_width = ui
+        .painter()
+        .layout_no_wrap(
+            label.to_owned(),
+            FontId::new(13.0, crate::theme::semibold()),
+            theme.palette.text,
+        )
+        .size()
+        .x;
+    let side_by_side = hint.is_some_and(|hint| {
+        let hint_width = ui
+            .painter()
+            .layout_no_wrap(
+                hint.to_owned(),
+                FontId::new(12.0, FontFamily::Proportional),
+                theme.palette.text_muted,
+            )
+            .size()
+            .x;
+        label_width + hint_width + 24.0 <= ui.available_width()
+    });
+    if let (true, Some(hint)) = (side_by_side, hint) {
+        ui.horizontal(|ui| {
+            ui.label(
+                RichText::new(label)
+                    .size(13.0)
+                    .family(crate::theme::semibold())
+                    .color(theme.palette.text),
+            );
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                kit::hint(ui, theme, hint);
+            });
+        });
+    } else {
+        ui.label(
+            RichText::new(label)
+                .size(13.0)
+                .family(crate::theme::semibold())
+                .color(theme.palette.text),
+        );
+        if let Some(hint) = hint {
+            kit::hint(ui, theme, hint);
+        }
+    }
+}
+
 /// Step 5: summary before the account is created.
 fn finish_step(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &AuthState) {
     kit::muted(ui, theme, texts.get("setup_wizard_finish_body"));
@@ -1360,7 +1469,7 @@ fn finish_step(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &AuthState) {
                     .to_string(),
             ),
             (
-                texts.get("setup_apps_select"),
+                texts.get("setup_step_apps"),
                 format!("{}", state.setup_apps.len()),
             ),
         ];

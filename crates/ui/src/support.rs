@@ -741,6 +741,32 @@ fn list_view(
 
     let mut chosen = None;
     card(ui, theme, |ui| {
+        // The three-column grid sizes its subject column to the longest ticket; on the phone
+        // panel that ran past the right edge. Below the stacking width the two badges sit on
+        // their own line under the subject instead.
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            for ticket in &state.tickets {
+                if button(ui, theme, focus, &ticket.subject, ButtonVariant::Ghost).activated {
+                    chosen = Some(ticket.id);
+                }
+                ui.horizontal_wrapped(|ui| {
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(STATUS_KEYS[status_index(ticket.status)]),
+                        status_tone(ticket.status),
+                    );
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(PRIORITY_KEYS[priority_index(ticket.priority)]),
+                        priority_tone(ticket.priority),
+                    );
+                });
+                ui.add_space(6.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-support-table")
             .num_columns(3)
             .spacing(egui::vec2(16.0, 8.0))
@@ -816,7 +842,9 @@ fn detail_view(
     ui.add_space(6.0);
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        // A long subject pushed its status badges past the phone panel; wrapping keeps them on
+        // the next line.
+        ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(&ticket.subject).size(FONT_TITLE).strong());
             badge(
                 ui,
@@ -841,7 +869,8 @@ fn detail_view(
     let mut next_status = None;
     let mut edit = false;
     let mut delete = false;
-    ui.horizontal(|ui| {
+    // Five action buttons do not fit one phone line; wrapping keeps all of them reachable.
+    ui.horizontal_wrapped(|ui| {
         for status in [
             TicketStatus::Open,
             TicketStatus::InProgress,
@@ -927,7 +956,7 @@ fn time_card(
     let mut add = false;
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.label(
                 RichText::new(texts.get("support_time_title"))
                     .size(FONT_TITLE)
@@ -952,6 +981,27 @@ fn time_card(
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
+        } else if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Three columns of description, tracked time and the remove action do not fit the
+            // phone panel; the description leads and the figures follow underneath.
+            for entry in &entries {
+                ui.label(&entry.description);
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(hours_label(entry.minutes));
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("support_time_delete"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        remove = Some(entry.id);
+                    }
+                });
+                ui.add_space(4.0);
+            }
         } else {
             egui::Grid::new("socdof-support-time")
                 .num_columns(3)

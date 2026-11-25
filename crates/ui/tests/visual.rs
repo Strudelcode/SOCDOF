@@ -178,11 +178,11 @@ fn primitives_match_the_golden_files() {
                 }
 
                 if is_evolving_shell_scene(variant) {
-                    // The desktop clock widget keeps its 24 hour label (`00:00`), while the
-                    // taskbar prints the 12 hour form with seconds (`12:00:00 AM`); either one
-                    // proves the shell drew a live clock.
+                    // The scenes render at a fixed timestamp (one second), which the taskbar tray
+                    // prints as its 24 hour label with seconds (`00:00:01`); that line proves the
+                    // shell drew a clock. The clock widget column of the older shell is gone.
                     assert!(
-                        painted.contains("\"00:00\"") || painted.contains("\"12:00:00 AM\""),
+                        painted.contains("\"00:00:01\""),
                         "{variant:?} scene is missing its desktop clock ({language:?}, {appearance:?})"
                     );
                     assert!(

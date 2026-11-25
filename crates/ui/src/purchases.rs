@@ -11,7 +11,7 @@
 //! Views are list, detail and form. Every control registers in the shared [`FocusState`], every
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
-use egui::{Context, RichText};
+use egui::{Align, Context, Layout, RichText, Vec2};
 use socdof_core::date;
 use socdof_core::domain::contact::{Contact, ContactKind};
 use socdof_core::domain::purchase::{
@@ -22,7 +22,8 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    badge, button, card, empty_state, form_columns, modal, search_field_reserved, toolbar,
+    ButtonVariant, Tone, FORM_STACK_WIDTH,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::focus::FocusState;
@@ -885,49 +886,61 @@ fn list_view(
 
     ui.add_space(12.0);
     let mut create = false;
-    ui.horizontal(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("purchases_search"),
-            150.0,
-        );
-        let mut names: Vec<String> = vec![texts.get("purchases_all_vendors").to_string()];
-        names.extend(state.vendors.iter().map(contact_label));
-        let labels: Vec<&str> = names.iter().map(String::as_str).collect();
-        let previous = state.vendor_choice;
-        select(
-            ui,
-            theme,
-            focus,
-            &mut state.vendor_filter_popup,
-            "purchase-vendor-filter",
-            &mut state.vendor_choice,
-            &labels,
-        );
-        if state.vendor_choice != previous {
-            let vendor = state
-                .vendor_choice
-                .checked_sub(1)
-                .and_then(|index| state.vendors.get(index))
-                .map(|contact| contact.id);
-            state.vendor_filter = vendor;
-            state.reload = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("purchases_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
-    });
+    // The vendor filter reads the vendor list; the actions borrow the filter state, the search
+    // closure only the query, so the two closures keep disjoint field borrows.
+    let vendors = state.vendors.clone();
+    let vendor_filter = &mut state.vendor_filter;
+    let reload = &mut state.reload;
+    toolbar(
+        ui,
+        focus,
+        420.0,
+        |ui, focus, reserve| {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("purchases_search"),
+                reserve,
+            );
+        },
+        |ui, focus| {
+            let mut names: Vec<String> = vec![texts.get("purchases_all_vendors").to_string()];
+            names.extend(vendors.iter().map(contact_label));
+            let labels: Vec<&str> = names.iter().map(String::as_str).collect();
+            let previous = state.vendor_choice;
+            select(
+                ui,
+                theme,
+                focus,
+                &mut state.vendor_filter_popup,
+                "purchase-vendor-filter",
+                &mut state.vendor_choice,
+                &labels,
+            );
+            if state.vendor_choice != previous {
+                let vendor = state
+                    .vendor_choice
+                    .checked_sub(1)
+                    .and_then(|index| vendors.get(index))
+                    .map(|contact| contact.id);
+                *vendor_filter = vendor;
+                *reload = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("purchases_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+        },
+    );
     if create {
         state.start_new(now);
         return;
@@ -957,7 +970,34 @@ fn list_view(
     }
 
     let mut chosen = None;
+    let stacked = ui.available_width() < FORM_STACK_WIDTH;
     card(ui, theme, |ui| {
+        if stacked {
+            for order in &state.orders {
+                if button(ui, theme, focus, &order.number, ButtonVariant::Ghost).activated {
+                    chosen = Some(order.id);
+                }
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(contact_name(&state.vendors, order.vendor_id));
+                    ui.label(format_date(order.order_date));
+                    ui.label(
+                        order
+                            .expected_at
+                            .map(format_date)
+                            .unwrap_or_else(|| "—".to_string()),
+                    );
+                    ui.label(money(&order.currency_symbol, order.total_gross()));
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(status_key(order.status)),
+                        status_tone(order.status),
+                    );
+                });
+                ui.add_space(6.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-purchases-table")
             .num_columns(6)
             .spacing(egui::vec2(16.0, 8.0))
@@ -1076,36 +1116,62 @@ fn detail_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("purchases_lines_title")).strong());
         ui.add_space(6.0);
-        egui::Grid::new("socdof-purchase-lines")
-            .num_columns(6)
-            .spacing(egui::vec2(14.0, 6.0))
-            .show(ui, |ui| {
-                for key in [
-                    "purchases_line_description",
-                    "purchases_line_quantity",
-                    "purchases_line_price",
-                    "purchases_total_net",
-                    "purchases_total_tax",
-                    "purchases_total_gross",
-                ] {
+        if ui.available_width() < FORM_STACK_WIDTH {
+            for line in &order.lines {
+                ui.label(RichText::new(&line.description).strong());
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(format!(
+                        "{} × {}",
+                        milli_text(line.quantity_milli),
+                        money(&order.currency_symbol, line.unit_cost)
+                    ));
+                    ui.label(RichText::new(money(&order.currency_symbol, line.gross())).strong());
                     ui.label(
-                        RichText::new(texts.get(key))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
+                        RichText::new(format!(
+                            "{} {} · {} {}",
+                            texts.get("purchases_total_net"),
+                            money(&order.currency_symbol, line.net()),
+                            texts.get("purchases_total_tax"),
+                            money(&order.currency_symbol, line.tax())
+                        ))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
                     );
-                }
-                ui.end_row();
-                for line in &order.lines {
-                    ui.label(&line.description);
-                    ui.label(milli_text(line.quantity_milli));
-                    ui.label(money(&order.currency_symbol, line.unit_cost));
-                    ui.label(money(&order.currency_symbol, line.net()));
-                    ui.label(money(&order.currency_symbol, line.tax()));
-                    ui.label(money(&order.currency_symbol, line.gross()));
+                });
+                ui.add_space(6.0);
+            }
+        } else {
+            egui::Grid::new("socdof-purchase-lines")
+                .num_columns(6)
+                .spacing(egui::vec2(14.0, 6.0))
+                .show(ui, |ui| {
+                    for key in [
+                        "purchases_line_description",
+                        "purchases_line_quantity",
+                        "purchases_line_price",
+                        "purchases_total_net",
+                        "purchases_total_tax",
+                        "purchases_total_gross",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(key))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
                     ui.end_row();
-                }
-            });
+                    for line in &order.lines {
+                        ui.label(&line.description);
+                        ui.label(milli_text(line.quantity_milli));
+                        ui.label(money(&order.currency_symbol, line.unit_cost));
+                        ui.label(money(&order.currency_symbol, line.net()));
+                        ui.label(money(&order.currency_symbol, line.tax()));
+                        ui.label(money(&order.currency_symbol, line.gross()));
+                        ui.end_row();
+                    }
+                });
+        }
         ui.add_space(8.0);
         for (label, amount) in [
             ("purchases_total_net", order.total_net()),
@@ -1128,7 +1194,7 @@ fn detail_view(
     let mut receive = false;
     let mut edit = false;
     let mut delete = false;
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         if order.status == PurchaseOrderStatus::Draft {
             let activated = button(
                 ui,
@@ -1329,40 +1395,39 @@ fn form_view(
                 None,
             );
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.quantity,
-                        texts.get("purchases_line_quantity"),
-                        texts.get("purchases_line_quantity_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.unit_cost,
-                        texts.get("purchases_line_price"),
-                        texts.get("purchases_line_price_hint"),
-                        None,
-                    );
-                });
-                ui.vertical(|ui| {
-                    text_field(
-                        ui,
-                        theme,
-                        focus,
-                        &mut line.tax_rate,
-                        texts.get("purchases_line_tax"),
-                        texts.get("purchases_line_tax_hint"),
-                        None,
-                    );
-                });
+            // Quantity, unit cost, tax and the remove button share one row only while all four have
+            // room; on the phone each field takes its own row so the cost keeps a usable width.
+            if ui.available_width() < FORM_STACK_WIDTH {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.quantity,
+                    texts.get("purchases_line_quantity"),
+                    texts.get("purchases_line_quantity_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.unit_cost,
+                    texts.get("purchases_line_price"),
+                    texts.get("purchases_line_price_hint"),
+                    None,
+                );
+                ui.add_space(4.0);
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut line.tax_rate,
+                    texts.get("purchases_line_tax"),
+                    texts.get("purchases_line_tax_hint"),
+                    None,
+                );
+                ui.add_space(6.0);
                 if button(
                     ui,
                     theme,
@@ -1374,7 +1439,49 @@ fn form_view(
                 {
                     remove_line = Some(index);
                 }
-            });
+            } else {
+                // A labelled text field fills the width it is given, so the four cells of this row
+                // need explicit widths; otherwise the first field takes the whole row and the cost
+                // and tax columns collapse into a letter-per-line sliver.
+                let widths = form_columns(ui, 3, 110.0);
+                ui.horizontal(|ui| {
+                    for (slot, width) in widths.iter().enumerate() {
+                        let (value, label, hint) = match slot {
+                            0 => (
+                                &mut line.quantity,
+                                texts.get("purchases_line_quantity"),
+                                texts.get("purchases_line_quantity_hint"),
+                            ),
+                            1 => (
+                                &mut line.unit_cost,
+                                texts.get("purchases_line_price"),
+                                texts.get("purchases_line_price_hint"),
+                            ),
+                            _ => (
+                                &mut line.tax_rate,
+                                texts.get("purchases_line_tax"),
+                                texts.get("purchases_line_tax_hint"),
+                            ),
+                        };
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(*width, 0.0),
+                            Layout::top_down(Align::Min),
+                            |ui| text_field(ui, theme, focus, value, label, hint, None),
+                        );
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("purchases_line_remove"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        remove_line = Some(index);
+                    }
+                });
+            }
         }
         ui.add_space(8.0);
         if button(

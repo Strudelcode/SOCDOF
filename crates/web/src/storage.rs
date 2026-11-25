@@ -164,11 +164,18 @@ fn read_snapshot(database: &IdbDatabase, slots: Rc<RefCell<Slots>>) {
             .target()
             .and_then(|target| target.dyn_into::<IdbRequest>().ok())
             .and_then(|request| request.result().ok());
-        let snapshot = value
-            .and_then(|value| value.dyn_into::<js_sys::Uint8Array>().ok())
-            .map(|array| array.to_vec());
         let mut slots = loaded.borrow_mut();
-        slots.snapshot = snapshot;
+        // A browser without a stored image answers with `undefined`, which is a first start and
+        // not an error. A value that is present but cannot be decoded is different: reporting it
+        // as "empty" would make the host write a blank database over the user's data.
+        if let Some(value) = value {
+            if !value.is_null() && !value.is_undefined() {
+                match decode_snapshot(&value) {
+                    Some(bytes) => slots.snapshot = Some(bytes),
+                    None => slots.failed = true,
+                }
+            }
+        }
         slots.finished = true;
     });
     request.set_onsuccess(Some(success.as_ref().unchecked_ref()));
@@ -180,6 +187,21 @@ fn read_snapshot(database: &IdbDatabase, slots: Rc<RefCell<Slots>>) {
     });
     request.set_onerror(Some(error.as_ref().unchecked_ref()));
     error.forget();
+}
+
+/// Decodes a stored database image.
+///
+/// IndexedDB hands a stored `Uint8Array` back as `Uint8Array`, but an `ArrayBuffer` (an older build
+/// or a browser that clones it differently) has to be accepted as well; anything else is reported
+/// as a failed read instead of an empty database.
+fn decode_snapshot(value: &JsValue) -> Option<Vec<u8>> {
+    if let Some(array) = value.dyn_ref::<js_sys::Uint8Array>() {
+        return Some(array.to_vec());
+    }
+    if let Some(buffer) = value.dyn_ref::<js_sys::ArrayBuffer>() {
+        return Some(js_sys::Uint8Array::new(buffer).to_vec());
+    }
+    None
 }
 
 /// Marks the read as finished and failed.

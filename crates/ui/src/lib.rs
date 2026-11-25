@@ -72,6 +72,9 @@ pub mod users;
 pub mod wallpaper;
 pub mod widgets;
 
+#[cfg(test)]
+mod phone_sweep;
+
 pub use accounting::{
     accounting, accounting_window, seed_accounting, AccountingDraft, AccountingState,
     AccountingTab, AccountingView,

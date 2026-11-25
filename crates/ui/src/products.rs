@@ -1245,6 +1245,33 @@ fn list_view(
 
     let mut chosen = None;
     card(ui, theme, |ui| {
+        // Five columns with an unwrapping name button do not fit the phone panel: below the
+        // stacking width each product keeps its name on the first line and the figures below it.
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            for product in &state.products {
+                if button(ui, theme, focus, &product.name, ButtonVariant::Ghost).activated {
+                    chosen = Some(product.id);
+                }
+                ui.label(
+                    RichText::new(format!(
+                        "{} · {} {} · {}",
+                        product.sku,
+                        product.stock,
+                        product.unit,
+                        money(product.price)
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+                if product.needs_reorder() {
+                    badge(ui, theme, texts.get("products_low_stock"), Tone::Warning);
+                } else {
+                    badge(ui, theme, texts.get("products_in_stock"), Tone::Success);
+                }
+                ui.add_space(6.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-products-table")
             .num_columns(5)
             .spacing(egui::vec2(16.0, 8.0))
@@ -1314,7 +1341,9 @@ fn detail_view(
     ui.add_space(6.0);
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
+        // A long product name pushed its badges past the phone panel; wrapping keeps them on the
+        // next line.
+        ui.horizontal_wrapped(|ui| {
             ui.label(RichText::new(&product.name).size(FONT_TITLE).strong());
             if product.needs_reorder() {
                 badge(ui, theme, texts.get("products_low_stock"), Tone::Warning);
@@ -1414,7 +1443,8 @@ fn detail_view(
     let mut delete = false;
     let mut label = false;
     let mut reorder = false;
-    ui.horizontal(|ui| {
+    // Five actions do not fit one phone line; wrapping keeps every button inside the panel.
+    ui.horizontal_wrapped(|ui| {
         if button(
             ui,
             theme,

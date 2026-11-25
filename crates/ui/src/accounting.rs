@@ -33,7 +33,8 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, tabs, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, tabs, toolbar, ButtonVariant,
+    Tone,
 };
 use crate::controls::{select, text_field, PopupState};
 use crate::dashboard::Period as DashboardPeriod;
@@ -1286,7 +1287,10 @@ fn list_view(
         state.reload = true;
     }
     if state.period == AccountingPeriod::Custom {
-        ui.horizontal(|ui| {
+        // `available_width` can report the content width inside a vertical scroll area; the clip
+        // rectangle is the width the user actually sees.
+        let field_width = ui.available_width().min(ui.clip_rect().width());
+        if field_width < crate::components::FORM_STACK_WIDTH {
             let from_changed = text_field(
                 ui,
                 theme,
@@ -1298,6 +1302,7 @@ fn list_view(
             )
             .response
             .changed();
+            ui.add_space(4.0);
             let to_changed = text_field(
                 ui,
                 theme,
@@ -1312,7 +1317,35 @@ fn list_view(
             if from_changed || to_changed {
                 state.reload = true;
             }
-        });
+        } else {
+            ui.horizontal_wrapped(|ui| {
+                let from_changed = text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.custom_from,
+                    texts.get("accounting_period_from"),
+                    "YYYY-MM-DD",
+                    None,
+                )
+                .response
+                .changed();
+                let to_changed = text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.custom_to,
+                    texts.get("accounting_period_to"),
+                    "YYYY-MM-DD",
+                    None,
+                )
+                .response
+                .changed();
+                if from_changed || to_changed {
+                    state.reload = true;
+                }
+            });
+        }
     }
     ui.add_space(4.0);
     let mut tab_index = state.tab.index();
@@ -1333,20 +1366,31 @@ fn list_view(
     }
     ui.add_space(8.0);
 
-    ui.horizontal(|ui| {
-        if matches!(
-            state.tab,
-            AccountingTab::Journal | AccountingTab::CashBook | AccountingTab::Bwa
-        ) {
-            search_field_reserved(
-                ui,
-                theme,
-                focus,
-                &mut state.query,
-                texts.get("accounting_search"),
-                150.0,
-            );
-            if button(
+    let mut new_entry = false;
+    toolbar(
+        ui,
+        focus,
+        280.0,
+        |ui, focus, reserve| {
+            if matches!(
+                state.tab,
+                AccountingTab::Journal | AccountingTab::CashBook | AccountingTab::Bwa
+            ) {
+                search_field_reserved(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.query,
+                    texts.get("accounting_search"),
+                    reserve,
+                );
+            }
+        },
+        |ui, focus| {
+            if matches!(
+                state.tab,
+                AccountingTab::Journal | AccountingTab::CashBook | AccountingTab::Bwa
+            ) && button(
                 ui,
                 theme,
                 focus,
@@ -1355,103 +1399,106 @@ fn list_view(
             )
             .activated
             {
-                state.start_new();
+                new_entry = true;
             }
-        }
-        if state.tab == AccountingTab::BusinessReport {
-            let (current_year, _, _) = date::civil_from_millis(now);
-            let current_year = i32::try_from(current_year).unwrap_or(1970);
-            let year_values: Vec<String> = (current_year - 5..=current_year + 1)
-                .map(|year| year.to_string())
-                .collect();
-            let year_labels: Vec<&str> = year_values.iter().map(String::as_str).collect();
-            ui.label(texts.get("accounting_tax_advisor_year"));
-            let mut year_index = state
-                .tax_advisor_year
-                .saturating_sub(current_year - 5)
-                .clamp(0, 6) as usize;
-            if select(
-                ui,
-                theme,
-                focus,
-                &mut state.tax_advisor_year_popup,
-                "accounting-tax-advisor-year",
-                &mut year_index,
-                &year_labels,
-            ) {
-                state.tax_advisor_year = current_year - 5 + year_index as i32;
-                state.reload = true;
-            }
+            if state.tab == AccountingTab::BusinessReport {
+                let (current_year, _, _) = date::civil_from_millis(now);
+                let current_year = i32::try_from(current_year).unwrap_or(1970);
+                let year_values: Vec<String> = (current_year - 5..=current_year + 1)
+                    .map(|year| year.to_string())
+                    .collect();
+                let year_labels: Vec<&str> = year_values.iter().map(String::as_str).collect();
+                ui.label(texts.get("accounting_tax_advisor_year"));
+                let mut year_index = state
+                    .tax_advisor_year
+                    .saturating_sub(current_year - 5)
+                    .clamp(0, 6) as usize;
+                if select(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_year_popup,
+                    "accounting-tax-advisor-year",
+                    &mut year_index,
+                    &year_labels,
+                ) {
+                    state.tax_advisor_year = current_year - 5 + year_index as i32;
+                    state.reload = true;
+                }
 
-            let month_labels: Vec<&str> = state
-                .tax_advisor_months
-                .iter()
-                .map(|month| month.month_name.as_str())
-                .collect();
-            let mut month_index = state.tax_advisor_month_index.min(11);
-            if select(
-                ui,
-                theme,
-                focus,
-                &mut state.tax_advisor_month_popup,
-                "accounting-tax-advisor-month",
-                &mut month_index,
-                &month_labels,
-            ) {
-                state.tax_advisor_month_index = month_index;
+                let month_labels: Vec<&str> = state
+                    .tax_advisor_months
+                    .iter()
+                    .map(|month| month.month_name.as_str())
+                    .collect();
+                let mut month_index = state.tax_advisor_month_index.min(11);
+                if select(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.tax_advisor_month_popup,
+                    "accounting-tax-advisor-month",
+                    &mut month_index,
+                    &month_labels,
+                ) {
+                    state.tax_advisor_month_index = month_index;
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("accounting_tax_advisor_csv_month"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    state.tax_advisor_month_csv_export = true;
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("accounting_tax_advisor_opening_balance"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    state.tax_advisor_carryover_open = true;
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("accounting_tax_advisor_export"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    state.tax_advisor_export = true;
+                }
             }
-            if button(
+            if matches!(
+                state.tab,
+                AccountingTab::Journal
+                    | AccountingTab::CashBook
+                    | AccountingTab::Bwa
+                    | AccountingTab::BusinessReport
+            ) && button(
                 ui,
                 theme,
                 focus,
-                texts.get("accounting_tax_advisor_csv_month"),
+                texts.get("accounting_export"),
                 ButtonVariant::Secondary,
             )
             .activated
             {
-                state.tax_advisor_month_csv_export = true;
+                state.export = true;
             }
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("accounting_tax_advisor_opening_balance"),
-                ButtonVariant::Secondary,
-            )
-            .activated
-            {
-                state.tax_advisor_carryover_open = true;
-            }
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("accounting_tax_advisor_export"),
-                ButtonVariant::Primary,
-            )
-            .activated
-            {
-                state.tax_advisor_export = true;
-            }
-        }
-        if matches!(
-            state.tab,
-            AccountingTab::Journal
-                | AccountingTab::CashBook
-                | AccountingTab::Bwa
-                | AccountingTab::BusinessReport
-        ) && button(
-            ui,
-            theme,
-            focus,
-            texts.get("accounting_export"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            state.export = true;
-        }
-    });
+        },
+    );
+    if new_entry {
+        state.start_new();
+    }
 
     ui.add_space(12.0);
     if state.view != AccountingView::List {
@@ -1498,7 +1545,30 @@ fn journal_table(
     }
 
     let mut chosen = None;
+    let stacked = ui.available_width() < crate::components::FORM_STACK_WIDTH;
     card(ui, theme, |ui| {
+        if stacked {
+            for entry in &state.entries {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(format_date(entry.booked_at));
+                    ui.label(&entry.account);
+                    ui.label("→");
+                    ui.label(&entry.counter_account);
+                    ui.label(money(entry.amount));
+                    badge(
+                        ui,
+                        theme,
+                        texts.get(kind_key(entry.kind)),
+                        kind_tone(entry.kind),
+                    );
+                });
+                if button(ui, theme, focus, &entry.description, ButtonVariant::Ghost).activated {
+                    chosen = Some(entry.id);
+                }
+                ui.add_space(4.0);
+            }
+            return;
+        }
         egui::Grid::new("socdof-journal-table")
             .num_columns(6)
             .spacing(egui::vec2(16.0, 8.0))
@@ -1748,6 +1818,10 @@ fn business_report_view(
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
         ui.add_space(6.0);
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            vat_breakdown_stacked(ui, theme, texts, state, report);
+            return;
+        }
         egui::Grid::new("socdof-business-vat")
             .num_columns(3)
             .spacing(egui::vec2(16.0, 6.0))
@@ -1901,11 +1975,80 @@ fn business_report_view(
     });
 }
 
+/// Stacked variant of the VAT breakdown for narrow panels.
+///
+/// The three-column grid put "Zu versteuernde Bemessungsgrundlage" next to two amounts and reached
+/// 550 px on the phone; here each figure gets its own wrapped line.
+fn vat_breakdown_stacked(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &AccountingState,
+    report: &BusinessAccountingReport,
+) {
+    let basis = texts.get("accounting_business_taxable_basis");
+    let vat = texts.get("accounting_business_vat_amount");
+    for (rate, bucket) in [("7 %", report.vat_7), ("19 %", report.vat_19)] {
+        ui.label(RichText::new(rate).strong());
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(basis)
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.label(money_in_currency(bucket.net, &state.currency_symbol));
+            ui.label(
+                RichText::new(vat)
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.label(money_in_currency(bucket.tax, &state.currency_symbol));
+        });
+        ui.add_space(4.0);
+    }
+    for (label, net, tax) in [
+        (
+            "accounting_business_output_vat",
+            report.revenue_net,
+            report.output_vat,
+        ),
+        (
+            "accounting_business_input_vat",
+            report.purchase_net,
+            report.purchase_tax,
+        ),
+    ] {
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(texts.get(label))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            ui.label(money_in_currency(net, &state.currency_symbol));
+            ui.label(money_in_currency(tax, &state.currency_symbol));
+        });
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(texts.get("accounting_tax_balance")).strong());
+        ui.label(
+            RichText::new(money_in_currency(
+                report.vat_liability,
+                &state.currency_symbol,
+            ))
+            .strong(),
+        );
+    });
+}
+
 fn vat_return_view(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, state: &AccountingState) {
     let report = &state.business_report;
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("accounting_business_vat")).strong());
         ui.add_space(8.0);
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            vat_breakdown_stacked(ui, theme, texts, state, report);
+            return;
+        }
         egui::Grid::new("socdof-accounting-vat-return")
             .num_columns(3)
             .spacing(egui::vec2(18.0, 8.0))

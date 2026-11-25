@@ -177,24 +177,29 @@ pub fn stock_moves_window(
 ) -> bool {
     state.refresh(store);
     let mut back = false;
-    ui.horizontal(|ui| {
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("products_back"),
-            ButtonVariant::Ghost,
-        )
-        .activated
-        {
-            back = true;
-        }
-        ui.label(
-            RichText::new(texts.get("stock_journal_title"))
-                .size(FONT_TITLE)
-                .strong(),
-        );
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+    if narrow {
+        // The back button, the title and both actions shared one row; on the phone the title was
+        // pushed out and the two actions overlapped each other, so the header stacks instead.
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("products_back"),
+                ButtonVariant::Ghost,
+            )
+            .activated
+            {
+                back = true;
+            }
+            ui.label(
+                RichText::new(texts.get("stock_journal_title"))
+                    .size(FONT_TITLE)
+                    .strong(),
+            );
+        });
+        ui.horizontal_wrapped(|ui| {
             if button(
                 ui,
                 theme,
@@ -224,7 +229,56 @@ pub fn stock_moves_window(
                 export_csv(state, texts, now);
             }
         });
-    });
+    } else {
+        ui.horizontal(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("products_back"),
+                ButtonVariant::Ghost,
+            )
+            .activated
+            {
+                back = true;
+            }
+            ui.label(
+                RichText::new(texts.get("stock_journal_title"))
+                    .size(FONT_TITLE)
+                    .strong(),
+            );
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("stock_journal_new"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    state.create_open = true;
+                    if state.draft.product_id.is_none() {
+                        state.draft.product_id = store
+                            .list_products()
+                            .ok()
+                            .and_then(|p| p.first().map(|v| v.id));
+                    }
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("stock_journal_export"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    export_csv(state, texts, now);
+                }
+            });
+        });
+    }
     ui.label(
         RichText::new(texts.get("stock_journal_subtitle"))
             .size(FONT_SMALL)
@@ -269,13 +323,17 @@ pub fn stock_moves_window(
     let all_refs = all_entries.iter().collect::<Vec<_>>();
     let (total_moves, inbound, outbound, adjustments) = movement_totals(&all_refs);
     ui.add_space(8.0);
-    ui.horizontal_wrapped(|ui| {
-        for (label, value) in [
-            ("stock_journal_total", total_moves.to_string()),
-            ("stock_journal_inbound", inbound.to_string()),
-            ("stock_journal_outbound", outbound.to_string()),
-            ("stock_journal_adjustment", adjustments.to_string()),
-        ] {
+    let totals = [
+        ("stock_journal_total", total_moves.to_string()),
+        ("stock_journal_inbound", inbound.to_string()),
+        ("stock_journal_outbound", outbound.to_string()),
+        ("stock_journal_adjustment", adjustments.to_string()),
+    ];
+    // A card in a wrapped row is measured after placement; on the phone the third card therefore
+    // started at x 423 and grew past the panel. Narrow screens stack the four totals instead.
+    let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+    if narrow {
+        for (label, value) in totals {
             card(ui, theme, |ui| {
                 ui.label(
                     RichText::new(texts.get(label))
@@ -284,8 +342,22 @@ pub fn stock_moves_window(
                 );
                 ui.label(RichText::new(value).size(FONT_TITLE).strong());
             });
+            ui.add_space(6.0);
         }
-    });
+    } else {
+        ui.horizontal_wrapped(|ui| {
+            for (label, value) in totals {
+                card(ui, theme, |ui| {
+                    ui.label(
+                        RichText::new(texts.get(label))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.label(RichText::new(value).size(FONT_TITLE).strong());
+                });
+            }
+        });
+    }
     ui.add_space(8.0);
     if visible.is_empty() {
         card(ui, theme, |ui| {
@@ -298,6 +370,39 @@ pub fn stock_moves_window(
         });
     } else {
         card(ui, theme, |ui| {
+            if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+                for entry in visible {
+                    ui.label(RichText::new(date_label(entry.created_at)).strong());
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(&entry.reference);
+                        if let Some(product) = entry.product_name.as_deref() {
+                            ui.label(product);
+                        }
+                        ui.label(format!(
+                            "{} → {}",
+                            texts.get(location_key(entry.source_location)),
+                            texts.get(location_key(entry.dest_location))
+                        ));
+                        let prefix = if entry.stock_delta() > 0 {
+                            "+"
+                        } else if entry.stock_delta() < 0 {
+                            "−"
+                        } else {
+                            ""
+                        };
+                        ui.label(format!("{prefix}{}", entry.quantity));
+                    });
+                    if let Some(notes) = entry.notes.as_deref() {
+                        ui.label(
+                            RichText::new(notes)
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                    }
+                    ui.add_space(6.0);
+                }
+                return;
+            }
             egui::ScrollArea::horizontal().show(ui, |ui| {
                 egui::Grid::new("stock-journal-table")
                     .num_columns(7)

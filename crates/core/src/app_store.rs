@@ -243,10 +243,11 @@ struct Activation {
 
 /// Modules the reference first run leaves deactivated.
 ///
-/// The shipped TypeScript desktop starts with twelve tiles (dashboard, app store, handbook,
-/// settings, invoices, accounting, contacts, products, stock, purchasing, calendar, calculator);
-/// the modules that only exist in the Rust edition stay in the App Store until the user enables
-/// them, so the first screen matches the original grid.
+/// The reference desktop starts with a reduced set: `support`, `reports`, `therapy` and `fleet`
+/// stay in the App Store until the user enables them, every other licensed module starts active.
+/// Which of the active modules the desktop grid shows is a separate product decision (the grid
+/// shows twelve Rust module tiles instead of the twelve original TypeScript apps); it is tracked
+/// as an open question in `NEXT_STEPS_AI.md`.
 pub const REFERENCE_STARTUP_DISABLED: [&str; 4] = ["support", "reports", "therapy", "fleet"];
 
 fn load(store: &Store) -> CoreResult<Activation> {
@@ -388,14 +389,32 @@ mod tests {
             .iter()
             .filter(|module| module.license == ModuleLicense::Locked)
             .all(|module| !module.active));
+        // Licensed modules start active, except the four that the reference start-up set keeps in
+        // the App Store (`REFERENCE_STARTUP_DISABLED`). Required modules are always active.
         assert!(modules
             .iter()
             .filter(|module| module.license != ModuleLicense::Locked)
-            .all(|module| module.active));
+            .all(|module| {
+                module.required
+                    || module.active != REFERENCE_STARTUP_DISABLED.contains(&module.module.as_str())
+            }));
         assert!(modules
             .iter()
             .filter(|module| module.required)
             .all(|module| module.active && !module.can_toggle()));
+        // The reference start set is pinned by name, so a changed constant cannot make the check
+        // above follow it silently: exactly these four modules start in the App Store.
+        let inactive: Vec<&str> = modules
+            .iter()
+            .filter(|module| !module.active)
+            .map(|module| module.module.as_str())
+            .collect();
+        assert_eq!(inactive, vec!["reports", "support", "therapy", "fleet"]);
+        assert_eq!(
+            modules.iter().filter(|module| module.active).count(),
+            14,
+            "the reference start set keeps fourteen modules active"
+        );
     }
 
     #[test]
@@ -432,6 +451,9 @@ mod tests {
             set_active(&store, "dashboard", false),
             Err(CoreError::Validation(code)) if code == "app_module_required"
         ));
+        // `therapy` belongs to the reference start-up set: off by default, switchable on.
+        assert!(!is_active(&store, AppModule::Therapy).expect("state"));
+        set_active(&store, "therapy", true).expect("activate");
         assert!(is_active(&store, AppModule::Therapy).expect("state"));
         assert!(matches!(
             set_active(&store, "unknown", true),

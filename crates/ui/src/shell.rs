@@ -1012,8 +1012,10 @@ pub fn start_menu(
     if state.power_open() {
         let screen = ctx.screen_rect();
         let width = POWER_FLYOUT_WIDTH.min((screen.width() - 24.0).max(120.0));
+        // The panel frame adds its padding around the clamped panel width, so the flyout needs
+        // more room on the right than the bare width suggests (it ended at 444 px on the phone).
         let x: f32 = (12.0_f32 + 320.0 + 8.0)
-            .min(screen.width() - width - 12.0)
+            .min(screen.width() - width - 40.0)
             .max(12.0);
         let selected = state.power_selected();
         let flyout = egui::Area::new(key.with("power"))
@@ -1081,7 +1083,9 @@ pub fn command_palette(
         .anchor(Align2::CENTER_TOP, Vec2::new(0.0, 96.0))
         .show(ctx, |ui| {
             panel_frame(theme).show(ui, |ui| {
-                ui.set_width(460.0);
+                // A fixed 460 px palette reached 458 px and started at -26 px on the phone.
+                let width = 460.0_f32.min((ui.ctx().screen_rect().width() - 48.0).max(280.0));
+                ui.set_width(width);
                 ui.horizontal(|ui| {
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(28.0), Sense::hover());
                     ui.painter()
@@ -1282,7 +1286,9 @@ pub fn onboarding(
         .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
         .show(ctx, |ui| {
             panel_frame(theme).show(ui, |ui| {
-                ui.set_width(440.0);
+                // The 440 px card with its frame reached 448 px; it follows the screen width.
+                let width = 440.0_f32.min((ui.ctx().screen_rect().width() - 48.0).max(280.0));
+                ui.set_width(width);
                 ui.label(
                     RichText::new(texts.get("onboarding_title"))
                         .size(FONT_HEADING)

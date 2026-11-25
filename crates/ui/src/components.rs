@@ -238,6 +238,55 @@ pub fn card<R>(
     response
 }
 
+/// Draws KPI cards in explicit, width-aware rows (four columns on wide windows, two below 900 px).
+///
+/// A plain wrapped row hands the last card whatever strip is left over and squeezes its label into
+/// a single-character column at narrow widths, so the rows are laid out explicitly.
+pub fn kpi_cards(ui: &mut Ui, theme: &Theme, entries: &[(String, String)]) {
+    // German KPI labels are single compound words ("Kilometerpauschale") that cannot wrap, so a
+    // two-column row needs more than the phone panel offers. Below the stacking width each card
+    // takes a full row and its label stays readable.
+    let columns = if ui.available_width() >= 900.0 {
+        4
+    } else if ui.available_width() >= FORM_STACK_WIDTH {
+        2
+    } else {
+        1
+    };
+    // `horizontal` already inserts `item_spacing` between the cards; counting it twice made the row
+    // wider than the panel (four cards + three gaps overflowed by 24 px at 1000 px).
+    //
+    // The slot is the width a card occupies in the row. The card frame adds `CARD_PADDING` on both
+    // sides on top of the content width, so the content has to be that much narrower — otherwise
+    // the two phone columns plus their frames grew the panel from 432 to 448 px.
+    let gap = ui.spacing().item_spacing.x;
+    let slot_width =
+        ((ui.available_width() - gap * (columns as f32 - 1.0)) / columns as f32).max(120.0);
+    let card_width = (slot_width - 2.0 * CARD_PADDING).max(96.0);
+    for row in entries.chunks(columns) {
+        ui.horizontal(|ui| {
+            for (label, value) in row {
+                ui.scope(|ui| {
+                    // The frame paints around its content, so the content itself has to carry the
+                    // minimum width; a minimum on the outer scope only pads the row afterwards and
+                    // left cards of different widths that still grew past the panel.
+                    card(ui, theme, |ui| {
+                        ui.set_min_width(card_width);
+                        ui.set_max_width(card_width);
+                        ui.label(
+                            RichText::new(label)
+                                .size(FONT_SMALL)
+                                .color(theme.palette.text_muted),
+                        );
+                        ui.heading(value);
+                    });
+                });
+            }
+        });
+        ui.add_space(gap);
+    }
+}
+
 /// Height of one row of a virtualised table, including its padding.
 pub const TABLE_ROW_HEIGHT: f32 = 36.0;
 
@@ -264,10 +313,29 @@ pub fn table_cell<R>(ui: &mut Ui, width: f32, add: impl FnOnce(&mut Ui) -> R) ->
 /// Draws a compact status badge.
 pub fn badge(ui: &mut Ui, theme: &Theme, label: &str, tone: Tone) -> Response {
     let color = tone.color(theme);
-    let galley =
+    // Long messages (validation errors, import summaries) used to grow the pill past the panel:
+    // the text wraps at the width that is left, and the pill grows in height instead.
+    let text_width = (ui.available_width() - 20.0).max(24.0);
+    let font = FontId::proportional(FONT_SMALL);
+    let single = ui
+        .painter()
+        .layout_no_wrap(label.to_owned(), font.clone(), color);
+    // Short badges keep their single-line pill; only a label that does not fit wraps, so wide
+    // layouts and every existing golden stay byte-identical.
+    let narrow = ui.ctx().screen_rect().width() < FORM_STACK_WIDTH;
+    let wrapped = narrow && single.size().x > text_width;
+    let galley = if wrapped {
         ui.painter()
-            .layout_no_wrap(label.to_owned(), FontId::proportional(FONT_SMALL), color);
-    let size = Vec2::new(galley.size().x + 20.0, 22.0);
+            .layout(label.to_owned(), font, color, text_width)
+    } else {
+        single
+    };
+    let height = if wrapped {
+        (galley.size().y + 12.0).max(22.0)
+    } else {
+        22.0
+    };
+    let size = Vec2::new(galley.size().x + 20.0, height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
 
     let painter = ui.painter();
@@ -290,7 +358,9 @@ pub fn tabs(
     selected: &mut usize,
 ) -> bool {
     let mut changed = false;
-    ui.horizontal(|ui| {
+    // A tab row that cannot fit keeps the remaining tabs on a second line instead of pushing
+    // them past the right edge of the window.
+    ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         for (index, label) in labels.iter().enumerate() {
             let variant = if index == *selected {
@@ -316,6 +386,76 @@ pub fn search_field(
     hint: &str,
 ) -> Activated {
     search_field_reserved(ui, theme, focus, value, hint, 0.0)
+}
+
+/// Panel width below which a module toolbar splits into a search line and an action line.
+///
+/// A single row only fits while the search field keeps a usable width next to the actions; the
+/// narrowest supported panel (432 points) leaves about 384 points, so the two-row layout applies
+/// there and every action keeps its full label.
+pub const TOOLBAR_STACK_WIDTH: f32 = 560.0;
+
+/// Width below which a form row stacks its fields instead of placing them side by side.
+///
+/// The labelled text fields of the entry forms grow to the available width, so a row of quantity,
+/// price, tax and the remove button only fits while all four have room. Below this width each field
+/// takes its own row instead of squeezing the price and tax columns out of the panel.
+pub const FORM_STACK_WIDTH: f32 = 560.0;
+
+/// Narrowest usable column of a horizontal form row.
+pub const MIN_FORM_COLUMN_WIDTH: f32 = 120.0;
+
+/// Widths of the field columns of a horizontal form row.
+///
+/// A labelled text field fills whatever width it is given, so a row of fields needs explicit widths:
+/// the trailing action keeps its room and every column keeps at least [`MIN_FORM_COLUMN_WIDTH`].
+pub fn form_column_widths(
+    available: f32,
+    spacing: f32,
+    columns: usize,
+    action_width: f32,
+) -> Vec<f32> {
+    // Twelve points of slack: field borders and rounding otherwise push the last column of the row
+    // onto the next line, which staggers the labels.
+    let room = available - action_width - spacing * columns as f32 - 12.0;
+    let width = (room / columns as f32).max(MIN_FORM_COLUMN_WIDTH);
+    vec![width; columns]
+}
+
+/// Widths of the field columns of a horizontal form row, measured in `ui`.
+pub fn form_columns(ui: &egui::Ui, columns: usize, action_width: f32) -> Vec<f32> {
+    form_column_widths(
+        ui.available_width(),
+        ui.spacing().item_spacing.x,
+        columns,
+        action_width,
+    )
+}
+
+/// Draws a module toolbar: the search field and the actions next to it.
+///
+/// On a wide panel the search field shares the row with the actions (`reserve` points stay free for
+/// them, exactly like before). On a narrow panel the field takes its own line and the actions wrap
+/// below it, so no control or label is pushed out of the panel.
+pub fn toolbar<R>(
+    ui: &mut Ui,
+    focus: &mut FocusState,
+    reserve: f32,
+    search: impl FnOnce(&mut Ui, &mut FocusState, f32),
+    actions: impl FnOnce(&mut Ui, &mut FocusState) -> R,
+) -> R {
+    if ui.available_width() < TOOLBAR_STACK_WIDTH {
+        search(ui, focus, 0.0);
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| actions(ui, focus)).inner
+    } else {
+        let mut result = None;
+        ui.horizontal_wrapped(|ui| {
+            search(ui, focus, reserve);
+            result = Some(actions(ui, focus));
+        });
+        result.expect("toolbar actions ran")
+    }
 }
 
 /// Draws a single line search field that leaves `reserve` points for the controls next to it.
@@ -369,6 +509,13 @@ fn focus_text_edit(
 
 /// Draws a centered empty state.
 pub fn empty_state(ui: &mut Ui, theme: &Theme, title: &str, hint: &str) {
+    // A toolbar row that is wider than the panel (see the open toolbar decision in
+    // NEXT_STEPS_AI.md) grows the parent's minimum width. Without the clamp the card would then be
+    // painted wider than the viewport and the hint would be cut off at the right edge.
+    // `clip_rect` is the viewport, so subtract the current left inset (frame padding included) and
+    // the right padding of the card to stay inside the panel.
+    let limit = ui.clip_rect().right() - ui.cursor().min.x - 2.0 * CARD_PADDING;
+    ui.set_max_width(ui.available_width().min(limit.max(160.0)));
     ui.vertical_centered(|ui| {
         ui.add_space(12.0);
         ui.label(
@@ -473,6 +620,9 @@ pub fn modal(
         .open(&mut visible)
         .collapsible(false)
         .resizable(false)
+        // Confirmation bodies are one long sentence; without a limit the auto-sized window grew
+        // to 363 px on a 360 px screen and its left edge left the panel.
+        .max_width((ctx.screen_rect().width() - 24.0).max(240.0))
         .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
         .frame(
             egui::Frame::none()
@@ -481,7 +631,14 @@ pub fn modal(
                 .rounding(Rounding::same(RADIUS_DIALOG))
                 .inner_margin(egui::Margin::same(CARD_PADDING)),
         )
-        .show(ctx, add_contents);
+        .show(ctx, |ui| {
+            if ctx.screen_rect().width() < FORM_STACK_WIDTH {
+                // The window's own auto-size ignored `max_width` for a long confirmation body; a
+                // constrained content width makes the label wrap inside the frame instead.
+                ui.set_max_width((ctx.screen_rect().width() - 48.0).max(240.0));
+            }
+            add_contents(ui)
+        });
     let close_requested = response.and_then(|inner| inner.inner).unwrap_or(false);
     let still_open = visible && !close_requested;
     *open = still_open;
@@ -696,6 +853,18 @@ mod tests {
         sort.toggle(2);
         assert_eq!((sort.column, sort.ascending), (Some(2), true));
         assert_eq!(sort.indicator(0), "");
+    }
+
+    #[test]
+    fn form_columns_keep_a_usable_width() {
+        // Desktop: three columns share the row and the remove button keeps its room.
+        let wide = form_column_widths(1400.0, 10.0, 3, 110.0);
+        assert_eq!(wide.len(), 3);
+        assert!(wide[0] > 400.0, "desktop column width {}", wide[0]);
+        assert!(wide[0] * 3.0 + 110.0 + 30.0 <= 1400.0);
+        // A row that is too narrow never collapses below the minimum column width.
+        let narrow = form_column_widths(380.0, 10.0, 3, 110.0);
+        assert!(narrow.iter().all(|width| *width >= MIN_FORM_COLUMN_WIDTH));
     }
 
     #[test]

@@ -18,7 +18,7 @@ use socdof_core::store::Store;
 use uuid::Uuid;
 
 use crate::components::{
-    badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
+    badge, button, card, empty_state, modal, search_field_reserved, toolbar, ButtonVariant, Tone,
 };
 use crate::controls::text_field;
 use crate::focus::FocusState;
@@ -1217,38 +1217,49 @@ fn list_view(
     ui.add_space(6.0);
 
     let mut create = false;
-    ui.horizontal(|ui| {
-        search_field_reserved(
-            ui,
-            theme,
-            focus,
-            &mut state.query,
-            texts.get("therapie_search"),
-            170.0,
-        );
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("therapie_mileage_open"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            let _ = state.open_mileage(store);
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("therapie_new"),
-            ButtonVariant::Primary,
-        )
-        .activated
-        {
-            create = true;
-        }
-    });
+    let mut open_mileage = false;
+    toolbar(
+        ui,
+        focus,
+        300.0,
+        |ui, focus, reserve| {
+            search_field_reserved(
+                ui,
+                theme,
+                focus,
+                &mut state.query,
+                texts.get("therapie_search"),
+                reserve,
+            );
+        },
+        |ui, focus| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("therapie_mileage_open"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                open_mileage = true;
+            }
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("therapie_new"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                create = true;
+            }
+        },
+    );
+    if open_mileage {
+        let _ = state.open_mileage(store);
+    }
     if create {
         state.start_new();
         return;
@@ -1270,31 +1281,26 @@ fn list_view(
 
     let mut chosen = None;
     card(ui, theme, |ui| {
-        egui::Grid::new("socdof-therapie-table")
-            .num_columns(4)
-            .spacing(egui::vec2(16.0, 8.0))
-            .show(ui, |ui| {
-                for key in [
-                    "therapie_col_name",
-                    "therapie_col_sessions",
-                    "therapie_col_hourly",
-                    "therapie_col_state",
-                ] {
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Four grid columns reached 373 px on a 360 px screen; each client becomes a block
+            // that spans the card, so the list does not collapse into a narrow sliver.
+            ui.set_min_width(ui.available_width());
+            for client in &state.clients {
+                let count = store.therapy_session_count(client.id).unwrap_or(0);
+                if button(ui, theme, focus, &client.name, ButtonVariant::Ghost).activated {
+                    chosen = Some(client.id);
+                }
+                ui.horizontal_wrapped(|ui| {
                     ui.label(
-                        RichText::new(texts.get(key))
+                        RichText::new(format!("{count} · {}", texts.get("therapie_col_sessions")))
                             .size(FONT_SMALL)
-                            .strong()
                             .color(theme.palette.text_muted),
                     );
-                }
-                ui.end_row();
-                for client in &state.clients {
-                    let count = store.therapy_session_count(client.id).unwrap_or(0);
-                    if button(ui, theme, focus, &client.name, ButtonVariant::Ghost).activated {
-                        chosen = Some(client.id);
-                    }
-                    ui.label(count.to_string());
-                    ui.label(money(client.hourly_rate));
+                    ui.label(
+                        RichText::new(money(client.hourly_rate))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
                     badge(
                         ui,
                         theme,
@@ -1309,9 +1315,53 @@ fn list_view(
                             Tone::Accent
                         },
                     );
+                });
+                ui.add_space(4.0);
+            }
+        } else {
+            egui::Grid::new("socdof-therapie-table")
+                .num_columns(4)
+                .spacing(egui::vec2(16.0, 8.0))
+                .show(ui, |ui| {
+                    for key in [
+                        "therapie_col_name",
+                        "therapie_col_sessions",
+                        "therapie_col_hourly",
+                        "therapie_col_state",
+                    ] {
+                        ui.label(
+                            RichText::new(texts.get(key))
+                                .size(FONT_SMALL)
+                                .strong()
+                                .color(theme.palette.text_muted),
+                        );
+                    }
                     ui.end_row();
-                }
-            });
+                    for client in &state.clients {
+                        let count = store.therapy_session_count(client.id).unwrap_or(0);
+                        if button(ui, theme, focus, &client.name, ButtonVariant::Ghost).activated {
+                            chosen = Some(client.id);
+                        }
+                        ui.label(count.to_string());
+                        ui.label(money(client.hourly_rate));
+                        badge(
+                            ui,
+                            theme,
+                            texts.get(if client.active {
+                                "therapie_state_active"
+                            } else {
+                                "therapie_state_inactive"
+                            }),
+                            if client.active {
+                                Tone::Success
+                            } else {
+                                Tone::Accent
+                            },
+                        );
+                        ui.end_row();
+                    }
+                });
+        }
     });
 
     if let Some(id) = chosen {
@@ -1355,32 +1405,51 @@ fn detail_view(
     messages(ui, theme, texts, state);
     ui.add_space(6.0);
 
-    ui.columns(4, |columns| {
-        kpi(
-            &mut columns[0],
-            theme,
-            texts.get("therapie_kpi_sessions"),
-            &summary.sessions.to_string(),
-        );
-        kpi(
-            &mut columns[1],
-            theme,
-            texts.get("therapie_kpi_hours"),
-            &format!("{:.2} h", summary.minutes as f64 / 60.0),
-        );
-        kpi(
-            &mut columns[2],
-            theme,
-            texts.get("therapie_kpi_kilometers"),
-            &format!("{:.1} km", summary.kilometers_milli as f64 / 1000.0),
-        );
-        kpi(
-            &mut columns[3],
-            theme,
-            texts.get("therapie_kpi_open"),
-            &money(summary.open),
-        );
-    });
+    let kpis = [
+        ("therapie_kpi_sessions", summary.sessions.to_string()),
+        (
+            "therapie_kpi_hours",
+            format!("{:.2} h", summary.minutes as f64 / 60.0),
+        ),
+        (
+            "therapie_kpi_kilometers",
+            format!("{:.1} km", summary.kilometers_milli as f64 / 1000.0),
+        ),
+        ("therapie_kpi_open", money(summary.open)),
+    ];
+    if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+        for (label, value) in kpis {
+            kpi(ui, theme, texts.get(label), &value);
+            ui.add_space(6.0);
+        }
+    } else {
+        ui.columns(4, |columns| {
+            kpi(
+                &mut columns[0],
+                theme,
+                texts.get("therapie_kpi_sessions"),
+                &summary.sessions.to_string(),
+            );
+            kpi(
+                &mut columns[1],
+                theme,
+                texts.get("therapie_kpi_hours"),
+                &format!("{:.2} h", summary.minutes as f64 / 60.0),
+            );
+            kpi(
+                &mut columns[2],
+                theme,
+                texts.get("therapie_kpi_kilometers"),
+                &format!("{:.1} km", summary.kilometers_milli as f64 / 1000.0),
+            );
+            kpi(
+                &mut columns[3],
+                theme,
+                texts.get("therapie_kpi_open"),
+                &money(summary.open),
+            );
+        });
+    }
 
     ui.add_space(12.0);
     card(ui, theme, |ui| {
@@ -1447,63 +1516,107 @@ fn detail_view(
         } else {
             let mut remove = None;
             let mut edit_session = None;
-            egui::Grid::new("socdof-therapie-sessions")
-                .num_columns(5)
-                .spacing(egui::vec2(16.0, 8.0))
-                .show(ui, |ui| {
-                    for key in [
-                        "therapie_col_date",
-                        "therapie_col_minutes",
-                        "therapie_col_kilometers",
-                        "therapie_col_amount",
-                        "therapie_col_notes",
-                    ] {
-                        ui.label(
-                            RichText::new(texts.get(key))
-                                .size(FONT_SMALL)
-                                .strong()
-                                .color(theme.palette.text_muted),
-                        );
+            if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+                // Five session columns reached 643 px; each session becomes a block on the phone.
+                for session in &sessions {
+                    ui.label(RichText::new(format_date(session.started_at)).strong());
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(format!("{} min", session.minutes));
+                        ui.label(format!("{:.1} km", session.kilometers()));
+                        ui.label(money(therapy::session_amount(session, &client)));
+                        if session.is_billed() {
+                            badge(ui, theme, texts.get("therapie_billed_badge"), Tone::Success);
+                        } else if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("therapie_session_delete"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                        {
+                            remove = Some(session.id);
+                        }
+                    });
+                    ui.label(&session.notes);
+                    if !session.is_billed()
+                        && button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("therapie_edit"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                    {
+                        edit_session = Some(session.id);
                     }
-                    ui.end_row();
-                    for session in &sessions {
-                        ui.label(format_date(session.started_at));
-                        ui.label(session.minutes.to_string());
-                        ui.label(format!("{:.1}", session.kilometers()));
-                        ui.horizontal(|ui| {
-                            ui.label(money(therapy::session_amount(session, &client)));
-                            if session.is_billed() {
-                                badge(ui, theme, texts.get("therapie_billed_badge"), Tone::Success);
-                            } else if button(
-                                ui,
-                                theme,
-                                focus,
-                                texts.get("therapie_session_delete"),
-                                ButtonVariant::Ghost,
-                            )
-                            .activated
-                            {
-                                remove = Some(session.id);
-                            }
-                        });
-                        ui.horizontal(|ui| {
-                            ui.label(&session.notes);
-                            if !session.is_billed()
-                                && button(
+                    ui.add_space(6.0);
+                }
+            } else {
+                egui::Grid::new("socdof-therapie-sessions")
+                    .num_columns(5)
+                    .spacing(egui::vec2(16.0, 8.0))
+                    .show(ui, |ui| {
+                        for key in [
+                            "therapie_col_date",
+                            "therapie_col_minutes",
+                            "therapie_col_kilometers",
+                            "therapie_col_amount",
+                            "therapie_col_notes",
+                        ] {
+                            ui.label(
+                                RichText::new(texts.get(key))
+                                    .size(FONT_SMALL)
+                                    .strong()
+                                    .color(theme.palette.text_muted),
+                            );
+                        }
+                        ui.end_row();
+                        for session in &sessions {
+                            ui.label(format_date(session.started_at));
+                            ui.label(session.minutes.to_string());
+                            ui.label(format!("{:.1}", session.kilometers()));
+                            ui.horizontal(|ui| {
+                                ui.label(money(therapy::session_amount(session, &client)));
+                                if session.is_billed() {
+                                    badge(
+                                        ui,
+                                        theme,
+                                        texts.get("therapie_billed_badge"),
+                                        Tone::Success,
+                                    );
+                                } else if button(
                                     ui,
                                     theme,
                                     focus,
-                                    texts.get("therapie_edit"),
+                                    texts.get("therapie_session_delete"),
                                     ButtonVariant::Ghost,
                                 )
                                 .activated
-                            {
-                                edit_session = Some(session.id);
-                            }
-                        });
-                        ui.end_row();
-                    }
-                });
+                                {
+                                    remove = Some(session.id);
+                                }
+                            });
+                            ui.horizontal(|ui| {
+                                ui.label(&session.notes);
+                                if !session.is_billed()
+                                    && button(
+                                        ui,
+                                        theme,
+                                        focus,
+                                        texts.get("therapie_edit"),
+                                        ButtonVariant::Ghost,
+                                    )
+                                    .activated
+                                {
+                                    edit_session = Some(session.id);
+                                }
+                            });
+                            ui.end_row();
+                        }
+                    });
+            }
 
             if let Some(id) = edit_session {
                 state.start_edit_session(id);
@@ -1517,7 +1630,8 @@ fn detail_view(
 
         ui.add_space(10.0);
         let mut add = false;
-        ui.horizontal(|ui| {
+        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
+            // Two full-width date/time fields side by side grew the page to 454 px.
             text_field(
                 ui,
                 theme,
@@ -1527,6 +1641,7 @@ fn detail_view(
                 "YYYY-MM-DD",
                 None,
             );
+            ui.add_space(4.0);
             text_field(
                 ui,
                 theme,
@@ -1536,7 +1651,28 @@ fn detail_view(
                 "HH:MM",
                 None,
             );
-        });
+        } else {
+            ui.horizontal(|ui| {
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.session_date,
+                    texts.get("therapie_session_date"),
+                    "YYYY-MM-DD",
+                    None,
+                );
+                text_field(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.session_time,
+                    texts.get("therapie_session_time"),
+                    "HH:MM",
+                    None,
+                );
+            });
+        }
         text_field(
             ui,
             theme,
