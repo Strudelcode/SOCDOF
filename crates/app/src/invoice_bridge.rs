@@ -27,12 +27,12 @@ use uuid::Uuid;
 use socdof_core::date;
 use socdof_core::document_layout;
 use socdof_core::docx;
-use socdof_core::domain::contact::Contact;
+use socdof_core::domain::contact::{Contact, ContactKind};
 use socdof_core::domain::dunning::{self, DunningLevel};
 use socdof_core::domain::fattura::{self, FatturaOptions};
 use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
 use socdof_core::domain::mail;
-use socdof_core::domain::payment::InvoicePayment;
+use socdof_core::domain::payment::{self, InvoicePayment};
 use socdof_core::domain::settings::CompanyProfile;
 use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::invoice_template::{self, InvoiceTemplate, TemplateBook};
@@ -509,6 +509,8 @@ pub struct InvoiceDunningView {
     pub total_cents: i64,
     /// Claim including fee and interest.
     pub claim_cents: i64,
+    /// Number of overdue days at generation time (`0` when not yet overdue).
+    pub overdue_days: i64,
     /// Subject of the exported mail.
     pub subject: String,
     /// Letter body.
@@ -553,13 +555,142 @@ pub struct InvoicePaymentView {
     pub tse_signature: Option<String>,
 }
 
+/// Optional method-specific capture details passed when recording an invoice payment.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct PaymentCaptureDetails {
+    /// Card network/type (`girocard`, `visa`, `mastercard`, `amex`, `other`).
+    pub card_type: Option<String>,
+    /// Last 4 digits or masked card number (`**** **** **** 9012`).
+    pub masked_card: Option<String>,
+    /// Card authorization code.
+    pub auth_code: Option<String>,
+    /// Cash amount handed over by the customer in cents (must be >= invoice total).
+    pub cash_given_cents: Option<i64>,
+}
+
+/// Payment dialog context with company bank/terminal details, quick cash suggestions, and prior receipt.
+#[derive(Debug, Clone, Serialize)]
+pub struct InvoicePaymentContextView {
+    /// Invoice identifier.
+    pub invoice_id: Uuid,
+    /// Human readable invoice number.
+    pub invoice_number: String,
+    /// Gross total in integer cents.
+    pub total_cents: i64,
+    /// Currency symbol printed for this invoice.
+    pub currency_symbol: String,
+    /// ISO due date (`YYYY-MM-DD`).
+    pub due_date: String,
+    /// Company bank name.
+    pub bank_name: String,
+    /// Company bank account holder.
+    pub bank_account_holder: String,
+    /// Company IBAN.
+    pub iban: String,
+    /// Company BIC.
+    pub bic: String,
+    /// Whether the card terminal is enabled in settings.
+    pub card_payment_enabled: bool,
+    /// Configured card terminal name.
+    pub card_terminal_name: String,
+    /// Suggested cash note amounts in cents from the core helper.
+    pub quick_cash_cents: Vec<i64>,
+    /// Existing recorded payment if already paid.
+    pub existing_payment: Option<InvoicePaymentView>,
+}
+
+/// Builds the payment dialog context from the stored invoice, company profile, and existing payment.
+pub fn payment_context_view(
+    invoice: &Invoice,
+    company: &CompanyProfile,
+    existing: Option<&InvoicePayment>,
+) -> InvoicePaymentContextView {
+    let total = invoice.total_gross();
+    InvoicePaymentContextView {
+        invoice_id: invoice.id,
+        invoice_number: invoice.number.clone(),
+        total_cents: total.cents(),
+        currency_symbol: if invoice.currency_symbol.trim().is_empty() {
+            "€".to_string()
+        } else {
+            invoice.currency_symbol.clone()
+        },
+        due_date: iso_date(invoice.due_at),
+        bank_name: company.bank_name.clone(),
+        bank_account_holder: company.bank_account_holder.clone(),
+        iban: company.iban.clone(),
+        bic: company.bic.clone(),
+        card_payment_enabled: company.card_payment_enabled,
+        card_terminal_name: company.card_terminal_name.clone(),
+        quick_cash_cents: payment::cash_quick_amounts(total)
+            .into_iter()
+            .map(Money::cents)
+            .collect(),
+        existing_payment: existing.map(payment_view),
+    }
+}
+
+/// Canonical sample invoice and contact matching the TypeScript template editor preview.
+pub fn sample_preview_invoice(
+    company: &CompanyProfile,
+    due_days: i64,
+    now: i64,
+) -> (Invoice, Contact) {
+    let mut contact = Contact::new(ContactKind::Company, now);
+    contact.name = Some("Max Mustermann".to_string());
+    contact.company_name = Some("Musterfirma Industrie & Handel GmbH".to_string());
+    contact.street = Some("Industriestraße 45".to_string());
+    contact.zip = Some("80339".to_string());
+    contact.city = Some("München".to_string());
+    contact.email = Some("buchhaltung@muster-firma.de".to_string());
+    contact.phone = Some("+49 (0) 89 9876543".to_string());
+    contact.tax_id = Some("DE123456789".to_string());
+
+    let currency = if company.currency.trim().is_empty() {
+        "€".to_string()
+    } else {
+        company.currency.clone()
+    };
+    let invoice = Invoice {
+        id: Uuid::nil(),
+        number: "RE-2026-0042".to_string(),
+        contact_id: contact.id,
+        status: InvoiceStatus::Sent,
+        issued_at: now,
+        due_at: now + due_days.max(0) * DAY_MS,
+        currency_symbol: currency,
+        note: None,
+        tax_total_override_cents: None,
+        lines: vec![
+            InvoiceLine {
+                description: "ERP Lizenz Enterprise".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(6_500_000),
+                tax_rate_bp: 1900,
+            },
+            InvoiceLine {
+                description:
+                    "Consulting, Cloud-Ablösung & Offline-Sicherheitsaudit (100% On-Premise)"
+                        .to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(3_500_000),
+                tax_rate_bp: 1900,
+            },
+        ],
+    };
+    (invoice, contact)
+}
+
 /// Builds the dunning letter of an invoice with the given overrides.
+#[allow(clippy::too_many_arguments)]
 pub fn dunning_view(
     invoice: &Invoice,
     contact: Option<&Contact>,
     company: &CompanyProfile,
     level: DunningLevel,
     fee_cents: Option<i64>,
+    interest_cents: Option<i64>,
     days: Option<i64>,
     now: i64,
 ) -> InvoiceDunningView {
@@ -568,7 +699,9 @@ pub fn dunning_view(
     let letter = dunning::DunningLetter {
         level,
         fee: fee_cents.map(Money::from_cents).unwrap_or(defaults.fee),
-        interest: defaults.interest,
+        interest: interest_cents
+            .map(Money::from_cents)
+            .unwrap_or(defaults.interest),
         days,
         deadline: now + days * dunning::DAY_MS,
     };
@@ -586,6 +719,7 @@ pub fn dunning_view(
         deadline: iso_date(letter.deadline),
         total_cents: invoice.total_gross().cents(),
         claim_cents: letter.total(invoice.total_gross()).cents(),
+        overdue_days: dunning::overdue_days(invoice.due_at, now),
         subject: letter.subject(&invoice.number, &company.name),
         body: letter.body(
             &invoice.number,
@@ -847,5 +981,49 @@ mod tests {
             input.to_invoice(None, &CompanyProfile::default()),
             Err(CoreError::Validation(code)) if code == "invoice_due_before_issued"
         ));
+    }
+
+    #[test]
+    fn dunning_view_applies_custom_interest_and_computes_overdue_days() {
+        let (invoice, contact) = sample_preview_invoice(&CompanyProfile::default(), 14, 1_760_000_000_000);
+        let now = invoice.due_at + 5 * DAY_MS;
+        let view = dunning_view(
+            &invoice,
+            Some(&contact),
+            &CompanyProfile::default(),
+            DunningLevel::First,
+            Some(500),
+            Some(1234),
+            Some(7),
+            now,
+        );
+        assert_eq!(view.fee_cents, 500);
+        assert_eq!(view.interest_cents, 1234);
+        assert_eq!(view.overdue_days, 5);
+        assert_eq!(view.claim_cents, invoice.total_gross().cents() + 500 + 1234);
+        assert!(view.body.contains("Verzugszinsen"));
+    }
+
+    #[test]
+    fn sample_preview_and_payment_context_match_typescript() {
+        let mut company = CompanyProfile::default();
+        company.bank_name = "Sparkasse".to_string();
+        company.iban = "DE12345".to_string();
+        company.card_payment_enabled = true;
+        company.card_terminal_name = "SumUp Pro".to_string();
+        let (invoice, contact) = sample_preview_invoice(&company, 14, 1_760_000_000_000);
+        assert_eq!(invoice.number, "RE-2026-0042");
+        assert_eq!(invoice.total_net().cents(), 10_000_000);
+        assert_eq!(invoice.total_gross().cents(), 11_900_000);
+        assert_eq!(
+            contact.company_name.as_deref(),
+            Some("Musterfirma Industrie & Handel GmbH")
+        );
+
+        let ctx = payment_context_view(&invoice, &company, None);
+        assert!(ctx.card_payment_enabled);
+        assert_eq!(ctx.card_terminal_name, "SumUp Pro");
+        assert_eq!(ctx.quick_cash_cents, vec![11_900_000]);
+        assert_eq!(ctx.iban, "DE12345");
     }
 }

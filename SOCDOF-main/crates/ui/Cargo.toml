@@ -1,0 +1,36 @@
+[package]
+name = "socdof-ui"
+description = "Rust UI layer for the SOCDOF rewrite (egui, no JavaScript)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# Window host for the gallery. Off by default so tests and clippy need no desktop libraries.
+window = ["dep:eframe", "dialogs"]
+# Native file dialog only; compiles without the window host so the picker is testable/buildable.
+dialogs = ["dep:rfd"]
+
+[dependencies]
+eframe = { workspace = true, optional = true }
+egui.workspace = true
+rfd = { workspace = true, optional = true }
+png.workspace = true
+serde_json.workspace = true
+socdof-core = { path = "../core" }
+uuid = "1"
+
+[[bin]]
+name = "socdof-ui-gallery"
+path = "src/bin/gallery.rs"
+required-features = ["window"]
+
+[[bin]]
+name = "socdof-ui-preview"
+path = "src/bin/preview.rs"
+
+[[bin]]
+name = "socdof-ui-catalogue"
+path = "src/bin/catalogue.rs"

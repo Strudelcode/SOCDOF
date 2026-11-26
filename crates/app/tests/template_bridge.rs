@@ -415,7 +415,7 @@ fn desktop_state_stores_the_webview_book_and_rejects_invalid_ones() {
     let mut book = state
         .invoice_template_book()
         .expect("book loads in the bridge format");
-    assert_eq!(book.templates.len(), 5);
+    assert_eq!(book.templates.len(), 6);
     assert_eq!(book.active_id, book.templates[0].id);
 
     let png = template_asset_from_bytes(

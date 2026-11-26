@@ -1,0 +1,678 @@
+@import "tailwindcss";
+
+@theme {
+  --color-slate-850: #141c2e;
+}
+
+@variant dark (&:where(.dark, .dark *));
+
+:root {
+  --accent: #4f46e5;
+  --accent-rgb: 79, 70, 229;
+  --accent-hover: #4338ca;
+  --accent-light: rgba(79, 70, 229, 0.12);
+  --accent-ring: rgba(79, 70, 229, 0.35);
+  --accent-border: #6366f1;
+  --accent-dark-text: #818cf8;
+  --accent-border-subtle: rgba(79, 70, 229, 0.22);
+  --accent-border-hover: rgba(79, 70, 229, 0.48);
+  --accent-dark-border-subtle: rgba(129, 140, 248, 0.30);
+  --accent-ambient-glow: rgba(79, 70, 229, 0.07);
+  --accent-ambient-glow-dark: rgba(79, 70, 229, 0.16);
+  --accent-card-shadow: 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03);
+  --accent-card-shadow-hover: 0 8px 30px -4px rgba(79, 70, 229, 0.20), 0 2px 6px 0 rgba(0, 0, 0, 0.04);
+  --accent-companion: #0d9488;
+  --accent-companion-rgb: 13, 148, 136;
+  --accent-companion-hover: #0f766e;
+  --accent-companion-light: rgba(13, 148, 136, 0.18);
+  --accent-companion-border: #14b8a6;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dark-mode compatibility layer                                               */
+/*                                                                              */
+/* SOCDOF uses Tailwind's class-based dark mode. Older modules contain some    */
+/* light-only utility classes, so the selectors below provide a safe fallback */
+/* only when the element does not already declare its own dark:* counterpart. */
+/* This keeps Light, Dark and System modes intact without requiring every      */
+/* existing module to be rewritten at once.                                   */
+/* -------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #020617;
+  color: #f1f5f9;
+}
+
+html:not(.dark) body {
+  background-color: #f6f8fb;
+  color: #0f172a;
+}
+
+/* Surfaces */
+html.dark .bg-white:not([class*="dark:bg-"]) {
+  background-color: #0f172a !important;
+}
+html.dark .bg-white\/95:not([class*="dark:bg-"]) {
+  background-color: rgba(15, 23, 42, 0.95) !important;
+}
+html.dark .bg-white\/90:not([class*="dark:bg-"]) {
+  background-color: rgba(15, 23, 42, 0.9) !important;
+}
+html.dark .bg-slate-50:not([class*="dark:bg-"]) {
+  background-color: #0f172a !important;
+}
+html.dark .bg-slate-50\/80:not([class*="dark:bg-"]) {
+  background-color: rgba(15, 23, 42, 0.8) !important;
+}
+html.dark .bg-slate-100:not([class*="dark:bg-"]) {
+  background-color: #1e293b !important;
+}
+html.dark .bg-slate-100\/80:not([class*="dark:bg-"]) {
+  background-color: rgba(30, 41, 59, 0.8) !important;
+}
+html.dark .bg-slate-200:not([class*="dark:bg-"]) {
+  background-color: #334155 !important;
+}
+
+/* Text */
+html.dark .text-slate-900:not([class*="dark:text-"]) {
+  color: #f8fafc !important;
+}
+html.dark .text-slate-800:not([class*="dark:text-"]) {
+  color: #e2e8f0 !important;
+}
+html.dark .text-slate-700:not([class*="dark:text-"]) {
+  color: #cbd5e1 !important;
+}
+html.dark .text-slate-600:not([class*="dark:text-"]) {
+  color: #cbd5e1 !important;
+}
+html.dark .text-slate-500:not([class*="dark:text-"]) {
+  color: #94a3b8 !important;
+}
+
+/* Borders */
+html.dark .border-slate-100:not([class*="dark:border-"]) {
+  border-color: #1e293b !important;
+}
+html.dark .border-slate-200:not([class*="dark:border-"]) {
+  border-color: #334155 !important;
+}
+html.dark .border-slate-200\/80:not([class*="dark:border-"]) {
+  border-color: rgba(51, 65, 85, 0.8) !important;
+}
+html.dark .border-slate-300:not([class*="dark:border-"]) {
+  border-color: #475569 !important;
+}
+
+/* Hover states */
+html.dark [class~="hover:bg-slate-50"]:hover:not([class~="dark:hover:bg-slate-50"]) {
+  background-color: #1e293b !important;
+}
+html.dark [class~="hover:bg-slate-100"]:hover:not([class~="dark:hover:bg-slate-100"]) {
+  background-color: #334155 !important;
+}
+html.dark [class~="hover:bg-slate-200"]:hover:not([class~="dark:hover:bg-slate-200"]) {
+  background-color: #475569 !important;
+}
+
+/* Native controls, dropdowns and inputs */
+html.dark input,
+html.dark textarea,
+html.dark select {
+  color-scheme: dark !important;
+}
+
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+html:not(.dark) input,
+html:not(.dark) textarea,
+html:not(.dark) select {
+  color-scheme: light;
+}
+
+html:not(.dark) select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Protect invoice paper sheet preview from dark-mode background inversion */
+.invoice-sheet-paper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+html.dark .invoice-sheet-paper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Selection, focus and disabled states remain readable in both themes. */
+html.dark ::selection {
+  background: rgba(129, 140, 248, 0.35);
+  color: #ffffff;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #64748b;
+}
+
+/* Modal/dialog backdrops and common panels without explicit dark classes. */
+html.dark [role="dialog"] .bg-white:not([class*="dark:bg-"]) {
+  background-color: #0f172a !important;
+}
+html.dark [role="dialog"] .bg-slate-50:not([class*="dark:bg-"]) {
+  background-color: #0f172a !important;
+}
+
+/* Keep explicit light-only surfaces such as print layouts untouched. */
+@media print {
+  html.dark body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+
+/* Dynamic Accent Color Utility Classes */
+.bg-accent {
+  background-color: var(--accent, #4f46e5) !important;
+}
+
+.bg-accent-hover:hover {
+  background-color: var(--accent-hover, #4338ca) !important;
+}
+
+.text-accent {
+  color: var(--accent, #4f46e5) !important;
+}
+
+.dark .text-accent {
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+.border-accent {
+  border-color: var(--accent, #4f46e5) !important;
+}
+
+.border-accent-subtle {
+  border-color: var(--accent-border, #6366f1) !important;
+}
+
+.bg-accent-light {
+  background-color: var(--accent-light, rgba(79, 70, 229, 0.12)) !important;
+}
+
+.ring-accent:focus {
+  --tw-ring-color: var(--accent-ring, rgba(79, 70, 229, 0.35)) !important;
+}
+
+.taskbar-tinted {
+  background-color: var(--accent-taskbar-bg, rgba(79, 70, 229, 0.2)) !important;
+  border-top-color: var(--accent-taskbar-border, rgba(79, 70, 229, 0.4)) !important;
+}
+
+/* Dynamic Accent Buttons, Badges and Glows */
+.btn-accent {
+  background-color: var(--accent, #4f46e5) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px -3px var(--accent-ring, rgba(79, 70, 229, 0.35));
+  transition: all 0.15s ease-out;
+}
+.btn-accent:hover {
+  background-color: var(--accent-hover, #4338ca) !important;
+  box-shadow: 0 6px 20px -3px var(--accent-ring, rgba(79, 70, 229, 0.45));
+}
+.btn-accent:active {
+  transform: scale(0.98);
+}
+
+.badge-accent {
+  background-color: var(--accent-light, rgba(79, 70, 229, 0.14)) !important;
+  color: var(--accent, #4f46e5) !important;
+  border: 1px solid var(--accent-border, #6366f1);
+}
+.dark .badge-accent {
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+.accent-glow-sm {
+  box-shadow: 0 2px 10px -2px var(--accent-ring, rgba(79, 70, 229, 0.25));
+}
+.accent-glow-md {
+  box-shadow: 0 8px 24px -4px var(--accent-ring, rgba(79, 70, 229, 0.35));
+}
+
+/* Dynamic Contrasting Companion Color Utilities */
+.text-accent-companion {
+  color: var(--accent-companion, #0d9488) !important;
+}
+.bg-accent-companion {
+  background-color: var(--accent-companion, #0d9488) !important;
+}
+.bg-accent-companion-light {
+  background-color: var(--accent-companion-light, rgba(13, 148, 136, 0.18)) !important;
+}
+.border-accent-companion {
+  border-color: var(--accent-companion, #0d9488) !important;
+}
+
+/* ========================================================================== */
+/* Subtle Accent Ambient Glow for App Cards, Panels, Borders & Controls       */
+/* ========================================================================== */
+
+/* App cards and containers in light mode: subtle accent border and ambient glow */
+html:not(.dark) .socdof-window-content [class*="border-slate-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-slate-100"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-slate-300"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-gray-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html:not(.dark) .socdof-window-content [class*="border-zinc-200"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr) {
+  border-color: var(--accent-border-subtle, rgba(79, 70, 229, 0.22)) !important;
+  box-shadow: var(--accent-card-shadow, 0 4px 20px -2px rgba(79, 70, 229, 0.07), 0 1px 3px 0 rgba(0, 0, 0, 0.03));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* App cards and containers in dark mode: subtle luminous neon rim and glow */
+html.dark .socdof-window-content [class*="border-slate-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-slate-700"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-gray-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr),
+html.dark .socdof-window-content [class*="border-zinc-800"]:not([class*="border-t"]):not([class*="border-b"]):not([class*="border-l"]):not([class*="border-r"]):not([class*="border-x"]):not([class*="border-y"]):not([class*="divide-"]):not(button):not(input):not(textarea):not(select):not(hr) {
+  border-color: var(--accent-dark-border-subtle, rgba(129, 140, 248, 0.30)) !important;
+  box-shadow: 0 4px 20px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.16)), 0 0 12px -2px var(--accent-ambient-glow-dark, rgba(79, 70, 229, 0.12));
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Explicitly exempt directional dividers, border separators, and navigation bars from inheriting card glows */
+.socdof-window-content [class*="border-t"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-b"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-l"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-r"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-x"]:not([class*="shadow-"]),
+.socdof-window-content [class*="border-y"]:not([class*="shadow-"]),
+.socdof-window-content [class*="divide-"],
+.socdof-window-content hr,
+.socdof-divider,
+.socdof-nav-bar {
+  box-shadow: none !important;
+}
+
+/* Interactive Card & Panel Hover Glow across all apps */
+.socdof-window-content [class*="hover:border-"]:hover,
+.socdof-window-content [class*="hover:shadow"]:hover {
+  border-color: var(--accent-border-hover, rgba(79, 70, 229, 0.48)) !important;
+  box-shadow: var(--accent-card-shadow-hover, 0 8px 30px -4px rgba(79, 70, 229, 0.20), 0 2px 6px 0 rgba(0, 0, 0, 0.04)) !important;
+}
+
+/* Form Inputs, Search Bars & Textareas Focus Glow across all apps */
+.socdof-window-content input:focus,
+.socdof-window-content textarea:focus,
+.socdof-window-content select:focus {
+  border-color: var(--accent, #4f46e5) !important;
+  box-shadow: 0 0 0 3px var(--accent-ring, rgba(79, 70, 229, 0.25)), 0 0 15px -1px var(--accent-light, rgba(79, 70, 229, 0.2)) !important;
+}
+
+/* Active window subtle outer glow */
+.socdof-window-frame {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Exempt invoice printable sheets & preview documents from decorative glows */
+.invoice-sheet-paper,
+.invoice-sheet-paper *,
+.print-container,
+.print-container * {
+  box-shadow: none !important;
+}
+
+@media print {
+  .socdof-window-content * {
+    box-shadow: none !important;
+    border-color: #000000 !important;
+  }
+}
+
+/* Sleek subtle scrollbars across all windows and modules */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* ==========================================================================
+   Soft Ambient Blurred Gradient Mode (All Apps) - [data-colorful-apps="true"]
+   Replaces sterile plain white with a dreamy, softly blurred ambient
+   color gradient in the background, paired with refined frosted-glass cards.
+   No harsh or jarring contrast borders - pure gentle aesthetic harmony.
+   ========================================================================== */
+
+/* 1. Window Content: dreamy soft blurred ambient gradient mesh in the background */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content,
+html[data-colorful-practice="true"]:not(.dark) .socdof-window-content {
+  background-color: #f8fafc !important;
+  background-image: 
+    radial-gradient(ellipse 75% 60% at 12% 10%, rgba(var(--accent-rgb, 79, 70, 229), 0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(var(--accent-rgb, 79, 70, 229), 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 65% at 50% 60%, rgba(var(--accent-rgb, 79, 70, 229), 0.04) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 85% 88%, rgba(var(--accent-rgb, 79, 70, 229), 0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 90%, rgba(var(--accent-rgb, 79, 70, 229), 0.05) 0%, transparent 55%),
+    linear-gradient(180deg, #fcfdff 0%, #f1f5f9 100%) !important;
+  background-attachment: local !important;
+  position: relative;
+}
+
+html[data-colorful-apps="true"].dark .socdof-window-content,
+html[data-colorful-practice="true"].dark .socdof-window-content {
+  background-color: #0b1120 !important;
+  background-image: 
+    radial-gradient(ellipse 75% 60% at 12% 10%, rgba(var(--accent-rgb, 79, 70, 229), 0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(var(--accent-rgb, 79, 70, 229), 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 65% at 50% 60%, rgba(var(--accent-rgb, 79, 70, 229), 0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 55% at 85% 88%, rgba(var(--accent-rgb, 79, 70, 229), 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 50% at 15% 90%, rgba(var(--accent-rgb, 79, 70, 229), 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #090e17 0%, #0d1527 100%) !important;
+  background-attachment: local !important;
+  position: relative;
+}
+
+/* 2. Cards, Panels & Boxes: sleek frosted glass cards allowing the blurred gradient to shine through */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-white:not(.invoice-sheet-paper):not(.print-container):not(.mce-content-body):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content .bg-slate-50:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="bg-white/"]:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-white:not(.invoice-sheet-paper):not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper .bg-slate-50:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="bg-white/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]) {
+  background: rgba(255, 255, 255, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.80) !important;
+  box-shadow: 0 4px 20px -2px rgba(var(--accent-rgb, 79, 70, 229), 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.02) !important;
+}
+
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-900:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-800:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content .dark\:bg-slate-950:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-900/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-apps="true"].dark .socdof-window-content [class*="dark:bg-slate-800/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-900:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper .dark\:bg-slate-800:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]),
+html[data-colorful-practice="true"].dark .therapy-module-wrapper [class*="dark:bg-slate-900/"]:not(.popover-solid):not([data-popover="true"]):not([data-dropdown="true"]) {
+  background: rgba(30, 41, 59, 0.76) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* 3. Subtle, calm border styling without harsh colored outlines */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-200"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-100"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-slate-300"]:not(.invoice-sheet-paper),
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content [class*="border-gray-200"]:not(.invoice-sheet-paper),
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-200"],
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-100"],
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper [class*="border-slate-300"] {
+  border-color: rgba(226, 232, 240, 0.80) !important;
+}
+
+/* 4. Table Headers & Controls in Ambient Mode */
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content thead tr,
+html[data-colorful-apps="true"]:not(.dark) .socdof-window-content thead th,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper thead tr,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper thead th {
+  background-color: rgba(248, 250, 252, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  color: var(--accent-hover, #4338ca) !important;
+}
+html[data-colorful-apps="true"].dark .socdof-window-content thead tr,
+html[data-colorful-apps="true"].dark .socdof-window-content thead th,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper thead tr,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper thead th {
+  background-color: rgba(15, 23, 42, 0.80) !important;
+  backdrop-filter: blur(10px) !important;
+  color: var(--accent-dark-text, #818cf8) !important;
+}
+
+/* 5. Practice & Therapy Module: clean frosted ambient container */
+html[data-colorful-apps="true"]:not(.dark) .therapy-module-wrapper,
+html[data-colorful-practice="true"]:not(.dark) .therapy-module-wrapper {
+  background: rgba(255, 255, 255, 0.40) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.70) !important;
+  border-radius: 1.5rem;
+  padding: 0.75rem;
+}
+
+html[data-colorful-apps="true"].dark .therapy-module-wrapper,
+html[data-colorful-practice="true"].dark .therapy-module-wrapper {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 1.5rem;
+  padding: 0.75rem;
+}
+
+/* 6. Exemptions: Always keep printable invoice sheets and preview docs clean pure white */
+[data-colorful-apps="true"] .invoice-sheet-paper,
+[data-colorful-apps="true"] .invoice-sheet-paper *,
+[data-colorful-apps="true"] .print-container,
+[data-colorful-apps="true"] .print-container *,
+[data-colorful-practice="true"] .invoice-sheet-paper,
+[data-colorful-practice="true"] .invoice-sheet-paper *,
+[data-colorful-practice="true"] .print-container,
+[data-colorful-practice="true"] .print-container * {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+/* Popover menus, dropdown options, and floating context panels must ALWAYS remain 100% opaque, crisp in foreground */
+.popover-solid,
+[data-popover="true"],
+[data-dropdown="true"],
+[data-colorful-apps="true"] .popover-solid,
+[data-colorful-apps="true"] [data-popover="true"],
+[data-colorful-apps="true"] [data-dropdown="true"],
+[data-colorful-practice="true"] .popover-solid,
+[data-colorful-practice="true"] [data-popover="true"],
+[data-colorful-practice="true"] [data-dropdown="true"] {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.dark .popover-solid,
+html.dark [data-popover="true"],
+html.dark [data-dropdown="true"],
+html[data-colorful-apps="true"].dark .popover-solid,
+html[data-colorful-apps="true"].dark [data-popover="true"],
+html[data-colorful-apps="true"].dark [data-dropdown="true"],
+html[data-colorful-practice="true"].dark .popover-solid,
+html[data-colorful-practice="true"].dark [data-popover="true"],
+html[data-colorful-practice="true"].dark [data-dropdown="true"] {
+  background-color: #0f172a !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
+  border-color: #1e293b !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Internal elements inside solid popovers stay clean, crisp and non-translucent */
+[data-popover="true"] .bg-slate-50,
+.popover-solid .bg-slate-50 {
+  background-color: #f8fafc !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.dark [data-popover="true"] [class*="dark:bg-slate-800"],
+html.dark .popover-solid [class*="dark:bg-slate-800"] {
+  background-color: #1e293b !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.65);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.75);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes windowOpen {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mobile Quick-Create Bottom Sheet entrance (Phase 10) */
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slide-up-sheet {
+  animation: slideUpSheet 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-window-open {
+  animation: windowOpen 0.18s ease-out forwards;
+}
+
+/* -------------------------------------------------------------------------- */
+/* SOCDOF v24 Mobile-Window Responsive System & Container Queries             */
+/* -------------------------------------------------------------------------- */
+.socdof-window-frame {
+  container-type: inline-size;
+  container-name: window;
+}
+
+/* When window is narrow or rendered on mobile viewport */
+.is-mobile-window .socdof-window-content {
+  padding: 0.75rem !important;
+}
+
+.window-show-mobile {
+  display: none;
+}
+
+/* Settings module right pane: adapts to its own width (window minus sidebar) */
+.settings-pane {
+  container-type: inline-size;
+  container-name: settingspane;
+}
+
+@container settingspane (max-width: 840px) {
+  /* Subcategory tabs: readable 2x2 grid instead of 4 clipped columns */
+  .settings-subtabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container settingspane (max-width: 700px) {
+  /* Design mode cards stack vertically so long labels never clip */
+  .settings-mode-cards {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+  /* Taskbar tint options: 2 comfortable columns instead of 4 tight ones */
+  .settings-tint-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@container window (max-width: 640px) {
+  .window-grid-kpi {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+  
+  .window-grid-dual {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1rem !important;
+  }
+
+  .window-hide-mobile {
+    display: none !important;
+  }
+
+  .window-show-mobile {
+    display: block !important;
+  }
+
+  .window-flex-stack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body, html {
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+  }
+  .print-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+}

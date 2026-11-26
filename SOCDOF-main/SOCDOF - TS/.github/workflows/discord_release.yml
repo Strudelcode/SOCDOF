@@ -1,0 +1,62 @@
+name: Discord Release Changelog Notification
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      force_send:
+        description: 'Senden erzwingen, auch wenn CHANGELOG.md leer ist'
+        type: boolean
+        required: false
+        default: false
+      custom_body:
+        description: 'Optionaler manueller Changelog (falls leer, wird CHANGELOG.md verwendet)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  notify-discord:
+    name: Send Release Notes to Discord
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Broadcast Release via Discord Bot to Forum
+        id: broadcast
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN || '' }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID || '' }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || '' }}
+          RELEASE_NAME: ${{ github.event.release.name || '' }}
+          RELEASE_URL: ${{ github.event.release.html_url || 'https://github.com/Strudelcode/SOCDOF' }}
+          OVERRIDE_BODY: ${{ github.event.release.body || inputs.custom_body || '' }}
+          FORCE_SEND: ${{ inputs.force_send && 'true' || 'false' }}
+        run: |
+          python3 scripts/discord_broadcast.py
+
+      - name: Commit and Push Reset CHANGELOG.md
+        if: steps.broadcast.outputs.broadcast_sent == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(changelog): reset CHANGELOG.md after Discord broadcast [skip ci]"
+            git push origin HEAD || echo "Push completed or branch up to date."
+          else
+            echo "CHANGELOG.md was already clean or unchanged."
+          fi
+

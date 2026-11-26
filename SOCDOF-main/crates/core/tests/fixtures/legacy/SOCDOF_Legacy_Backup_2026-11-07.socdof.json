@@ -1,0 +1,223 @@
+{
+  "app": "SOCDOF_Enterprise_Local_ERP",
+  "version": 2,
+  "exported_at": "2026-11-07T14:51:20.253Z",
+  "backup_owner": "Legacy Fixture Owner",
+  "backup_target_folder": "C:\\ERP-Daten\\SOCDOF_Backups",
+  "data_summary": {
+    "contacts_count": 3,
+    "invoices_count": 1,
+    "products_count": 2,
+    "purchases_count": 1
+  },
+  "contacts": [
+    {
+      "id": 1,
+      "name": "Dr. Florian Weber",
+      "firstName": "Florian",
+      "first_name": "Florian",
+      "lastName": "Weber",
+      "last_name": "Weber",
+      "is_company": false,
+      "email": "f.weber@alpentech.ch",
+      "phone": "+41 44 987 6543",
+      "company": "AlpenTech Solutions AG",
+      "type": "customer",
+      "street": "Bahnhofstrasse 10",
+      "zip": "8001",
+      "city": "Zürich",
+      "country": "Schweiz",
+      "taxId": "CHE-109.876.543",
+      "notes": "Schlüsselkunde Schweiz. 30 Tage Zahlungsziel.",
+      "avatar_color": "bg-indigo-600",
+      "default_hourly_rate": 145.5,
+      "contact_persons": [
+        {
+          "id": "cp-1",
+          "first_name": "Florian",
+          "last_name": "Weber",
+          "email": "f.weber@alpentech.ch",
+          "phone": "+41 44 987 6543",
+          "role": "Geschäftsführer",
+          "is_primary": true
+        }
+      ],
+      "createdAt": "2026-08-01T09:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Global Hardware Supply",
+      "is_company": true,
+      "email": "orders@globalhardware.nl",
+      "phone": "+31 20 4455667",
+      "company": "Global Hardware Supply B.V.",
+      "type": "vendor",
+      "street": "Keizersgracht 321",
+      "zip": "1016 EK",
+      "city": "Amsterdam",
+      "country": "Niederlande",
+      "taxId": "NL 847291038B01",
+      "notes": "Hauptlieferant für Sensoren.",
+      "avatar_color": "bg-emerald-600",
+      "createdAt": "2026-07-20T08:15:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Sabine Lindner",
+      "first_name": "Sabine",
+      "last_name": "Lindner",
+      "email": "s.lindner@studiolindner.de",
+      "phone": "+49 30 55443322",
+      "company": "",
+      "type": "guest",
+      "street": "Torstraße 140",
+      "zip": "10119",
+      "city": "Berlin",
+      "country": "Deutschland",
+      "createdAt": "2026-08-05T11:30:00.000Z"
+    }
+  ],
+  "products": [
+    {
+      "id": 1,
+      "name": "Strudel IoT Gateway Pro",
+      "sku": "PRD-IOT-001",
+      "barcode": "426012345001",
+      "sale_price": 499,
+      "cost_price": 240,
+      "qty_available": 18,
+      "min_qty": 5,
+      "target_stock": 25,
+      "category": "Hardware",
+      "image_emoji": "📡",
+      "unit": "Stück",
+      "description": "Industrielles Edge-Computing Gateway mit 5G und Zigbee.",
+      "web_link": "https://example.invalid/gateway",
+      "source_domain": "example.invalid",
+      "exclude_from_reorder": false,
+      "createdAt": "2026-07-15T10:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "CloudSync Enterprise Jahreslizenz",
+      "sku": "LIC-CLS-01",
+      "barcode": "426012345004",
+      "sale_price": 1200.5,
+      "cost_price": 150.25,
+      "qty_available": 999,
+      "min_qty": 0,
+      "category": "Software & Lizenzen",
+      "image_emoji": "⚡",
+      "unit": "Lizenz",
+      "description": "Zentrale Gerätesteuerung und Firmware-OTA Management.",
+      "exclude_from_reorder": true,
+      "createdAt": "2026-07-19T09:00:00.000Z"
+    }
+  ],
+  "stock_moves": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "product_name": "Strudel IoT Gateway Pro",
+      "product_sku": "PRD-IOT-001",
+      "qty": 20,
+      "source_location": "Virtual/Vendors",
+      "dest_location": "Physical/Warehouse",
+      "reference": "WH/IN/2026/001",
+      "date": "2026-08-01T08:30:00.000Z",
+      "notes": "Legacy stock receipt"
+    }
+  ],
+  "invoices": [
+    {
+      "id": 1,
+      "contact_id": 1,
+      "contact_name": "Dr. Florian Weber",
+      "contact_email": "f.weber@alpentech.ch",
+      "contact_company": "AlpenTech Solutions AG",
+      "contact_address": "Bahnhofstrasse 10, 8001 Zürich, Schweiz",
+      "number": "INV/2026/0001",
+      "date": "2026-08-10",
+      "due_date": "2026-09-09",
+      "status": "paid",
+      "type": "out_invoice",
+      "items": [
+        {
+          "id": "item-1",
+          "product_id": 1,
+          "product_name": "Strudel IoT Gateway Pro",
+          "sku": "PRD-IOT-001",
+          "qty": 2,
+          "unit_price": 499,
+          "tax_rate": 19,
+          "discount": 0,
+          "subtotal": 998
+        }
+      ],
+      "subtotal": 998,
+      "tax_total": 189.62,
+      "total": 1187.62,
+      "notes": "Legacy invoice retained in the fixture.",
+      "sent_at": "2026-08-10T15:00:00.000Z",
+      "paid_at": "2026-08-15T10:24:00.000Z",
+      "stock_moved": true
+    }
+  ],
+  "purchase_orders": [
+    {
+      "id": 1,
+      "vendor_id": 2,
+      "number": "PO/2026/0001",
+      "order_date": "2026-08-02",
+      "status": "done",
+      "total": 480,
+      "notes": "Legacy purchase order"
+    }
+  ],
+  "pos_orders": [
+    {
+      "id": 1,
+      "receipt_number": "POS-2026-001",
+      "date": "2026-08-12T10:00:00.000Z",
+      "total": 49.9,
+      "payment_method": "card",
+      "items": [
+        {
+          "product_id": 1,
+          "name": "Strudel IoT Gateway Pro",
+          "qty": 1,
+          "price": 49.9
+        }
+      ]
+    }
+  ],
+  "chatter_messages": [
+    {
+      "id": 1,
+      "res_model": "contact",
+      "res_id": 1,
+      "author": "Legacy App",
+      "content": "Imported from the legacy fixture.",
+      "type": "note",
+      "created_at": "2026-08-01T10:00:00.000Z"
+    }
+  ],
+  "settings": [
+    {
+      "key": "company_profile",
+      "value": {
+        "name": "Strudelcode Legacy GmbH",
+        "legal_form": "GmbH",
+        "currency": "€",
+        "language": "de"
+      }
+    },
+    {
+      "key": "legacy_fixture_marker",
+      "value": {
+        "source": "SOCDOF - TS",
+        "generated_by": "exportDatabaseToJson"
+      }
+    }
+  ]
+}

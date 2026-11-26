@@ -750,76 +750,262 @@ impl InvoiceTemplate {
         currency: &str,
     ) -> String {
         let variables = self.variables(invoice, contact, company, currency);
+        let var = |key: &str| variables.get(key).map(String::as_str).unwrap_or_default();
+        let var_esc = |key: &str| html_escape(var(key));
+
         if self.use_custom_layout && !self.custom_body_template.trim().is_empty() {
             let mut html = self.custom_body_template.clone();
-            for (key, value) in variables {
-                html = html.replace(&key, &value);
+            if let Some(table_html) = variables.get("{Positionen_Tabelle}") {
+                html = unwrap_table_paragraph(&html, "{Positionen_Tabelle}", table_html);
+                html = unwrap_table_paragraph(&html, "{{positionen_tabelle}}", table_html);
+            }
+            for (key, value) in &variables {
+                let replacement = if key == "{Positionen_Tabelle}" {
+                    value.clone()
+                } else {
+                    html_escape(value)
+                };
+                html = html.replace(key, &replacement);
             }
             return html;
         }
+
         let color = html_escape(&self.primary_color);
         let font = self.font_stack();
-        let mut html = format!(
-            "<div style=\"font-family: {font}; color: #0f172a; max-width: 800px; margin: 0 auto; padding: 24px; line-height: 1.5; font-size: 13px;\">\n"
-        );
-        html.push_str(&format!(
-            "<div style=\"border-bottom: 3px solid {color}; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between;\">"
-        ));
-        html.push_str(&format!(
-            "<div><div style=\"font-size: 20px; font-weight: 700;\">{}</div><div style=\"font-size: 11px; color: #475569;\">{} · {}</div></div>",
-            variables.get("{Firma_Name}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Firma_Adresse}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Firma_PLZ_Ort}").map(String::as_str).unwrap_or_default()
-        ));
-        html.push_str(&format!(
-            "<div style=\"text-align: right;\"><div style=\"font-size: 26px; font-weight: 800; color: {color};\">{}</div><div>Nr. {}</div><div>Datum: {}</div><div>Fällig: {}</div></div></div>",
-            variables.get("{Rechnung}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Rechnungsnummer}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Datum}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Faelligkeitsdatum}").map(String::as_str).unwrap_or_default()
-        ));
-        html.push_str(&format!(
-            "<div style=\"border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px;\"><div style=\"font-size: 10px; color: #94a3b8;\">{} · {} · {}</div><div style=\"font-size: 14px; font-weight: 700; margin-top: 8px;\">{}</div><div>{}</div><div>{}</div></div>",
-            variables.get("{Firma_Name}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Firma_Adresse}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Firma_PLZ_Ort}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Kunde_Firma}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Kunde_Name}").map(String::as_str).unwrap_or_default(),
-            variables.get("{Kunde_PLZ_Ort}").map(String::as_str).unwrap_or_default()
-        ));
-        html.push_str(&format!(
-            "<h2 style=\"font-size: 18px; color: #0f172a;\">{}</h2><p>{}</p>",
-            html_escape(&self.header_title),
-            html_escape(
-                &invoice
-                    .note
-                    .clone()
-                    .filter(|note| !note.trim().is_empty())
-                    .unwrap_or_else(|| self.header_text.clone())
+        let logo_src = self.logo.trim();
+        let has_image_logo = self.show_logo
+            && (logo_src.starts_with("data:image/") || logo_src.starts_with("http"));
+        let monogram = var("{Firma_Name}")
+            .chars()
+            .next()
+            .map(|c| c.to_string())
+            .unwrap_or_else(|| "S".to_string());
+
+        let fold_marks_html = if self.show_fold_marks {
+            concat!(
+                "<div style=\"position: absolute; left: 0; top: 0; bottom: 0; width: 20px; pointer-events: none;\">",
+                "<div style=\"position: absolute; left: 4px; top: 105mm; width: 12px; height: 1px; background: #94a3b8;\"></div>",
+                "<div style=\"position: absolute; left: 4px; top: 148.5mm; width: 20px; height: 1.5px; background: #64748b;\"></div>",
+                "<div style=\"position: absolute; left: 4px; top: 210mm; width: 12px; height: 1px; background: #94a3b8;\"></div>",
+                "</div>"
             )
-        ));
-        html.push_str(
-            variables
-                .get("{Positionen_Tabelle}")
-                .map(String::as_str)
-                .unwrap_or_default(),
+        } else {
+            ""
+        };
+
+        let logo_html = if has_image_logo {
+            format!(
+                "<div style=\"max-width: 140px; max-height: 70px;\"><img src=\"{}\" alt=\"Logo\" style=\"max-width: 100%; max-height: 70px; object-fit: contain;\" /></div>",
+                html_escape(logo_src)
+            )
+        } else if self.show_logo {
+            format!(
+                "<div style=\"width: 48px; height: 48px; border-radius: 12px; background: {color}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px;\">{}</div>",
+                html_escape(&monogram)
+            )
+        } else {
+            String::new()
+        };
+
+        let company_subtitle_html = if var("{Firma_Zusatz}").is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 12px; color: #64748b; margin-top: 2px;\">{}</div>",
+                var_esc("{Firma_Zusatz}")
+            )
+        };
+
+        let brand_info_html = format!(
+            "<div><div style=\"font-size: 20px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;\">{}</div>{company_subtitle_html}<div style=\"font-size: 11px; color: #475569; margin-top: 4px;\">{} • {}</div></div>",
+            var_esc("{Firma_Name}"),
+            var_esc("{Firma_Adresse}"),
+            var_esc("{Firma_PLZ_Ort}")
         );
-        for (label, value) in [
-            ("Netto", variables.get("{Netto}")),
-            ("USt.", variables.get("{Ust_Betrag}")),
-            ("Gesamt", variables.get("{Gesamtbetrag}")),
-        ] {
-            html.push_str(&format!(
-                "<p style=\"text-align: right; margin: 2px 0;\"><strong>{label}:</strong> {}</p>",
-                value.map(String::as_str).unwrap_or_default()
-            ));
-        }
-        html.push_str(&format!(
-            "<p style=\"margin-top: 20px;\">{}</p><p style=\"font-size: 10px; color: #64748b;\">{}</p></div>",
-            html_escape(&self.footer_text_for(invoice)),
-            html_escape(&self.tax_note)
-        ));
-        html
+
+        let left_brand_block = match self.logo_position.as_str() {
+            "right" => format!("<div style=\"display: flex; align-items: center; gap: 16px;\">{brand_info_html}{logo_html}</div>"),
+            "center" => format!("<div style=\"display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;\">{logo_html}{brand_info_html}</div>"),
+            _ => format!("<div style=\"display: flex; align-items: center; gap: 16px;\">{logo_html}{brand_info_html}</div>"),
+        };
+
+        let customer_company_html = if var("{Kunde_Firma}").is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 14px; font-weight: 700; color: #0f172a;\">{}</div>",
+                var_esc("{Kunde_Firma}")
+            )
+        };
+        let customer_street_html = if var("{Kunde_Adresse}").is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 12px; color: #475569; margin-top: 3px;\">{}</div>",
+                var_esc("{Kunde_Adresse}")
+            )
+        };
+        let customer_city_html = if var("{Kunde_PLZ_Ort}").is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 12px; color: #475569;\">{}</div>",
+                var_esc("{Kunde_PLZ_Ort}")
+            )
+        };
+        let customer_email_html = if var("{Kunde_Email}").is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 11px; color: #64748b; margin-top: 6px;\">E-Mail: {}</div>",
+                var_esc("{Kunde_Email}")
+            )
+        };
+
+        let status_text = var("{Status}");
+        let status_color = if status_text.contains("Bezahlt") {
+            "#16a34a"
+        } else if status_text.contains("Überfällig") {
+            "#dc2626"
+        } else {
+            "#d97706"
+        };
+
+        let intro_text = invoice
+            .note
+            .as_deref()
+            .map(str::trim)
+            .filter(|note| !note.is_empty())
+            .unwrap_or(self.header_text.trim());
+        let intro_html = if intro_text.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 12px; color: #475569; line-height: 1.5;\">{}</div>",
+                html_escape(intro_text)
+            )
+        };
+
+        let tax_note_html = if self.tax_note.trim().is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<div style=\"font-size: 11px; color: #64748b; margin-top: 4px;\">{}</div>",
+                html_escape(&self.tax_note)
+            )
+        };
+
+        let dash_or = |val: &str| {
+            let trimmed = val.trim();
+            if trimmed.is_empty() {
+                "-".to_string()
+            } else {
+                html_escape(trimmed)
+            }
+        };
+        let bank_or_default = {
+            let bank = var("{Firma_Bank}").trim();
+            if bank.is_empty() {
+                "Hausbank".to_string()
+            } else {
+                html_escape(bank)
+            }
+        };
+        let vat_id_html = if var("{Firma_UStId}").is_empty() {
+            String::new()
+        } else {
+            format!("<div>USt-Id: {}</div>", var_esc("{Firma_UStId}"))
+        };
+        let register_html = if var("{Firma_Handelsregister}").is_empty() {
+            String::new()
+        } else {
+            format!("<div>{}</div>", var_esc("{Firma_Handelsregister}"))
+        };
+
+        format!(
+            "<div style=\"font-family: {font}; color: #0f172a; max-width: 800px; margin: 0 auto; background: #ffffff; padding: 24px; position: relative; line-height: 1.5; font-size: 13px;\">\
+             {fold_marks_html}\
+             <div style=\"display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid {color}; padding-bottom: 20px; margin-bottom: 28px;\">\
+               {left_brand_block}\
+               <div style=\"text-align: right;\">\
+                 <div style=\"font-size: 26px; font-weight: 900; color: {color}; letter-spacing: -0.5px;\">{}</div>\
+                 <div style=\"font-size: 13px; font-weight: 700; color: #334155; margin-top: 2px;\">Nr. {}</div>\
+                 <div style=\"font-size: 11px; color: #64748b; margin-top: 4px;\">Datum: <strong>{}</strong></div>\
+                 <div style=\"font-size: 11px; color: #64748b;\">Fällig: <strong>{}</strong></div>\
+               </div>\
+             </div>\
+             <div style=\"display: flex; justify-content: space-between; align-items: flex-start; gap: 30px; margin-bottom: 30px;\">\
+               <div style=\"flex: 1; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; background: #fafafa;\">\
+                 <div style=\"font-size: 9px; color: #94a3b8; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; margin-bottom: 10px; font-weight: 600;\">{} • {} • {}</div>\
+                 {customer_company_html}\
+                 <div style=\"font-size: 13px; font-weight: 600; color: #1e293b;\">{}</div>\
+                 {customer_street_html}\
+                 {customer_city_html}\
+                 {customer_email_html}\
+               </div>\
+               <div style=\"width: 240px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px;\">\
+                 <div style=\"font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 8px;\">Belegübersicht</div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;\"><span style=\"color: #64748b;\">Rechnungs-Nr.:</span><strong style=\"color: #0f172a;\">{}</strong></div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;\"><span style=\"color: #64748b;\">Rechnungsdatum:</span><strong style=\"color: #0f172a;\">{}</strong></div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;\"><span style=\"color: #64748b;\">Fälligkeitsdatum:</span><strong style=\"color: #0f172a;\">{}</strong></div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 11px; border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 6px;\"><span style=\"color: #64748b;\">Zahlungsstatus:</span><span style=\"font-weight: 700; color: {status_color};\">{}</span></div>\
+               </div>\
+             </div>\
+             <div style=\"margin-bottom: 20px;\">\
+               <div style=\"font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 6px;\">{} {}</div>\
+               {intro_html}\
+             </div>\
+             <div style=\"margin-bottom: 24px;\">{}</div>\
+             <div style=\"display: flex; justify-content: flex-end; margin-bottom: 30px;\">\
+               <div style=\"width: 320px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;\">\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 12px; color: #475569; margin-bottom: 6px;\"><span>Nettobetrag (Zwischensumme):</span><span style=\"font-weight: 600; color: #0f172a;\">{}</span></div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 12px; color: #475569; margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px;\"><span>Umsatzsteuer ({}):</span><span style=\"font-weight: 600; color: #0f172a;\">{}</span></div>\
+                 <div style=\"display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; color: #0f172a;\"><span>Gesamtbetrag (Brutto):</span><span style=\"color: {color};\">{}</span></div>\
+               </div>\
+             </div>\
+             <div style=\"background: #fafafa; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 36px; font-size: 12px; color: #334155;\">\
+               <div style=\"font-weight: 600; margin-bottom: 4px;\">Zahlungs- &amp; Steuerhinweis:</div>\
+               <div>{}</div>\
+               {tax_note_html}\
+             </div>\
+             <div style=\"border-top: 2px solid #e2e8f0; padding-top: 18px; font-size: 10px; color: #64748b; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; line-height: 1.4;\">\
+               <div><strong style=\"color: #334155; display: block; margin-bottom: 3px;\">Anschrift:</strong><div>{}</div><div>{}</div><div>{}</div></div>\
+               <div><strong style=\"color: #334155; display: block; margin-bottom: 3px;\">Kontakt:</strong><div>Tel: {}</div><div>E-Mail: {}</div><div>Web: {}</div></div>\
+               <div><strong style=\"color: #334155; display: block; margin-bottom: 3px;\">Bankverbindung:</strong><div>{bank_or_default}</div><div>IBAN: {}</div><div>BIC: {}</div></div>\
+               <div><strong style=\"color: #334155; display: block; margin-bottom: 3px;\">Rechtliche Angaben:</strong><div>Inhaber: {}</div><div>St.-Nr.: {}</div>{vat_id_html}{register_html}</div>\
+             </div>\
+             </div>",
+            var_esc("{Rechnung}"),
+            var_esc("{Rechnungsnummer}"),
+            var_esc("{Datum}"),
+            var_esc("{Faelligkeitsdatum}"),
+            var_esc("{Firma_Name}"),
+            var_esc("{Firma_Adresse}"),
+            var_esc("{Firma_PLZ_Ort}"),
+            var_esc("{Kunde_Name}"),
+            var_esc("{Rechnungsnummer}"),
+            var_esc("{Datum}"),
+            var_esc("{Faelligkeitsdatum}"),
+            var_esc("{Status}"),
+            html_escape(&self.header_title),
+            var_esc("{Rechnungsnummer}"),
+            var("{Positionen_Tabelle}"),
+            var_esc("{Netto}"),
+            var_esc("{Ust_Satz}"),
+            var_esc("{Ust_Betrag}"),
+            var_esc("{Gesamtbetrag}"),
+            var_esc("{Fusszeile}"),
+            var_esc("{Firma_Name}"),
+            var_esc("{Firma_Adresse}"),
+            var_esc("{Firma_PLZ_Ort}"),
+            dash_or(var("{Firma_Telefon}")),
+            dash_or(var("{Firma_Email}")),
+            dash_or(var("{Firma_Website}")),
+            dash_or(var("{Firma_IBAN}")),
+            dash_or(var("{Firma_BIC}")),
+            var_esc("{Firma_Inhaber}"),
+            dash_or(var("{Firma_Steuernummer}")),
+        )
     }
 
     /// Renders the visible HTML into the shared formatted document model used by all outputs.
@@ -975,44 +1161,60 @@ pub fn default_template() -> InvoiceTemplate {
     }
 }
 
-/// Factory templates of a fresh installation.
+/// Factory templates of a fresh installation, aligned with TypeScript `DEFAULT_INVOICE_TEMPLATES`.
 pub fn default_templates() -> Vec<InvoiceTemplate> {
     let mut classic = default_template();
-    classic.name = "DIN 5008 Standard (klassisch)".to_string();
+    classic.name = "DIN 5008 Standard (Klassisch & Rechtskonform)".to_string();
     classic.description =
-        "Deutscher Geschäftsstandard mit Faltmarken und präzisem Adressfeld.".to_string();
+        "Deutscher Geschäftsstandard mit Faltmarken, präzisem Adressfeld für Fensterkuverts (DIN Lang), detaillierter Steuertabelle und 4-Spalten-Fußzeile.".to_string();
+    classic.header_text =
+        "Wir bedanken uns für das entgegengebrachte Vertrauen und stellen folgende Leistungen in Rechnung:"
+            .to_string();
+    classic.footer_text =
+        "Zahlbar innerhalb von {Zahlungsziel_Tage} Tagen ab Rechnungsdatum ohne Abzug auf unser angegebenes Geschäftskonto."
+            .to_string();
+    classic.tax_note = "Rechnungsbetrag enthält die gesetzliche Mehrwertsteuer.".to_string();
 
-    let mut modern = InvoiceTemplate {
+    let modern = InvoiceTemplate {
         id: "modern_minimal".to_string(),
-        name: "Modern Minimal".to_string(),
-        description: "Klares Layout für Agenturen und Freiberufler.".to_string(),
+        name: "Modern Minimalist (Agentur & Freiberufler)".to_string(),
+        description:
+            "Elegantes, klares Design mit reduziertem Rahmen, modernem Header und prominenter Logo-Platzierung oben links."
+                .to_string(),
         preset_type: "modern".to_string(),
         is_default: false,
+        logo_position: "left".to_string(),
         header_title: "Rechnung & Leistungsnachweis".to_string(),
-        header_text: "Vielen Dank für die angenehme Zusammenarbeit. Anbei die Abrechnung."
-            .to_string(),
+        header_text:
+            "Vielen Dank für die angenehme Zusammenarbeit. Anbei finden Sie Ihre detaillierte Abrechnung:"
+                .to_string(),
         footer_text:
-            "Bitte überweisen Sie den Gesamtbetrag bis zum {Faelligkeitsdatum} unter Angabe der Rechnungsnummer {Rechnungsnummer}.".to_string(),
-        tax_note: "Regelbesteuerung gemäß UStG.".to_string(),
+            "Bitte überweisen Sie die Gesamtsumme bis zum {Faelligkeitsdatum} unter Angabe der Rechnungsnummer {Rechnungsnummer}."
+                .to_string(),
+        tax_note: "Regelbesteuerung gem. UStG.".to_string(),
         primary_color: "#0f172a".to_string(),
         due_days: 14,
         show_fold_marks: false,
         ..default_template()
     };
-    modern.tax_note = "Regelbesteuerung gemäß UStG.".to_string();
 
     let corporate = InvoiceTemplate {
         id: "corporate_executive".to_string(),
-        name: "Corporate Executive".to_string(),
-        description: "Industrieller Auftritt für GmbH und Handel.".to_string(),
+        name: "Executive Corporate (GmbH & Industrie)".to_string(),
+        description:
+            "Solider Industrieauftritt mit markantem Farbheader, Logo-Sockel oben links und strukturierter IBAN/BIC-Box."
+                .to_string(),
         preset_type: "corporate".to_string(),
         is_default: false,
-        header_title: "Handelsrechnung".to_string(),
-        header_text: "Gemäß Ihrer Bestellung berechnen wir folgende Lieferungen und Leistungen."
-            .to_string(),
-        footer_text: "Rechnungsbetrag fällig rein netto innerhalb von {Zahlungsziel_Tage} Tagen."
-            .to_string(),
-        tax_note: "Lieferung gemäß den vereinbarten Handelsbedingungen.".to_string(),
+        logo_position: "left".to_string(),
+        header_title: "Handelsrechnung (Commercial Invoice)".to_string(),
+        header_text:
+            "Gemäß Ihrer Bestellung berechnen wir hiermit folgende Lieferungen und Leistungen:"
+                .to_string(),
+        footer_text:
+            "Rechnungsbetrag fällig rein netto innerhalb von {Zahlungsziel_Tage} Tagen. Bei Rückfragen steht Ihnen unsere Buchhaltung zur Verfügung."
+                .to_string(),
+        tax_note: "Lieferung erfolgt nach Incoterms 2020 DAP.".to_string(),
         primary_color: "#1e3a8a".to_string(),
         due_days: 30,
         show_fold_marks: true,
@@ -1021,13 +1223,21 @@ pub fn default_templates() -> Vec<InvoiceTemplate> {
 
     let creative = InvoiceTemplate {
         id: "creative_studio".to_string(),
-        name: "Creative Studio".to_string(),
-        description: "Persönlicher Stil für Design, Handwerk und Handel.".to_string(),
+        name: "Creative Studio (Design, Handwerk & Handel)".to_string(),
+        description:
+            "Warme, stilsichere Typografie mit dezentem Badge, persönlicher Danksagung und ansprechenden Abständen."
+                .to_string(),
         preset_type: "creative".to_string(),
         is_default: false,
+        logo_position: "right".to_string(),
+        font_family: "serif".to_string(),
         header_title: "Rechnung & Honorar".to_string(),
-        header_text: "Wir stellen die vereinbarten Positionen in Rechnung.".to_string(),
-        footer_text: "Herzlichen Dank für Ihr Vertrauen!".to_string(),
+        header_text:
+            "Wir freuen uns über das gelungene Projekt und stellen die vereinbarten Positionen in Rechnung:"
+                .to_string(),
+        footer_text:
+            "Herzlichen Dank für Ihr Vertrauen! Wir freuen uns auf das nächste gemeinsame Projekt."
+                .to_string(),
         tax_note: String::new(),
         primary_color: "#c2410c".to_string(),
         due_days: 14,
@@ -1037,22 +1247,115 @@ pub fn default_templates() -> Vec<InvoiceTemplate> {
 
     let practice = InvoiceTemplate {
         id: "practice_medical".to_string(),
-        name: "Heilbehandlung & Praxis".to_string(),
-        description: "Praxisabrechnung mit Hinweis zur Steuerbefreiung.".to_string(),
+        name: "Heilbehandlung & Praxis (§ 4 Nr. 14 UStG)".to_string(),
+        description:
+            "Offizielle Heilmittel- und Praxisabrechnung für Psychotherapie, Ärzte und Heilpraktiker mit Diagnose-Hinweis und USt-Befreiung."
+                .to_string(),
         preset_type: "praxis".to_string(),
         is_default: false,
+        logo_position: "left".to_string(),
         header_title: "Honorarabrechnung".to_string(),
-        header_text: "Für die durchgeführten Sitzungen erlaube ich mir folgendes Honorar in Rechnung zu stellen.".to_string(),
-        footer_text: "Bitte überweisen Sie den Honorarbetrag innerhalb von {Zahlungsziel_Tage} Tagen auf das Praxiskonto.".to_string(),
-        tax_note: "Umsatzsteuerbefreit nach § 4 Nr. 14 UStG (Heilbehandlung im Bereich der Humanmedizin).".to_string(),
+        header_text:
+            "Für die durchgeführten psychotherapeutischen Sitzungen und Beratungen erlaube ich mir folgendes Honorar in Rechnung zu stellen:"
+                .to_string(),
+        footer_text:
+            "Bitte überweisen Sie den Honorarbetrag innerhalb von {Zahlungsziel_Tage} Tagen auf das Praxiskonto."
+                .to_string(),
+        tax_note:
+            "Umsatzsteuerbefreit nach § 4 Nr. 14 UStG (Heilbehandlung im Bereich der Humanmedizin)."
+                .to_string(),
         primary_color: "#0d9488".to_string(),
         due_days: 14,
         show_fold_marks: true,
         ..default_template()
     };
 
-    vec![classic, modern, corporate, creative, practice]
+    let custom = InvoiceTemplate {
+        id: "custom_layout".to_string(),
+        name: "Freies Layout & Variablen-Editor".to_string(),
+        description:
+            "Vollständig anpassbares HTML-Layout mit Platzhaltern, frei definierbarem Design, Logo-Sockel und CSS."
+                .to_string(),
+        preset_type: "custom".to_string(),
+        is_default: false,
+        logo_position: "left".to_string(),
+        primary_color: "#6366f1".to_string(),
+        font_family: "sans".to_string(),
+        header_title: "Rechnung".to_string(),
+        header_text: String::new(),
+        footer_text: "Vielen Dank für Ihre Bestellung!".to_string(),
+        tax_note: String::new(),
+        due_days: 14,
+        show_fold_marks: false,
+        use_custom_layout: true,
+        custom_body_template: CUSTOM_LAYOUT_HTML.to_string(),
+        ..default_template()
+    };
+
+    vec![classic, modern, corporate, creative, practice, custom]
 }
+
+const CUSTOM_LAYOUT_HTML: &str = r#"<!-- Individuelle Rechnungsvorlage -->
+<div style="font-family: inherit; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid {Primaerfarbe}; padding-bottom: 24px; margin-bottom: 30px;">
+    <div>
+      <div style="font-size: 24px; font-weight: 800; color: {Primaerfarbe};">{Firma_Name}</div>
+      <div style="font-size: 13px; color: #64748b; margin-top: 4px;">{Firma_Zusatz}</div>
+      <div style="font-size: 12px; color: #475569; margin-top: 6px;">{Firma_Adresse} • {Firma_PLZ_Ort}</div>
+      <div style="font-size: 12px; color: #475569;">E-Mail: {Firma_Email} • Tel: {Firma_Telefon}</div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #0f172a;">{Rechnung}</div>
+      <div style="font-size: 14px; font-weight: 700; color: #334155; margin-top: 4px;">Nr. {Rechnungsnummer}</div>
+      <div style="font-size: 12px; color: #64748b; margin-top: 2px;">Datum: {Datum}</div>
+      <div style="font-size: 12px; color: #64748b;">Fällig am: {Faelligkeitsdatum}</div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; gap: 20px; margin-bottom: 36px;">
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; flex: 1;">
+      <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">Rechnungsempfänger</div>
+      <div style="font-size: 14px; font-weight: 700; color: #0f172a;">{Kunde_Firma}</div>
+      <div style="font-size: 13px; color: #334155;">{Kunde_Name}</div>
+      <div style="font-size: 12px; color: #475569; margin-top: 4px;">{Kunde_Adresse}</div>
+      <div style="font-size: 12px; color: #475569;">{Kunde_PLZ_Ort}</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 6px;">{Kunde_Email}</div>
+    </div>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; width: 220px;">
+      <div style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">Zahlungsdetails</div>
+      <div style="font-size: 12px; color: #475569;">Zahlungsziel: <strong>{Zahlungsziel_Tage} Tage</strong></div>
+      <div style="font-size: 12px; color: #475569; margin-top: 4px;">Status: <span style="font-weight: 700; color: #16a34a;">{Status}</span></div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 8px;">IBAN: {Firma_IBAN}</div>
+      <div style="font-size: 11px; color: #64748b;">BIC: {Firma_BIC}</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 24px;">
+    {Positionen_Tabelle}
+  </div>
+
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 30px;">
+    <div style="width: 280px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px;">
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: #475569; margin-bottom: 6px;">
+        <span>Nettobetrag:</span>
+        <span style="font-weight: 600;">{Netto}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 13px; color: #475569; margin-bottom: 10px; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px;">
+        <span>MwSt ({Ust_Satz}):</span>
+        <span style="font-weight: 600;">{Ust_Betrag}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 16px; font-weight: 800; color: #0f172a;">
+        <span>Gesamtbetrag:</span>
+        <span style="color: {Primaerfarbe};">{Gesamtbetrag}</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid #e2e8f0; padding-top: 16px; font-size: 12px; color: #64748b; text-align: center;">
+    <div>{Fusszeile}</div>
+    <div style="margin-top: 4px; font-size: 11px;">{Steuerhinweis}</div>
+  </div>
+</div>"#;
 
 /// Loads the stored template book, or the factory templates on a fresh database.
 pub fn load(store: &Store) -> CoreResult<TemplateBook> {
@@ -1120,6 +1423,41 @@ fn html_escape(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+fn unwrap_table_paragraph(html: &str, token: &str, replacement: &str) -> String {
+    let lower_html = html.to_ascii_lowercase();
+    let lower_token = token.to_ascii_lowercase();
+    let mut out = String::with_capacity(html.len());
+    let mut cursor = 0;
+
+    while let Some(rel_p) = lower_html[cursor..].find("<p") {
+        let p_start = cursor + rel_p;
+        let Some(rel_gt) = lower_html[p_start..].find('>') else {
+            break;
+        };
+        let content_start = p_start + rel_gt + 1;
+        let Some(rel_close) = lower_html[content_start..].find("</p>") else {
+            break;
+        };
+        let content_end = content_start + rel_close;
+        let inner = html[content_start..content_end].trim();
+        let inner_compact: String = inner
+            .chars()
+            .filter(|ch| !ch.is_whitespace())
+            .collect::<String>()
+            .to_ascii_lowercase();
+        if inner_compact == lower_token {
+            out.push_str(&html[cursor..p_start]);
+            out.push_str(replacement);
+            cursor = content_end + 4;
+        } else {
+            out.push_str(&html[cursor..content_start]);
+            cursor = content_start;
+        }
+    }
+    out.push_str(&html[cursor..]);
+    out
 }
 
 /// Plain-text preview of an HTML template, with tags and basic entities removed.
@@ -1872,5 +2210,89 @@ mod tests {
             active(&store).expect("active").id.as_str(),
             "modern_minimal"
         );
+    }
+
+    #[test]
+    fn factory_templates_match_all_six_typescript_presets() {
+        let templates = default_templates();
+        assert_eq!(templates.len(), 6);
+        let ids: Vec<&str> = templates.iter().map(|t| t.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "din_5008_classic",
+                "modern_minimal",
+                "corporate_executive",
+                "creative_studio",
+                "practice_medical",
+                "custom_layout"
+            ]
+        );
+        assert!(templates[0].is_default);
+        assert!(templates[0].show_fold_marks);
+        assert_eq!(templates[0].logo_position, "right");
+
+        assert_eq!(templates[1].logo_position, "left");
+        assert!(!templates[1].show_fold_marks);
+
+        assert_eq!(templates[2].logo_position, "left");
+        assert_eq!(templates[2].due_days, 30);
+        assert!(templates[2].show_fold_marks);
+
+        assert_eq!(templates[3].font_family, "serif");
+        assert_eq!(templates[3].logo_position, "right");
+
+        assert_eq!(templates[4].logo_position, "left");
+        assert!(templates[4].tax_note.contains("§ 4 Nr. 14 UStG"));
+
+        assert_eq!(templates[5].preset_type, "custom");
+        assert!(templates[5].use_custom_layout);
+        assert!(templates[5]
+            .custom_body_template
+            .contains("{Positionen_Tabelle}"));
+        assert!(templates[5].custom_body_template.contains("{Ust_Satz}"));
+    }
+
+    #[test]
+    fn builtin_din5008_html_matches_ts_structure_and_recipient_fields() {
+        let (invoice, mut contact, mut company) = sample_html_data();
+        contact.email = Some("einkauf@beispiel.de".to_string());
+        company.phone = "+49 30 9876".to_string();
+        company.iban = "DE1234".to_string();
+        company.bic = "BIC123".to_string();
+        let template = default_templates().into_iter().next().expect("classic");
+        let html = template.render_html(&invoice, &contact, &company, "€");
+
+        assert!(html.contains("top: 105mm"));
+        assert!(html.contains("top: 148.5mm"));
+        assert!(html.contains("top: 210mm"));
+        assert!(html.contains("Hauptstrasse 5"));
+        assert!(html.contains("10115 Berlin"));
+        assert!(html.contains("einkauf@beispiel.de"));
+        assert!(html.contains("Belegübersicht"));
+        assert!(html.contains("Nettobetrag (Zwischensumme):"));
+        assert!(html.contains("Umsatzsteuer (19%):"));
+        assert!(html.contains("Gesamtbetrag (Brutto):"));
+        assert!(html.contains("Zahlungs- &amp; Steuerhinweis:"));
+        assert!(html.contains("Anschrift:"));
+        assert!(html.contains("Kontakt:"));
+        assert!(html.contains("Bankverbindung:"));
+        assert!(html.contains("Rechtliche Angaben:"));
+        assert!(!html.contains("{Zahlungsziel_Tage}"));
+    }
+
+    #[test]
+    fn custom_html_unwraps_wrapped_positions_table_paragraphs() {
+        let (invoice, contact, company) = sample_html_data();
+        let mut template = default_template();
+        template.use_custom_layout = true;
+        template.custom_body_template =
+            "<div><p class=\"x\">{Positionen_Tabelle}</p><p>  {{ positionen_tabelle }}  </p></div>"
+                .to_string();
+        let html = template.render_html(&invoice, &contact, &company, "€");
+        assert!(!html.contains("<p class=\"x\">"));
+        assert!(!html.contains("<p>"));
+        assert!(html.contains("<table"));
+        assert!(html.contains("Beratung"));
     }
 }

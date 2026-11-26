@@ -1,0 +1,6 @@
+{
+  "name": "SOCDOF",
+  "description": "SOCDOF - Strudel's Organization, Commerce & Documentation Offline Flow. 100% lokale Windows Desktop ERP Suite mit Fenstermanager, DIN 5008, CRM, POS Kasse, Lager, BWA und Buchhaltung.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

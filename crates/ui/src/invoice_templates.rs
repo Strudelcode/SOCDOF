@@ -1355,7 +1355,7 @@ mod tests {
         let store = Store::open_in_memory().expect("store");
         let mut state = InvoiceTemplatesState::new();
         state.open(&store);
-        assert_eq!(state.book.templates.len(), 5);
+        assert_eq!(state.book.templates.len(), 6);
 
         state.draft.name = "Eigene Vorlage".to_string();
         state.mark_dirty();
@@ -1378,7 +1378,7 @@ mod tests {
                 .expect("load")
                 .templates
                 .len(),
-            6
+            7
         );
         assert!(state.delete(&store));
         assert_eq!(
@@ -1386,7 +1386,7 @@ mod tests {
                 .expect("load")
                 .templates
                 .len(),
-            5
+            6
         );
 
         state.due_days_input = "400".to_string();

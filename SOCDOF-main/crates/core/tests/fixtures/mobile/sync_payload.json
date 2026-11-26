@@ -1,0 +1,139 @@
+{
+  "protocol": "SOCDOF_MOBILE_COMPANION_V1",
+  "exportVersion": "1.0",
+  "exportTimestamp": "2026-11-09T08:30:00.000Z",
+  "appName": "SOCDOF TimeTracking Mobile",
+  "deviceId": "sunrise-fields-01",
+  "summary": {
+    "totalSessions": 2,
+    "totalTrips": 1,
+    "totalCustomers": 1,
+    "totalWorkHours": 4.5,
+    "totalKilometers": 42,
+    "totalCalculatedCost": 55.2,
+    "currency": "EUR"
+  },
+  "date_range": {
+    "from": "2026-11-08",
+    "to": "2026-11-09"
+  },
+  "tickets": [
+    {
+      "id": "mob_ticket_1",
+      "ticket_number": "MOB-101",
+      "title": "Wartung Filteranlage",
+      "customer_name": "AlpenTech GmbH",
+      "customer_email": "service@alpentech.invalid",
+      "customer_phone": "+49 30 5501",
+      "description": "Vor-Ort-Wartung der Filteranlage, Abnahme durch den Kunden.",
+      "status": "in_progress",
+      "priority": 2,
+      "team": "Kundendienst & Außendienst",
+      "assigned_staff": "Außendienst",
+      "created_at": "2026-11-08T07:15:00.000Z",
+      "location_name": "AlpenTech GmbH, Brixen",
+      "travel_km": 42,
+      "timesheets": [
+        {
+          "id": "ts_ticket_1",
+          "date": "2026-11-08",
+          "staff": "Außendienst",
+          "description": "Wartung Filteranlage",
+          "hours": 2.5,
+          "hourly_rate": 65,
+          "billable": true,
+          "started_at": "2026-11-08T07:15:00.000Z",
+          "ended_at": "2026-11-08T09:45:00.000Z",
+          "travel_km": 42,
+          "location_name": "AlpenTech GmbH, Brixen"
+        }
+      ],
+      "expenses": [
+        {
+          "id": "exp_ticket_1",
+          "date": "2026-11-08",
+          "title": "Fahrtkosten (42 km, Bozen ➔ Brixen)",
+          "amount": 25.2,
+          "category": "travel",
+          "notes": "Fahrtzeit: 45 Min.",
+          "billable": true
+        }
+      ],
+      "voice_notes": [
+        {
+          "id": "vn_1",
+          "author": "Außendienst",
+          "text_transcript": "Filterpatrone getauscht, Anlage läuft wieder.",
+          "created_at": "2026-11-08T09:40:00.000Z"
+        }
+      ]
+    }
+  ],
+  "standalone_timesheets": [
+    {
+      "date": "2026-11-09",
+      "staff": "Außendienst",
+      "description": "Allgemeine Zeiterfassung",
+      "hours": 2,
+      "hourly_rate": 65,
+      "billable": true
+    }
+  ],
+  "standalone_expenses": [
+    {
+      "date": "2026-11-09",
+      "title": "Parkgebühr",
+      "amount": 4.5,
+      "category": "parking",
+      "billable": true
+    }
+  ],
+  "sessions": [
+    {
+      "id": "session_1",
+      "date": "2026-11-08",
+      "customerId": "c-1",
+      "customerName": "AlpenTech GmbH",
+      "title": "Wartung Filteranlage",
+      "durationMinutes": 135,
+      "kilometers": 42,
+      "hourlyRate": 72,
+      "materialCost": 38.3,
+      "notes": {
+        "task": "Filterpatrone tauschen",
+        "objective": "Betriebsbereitschaft herstellen",
+        "onSiteReport": "Patrone getauscht, Druck geprüft.",
+        "materialAndExpenses": "Filterpatrone",
+        "remarks": "Abnahme durch Kunden erfolgt."
+      }
+    }
+  ],
+  "trips": [
+    {
+      "id": "trip_1",
+      "date": "2026-11-08",
+      "customerId": "c-1",
+      "customerName": "AlpenTech GmbH",
+      "startLocation": "Bozen",
+      "endLocation": "Brixen",
+      "distanceKm": 42,
+      "durationMinutes": 45,
+      "calculatedCost": 25.2
+    }
+  ],
+  "customers": [
+    {
+      "id": "c-1",
+      "companyName": "AlpenTech GmbH",
+      "contactPerson": "Frau Berger",
+      "email": "service@alpentech.invalid",
+      "phone": "+49 30 5501",
+      "street": "Hauptstrasse 5",
+      "zipCity": "10115 Berlin",
+      "customHourlyRate": 72,
+      "latitude": 46.7151,
+      "longitude": 11.6571,
+      "geofenceRadiusMeters": 150
+    }
+  ]
+}

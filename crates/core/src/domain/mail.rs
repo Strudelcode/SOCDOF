@@ -320,11 +320,6 @@ pub fn invoice_eml(
     recipient_email: &str,
     company: &CompanyProfile,
 ) -> String {
-    let sender_email = if company.email.trim().is_empty() {
-        "rechnung@firma.local"
-    } else {
-        company.email.trim()
-    };
     let sender_name = if company.name.trim().is_empty() {
         "Rechnungsabteilung"
     } else {
@@ -411,6 +406,38 @@ pub fn invoice_eml(
         body.push(format!("Tel.: {}", company.phone.trim()));
     }
 
+    let body_text = body.join("\n");
+    invoice_eml_with(
+        invoice,
+        customer,
+        recipient_email,
+        &invoice_subject(invoice, company),
+        &body_text,
+        company,
+    )
+}
+
+/// Complete RFC 822 draft of the invoice mail using caller-provided recipient, subject and body.
+pub fn invoice_eml_with(
+    _invoice: &Invoice,
+    customer: &str,
+    recipient_email: &str,
+    subject: &str,
+    body: &str,
+    company: &CompanyProfile,
+) -> String {
+    let sender_email = if company.email.trim().is_empty() {
+        "rechnung@firma.local"
+    } else {
+        company.email.trim()
+    };
+    let sender_name = if company.name.trim().is_empty() {
+        "Rechnungsabteilung"
+    } else {
+        company.name.trim()
+    };
+    let normalized_body = body.replace("\r\n", "\n").replace('\n', "\r\n");
+
     format!(
         "From: \"{}\" <{}>\r\nTo: \"{}\" <{}>\r\nSubject: {}\r\nMIME-Version: 1.0\r\n\
          Content-Type: text/plain; charset=UTF-8; format=flowed\r\n\
@@ -423,8 +450,8 @@ pub fn invoice_eml(
         } else {
             recipient_email.trim()
         },
-        encode_mime_header(&invoice_subject(invoice, company)),
-        body.join("\r\n")
+        encode_mime_header(subject),
+        normalized_body
     )
 }
 
@@ -532,5 +559,21 @@ mod tests {
             mailto_url("kunde@example.de", "Rechnung 1", "Sehr geehrte"),
             "mailto:kunde@example.de?subject=Rechnung%201&body=Sehr%20geehrte"
         );
+    }
+
+    #[test]
+    fn invoice_eml_with_preserves_edited_fields_and_crlf() {
+        let eml = invoice_eml_with(
+            &invoice(),
+            "Muster GmbH",
+            "custom@muster.de",
+            "Eigener Betreff",
+            "Zeile 1\nZeile 2",
+            &company(),
+        );
+        assert!(eml.contains("To: \"Muster GmbH\" <custom@muster.de>\r\n"));
+        assert!(eml.contains("Subject: Eigener Betreff\r\n"));
+        assert!(eml.contains("X-Unsent: 1\r\n"));
+        assert!(eml.ends_with("\r\n\r\nZeile 1\r\nZeile 2"));
     }
 }

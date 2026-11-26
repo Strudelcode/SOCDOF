@@ -24,8 +24,8 @@ use socdof_app::external_assets::{
 use socdof_app::fleet_bridge::{FleetFuelInput, FleetTripInput, FleetVehicleInput};
 use socdof_app::invoice_bridge::{
     ContactMailView, FatturaInput, InvoiceDefaults, InvoiceDunningView, InvoiceExportReport,
-    InvoiceFatturaView, InvoiceInput, InvoiceMailView, InvoicePaymentView, InvoicePreview,
-    InvoiceView,
+    InvoiceFatturaView, InvoiceInput, InvoiceMailView, InvoicePaymentContextView,
+    InvoicePaymentView, InvoicePreview, InvoiceView, PaymentCaptureDetails,
 };
 use socdof_app::project_bridge::{ProjectInput, ProjectTaskInput};
 use socdof_app::restaurant_bridge::{MenuItemInput, RestaurantCheckoutInput};
@@ -33,7 +33,7 @@ use socdof_app::shell::ShellStatus;
 use socdof_app::shortcuts::{
     self, AppAction, Key, KeyChord, Modifiers, ShortcutContext, ShortcutOutcome,
 };
-use socdof_app::template_bridge::InvoiceTemplateBookView;
+use socdof_app::template_bridge::{InvoiceTemplateBookView, InvoiceTemplateView};
 use socdof_app::tray;
 use socdof_core::backup::BackupMetadata;
 use socdof_core::domain::accounting::{CashBookRow, JournalEntry, JournalSummary};
@@ -704,6 +704,28 @@ pub fn save_invoice_templates(
         ));
     }
     Ok(())
+}
+
+/// Resets the stored invoice template book back to the six factory presets.
+#[tauri::command]
+pub fn reset_invoice_templates(
+    state: tauri::State<'_, DesktopState>,
+) -> Result<InvoiceTemplateBookView, String> {
+    state
+        .reset_invoice_templates()
+        .map_err(|error| error.to_string())
+}
+
+/// Renders an editable template draft against either a stored invoice or the sample test invoice.
+#[tauri::command]
+pub fn template_preview(
+    state: tauri::State<'_, DesktopState>,
+    template: InvoiceTemplateView,
+    invoice_id: Option<Uuid>,
+) -> Result<InvoicePreview, String> {
+    state
+        .template_preview(&template, invoice_id)
+        .map_err(|error| error.to_string())
 }
 
 /// Stationery token keys offered by the template editor.
@@ -1940,14 +1962,15 @@ pub fn invoice_dunning(
     id: Uuid,
     level: String,
     fee_cents: Option<i64>,
+    interest_cents: Option<i64>,
     days: Option<i64>,
 ) -> Result<InvoiceDunningView, String> {
     let view = state
-        .invoice_dunning(id, &level, fee_cents, days)
+        .invoice_dunning(id, &level, fee_cents, interest_cents, days)
         .map_err(|error| error.to_string())?;
     eprintln!(
-        "SOCDOF_SMOKE invoice_dunning invoice={} level={} fee_cents={} days={} claim_cents={}",
-        view.invoice_number, view.level, view.fee_cents, view.days, view.claim_cents
+        "SOCDOF_SMOKE invoice_dunning invoice={} level={} fee_cents={} interest_cents={} days={} claim_cents={}",
+        view.invoice_number, view.level, view.fee_cents, view.interest_cents, view.days, view.claim_cents
     );
     Ok(view)
 }
@@ -1977,7 +2000,19 @@ pub fn invoice_payment(
     state.invoice_payment(id).map_err(|error| error.to_string())
 }
 
+/// Context needed by the payment modal (company bank details, terminal status, quick cash, prior receipt).
+#[tauri::command]
+pub fn invoice_payment_context(
+    state: tauri::State<'_, DesktopState>,
+    id: Uuid,
+) -> Result<InvoicePaymentContextView, String> {
+    state
+        .invoice_payment_context(id)
+        .map_err(|error| error.to_string())
+}
+
 /// Records a payment and marks the invoice paid.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn record_invoice_payment(
     state: tauri::State<'_, DesktopState>,
@@ -1985,9 +2020,19 @@ pub fn record_invoice_payment(
     method: String,
     reference: Option<String>,
     paid_at: Option<i64>,
+    card_type: Option<String>,
+    masked_card: Option<String>,
+    auth_code: Option<String>,
+    cash_given_cents: Option<i64>,
 ) -> Result<InvoicePaymentView, String> {
+    let details = PaymentCaptureDetails {
+        card_type,
+        masked_card,
+        auth_code,
+        cash_given_cents,
+    };
     let view = state
-        .record_invoice_payment(id, &method, reference.as_deref(), paid_at)
+        .record_invoice_payment_details(id, &method, reference.as_deref(), paid_at, Some(&details))
         .map_err(|error| error.to_string())?;
     eprintln!(
         "SOCDOF_SMOKE record_payment invoice_id={} method={} reference={}",
@@ -2006,6 +2051,7 @@ pub struct EmlExport {
 }
 
 /// Writes the dunning letter or the invoice mail draft as `.eml`.
+#[allow(clippy::too_many_arguments)]
 #[tauri::command]
 pub fn export_invoice_eml(
     state: tauri::State<'_, DesktopState>,
@@ -2013,7 +2059,11 @@ pub fn export_invoice_eml(
     kind: String,
     level: Option<String>,
     fee_cents: Option<i64>,
+    interest_cents: Option<i64>,
     days: Option<i64>,
+    recipient: Option<String>,
+    subject: Option<String>,
+    body: Option<String>,
     path: String,
 ) -> Result<EmlExport, String> {
     let kind = kind.trim().to_ascii_lowercase();
@@ -2021,16 +2071,13 @@ pub fn export_invoice_eml(
         "dunning" => {
             let level = level.unwrap_or_else(|| "reminder".to_string());
             state
-                .invoice_dunning(id, &level, fee_cents, days)
+                .invoice_dunning(id, &level, fee_cents, interest_cents, days)
                 .map_err(|error| error.to_string())?
                 .eml
         }
-        "invoice" | "mail" => {
-            state
-                .invoice_mail(id)
-                .map_err(|error| error.to_string())?
-                .eml
-        }
+        "invoice" | "mail" => state
+            .invoice_eml(id, recipient.as_deref(), subject.as_deref(), body.as_deref())
+            .map_err(|error| error.to_string())?,
         other => return Err(format!("unknown eml kind {other}")),
     };
     std::fs::write(&path, eml.as_bytes()).map_err(|error| error.to_string())?;

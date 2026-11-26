@@ -1,0 +1,84 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="socdof-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#252932" />
+      <stop offset="100%" stop-color="#14171d" />
+    </linearGradient>
+    <filter id="socdof-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <!-- Dark Squircle Background -->
+  <rect 
+    x="24" 
+    y="24" 
+    width="464" 
+    height="464" 
+    rx="112" 
+    ry="112" 
+    fill="url(#socdof-bg)" 
+    filter="url(#socdof-shadow)" 
+  />
+
+  <!-- 4 Symmetrical Corner Accent Strokes -->
+  <!-- Top-Left: Emerald Green -->
+  <path 
+    d="M 24 168 C 24 88 88 24 168 24" 
+    stroke="#22c55e" 
+    stroke-width="28" 
+    stroke-linecap="round" 
+    fill="none" 
+  />
+  <!-- Top-Right: Sky Blue -->
+  <path 
+    d="M 344 24 C 424 24 488 88 488 168" 
+    stroke="#38bdf8" 
+    stroke-width="28" 
+    stroke-linecap="round" 
+    fill="none" 
+  />
+  <!-- Bottom-Right: Coral Red -->
+  <path 
+    d="M 488 344 C 488 424 424 488 344 488" 
+    stroke="#ef4444" 
+    stroke-width="28" 
+    stroke-linecap="round" 
+    fill="none" 
+  />
+  <!-- Bottom-Left: Amber Yellow -->
+  <path 
+    d="M 168 488 C 88 488 24 424 24 344" 
+    stroke="#f59e0b" 
+    stroke-width="28" 
+    stroke-linecap="round" 
+    fill="none" 
+  />
+
+  <!-- Specular Inner Rim -->
+  <rect 
+    x="40" 
+    y="40" 
+    width="432" 
+    height="432" 
+    rx="96" 
+    ry="96" 
+    stroke="rgba(255,255,255,0.08)" 
+    stroke-width="6" 
+    fill="none" 
+  />
+
+  <!-- Centered Bold Lettermark 'S' -->
+  <text 
+    x="256" 
+    y="342" 
+    text-anchor="middle" 
+    font-family="'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+    font-weight="900" 
+    font-size="268" 
+    fill="#ffffff" 
+    letter-spacing="-6"
+  >
+    S
+  </text>
+</svg>

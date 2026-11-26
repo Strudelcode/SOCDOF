@@ -353,6 +353,34 @@ pub fn set_active(store: &Store, id: &str, active: bool) -> CoreResult<()> {
     save(store, &activation)
 }
 
+/// Applies a wizard module selection to the persisted App Store activation map.
+///
+/// Required modules always remain active, locked modules remain disabled, and licensed modules are
+/// enabled or disabled to match `selected`.
+pub fn apply_selection(store: &Store, selected: &[String]) -> CoreResult<()> {
+    let mut activation = load(store)?;
+    for definition in MODULES {
+        let slug = definition.module.as_str();
+        if definition.required {
+            activation.disabled.remove(slug);
+            activation.enabled.insert(slug.to_string());
+            continue;
+        }
+        if definition.license == ModuleLicense::Locked {
+            activation.enabled.remove(slug);
+            continue;
+        }
+        if selected.iter().any(|item| item == slug) {
+            activation.disabled.remove(slug);
+            activation.enabled.insert(slug.to_string());
+        } else {
+            activation.disabled.insert(slug.to_string());
+            activation.enabled.remove(slug);
+        }
+    }
+    save(store, &activation)
+}
+
 /// Catalogue definitions are kept in sync with the permission matrix.
 pub fn catalogue_modules() -> [AppModule; 18] {
     ALL_MODULES
@@ -459,5 +487,25 @@ mod tests {
             set_active(&store, "unknown", true),
             Err(CoreError::NotFound(id)) if id == "unknown"
         ));
+    }
+
+    #[test]
+    fn apply_selection_persists_setup_apps_while_keeping_required_ones() {
+        let store = store();
+        let chosen = vec![
+            "contacts".to_string(),
+            "calendar".to_string(),
+            "therapy".to_string(),
+        ];
+        apply_selection(&store, &chosen).expect("apply selection");
+        let active = active_modules(&store).expect("active");
+        assert!(active.contains(&AppModule::Dashboard));
+        assert!(active.contains(&AppModule::Settings));
+        assert!(active.contains(&AppModule::Users));
+        assert!(active.contains(&AppModule::Contacts));
+        assert!(active.contains(&AppModule::Calendar));
+        assert!(active.contains(&AppModule::Therapy));
+        assert!(!active.contains(&AppModule::Invoices));
+        assert!(!active.contains(&AppModule::Accounting));
     }
 }

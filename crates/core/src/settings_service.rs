@@ -18,6 +18,15 @@ pub const PREFERENCES_PREFIX: &str = "user_preferences:";
 /// Prefix of per-user desktop layout records.
 pub const DESKTOP_LAYOUT_PREFIX: &str = "user_desktop_layout:";
 
+/// Prefix of per-user avatar data URLs.
+pub const USER_AVATAR_PREFIX: &str = "avatar:";
+
+/// Global desktop/login wallpaper setting key.
+pub const DESKTOP_WALLPAPER_KEY: &str = "desktop_wallpaper";
+
+/// Prefix of per-user desktop wallpaper settings.
+pub const USER_WALLPAPER_PREFIX: &str = "wallpaper:";
+
 /// Key of the update policy.
 pub const UPDATE_SETTINGS_KEY: &str = "update_settings";
 
@@ -368,6 +377,183 @@ pub fn save_portable_settings(store: &Store, settings: &PortableSettings) -> Cor
     store.put_setting(PORTABLE_SETTINGS_KEY, &serde_json::to_value(normalized)?)
 }
 
+/// Persisted wallpaper choice for the login backdrop and user desktop.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WallpaperPreference {
+    /// Built-in identifier (`plain`, `aurora`, `dusk`, or `custom`).
+    pub kind: String,
+    /// Fit mode (`cover` or `tile`).
+    pub fit: String,
+    /// Optional PNG/image data URL when `kind == "custom"`.
+    pub custom_image: Option<String>,
+}
+
+impl Default for WallpaperPreference {
+    fn default() -> Self {
+        Self {
+            kind: "plain".to_string(),
+            fit: "cover".to_string(),
+            custom_image: None,
+        }
+    }
+}
+
+fn user_avatar_key(user_id: Uuid) -> String {
+    format!("{USER_AVATAR_PREFIX}{user_id}")
+}
+
+fn user_wallpaper_key(user_id: Uuid) -> String {
+    format!("{USER_WALLPAPER_PREFIX}{user_id}")
+}
+
+/// Loads a user's persisted avatar data URL, if set.
+pub fn user_avatar(store: &Store, user_id: Uuid) -> CoreResult<Option<String>> {
+    match store.get_setting(&user_avatar_key(user_id))? {
+        Some(serde_json::Value::String(value)) if !value.trim().is_empty() => Ok(Some(value)),
+        _ => Ok(None),
+    }
+}
+
+/// Stores or clears a user's avatar data URL (`data:image/png;base64,...`).
+pub fn save_user_avatar(store: &Store, user_id: Uuid, data_url: Option<&str>) -> CoreResult<()> {
+    match data_url.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(value) => {
+            store.put_setting(&user_avatar_key(user_id), &serde_json::Value::String(value.to_string()))
+        }
+        None => store.remove_setting(&user_avatar_key(user_id)),
+    }
+}
+
+/// Loads the desktop/login wallpaper setting, defaulting to `plain` when unset.
+pub fn desktop_wallpaper(store: &Store) -> CoreResult<WallpaperPreference> {
+    match store.get_setting(DESKTOP_WALLPAPER_KEY)? {
+        Some(value) => Ok(serde_json::from_value(value).unwrap_or_default()),
+        None => Ok(WallpaperPreference::default()),
+    }
+}
+
+/// Loads a user's desktop wallpaper, falling back to the global desktop wallpaper.
+pub fn user_wallpaper(store: &Store, user_id: Uuid) -> CoreResult<WallpaperPreference> {
+    match store.get_setting(&user_wallpaper_key(user_id))? {
+        Some(value) => Ok(serde_json::from_value(value).unwrap_or_default()),
+        None => desktop_wallpaper(store),
+    }
+}
+
+/// Persists the desktop/login wallpaper setting globally or for one user.
+pub fn save_wallpaper(
+    store: &Store,
+    user_id: Option<Uuid>,
+    wallpaper: &WallpaperPreference,
+) -> CoreResult<()> {
+    let serialized = serde_json::to_value(wallpaper)?;
+    if let Some(id) = user_id {
+        store.put_setting(&user_wallpaper_key(id), &serialized)?;
+    }
+    store.put_setting(DESKTOP_WALLPAPER_KEY, &serialized)
+}
+
+/// Decodes an uploaded PNG, JPEG, GIF, WebP, BMP, or ICO image into 8-bit RGBA pixels.
+pub fn decode_image_rgba(bytes: &[u8]) -> CoreResult<(u32, u32, Vec<u8>)> {
+    let image = image::load_from_memory(bytes)
+        .map_err(|_| CoreError::Validation("image_decode_failed".to_string()))?;
+    let rgba = image.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    if width == 0 || height == 0 {
+        return Err(CoreError::Validation("image_empty".to_string()));
+    }
+    Ok((width, height, rgba.into_raw()))
+}
+
+/// Encodes 8-bit RGBA pixels as a `data:image/png;base64,...` URL for SQLite storage.
+pub fn encode_png_data_url(width: u32, height: u32, rgba: &[u8]) -> CoreResult<String> {
+    let expected = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| CoreError::Validation("image_dimensions_invalid".to_string()))?;
+    if rgba.len() != expected || width == 0 || height == 0 {
+        return Err(CoreError::Validation("image_buffer_invalid".to_string()));
+    }
+    let mut png_bytes = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut png_bytes, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder
+            .write_header()
+            .map_err(|_| CoreError::Validation("image_encode_failed".to_string()))?;
+        writer
+            .write_image_data(rgba)
+            .map_err(|_| CoreError::Validation("image_encode_failed".to_string()))?;
+    }
+    Ok(format!(
+        "data:image/png;base64,{}",
+        base64_encode_bytes(&png_bytes)
+    ))
+}
+
+/// Decodes a stored image data URL (`data:image/...;base64,...`) into RGBA pixels.
+pub fn decode_data_url_rgba(data_url: &str) -> Option<(usize, usize, Vec<u8>)> {
+    let encoded = data_url
+        .trim()
+        .strip_prefix("data:")
+        .and_then(|rest| rest.split_once(','))
+        .map(|(_, payload)| payload)?;
+    let bytes = base64_decode_bytes(encoded)?;
+    let (width, height, rgba) = decode_image_rgba(&bytes).ok()?;
+    Some((width as usize, height as usize, rgba))
+}
+
+fn base64_encode_bytes(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let a = chunk[0] as u32;
+        let b = chunk.get(1).copied().unwrap_or(0) as u32;
+        let c = chunk.get(2).copied().unwrap_or(0) as u32;
+        let value = (a << 16) | (b << 8) | c;
+        out.push(ALPHABET[((value >> 18) & 63) as usize] as char);
+        out.push(ALPHABET[((value >> 12) & 63) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            ALPHABET[((value >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 {
+            ALPHABET[(value & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    out
+}
+
+fn base64_decode_bytes(value: &str) -> Option<Vec<u8>> {
+    let mut output = Vec::new();
+    let mut buffer = 0u32;
+    let mut bits = 0u32;
+    for byte in value.bytes() {
+        let digit = match byte {
+            b'A'..=b'Z' => byte - b'A',
+            b'a'..=b'z' => byte - b'a' + 26,
+            b'0'..=b'9' => byte - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' | b'\n' | b'\r' | b' ' => continue,
+            _ => return None,
+        } as u32;
+        buffer = (buffer << 6) | digit;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            output.push((buffer >> bits) as u8);
+            buffer &= (1 << bits) - 1;
+        }
+    }
+    Some(output)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,5 +844,40 @@ mod tests {
             ..CompanyProfile::default()
         };
         assert!(save_company_profile(&store, &invalid).is_err());
+    }
+
+    #[test]
+    fn roundtrips_user_avatar_wallpaper_and_png_data_url() {
+        let store = Store::open_in_memory().expect("store");
+        let user_id = Uuid::new_v4();
+        let rgba = vec![
+            255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255,
+        ];
+        let data_url = encode_png_data_url(2, 2, &rgba).expect("encode png");
+        assert!(data_url.starts_with("data:image/png;base64,"));
+        let (width, height, decoded) = decode_data_url_rgba(&data_url).expect("decode png");
+        assert_eq!((width, height), (2, 2));
+        assert_eq!(decoded, rgba);
+
+        save_user_avatar(&store, user_id, Some(&data_url)).expect("save avatar");
+        assert_eq!(
+            user_avatar(&store, user_id).expect("load avatar").as_deref(),
+            Some(data_url.as_str())
+        );
+
+        let wallpaper = WallpaperPreference {
+            kind: "custom".to_string(),
+            fit: "tile".to_string(),
+            custom_image: Some(data_url.clone()),
+        };
+        save_wallpaper(&store, Some(user_id), &wallpaper).expect("save wallpaper");
+        assert_eq!(
+            user_wallpaper(&store, user_id).expect("user wallpaper"),
+            wallpaper
+        );
+        assert_eq!(desktop_wallpaper(&store).expect("desktop wallpaper"), wallpaper);
+
+        save_user_avatar(&store, user_id, None).expect("clear avatar");
+        assert_eq!(user_avatar(&store, user_id).expect("cleared"), None);
     }
 }

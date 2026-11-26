@@ -1,0 +1,914 @@
+{
+  "catalogue": "crates/ui/locales",
+  "languages": {
+    "de": {
+      "matched": 342,
+      "modules": {
+        "accent": {
+          "matched": 0,
+          "total": 6
+        },
+        "accounting": {
+          "matched": 3,
+          "total": 13
+        },
+        "action": {
+          "matched": 15,
+          "total": 36
+        },
+        "app": {
+          "matched": 2,
+          "total": 5
+        },
+        "appstore": {
+          "matched": 6,
+          "total": 55
+        },
+        "auth": {
+          "matched": 42,
+          "total": 171
+        },
+        "backup": {
+          "matched": 0,
+          "total": 23
+        },
+        "badge": {
+          "matched": 0,
+          "total": 1
+        },
+        "calc": {
+          "matched": 1,
+          "total": 38
+        },
+        "calendar": {
+          "matched": 17,
+          "total": 57
+        },
+        "cat": {
+          "matched": 0,
+          "total": 2
+        },
+        "common": {
+          "matched": 0,
+          "total": 1
+        },
+        "company": {
+          "matched": 0,
+          "total": 6
+        },
+        "connections": {
+          "matched": 0,
+          "total": 20
+        },
+        "contact": {
+          "matched": 16,
+          "total": 99
+        },
+        "contacts": {
+          "matched": 5,
+          "total": 46
+        },
+        "dash": {
+          "matched": 2,
+          "total": 11
+        },
+        "dashboard": {
+          "matched": 11,
+          "total": 77
+        },
+        "desc": {
+          "matched": 0,
+          "total": 23
+        },
+        "desktop": {
+          "matched": 6,
+          "total": 49
+        },
+        "display": {
+          "matched": 0,
+          "total": 37
+        },
+        "docs": {
+          "matched": 0,
+          "total": 79
+        },
+        "download": {
+          "matched": 0,
+          "total": 13
+        },
+        "email": {
+          "matched": 1,
+          "total": 15
+        },
+        "feedback": {
+          "matched": 5,
+          "total": 163
+        },
+        "invoice": {
+          "matched": 15,
+          "total": 69
+        },
+        "lang_modal": {
+          "matched": 0,
+          "total": 23
+        },
+        "mobile_sync": {
+          "matched": 0,
+          "total": 6
+        },
+        "module": {
+          "matched": 9,
+          "total": 24
+        },
+        "nav": {
+          "matched": 2,
+          "total": 19
+        },
+        "payment": {
+          "matched": 2,
+          "total": 73
+        },
+        "portable": {
+          "matched": 0,
+          "total": 6
+        },
+        "pos": {
+          "matched": 2,
+          "total": 35
+        },
+        "power": {
+          "matched": 1,
+          "total": 8
+        },
+        "preview": {
+          "matched": 0,
+          "total": 25
+        },
+        "product": {
+          "matched": 4,
+          "total": 15
+        },
+        "products": {
+          "matched": 8,
+          "total": 83
+        },
+        "purchases": {
+          "matched": 9,
+          "total": 42
+        },
+        "restaurant": {
+          "matched": 2,
+          "total": 45
+        },
+        "settings": {
+          "matched": 19,
+          "total": 377
+        },
+        "status": {
+          "matched": 6,
+          "total": 18
+        },
+        "stock": {
+          "matched": 3,
+          "total": 41
+        },
+        "storage": {
+          "matched": 2,
+          "total": 63
+        },
+        "support": {
+          "matched": 35,
+          "total": 308
+        },
+        "table": {
+          "matched": 9,
+          "total": 42
+        },
+        "taskbar": {
+          "matched": 3,
+          "total": 4
+        },
+        "taskview": {
+          "matched": 0,
+          "total": 16
+        },
+        "textwerk": {
+          "matched": 26,
+          "total": 84
+        },
+        "therapy": {
+          "matched": 27,
+          "total": 200
+        },
+        "toast": {
+          "matched": 0,
+          "total": 2
+        },
+        "updater": {
+          "matched": 0,
+          "total": 12
+        },
+        "updates": {
+          "matched": 0,
+          "total": 42
+        },
+        "users": {
+          "matched": 20,
+          "total": 115
+        },
+        "widgets": {
+          "matched": 6,
+          "total": 115
+        },
+        "windows": {
+          "matched": 0,
+          "total": 5
+        }
+      },
+      "percent": 11.5,
+      "total": 2963
+    },
+    "en": {
+      "matched": 307,
+      "modules": {
+        "accent": {
+          "matched": 0,
+          "total": 6
+        },
+        "accounting": {
+          "matched": 4,
+          "total": 13
+        },
+        "action": {
+          "matched": 17,
+          "total": 36
+        },
+        "app": {
+          "matched": 2,
+          "total": 5
+        },
+        "appstore": {
+          "matched": 7,
+          "total": 55
+        },
+        "auth": {
+          "matched": 38,
+          "total": 171
+        },
+        "backup": {
+          "matched": 0,
+          "total": 23
+        },
+        "badge": {
+          "matched": 0,
+          "total": 1
+        },
+        "calc": {
+          "matched": 0,
+          "total": 38
+        },
+        "calendar": {
+          "matched": 14,
+          "total": 57
+        },
+        "cat": {
+          "matched": 0,
+          "total": 2
+        },
+        "common": {
+          "matched": 0,
+          "total": 1
+        },
+        "company": {
+          "matched": 0,
+          "total": 6
+        },
+        "connections": {
+          "matched": 0,
+          "total": 20
+        },
+        "contact": {
+          "matched": 8,
+          "total": 99
+        },
+        "contacts": {
+          "matched": 3,
+          "total": 46
+        },
+        "dash": {
+          "matched": 1,
+          "total": 11
+        },
+        "dashboard": {
+          "matched": 11,
+          "total": 77
+        },
+        "desc": {
+          "matched": 0,
+          "total": 23
+        },
+        "desktop": {
+          "matched": 5,
+          "total": 49
+        },
+        "display": {
+          "matched": 0,
+          "total": 37
+        },
+        "docs": {
+          "matched": 0,
+          "total": 79
+        },
+        "download": {
+          "matched": 0,
+          "total": 13
+        },
+        "email": {
+          "matched": 1,
+          "total": 15
+        },
+        "feedback": {
+          "matched": 6,
+          "total": 163
+        },
+        "invoice": {
+          "matched": 10,
+          "total": 69
+        },
+        "lang_modal": {
+          "matched": 0,
+          "total": 23
+        },
+        "mobile_sync": {
+          "matched": 0,
+          "total": 6
+        },
+        "module": {
+          "matched": 13,
+          "total": 24
+        },
+        "nav": {
+          "matched": 1,
+          "total": 19
+        },
+        "payment": {
+          "matched": 2,
+          "total": 73
+        },
+        "portable": {
+          "matched": 0,
+          "total": 6
+        },
+        "pos": {
+          "matched": 3,
+          "total": 35
+        },
+        "power": {
+          "matched": 1,
+          "total": 8
+        },
+        "preview": {
+          "matched": 0,
+          "total": 25
+        },
+        "product": {
+          "matched": 2,
+          "total": 15
+        },
+        "products": {
+          "matched": 8,
+          "total": 83
+        },
+        "purchases": {
+          "matched": 5,
+          "total": 42
+        },
+        "restaurant": {
+          "matched": 2,
+          "total": 45
+        },
+        "settings": {
+          "matched": 21,
+          "total": 378
+        },
+        "status": {
+          "matched": 6,
+          "total": 18
+        },
+        "stock": {
+          "matched": 3,
+          "total": 41
+        },
+        "storage": {
+          "matched": 2,
+          "total": 63
+        },
+        "support": {
+          "matched": 28,
+          "total": 308
+        },
+        "table": {
+          "matched": 10,
+          "total": 42
+        },
+        "taskbar": {
+          "matched": 3,
+          "total": 4
+        },
+        "taskview": {
+          "matched": 0,
+          "total": 16
+        },
+        "textwerk": {
+          "matched": 22,
+          "total": 84
+        },
+        "therapy": {
+          "matched": 23,
+          "total": 200
+        },
+        "toast": {
+          "matched": 0,
+          "total": 2
+        },
+        "updater": {
+          "matched": 0,
+          "total": 12
+        },
+        "updates": {
+          "matched": 0,
+          "total": 42
+        },
+        "users": {
+          "matched": 17,
+          "total": 115
+        },
+        "widgets": {
+          "matched": 8,
+          "total": 115
+        },
+        "windows": {
+          "matched": 0,
+          "total": 5
+        }
+      },
+      "percent": 10.4,
+      "total": 2964
+    },
+    "es": {
+      "matched": 351,
+      "modules": {
+        "accent": {
+          "matched": 0,
+          "total": 6
+        },
+        "accounting": {
+          "matched": 4,
+          "total": 13
+        },
+        "action": {
+          "matched": 17,
+          "total": 36
+        },
+        "app": {
+          "matched": 2,
+          "total": 5
+        },
+        "appstore": {
+          "matched": 6,
+          "total": 55
+        },
+        "auth": {
+          "matched": 48,
+          "total": 171
+        },
+        "backup": {
+          "matched": 0,
+          "total": 23
+        },
+        "badge": {
+          "matched": 0,
+          "total": 1
+        },
+        "calc": {
+          "matched": 0,
+          "total": 38
+        },
+        "calendar": {
+          "matched": 15,
+          "total": 57
+        },
+        "cat": {
+          "matched": 0,
+          "total": 2
+        },
+        "common": {
+          "matched": 0,
+          "total": 1
+        },
+        "company": {
+          "matched": 1,
+          "total": 6
+        },
+        "connections": {
+          "matched": 0,
+          "total": 20
+        },
+        "contact": {
+          "matched": 20,
+          "total": 99
+        },
+        "contacts": {
+          "matched": 8,
+          "total": 46
+        },
+        "dash": {
+          "matched": 2,
+          "total": 11
+        },
+        "dashboard": {
+          "matched": 11,
+          "total": 77
+        },
+        "desc": {
+          "matched": 0,
+          "total": 23
+        },
+        "desktop": {
+          "matched": 5,
+          "total": 49
+        },
+        "display": {
+          "matched": 0,
+          "total": 37
+        },
+        "docs": {
+          "matched": 0,
+          "total": 79
+        },
+        "download": {
+          "matched": 0,
+          "total": 13
+        },
+        "email": {
+          "matched": 1,
+          "total": 15
+        },
+        "feedback": {
+          "matched": 3,
+          "total": 161
+        },
+        "invoice": {
+          "matched": 12,
+          "total": 69
+        },
+        "lang_modal": {
+          "matched": 0,
+          "total": 23
+        },
+        "mobile_sync": {
+          "matched": 0,
+          "total": 6
+        },
+        "module": {
+          "matched": 10,
+          "total": 24
+        },
+        "nav": {
+          "matched": 2,
+          "total": 19
+        },
+        "payment": {
+          "matched": 2,
+          "total": 73
+        },
+        "portable": {
+          "matched": 0,
+          "total": 6
+        },
+        "pos": {
+          "matched": 3,
+          "total": 35
+        },
+        "power": {
+          "matched": 1,
+          "total": 8
+        },
+        "preview": {
+          "matched": 1,
+          "total": 25
+        },
+        "product": {
+          "matched": 2,
+          "total": 15
+        },
+        "products": {
+          "matched": 6,
+          "total": 83
+        },
+        "purchases": {
+          "matched": 8,
+          "total": 42
+        },
+        "restaurant": {
+          "matched": 1,
+          "total": 45
+        },
+        "settings": {
+          "matched": 22,
+          "total": 378
+        },
+        "status": {
+          "matched": 5,
+          "total": 18
+        },
+        "stock": {
+          "matched": 3,
+          "total": 41
+        },
+        "storage": {
+          "matched": 2,
+          "total": 63
+        },
+        "support": {
+          "matched": 37,
+          "total": 308
+        },
+        "table": {
+          "matched": 10,
+          "total": 42
+        },
+        "taskbar": {
+          "matched": 3,
+          "total": 4
+        },
+        "taskview": {
+          "matched": 0,
+          "total": 16
+        },
+        "textwerk": {
+          "matched": 23,
+          "total": 84
+        },
+        "therapy": {
+          "matched": 27,
+          "total": 200
+        },
+        "toast": {
+          "matched": 0,
+          "total": 2
+        },
+        "updater": {
+          "matched": 0,
+          "total": 12
+        },
+        "updates": {
+          "matched": 0,
+          "total": 42
+        },
+        "users": {
+          "matched": 21,
+          "total": 115
+        },
+        "widgets": {
+          "matched": 7,
+          "total": 115
+        },
+        "windows": {
+          "matched": 0,
+          "total": 5
+        }
+      },
+      "percent": 11.9,
+      "total": 2962
+    },
+    "fr": {
+      "matched": 341,
+      "modules": {
+        "accent": {
+          "matched": 0,
+          "total": 6
+        },
+        "accounting": {
+          "matched": 3,
+          "total": 13
+        },
+        "action": {
+          "matched": 18,
+          "total": 36
+        },
+        "app": {
+          "matched": 1,
+          "total": 5
+        },
+        "appstore": {
+          "matched": 6,
+          "total": 55
+        },
+        "auth": {
+          "matched": 45,
+          "total": 171
+        },
+        "backup": {
+          "matched": 0,
+          "total": 23
+        },
+        "badge": {
+          "matched": 0,
+          "total": 1
+        },
+        "calc": {
+          "matched": 1,
+          "total": 38
+        },
+        "calendar": {
+          "matched": 15,
+          "total": 57
+        },
+        "cat": {
+          "matched": 0,
+          "total": 2
+        },
+        "common": {
+          "matched": 0,
+          "total": 1
+        },
+        "company": {
+          "matched": 1,
+          "total": 6
+        },
+        "connections": {
+          "matched": 0,
+          "total": 20
+        },
+        "contact": {
+          "matched": 17,
+          "total": 99
+        },
+        "contacts": {
+          "matched": 7,
+          "total": 46
+        },
+        "dash": {
+          "matched": 0,
+          "total": 11
+        },
+        "dashboard": {
+          "matched": 10,
+          "total": 77
+        },
+        "desc": {
+          "matched": 0,
+          "total": 23
+        },
+        "desktop": {
+          "matched": 4,
+          "total": 49
+        },
+        "display": {
+          "matched": 0,
+          "total": 37
+        },
+        "docs": {
+          "matched": 0,
+          "total": 79
+        },
+        "download": {
+          "matched": 0,
+          "total": 13
+        },
+        "email": {
+          "matched": 1,
+          "total": 15
+        },
+        "feedback": {
+          "matched": 4,
+          "total": 161
+        },
+        "invoice": {
+          "matched": 12,
+          "total": 69
+        },
+        "lang_modal": {
+          "matched": 0,
+          "total": 23
+        },
+        "mobile_sync": {
+          "matched": 0,
+          "total": 6
+        },
+        "module": {
+          "matched": 13,
+          "total": 24
+        },
+        "nav": {
+          "matched": 1,
+          "total": 19
+        },
+        "payment": {
+          "matched": 2,
+          "total": 73
+        },
+        "portable": {
+          "matched": 0,
+          "total": 6
+        },
+        "pos": {
+          "matched": 3,
+          "total": 35
+        },
+        "power": {
+          "matched": 1,
+          "total": 8
+        },
+        "preview": {
+          "matched": 0,
+          "total": 25
+        },
+        "product": {
+          "matched": 3,
+          "total": 15
+        },
+        "products": {
+          "matched": 9,
+          "total": 83
+        },
+        "purchases": {
+          "matched": 7,
+          "total": 42
+        },
+        "restaurant": {
+          "matched": 1,
+          "total": 45
+        },
+        "settings": {
+          "matched": 19,
+          "total": 378
+        },
+        "status": {
+          "matched": 6,
+          "total": 18
+        },
+        "stock": {
+          "matched": 3,
+          "total": 41
+        },
+        "storage": {
+          "matched": 2,
+          "total": 63
+        },
+        "support": {
+          "matched": 38,
+          "total": 308
+        },
+        "table": {
+          "matched": 7,
+          "total": 42
+        },
+        "taskbar": {
+          "matched": 3,
+          "total": 4
+        },
+        "taskview": {
+          "matched": 0,
+          "total": 16
+        },
+        "textwerk": {
+          "matched": 23,
+          "total": 84
+        },
+        "therapy": {
+          "matched": 25,
+          "total": 200
+        },
+        "toast": {
+          "matched": 0,
+          "total": 2
+        },
+        "updater": {
+          "matched": 0,
+          "total": 12
+        },
+        "updates": {
+          "matched": 0,
+          "total": 42
+        },
+        "users": {
+          "matched": 21,
+          "total": 115
+        },
+        "widgets": {
+          "matched": 9,
+          "total": 115
+        },
+        "windows": {
+          "matched": 0,
+          "total": 5
+        }
+      },
+      "percent": 11.5,
+      "total": 2962
+    }
+  },
+  "source": "SOCDOF - TS/src/lib/i18n.ts"
+}

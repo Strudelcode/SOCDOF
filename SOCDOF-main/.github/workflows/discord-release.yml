@@ -1,0 +1,46 @@
+name: Discord release announcement
+
+on:
+  # Automatic triggers are intentionally disabled while the Rust rewrite is
+  # merged. Run this workflow manually from the Actions tab when needed.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Published release tag to announce"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discord-release-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  announce:
+    name: Send release notes to Discord
+    # release.yml announces its own releases after publishing. Skip the
+    # fallback for those release events so a release is only posted once.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Send announcement
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_THREAD_ID: ${{ secrets.DISCORD_THREAD_ID }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_NAME: ${{ github.event.release.name || '' }}
+          RELEASE_URL: ${{ github.event.release.html_url || '' }}
+          RELEASE_BODY: ${{ github.event.release.body || '' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/discord-release.py

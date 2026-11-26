@@ -1,0 +1,32 @@
+//! Error type shared by the core services.
+
+/// Errors returned by the core.
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    /// The database rejected a statement or the connection failed.
+    #[error("database error: {0}")]
+    Database(#[from] rusqlite::Error),
+
+    /// A value could not be (de)serialized.
+    #[error("serialization error: {0}")]
+    Serialization(#[from] serde_json::Error),
+
+    /// A file could not be read or written.
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
+
+    /// Input failed a validation rule.
+    #[error("validation failed: {0}")]
+    Validation(String),
+
+    /// The requested record does not exist.
+    #[error("not found: {0}")]
+    NotFound(String),
+
+    /// A Word package could not be written or read.
+    #[error("document error: {0}")]
+    Document(#[from] crate::docx::DocxError),
+}
+
+/// Convenience alias for results from the core.
+pub type CoreResult<T> = Result<T, CoreError>;

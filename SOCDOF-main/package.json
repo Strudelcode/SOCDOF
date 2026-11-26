@@ -1,0 +1,18 @@
+{
+  "name": "socdof-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "description": "SOCDOF application workspace",
+  "workspaces": [
+    "SOCDOF - TS"
+  ],
+  "scripts": {
+    "dev": "npm --workspace=\"SOCDOF - TS\" run dev",
+    "build": "npm --workspace=\"SOCDOF - TS\" run build",
+    "lint": "npm --workspace=\"SOCDOF - TS\" run lint",
+    "preview": "npm --workspace=\"SOCDOF - TS\" run preview"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

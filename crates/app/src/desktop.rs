@@ -44,10 +44,12 @@ use crate::fleet_bridge::{
 };
 use crate::invoice_bridge::{
     contact_mail_view, dunning_view, fattura_view, invoice_view, invoice_views, mail_view,
-    payment_view, preview_tokens, resolve_template, status_from_wire, suggest_number,
-    write_invoice_export, ContactMailView, FatturaInput, InvoiceDefaults, InvoiceDunningView,
-    InvoiceExportFormat, InvoiceExportReport, InvoiceFatturaView, InvoiceInput, InvoiceItemInput,
-    InvoiceMailView, InvoicePaymentView, InvoicePreview, InvoiceView,
+    payment_context_view, payment_view, preview_tokens, resolve_template, sample_preview_invoice,
+    status_from_wire, suggest_number, write_invoice_export, ContactMailView, FatturaInput,
+    InvoiceDefaults, InvoiceDunningView, InvoiceExportFormat, InvoiceExportReport,
+    InvoiceFatturaView, InvoiceInput, InvoiceItemInput, InvoiceMailView,
+    InvoicePaymentContextView, InvoicePaymentView, InvoicePreview, InvoiceView,
+    PaymentCaptureDetails,
 };
 use crate::project_bridge::{
     csv_bytes as project_csv_bytes, overview as project_overview_view, project_view, task_view,
@@ -61,7 +63,7 @@ use crate::restaurant_bridge::{
     RestaurantOverviewView, RestaurantPersistenceView, TableOrderView,
 };
 use crate::shell::{Paths, Shell, ShellStatus};
-use crate::template_bridge::InvoiceTemplateBookView;
+use crate::template_bridge::{InvoiceTemplateBookView, InvoiceTemplateView};
 
 /// One backup archive in the configured backup folder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -782,6 +784,49 @@ impl DesktopState {
         self.save_invoice_templates(&book.to_book())
     }
 
+    /// Resets the stored template book back to the six factory presets.
+    pub fn reset_invoice_templates(&self) -> CoreResult<InvoiceTemplateBookView> {
+        let book = invoice_template::TemplateBook::default();
+        self.save_invoice_templates(&book)?;
+        Ok(InvoiceTemplateBookView::from_book(&book))
+    }
+
+    /// Renders an editable draft template against either a stored invoice or the sample test invoice.
+    pub fn template_preview(
+        &self,
+        template_view: &InvoiceTemplateView,
+        invoice_id: Option<Uuid>,
+    ) -> CoreResult<InvoicePreview> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let company = store.company_profile()?;
+        let template = template_view.to_template();
+        let (invoice, contact) = match invoice_id {
+            Some(id) => {
+                let inv = store
+                    .find_invoice(id)?
+                    .ok_or_else(|| CoreError::NotFound(id.to_string()))?;
+                let c = store
+                    .find_contact(inv.contact_id)?
+                    .ok_or_else(|| CoreError::NotFound(inv.contact_id.to_string()))?;
+                (inv, c)
+            }
+            None => sample_preview_invoice(&company, template.due_days, now_millis()),
+        };
+        let currency = invoice.currency_symbol.as_str();
+        let html = template.render_html(&invoice, &contact, &company, currency);
+        let tokens = preview_tokens(&template, &invoice, &contact, &company, currency);
+        Ok(InvoicePreview {
+            invoice: InvoiceView::from_invoice(&invoice, Some(&contact)),
+            template_id: template.id,
+            template_name: template.name,
+            html,
+            stationery_mode: template.stationery_mode,
+            stationery_source: template.stationery_source,
+            tokens,
+        })
+    }
+
     /// Writes a backup and returns its path and sizes.
     ///
     /// Without an explicit path the archive is written next to the database under
@@ -1399,12 +1444,13 @@ impl DesktopState {
         invoice_view(shell.store(), &invoice)
     }
 
-    /// Dunning letter of an invoice with optional fee and deadline overrides.
+    /// Dunning letter of an invoice with optional fee, interest and deadline overrides.
     pub fn invoice_dunning(
         &self,
         id: Uuid,
         level: &str,
         fee_cents: Option<i64>,
+        interest_cents: Option<i64>,
         days: Option<i64>,
     ) -> CoreResult<InvoiceDunningView> {
         let level = DunningLevel::from_storage(level)
@@ -1422,6 +1468,7 @@ impl DesktopState {
             &company,
             level,
             fee_cents,
+            interest_cents,
             days,
             now_millis(),
         ))
@@ -1439,6 +1486,69 @@ impl DesktopState {
         Ok(mail_view(&invoice, contact.as_ref(), &company))
     }
 
+    /// Complete `.eml` of an invoice mail, preserving optional user edits from the dialog.
+    pub fn invoice_eml(
+        &self,
+        id: Uuid,
+        recipient: Option<&str>,
+        subject: Option<&str>,
+        body: Option<&str>,
+    ) -> CoreResult<String> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let invoice = store
+            .find_invoice(id)?
+            .ok_or_else(|| CoreError::NotFound(id.to_string()))?;
+        let contact = store.find_contact(invoice.contact_id)?;
+        let company = store.company_profile()?;
+        let has_edits = recipient.is_some() || subject.is_some() || body.is_some();
+        if !has_edits {
+            return Ok(mail_view(&invoice, contact.as_ref(), &company).eml);
+        }
+        let customer = contact
+            .as_ref()
+            .map(Contact::display_name)
+            .filter(|name| !name.trim().is_empty())
+            .unwrap_or_else(|| "Kunde".to_string());
+        let default_recipient = contact
+            .as_ref()
+            .and_then(|c| c.email.clone())
+            .unwrap_or_default();
+        let recipient_val = recipient.unwrap_or(&default_recipient);
+        let default_subject = socdof_core::domain::mail::invoice_subject(&invoice, &company);
+        let subject_val = subject
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .unwrap_or(&default_subject);
+        let default_body =
+            socdof_core::domain::mail::invoice_body(&invoice, &customer, &company);
+        let body_val = body.unwrap_or(&default_body);
+        Ok(socdof_core::domain::mail::invoice_eml_with(
+            &invoice,
+            &customer,
+            recipient_val,
+            subject_val,
+            body_val,
+            &company,
+        ))
+    }
+
+    /// Context needed by the payment modal (bank details, terminal flag, quick cash, prior payment).
+    pub fn invoice_payment_context(&self, id: Uuid) -> CoreResult<InvoicePaymentContextView> {
+        let shell = self.shell()?;
+        let store = shell.store();
+        let invoice = store
+            .find_invoice(id)?
+            .ok_or_else(|| CoreError::NotFound(id.to_string()))?;
+        let company = store.company_profile()?;
+        let existing = store.invoice_payment(id)?;
+        Ok(payment_context_view(
+            &invoice,
+            &company,
+            existing.as_ref(),
+        ))
+    }
+
     /// Records a payment and marks the invoice paid in the same transaction.
     pub fn record_invoice_payment(
         &self,
@@ -1447,11 +1557,23 @@ impl DesktopState {
         reference: Option<&str>,
         paid_at: Option<i64>,
     ) -> CoreResult<InvoicePaymentView> {
+        self.record_invoice_payment_details(id, method, reference, paid_at, None)
+    }
+
+    /// Records a payment with optional method-specific card or cash details.
+    pub fn record_invoice_payment_details(
+        &self,
+        id: Uuid,
+        method: &str,
+        reference: Option<&str>,
+        paid_at: Option<i64>,
+        details: Option<&PaymentCaptureDetails>,
+    ) -> CoreResult<InvoicePaymentView> {
         let method = PaymentMethod::from_storage(method)
             .ok_or_else(|| CoreError::Validation(format!("unknown payment method {method}")))?;
         let shell = self.shell()?;
         let store = shell.store();
-        store
+        let invoice = store
             .find_invoice(id)?
             .ok_or_else(|| CoreError::NotFound(id.to_string()))?;
         let company = store.company_profile()?;
@@ -1465,26 +1587,53 @@ impl DesktopState {
                 payment::transfer_reference(reference, &company.bank_name),
             ),
             PaymentMethod::Cash => {
+                if let Some(given_cents) = details.and_then(|d| d.cash_given_cents) {
+                    if given_cents < invoice.total_gross().cents() {
+                        return Err(CoreError::Validation(
+                            "payment_cash_insufficient".to_string(),
+                        ));
+                    }
+                }
                 let mut payment =
                     InvoicePayment::new(id, method, paid_at, payment::CASH_REFERENCE.to_string());
                 payment.tse_signature = Some(payment::tse_signature(paid_at));
                 payment
             }
             PaymentMethod::Card => {
-                let auth = if reference.is_empty() {
+                if !company.card_payment_enabled {
+                    return Err(CoreError::Validation(
+                        "payment_card_terminal_disabled".to_string(),
+                    ));
+                }
+                let auth_input = details
+                    .and_then(|d| d.auth_code.as_deref())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or(reference);
+                let auth = if auth_input.is_empty() {
                     format!(
                         "AUTH-{}",
                         payment::base36(paid_at.max(0) as u64).to_uppercase()
                     )
                 } else {
-                    reference.to_string()
+                    auth_input.to_string()
                 };
-                let masked = payment::mask_card_number("4532 1234 5678 9012");
+                let raw_card = details
+                    .and_then(|d| d.masked_card.as_deref())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or("4532 1234 5678 9012");
+                let card_type = details
+                    .and_then(|d| d.card_type.as_deref())
+                    .map(str::trim)
+                    .filter(|v| !v.is_empty())
+                    .unwrap_or("card");
+                let masked = payment::mask_card_number(raw_card);
                 InvoicePayment::new(
                     id,
                     method,
                     paid_at,
-                    payment::card_reference(&company.card_terminal_name, "card", &masked, &auth),
+                    payment::card_reference(&company.card_terminal_name, card_type, &masked, &auth),
                 )
             }
         };

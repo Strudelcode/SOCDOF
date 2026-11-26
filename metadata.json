@@ -1,0 +1,8 @@
+{
+  "name": "SOCDOF ERP Suite",
+  "description": "Strudel's Organization, Commerce & Documentation Offline Flow - Offline-first ERP & Desktop-Workspace",
+  "permissions": [],
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -459,7 +459,7 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
         .expect("invoice saves");
 
     let reminder = state
-        .invoice_dunning(invoice.id, "reminder", None, None)
+        .invoice_dunning(invoice.id, "reminder", None, None, None)
         .expect("reminder");
     assert_eq!(reminder.level, "reminder");
     assert_eq!(reminder.level_number, 1);
@@ -468,17 +468,18 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
     assert!(reminder.file_name.ends_with(".eml"));
 
     let last = state
-        .invoice_dunning(invoice.id, "last", Some(900), Some(10))
+        .invoice_dunning(invoice.id, "last", Some(900), Some(450), Some(10))
         .expect("last notice");
     assert_eq!(last.level_number, 3);
     assert_eq!(last.fee_cents, 900);
+    assert_eq!(last.interest_cents, 450);
     assert_eq!(last.days, 10);
     assert_eq!(
         last.claim_cents,
         last.total_cents + last.fee_cents + last.interest_cents
     );
     assert!(state
-        .invoice_dunning(invoice.id, "bogus", None, None)
+        .invoice_dunning(invoice.id, "bogus", None, None, None)
         .is_err());
 
     let mail = state.invoice_mail(invoice.id).expect("mail draft");
@@ -486,6 +487,47 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
     assert!(mail.eml.starts_with("From:"));
     assert!(mail.file_name.ends_with(".eml"));
     assert!(mail.mailto.starts_with("mailto:"));
+
+    let edited_eml = state
+        .invoice_eml(
+            invoice.id,
+            Some("custom@kunde.example"),
+            Some("Eigener Betreff"),
+            Some("Hallo\nWelt"),
+        )
+        .expect("edited invoice eml");
+    assert!(edited_eml.contains("custom@kunde.example"));
+    assert!(edited_eml.contains("X-Unsent: 1"));
+    assert!(edited_eml.contains("Hallo\r\nWelt"));
+
+    // Payment context and method-specific validations
+    let ctx = state
+        .invoice_payment_context(invoice.id)
+        .expect("payment context");
+    assert_eq!(ctx.invoice_id, invoice.id);
+    assert_eq!(ctx.total_cents, invoice.total_cents);
+    assert!(!ctx.quick_cash_cents.is_empty());
+    assert!(ctx.existing_payment.is_none());
+
+    // Card disabled by default in CompanyProfile
+    assert!(matches!(
+        state.record_invoice_payment(invoice.id, "card", Some("AUTH-1"), None),
+        Err(CoreError::Validation(code)) if code == "payment_card_terminal_disabled"
+    ));
+    // Insufficient cash is rejected before recording
+    assert!(matches!(
+        state.record_invoice_payment_details(
+            invoice.id,
+            "cash",
+            None,
+            None,
+            Some(&socdof_app::invoice_bridge::PaymentCaptureDetails {
+                cash_given_cents: Some(1),
+                ..Default::default()
+            })
+        ),
+        Err(CoreError::Validation(code)) if code == "payment_cash_insufficient"
+    ));
 
     let payment = state
         .record_invoice_payment(invoice.id, "transfer", Some("R-42"), None)
@@ -501,6 +543,78 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
             .reference,
         payment.reference
     );
+    let ctx_paid = state
+        .invoice_payment_context(invoice.id)
+        .expect("payment context after pay");
+    assert!(ctx_paid.existing_payment.is_some());
+
+    // Cash TSE & enabled Card terminal flow on a second invoice
+    let mut second_input = invoice_input(contact.id);
+    second_input.number = "2026-0002".to_string();
+    let second = state.save_invoice(&second_input).expect("second invoice");
+    let cash_pay = state
+        .record_invoice_payment_details(
+            second.id,
+            "cash",
+            None,
+            None,
+            Some(&socdof_app::invoice_bridge::PaymentCaptureDetails {
+                cash_given_cents: Some(second.total_cents + 500),
+                ..Default::default()
+            }),
+        )
+        .expect("cash payment");
+    assert_eq!(cash_pay.method, "cash");
+    assert!(cash_pay.tse_signature.is_some());
+
+    let mut third_input = invoice_input(contact.id);
+    third_input.number = "2026-0003".to_string();
+    let third = state.save_invoice(&third_input).expect("third invoice");
+    let mut profile = state.company_profile().expect("profile");
+    profile.card_payment_enabled = true;
+    profile.card_terminal_name = "ZVT Pro".to_string();
+    state.save_company_profile(&profile).expect("save profile");
+    let card_pay = state
+        .record_invoice_payment_details(
+            third.id,
+            "card",
+            None,
+            None,
+            Some(&socdof_app::invoice_bridge::PaymentCaptureDetails {
+                card_type: Some("visa".to_string()),
+                masked_card: Some("4532 1234 5678 9012".to_string()),
+                auth_code: Some("AUTH-99".to_string()),
+                cash_given_cents: None,
+            }),
+        )
+        .expect("card payment");
+    assert_eq!(card_pay.method, "card");
+    assert!(card_pay.reference.contains("ZVT Pro"));
+    assert!(card_pay.reference.contains("AUTH-99"));
+
+    // Template preview & factory reset
+    let mut book = state.invoice_template_book().expect("book");
+    assert_eq!(book.templates.len(), 6);
+    book.templates[0].header_title = "Vorschau Test".to_string();
+    let preview_sample = state
+        .template_preview(&book.templates[0], None)
+        .expect("sample preview");
+    assert_eq!(preview_sample.invoice.number, "RE-2026-0042");
+    assert_eq!(preview_sample.invoice.total_cents, 11_900_000);
+    assert!(preview_sample.html.contains("Vorschau Test"));
+    assert!(preview_sample.html.contains("Musterfirma Industrie & Handel GmbH"));
+    let preview_real = state
+        .template_preview(&book.templates[0], Some(invoice.id))
+        .expect("real preview");
+    assert_eq!(preview_real.invoice.number, invoice.number);
+
+    book.active_id = book.templates[2].id.clone();
+    state.save_invoice_template_book(&book).expect("save customized book");
+    let reset = state.reset_invoice_templates().expect("reset book");
+    assert_eq!(reset.templates.len(), 6);
+    assert_eq!(reset.active_id, "din_5008_classic");
+    assert_eq!(reset.templates[0].header_title, "Rechnung");
+
     assert!(state
         .record_invoice_payment(invoice.id, "bogus", None, None)
         .is_err());

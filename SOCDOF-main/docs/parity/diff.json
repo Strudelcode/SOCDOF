@@ -1,0 +1,122 @@
+[
+  {
+    "view": "dashboard",
+    "theme": "light",
+    "full_pixel_score": 97.31,
+    "full_mae": 6.87,
+    "full_close_pixels_pct": 88.71,
+    "full_ssim": 0.9191,
+    "window_pixel_score": 98.87,
+    "window_mae": 2.89,
+    "window_close_pixels_pct": 97.06,
+    "window_ssim": 0.9491
+  },
+  {
+    "view": "dashboard",
+    "theme": "dark",
+    "full_pixel_score": 96.8,
+    "full_mae": 8.15,
+    "full_close_pixels_pct": 88.94,
+    "full_ssim": 0.8577,
+    "window_pixel_score": 98.44,
+    "window_mae": 3.99,
+    "window_close_pixels_pct": 96.43,
+    "window_ssim": 0.931
+  },
+  {
+    "view": "invoices",
+    "theme": "light",
+    "full_pixel_score": 97.23,
+    "full_mae": 7.05,
+    "full_close_pixels_pct": 88.39,
+    "full_ssim": 0.8894,
+    "window_pixel_score": 98.76,
+    "window_mae": 3.16,
+    "window_close_pixels_pct": 96.57,
+    "window_ssim": 0.9041
+  },
+  {
+    "view": "invoices",
+    "theme": "dark",
+    "full_pixel_score": 96.74,
+    "full_mae": 8.32,
+    "full_close_pixels_pct": 87.88,
+    "full_ssim": 0.8345,
+    "window_pixel_score": 98.33,
+    "window_mae": 4.26,
+    "window_close_pixels_pct": 94.89,
+    "window_ssim": 0.8961
+  },
+  {
+    "view": "contacts",
+    "theme": "light",
+    "full_pixel_score": 97.29,
+    "full_mae": 6.91,
+    "full_close_pixels_pct": 88.55,
+    "full_ssim": 0.8941,
+    "window_pixel_score": 98.85,
+    "window_mae": 2.92,
+    "window_close_pixels_pct": 96.94,
+    "window_ssim": 0.9116
+  },
+  {
+    "view": "contacts",
+    "theme": "dark",
+    "full_pixel_score": 96.78,
+    "full_mae": 8.22,
+    "full_close_pixels_pct": 86.97,
+    "full_ssim": 0.8362,
+    "window_pixel_score": 98.38,
+    "window_mae": 4.13,
+    "window_close_pixels_pct": 93.65,
+    "window_ssim": 0.8979
+  },
+  {
+    "view": "settings",
+    "theme": "light",
+    "full_pixel_score": 96.79,
+    "full_mae": 8.17,
+    "full_close_pixels_pct": 86.86,
+    "full_ssim": 0.8534,
+    "window_pixel_score": 98.1,
+    "window_mae": 4.85,
+    "window_close_pixels_pct": 94.37,
+    "window_ssim": 0.8499
+  },
+  {
+    "view": "settings",
+    "theme": "dark",
+    "full_pixel_score": 95.96,
+    "full_mae": 10.3,
+    "full_close_pixels_pct": 86.61,
+    "full_ssim": 0.7974,
+    "window_pixel_score": 97.14,
+    "window_mae": 7.3,
+    "window_close_pixels_pct": 93.05,
+    "window_ssim": 0.8393
+  },
+  {
+    "view": "command-palette",
+    "theme": "light",
+    "full_pixel_score": 97.59,
+    "full_mae": 6.15,
+    "full_close_pixels_pct": 90.11,
+    "full_ssim": 0.9193,
+    "window_pixel_score": 97.94,
+    "window_mae": 5.25,
+    "window_close_pixels_pct": 94.49,
+    "window_ssim": 0.9029
+  },
+  {
+    "view": "command-palette",
+    "theme": "dark",
+    "full_pixel_score": 97.11,
+    "full_mae": 7.37,
+    "full_close_pixels_pct": 92.61,
+    "full_ssim": 0.8653,
+    "window_pixel_score": 96.91,
+    "window_mae": 7.89,
+    "window_close_pixels_pct": 91.13,
+    "window_ssim": 0.8573
+  }
+]
