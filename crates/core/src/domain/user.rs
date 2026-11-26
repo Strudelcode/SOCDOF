@@ -51,6 +51,9 @@ pub struct User {
     pub password_hash: String,
     /// Forces a password change on the next sign-in.
     pub must_change_password: bool,
+    /// Whether the account signs in without a password (reference `passwordless`).
+    #[serde(default)]
+    pub passwordless: bool,
     /// Creation time in milliseconds since the Unix epoch.
     pub created_at: i64,
     /// Last change in milliseconds since the Unix epoch.
@@ -99,6 +102,7 @@ mod tests {
             active: true,
             password_hash: "$argon2id$placeholder".to_string(),
             must_change_password: false,
+            passwordless: false,
             created_at: 0,
             updated_at: 0,
         }

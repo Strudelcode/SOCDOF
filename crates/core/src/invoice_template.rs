@@ -773,8 +773,8 @@ impl InvoiceTemplate {
         let color = html_escape(&self.primary_color);
         let font = self.font_stack();
         let logo_src = self.logo.trim();
-        let has_image_logo = self.show_logo
-            && (logo_src.starts_with("data:image/") || logo_src.starts_with("http"));
+        let has_image_logo =
+            self.show_logo && (logo_src.starts_with("data:image/") || logo_src.starts_with("http"));
         let monogram = var("{Firma_Name}")
             .chars()
             .next()

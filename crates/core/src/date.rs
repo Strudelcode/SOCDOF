@@ -218,3 +218,208 @@ mod tests {
         );
     }
 }
+
+/// Time zones the company settings offer, matching the reference selector.
+pub const TIMEZONES: [&str; 7] = [
+    "Europe/Berlin",
+    "Europe/Vienna",
+    "Europe/Zurich",
+    "Europe/London",
+    "America/New_York",
+    "America/Los_Angeles",
+    "UTC",
+];
+
+/// Date formats the company settings offer, matching the reference selector.
+pub const DATE_FORMATS: [&str; 3] = ["DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY"];
+
+/// Standard offset of a supported zone in seconds (`Europe/Berlin` → `3600`).
+///
+/// Unknown zones fall back to UTC, so a hand-edited settings file cannot shift the clock into an
+/// arbitrary offset.
+fn standard_offset_seconds(zone: &str) -> i64 {
+    match zone {
+        "Europe/Berlin" | "Europe/Vienna" | "Europe/Zurich" => 3_600,
+        "Europe/London" => 0,
+        "America/New_York" => -5 * 3_600,
+        "America/Los_Angeles" => -8 * 3_600,
+        _ => 0,
+    }
+}
+
+/// Day of month of the `nth` (1-based) Sunday-like weekday, with `0 = Sunday`.
+fn nth_weekday_day(year: i64, month: u32, weekday: i64, nth: i64) -> i64 {
+    let first_weekday = (days_from_civil(year, month, 1) + 4).rem_euclid(7);
+    let offset = (weekday - first_weekday).rem_euclid(7);
+    1 + offset + (nth - 1) * 7
+}
+
+/// Day of month of the last Sunday of `month`.
+fn last_weekday_day(year: i64, month: u32) -> i64 {
+    let next_month = if month == 12 { 1 } else { month + 1 };
+    let next_year = if month == 12 { year + 1 } else { year };
+    let last_day = days_from_civil(next_year, next_month, 1) - days_from_civil(year, month, 1);
+    let weekday_last = (days_from_civil(year, month, last_day as u32) + 4).rem_euclid(7);
+    last_day - weekday_last
+}
+
+/// Daylight-saving offset of `zone` at `millis` in seconds.
+///
+/// The reference settings offer seven zones; their rules are fixed enough to encode here: the
+/// European zones switch on the last Sunday of March and October at 01:00 UTC, the US zones on the
+/// second Sunday of March and the first Sunday of November at 02:00 local time. This keeps the
+/// core free of a time zone database dependency while matching the reference clock.
+pub fn timezone_offset_seconds(zone: &str, millis: i64) -> i64 {
+    let base = standard_offset_seconds(zone);
+    let (year, _, _) = civil_from_millis(millis);
+    let daylight = match zone {
+        "Europe/Berlin" | "Europe/Vienna" | "Europe/Zurich" | "Europe/London" => {
+            let start =
+                days_from_civil(year, 3, last_weekday_day(year, 3) as u32) * 86_400_000 + 3_600_000;
+            let end = days_from_civil(year, 10, last_weekday_day(year, 10) as u32) * 86_400_000
+                + 3_600_000;
+            millis >= start && millis < end
+        }
+        "America/New_York" => {
+            let start = days_from_civil(year, 3, nth_weekday_day(year, 3, 0, 2) as u32)
+                * 86_400_000
+                + 7 * 3_600_000;
+            let end = days_from_civil(year, 11, nth_weekday_day(year, 11, 0, 1) as u32)
+                * 86_400_000
+                + 6 * 3_600_000;
+            millis >= start && millis < end
+        }
+        "America/Los_Angeles" => {
+            let start = days_from_civil(year, 3, nth_weekday_day(year, 3, 0, 2) as u32)
+                * 86_400_000
+                + 10 * 3_600_000;
+            let end = days_from_civil(year, 11, nth_weekday_day(year, 11, 0, 1) as u32)
+                * 86_400_000
+                + 9 * 3_600_000;
+            millis >= start && millis < end
+        }
+        _ => false,
+    };
+    if daylight {
+        base + 3_600
+    } else {
+        base
+    }
+}
+
+/// Wall clock timestamp of `millis` in `zone`.
+pub fn local_millis(millis: i64, zone: &str) -> i64 {
+    millis + timezone_offset_seconds(zone, millis) * 1_000
+}
+
+/// Formats `millis` as a twelve hour clock in `zone` (`03:43 PM`, with seconds when asked).
+pub fn format_time(millis: i64, seconds: bool, zone: &str) -> String {
+    let local = local_millis(millis, zone);
+    let total_seconds = local.div_euclid(1_000);
+    let hour = total_seconds.div_euclid(3_600).rem_euclid(24);
+    let minute = total_seconds.div_euclid(60).rem_euclid(60);
+    let second = total_seconds.rem_euclid(60);
+    let meridiem = if hour < 12 { "AM" } else { "PM" };
+    let hour = match hour % 12 {
+        0 => 12,
+        other => other,
+    };
+    if seconds {
+        format!("{hour:02}:{minute:02}:{second:02} {meridiem}")
+    } else {
+        format!("{hour:02}:{minute:02} {meridiem}")
+    }
+}
+
+/// Formats `millis` as a twenty-four hour clock in `zone` (`12:36:11`), as the tray prints it.
+pub fn format_time_24h(millis: i64, seconds: bool, zone: &str) -> String {
+    let local = local_millis(millis, zone);
+    let total_seconds = local.div_euclid(1_000);
+    let hour = total_seconds.div_euclid(3_600).rem_euclid(24);
+    let minute = total_seconds.div_euclid(60).rem_euclid(60);
+    let second = total_seconds.rem_euclid(60);
+    if seconds {
+        format!("{hour:02}:{minute:02}:{second:02}")
+    } else {
+        format!("{hour:02}:{minute:02}")
+    }
+}
+
+/// Formats `millis` as a date in `style` and `zone`, falling back to `DD.MM.YYYY`.
+pub fn format_date_style(millis: i64, style: &str, zone: &str) -> String {
+    let local = local_millis(millis, zone);
+    let days = local.div_euclid(86_400_000);
+    let (year, month, day) = civil_from_days(days);
+    match style {
+        "YYYY-MM-DD" => format!("{year:04}-{month:02}-{day:02}"),
+        "MM/DD/YYYY" => format!("{month:02}/{day:02}/{year:04}"),
+        _ => format!("{day:02}.{month:02}.{year:04}"),
+    }
+}
+
+#[cfg(test)]
+mod timezone_tests {
+    use super::*;
+
+    fn utc(year: i64, month: u32, day: u32, hour: i64) -> i64 {
+        days_from_civil(year, month, day) * 86_400_000 + hour * 3_600_000
+    }
+
+    #[test]
+    fn european_zones_follow_the_last_sunday_rule() {
+        // 2026-03-29 is the last Sunday of March, 2026-10-25 the last Sunday of October.
+        assert_eq!(
+            timezone_offset_seconds("Europe/Berlin", utc(2026, 3, 29, 0)),
+            3_600
+        );
+        assert_eq!(
+            timezone_offset_seconds("Europe/Berlin", utc(2026, 3, 29, 1)),
+            7_200
+        );
+        assert_eq!(
+            timezone_offset_seconds("Europe/Berlin", utc(2026, 10, 25, 1)),
+            3_600
+        );
+        assert_eq!(
+            timezone_offset_seconds("Europe/London", utc(2026, 7, 1, 12)),
+            3_600
+        );
+        assert_eq!(
+            timezone_offset_seconds("Europe/Vienna", utc(2026, 1, 15, 12)),
+            3_600
+        );
+        assert_eq!(timezone_offset_seconds("UTC", utc(2026, 7, 1, 12)), 0);
+    }
+
+    #[test]
+    fn us_zones_follow_their_own_switch_dates() {
+        // 2026-03-08 is the second Sunday of March, 2026-11-01 the first Sunday of November.
+        assert_eq!(
+            timezone_offset_seconds("America/New_York", utc(2026, 3, 8, 6)),
+            -18_000
+        );
+        assert_eq!(
+            timezone_offset_seconds("America/New_York", utc(2026, 3, 8, 7)),
+            -14_400
+        );
+        assert_eq!(
+            timezone_offset_seconds("America/New_York", utc(2026, 11, 1, 6)),
+            -18_000
+        );
+        assert_eq!(
+            timezone_offset_seconds("America/Los_Angeles", utc(2026, 7, 1, 12)),
+            -25_200
+        );
+    }
+
+    #[test]
+    fn formats_clock_and_date_in_the_selected_zone() {
+        let millis = utc(2026, 8, 25, 13);
+        assert_eq!(format_time(millis, false, "UTC"), "01:00 PM");
+        assert_eq!(format_time(millis, true, "UTC"), "01:00:00 PM");
+        assert_eq!(format_time(millis, false, "Europe/Berlin"), "03:00 PM");
+        assert_eq!(format_date_style(millis, "DD.MM.YYYY", "UTC"), "25.08.2026");
+        assert_eq!(format_date_style(millis, "YYYY-MM-DD", "UTC"), "2026-08-25");
+        assert_eq!(format_date_style(millis, "MM/DD/YYYY", "UTC"), "08/25/2026");
+    }
+}

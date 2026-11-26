@@ -492,12 +492,24 @@ pub fn input(
 }
 
 /// Options of a password field: the optional eye toggle and whether the screen focuses it.
-#[derive(Default)]
 pub struct PasswordField<'a> {
     /// Reveals the typed password through the eye toggle, `None` keeps the field masked only.
     pub reveal: Option<&'a mut bool>,
     /// Requests the focus on the first frame, like the `autoFocus` of the legacy sign-in field.
     pub autofocus: bool,
+    /// Disables typing and the eye toggle, like the sign-in field during a running lockout.
+    pub enabled: bool,
+}
+
+impl Default for PasswordField<'_> {
+    fn default() -> Self {
+        Self {
+            reveal: None,
+            autofocus: false,
+            // A field is typeable unless a screen disables it on purpose.
+            enabled: true,
+        }
+    }
 }
 
 /// Draws a masked field with the eye toggle of the legacy password fields.
@@ -513,6 +525,7 @@ pub fn password_input(
     let PasswordField {
         mut reveal,
         autofocus,
+        enabled,
     } = options;
     // `reveal: None` is always masked; `reveal: Some(flag)` follows the eye toggle, so a false
     // flag has to keep the text masked instead of showing the password in clear text.
@@ -550,7 +563,8 @@ pub fn password_input(
                 // The field padding (16 left, 12 right) belongs to the editor's hit box: with it on
                 // the frame, a click on the padding left the caret in the previously focused field.
                 let width = (ui.available_width() - eye - 6.0 - 12.0 - 16.0 - 12.0).max(80.0);
-                let response = ui.add(
+                let response = ui.add_enabled(
+                    enabled,
                     egui::TextEdit::singleline(value)
                         .id(egui::Id::new(("socdof-field", label)))
                         .password(masked)
@@ -1560,17 +1574,33 @@ pub fn draw_avatar(
             [image.width, image.height],
             image.pixels.as_slice(),
         );
+        // The revision identifies the decoded picture, so two accounts never share a texture.
         let texture = ui.ctx().load_texture(
-            format!("socdof-avatar-{}", image.revision),
+            format!("socdof-avatar-{:x}", image.revision),
             color_image,
             egui::TextureOptions::LINEAR,
         );
-        ui.painter().image(
-            texture.id(),
-            rect,
-            Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-            Color32::WHITE,
-        );
+        // Draw the picture as a textured circle: a plain image rectangle would show its corners.
+        let mut mesh = egui::Mesh::with_texture(texture.id());
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: center,
+            uv: Pos2::new(0.5, 0.5),
+            color: Color32::WHITE,
+        });
+        const SEGMENTS: usize = 48;
+        for index in 0..=SEGMENTS {
+            let angle = index as f32 / SEGMENTS as f32 * std::f32::consts::TAU;
+            let (sin, cos) = angle.sin_cos();
+            mesh.vertices.push(egui::epaint::Vertex {
+                pos: center + Vec2::new(cos, sin) * radius,
+                uv: Pos2::new(0.5 + cos * 0.5, 0.5 + sin * 0.5),
+                color: Color32::WHITE,
+            });
+        }
+        for index in 1..=SEGMENTS as u32 {
+            mesh.indices.extend_from_slice(&[0, index, index + 1]);
+        }
+        ui.painter().add(egui::Shape::mesh(mesh));
         ui.painter()
             .circle_stroke(center, radius - 0.5, Stroke::new(1.0_f32, hairline(theme)));
         return;

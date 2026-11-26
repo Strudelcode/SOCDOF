@@ -108,6 +108,7 @@ impl UserDraft {
                 active: true,
                 password_hash: String::new(),
                 must_change_password: true,
+                passwordless: false,
                 created_at: now,
                 updated_at: now,
             },
@@ -136,7 +137,15 @@ impl UserDraft {
             }
         }
 
-        if base.is_none() || !self.password.is_empty() {
+        // A regular account without a password is passwordless, like the reference `createUser`;
+        // administrators still require one. The stored hash is random and never matches input.
+        let passwordless = self.password.is_empty() && user.role == UserRole::User;
+        user.passwordless = passwordless;
+        if passwordless {
+            user.password_hash = hash_password(&Uuid::new_v4().to_string())
+                .map_err(|_| "users_error_password_short")?;
+            user.must_change_password = false;
+        } else if base.is_none() || !self.password.is_empty() {
             if self.password.chars().count() < MIN_PASSWORD_LENGTH {
                 return Err("users_error_password_short");
             }
@@ -433,6 +442,7 @@ impl UsersState {
                 active,
                 password_hash: hash.clone(),
                 must_change_password: must_change,
+                passwordless: false,
                 created_at: now,
                 updated_at: now,
             };

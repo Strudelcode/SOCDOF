@@ -197,6 +197,53 @@ pub fn login(
     }
 }
 
+/// Signs a passwordless account in directly, the reference `quickSwitchUser`.
+///
+/// Inactive or password-protected accounts and accounts inside their lockout are rejected, so the
+/// quick switch can never bypass the password of a protected account.
+pub fn quick_switch(conn: &Connection, user_id: Uuid, now: i64) -> CoreResult<LoginOutcome> {
+    let Some(user) = users::find(conn, user_id)? else {
+        return Ok(LoginOutcome::Invalid);
+    };
+    if !user.active || !user.passwordless {
+        return Ok(LoginOutcome::Invalid);
+    }
+    if let Some(until) = locked_until(conn, &user.username, now)? {
+        return Ok(LoginOutcome::Locked { until });
+    }
+    clear_failures(conn, &user.username)?;
+    let (session, token) = create(conn, &user, now, SESSION_TTL_MS)?;
+    Ok(LoginOutcome::Success {
+        user: Box::new(user),
+        session,
+        token,
+    })
+}
+
+/// Signs the single active account in on start, the reference `tryAutoLoginSingleUser`.
+///
+/// Requires the security switch, exactly one account, no lockout and an active account.
+pub fn auto_login_single_user(conn: &Connection, now: i64) -> CoreResult<Option<LoginOutcome>> {
+    let settings = crate::auth_security::load_conn(conn)?;
+    if !settings.auto_login_single_user {
+        return Ok(None);
+    }
+    let accounts = users::list(conn)?;
+    if accounts.len() != 1 {
+        return Ok(None);
+    }
+    let user = &accounts[0];
+    if !user.active || locked_until(conn, &user.username, now)?.is_some() {
+        return Ok(None);
+    }
+    let (session, token) = create(conn, user, now, SESSION_TTL_MS)?;
+    Ok(Some(LoginOutcome::Success {
+        user: Box::new(user.clone()),
+        session,
+        token,
+    }))
+}
+
 fn map_row(row: &Row<'_>) -> rusqlite::Result<Session> {
     let id_text: String = row.get("id")?;
     let user_text: String = row.get("user_id")?;

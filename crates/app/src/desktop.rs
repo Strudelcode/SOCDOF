@@ -620,6 +620,7 @@ impl DesktopState {
             active: input.active,
             password_hash,
             must_change_password: false,
+            passwordless: false,
             created_at: existing.as_ref().map(|user| user.created_at).unwrap_or(now),
             updated_at: now,
         };

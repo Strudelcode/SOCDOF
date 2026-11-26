@@ -20,6 +20,7 @@ use std::path::{Path, PathBuf};
 use egui::epaint::Primitive;
 use egui::{ImageData, Pos2, RawInput, Rect, TextureId, Vec2};
 use socdof_core::domain::settings::Language;
+use socdof_ui::auth::AuthState;
 use socdof_ui::gallery::{gallery, GalleryState};
 use socdof_ui::settings::SettingsTab;
 use socdof_ui::shell::Onboarding;
@@ -81,6 +82,10 @@ enum Scene {
     Therapie,
     TherapieList,
     AuthLogin,
+    AuthLoginOther,
+    AuthLoginLocked,
+    AuthSigningIn,
+    AuthQuitConfirm,
     AuthLocked,
     AuthLanguage,
     AuthWelcome,
@@ -88,9 +93,14 @@ enum Scene {
     AuthAppearance,
     AuthApps,
     AuthFinish,
+    AuthFinishSkipped,
+    AuthRecoveryCustom,
     AuthRecover,
     AuthPasswordChange,
     AuthUnlocked,
+    AuthParityLogin,
+    AuthParityLocked,
+    AuthParityQuickSwitch,
     Settings(SettingsTab),
     SettingsRoleForm,
     SettingsDelete,
@@ -152,6 +162,10 @@ impl Scene {
             Scene::TherapieList => "therapy-list".to_string(),
             Scene::ProductsForm => "products-form".to_string(),
             Scene::AuthLogin => "auth-login".to_string(),
+            Scene::AuthLoginOther => "auth-login-other".to_string(),
+            Scene::AuthLoginLocked => "auth-login-locked".to_string(),
+            Scene::AuthSigningIn => "auth-signing-in".to_string(),
+            Scene::AuthQuitConfirm => "auth-quit-confirm".to_string(),
             Scene::AuthLocked => "auth-locked".to_string(),
             Scene::AuthLanguage => "auth-language".to_string(),
             Scene::AuthWelcome => "auth-welcome".to_string(),
@@ -159,8 +173,13 @@ impl Scene {
             Scene::AuthAppearance => "auth-appearance".to_string(),
             Scene::AuthApps => "auth-apps".to_string(),
             Scene::AuthFinish => "auth-finish".to_string(),
+            Scene::AuthFinishSkipped => "auth-finish-skipped".to_string(),
+            Scene::AuthRecoveryCustom => "auth-recovery-custom".to_string(),
             Scene::AuthRecover => "auth-recover".to_string(),
             Scene::AuthPasswordChange => "auth-password-change".to_string(),
+            Scene::AuthParityLogin => "auth-parity-login".to_string(),
+            Scene::AuthParityLocked => "auth-parity-locked".to_string(),
+            Scene::AuthParityQuickSwitch => "auth-parity-quick-switch".to_string(),
             Scene::AuthUnlocked => "auth-unlocked".to_string(),
             Scene::Settings(tab) => format!("settings-{}", settings_id(tab)),
             Scene::SettingsRoleForm => "settings-role-form".to_string(),
@@ -217,6 +236,10 @@ impl Scene {
             Scene::Therapie => "Therapy · Client detail".to_string(),
             Scene::TherapieList => "Therapy · Clients".to_string(),
             Scene::AuthLogin => "Login".to_string(),
+            Scene::AuthLoginOther => "Login · other account".to_string(),
+            Scene::AuthLoginLocked => "Login · lockout countdown".to_string(),
+            Scene::AuthSigningIn => "Login · signing in".to_string(),
+            Scene::AuthQuitConfirm => "Login · close confirmation".to_string(),
             Scene::AuthLocked => "Lock screen".to_string(),
             Scene::AuthLanguage => "First-run language".to_string(),
             Scene::AuthWelcome => "First-run welcome".to_string(),
@@ -224,8 +247,13 @@ impl Scene {
             Scene::AuthAppearance => "First-run appearance".to_string(),
             Scene::AuthApps => "First-run apps".to_string(),
             Scene::AuthFinish => "First-run finish".to_string(),
+            Scene::AuthFinishSkipped => "First-run finish · setup skipped".to_string(),
+            Scene::AuthRecoveryCustom => "First-run account · custom recovery question".to_string(),
             Scene::AuthRecover => "Password recovery".to_string(),
             Scene::AuthPasswordChange => "Password change".to_string(),
+            Scene::AuthParityLogin => "Login · passwordless continue".to_string(),
+            Scene::AuthParityLocked => "Lock screen · configured clock".to_string(),
+            Scene::AuthParityQuickSwitch => "Lock screen · quick switch".to_string(),
             Scene::AuthUnlocked => "Signed in".to_string(),
             Scene::Settings(tab) => format!("Settings · {}", settings_title(tab)),
             Scene::SettingsRoleForm => "Settings · Role editor".to_string(),
@@ -256,12 +284,24 @@ impl Scene {
             Scene::Settings(_) => (1180.0, 2050.0),
             Scene::Users => (1180.0, 1500.0),
             Scene::UserDetail => (1180.0, 1900.0),
-            Scene::AuthLogin | Scene::AuthLocked | Scene::AuthUnlocked => (900.0, 820.0),
+            Scene::AuthLogin
+            | Scene::AuthLoginOther
+            | Scene::AuthLoginLocked
+            | Scene::AuthSigningIn
+            | Scene::AuthQuitConfirm
+            | Scene::AuthLocked
+            | Scene::AuthUnlocked
+            | Scene::AuthParityLogin
+            | Scene::AuthParityLocked
+            | Scene::AuthParityQuickSwitch => (900.0, 820.0),
             Scene::AuthLanguage => (900.0, 780.0),
             Scene::AuthWelcome => (900.0, 620.0),
-            Scene::AuthSetup | Scene::AuthAppearance => (900.0, 1000.0),
+            Scene::AuthSetup => (900.0, 1700.0),
+            Scene::AuthAppearance => (900.0, 1100.0),
             Scene::AuthApps => (900.0, 1700.0),
             Scene::AuthFinish => (900.0, 1000.0),
+            Scene::AuthFinishSkipped => (900.0, 1000.0),
+            Scene::AuthRecoveryCustom => (900.0, 1700.0),
             Scene::AuthRecover | Scene::AuthPasswordChange => (900.0, 1060.0),
             Scene::DesktopCalculator | Scene::DesktopWidgets | Scene::DesktopEditor => {
                 (COMPACT_WIDTH, COMPACT_HEIGHT)
@@ -554,7 +594,66 @@ impl Scene {
                 state.auth.show_login();
                 state.auth_open = true;
             }
+            Scene::AuthLoginOther => {
+                state.auth.show_login();
+                state.auth.other_user = true;
+                state.auth.username.clear();
+                state.auth_open = true;
+            }
+            Scene::AuthLoginLocked => {
+                state.auth.show_login();
+                state.auth.locked_until = Some(socdof_core::now_millis() + 45_000);
+                state.auth.error = Some("auth_error_locked");
+                state.auth_open = true;
+            }
+            Scene::AuthSigningIn => {
+                state.auth.show_login();
+                state.auth.username = "admin".to_string();
+                state.auth.password = "Socdof2026!".to_string();
+                state.auth.signing_in_until = socdof_core::now_millis() + 5_000;
+                state.auth_open = true;
+            }
+            Scene::AuthQuitConfirm => {
+                state.auth.show_login();
+                state.auth.quit_confirm = true;
+                state.auth_open = true;
+            }
             Scene::AuthLocked => {
+                state.auth.lock(socdof_core::now_millis());
+                state.auth_open = true;
+            }
+            Scene::AuthParityLogin => {
+                parity_clock(state);
+                parity_profile_pictures(state);
+                state.auth = AuthState::new(&state.store, socdof_core::now_millis())
+                    .expect("parity auth state");
+                state.auth.show_login();
+                state.auth.username = "mira".to_string();
+                state.auth_open = true;
+            }
+            Scene::AuthParityLocked => {
+                parity_clock(state);
+                parity_profile_pictures(state);
+                state.auth = AuthState::signed_in(
+                    &state.store,
+                    "admin",
+                    "Socdof2026!",
+                    socdof_core::now_millis(),
+                )
+                .expect("parity session");
+                state.auth.lock(socdof_core::now_millis());
+                state.auth_open = true;
+            }
+            Scene::AuthParityQuickSwitch => {
+                parity_clock(state);
+                parity_profile_pictures(state);
+                state.auth = AuthState::signed_in(
+                    &state.store,
+                    "mira",
+                    "Socdof2026!",
+                    socdof_core::now_millis(),
+                )
+                .expect("parity session");
                 state.auth.lock(socdof_core::now_millis());
                 state.auth_open = true;
             }
@@ -579,15 +678,28 @@ impl Scene {
                 state.auth.theme_mode_choice =
                     Some(socdof_core::domain::settings::ThemeMode::System);
                 state.auth.accent_choice = Some("indigo".to_string());
+                // A chosen wallpaper shows the remove action of the appearance step.
+                state.auth.wallpaper_choice = Some(Wallpaper::Dusk);
+                state.auth.wallpaper_picked = true;
+                state.auth_open = true;
+            }
+            Scene::AuthRecoveryCustom => {
+                state.auth.show_setup();
+                state.auth.setup_step = 2;
+                state.auth.recovery_choice = socdof_ui::auth::RecoveryChoice::Custom;
+                state.auth.recovery_custom_question = "Wie hieß mein Hund?".to_string();
+                state.auth.recovery_answer_one = "Bella".to_string();
                 state.auth_open = true;
             }
             Scene::AuthApps => {
                 state.auth.show_setup();
                 state.auth.setup_step = 4;
-                state.auth.account_type = socdof_ui::auth::SetupAccountType::Business;
-                state.auth.template_choice = socdof_ui::auth::SetupTemplate::Business;
-                state.auth.setup_apps = socdof_ui::auth_screens::template_apps(
-                    socdof_ui::auth::SetupTemplate::Business,
+                // The TypeScript wizard hides the business modules for a personal account.
+                state.auth.account_type = socdof_ui::auth::SetupAccountType::Personal;
+                state.auth.template_choice = socdof_ui::auth::SetupTemplate::Personal;
+                state.auth.setup_apps = socdof_ui::auth_screens::template_apps_for(
+                    socdof_ui::auth::SetupTemplate::Personal,
+                    socdof_ui::auth::SetupAccountType::Personal,
                 )
                 .iter()
                 .map(|slug| (*slug).to_owned())
@@ -597,6 +709,14 @@ impl Scene {
             Scene::AuthFinish => {
                 state.auth.show_setup();
                 state.auth.setup_step = 5;
+                state.auth.display_name = "Alex Administrator".to_string();
+                state.auth.username = "admin".to_string();
+                state.auth_open = true;
+            }
+            Scene::AuthFinishSkipped => {
+                state.auth.show_setup();
+                state.auth.setup_step = 5;
+                state.auth.setup_skip_extras = true;
                 state.auth.display_name = "Alex Administrator".to_string();
                 state.auth.username = "admin".to_string();
                 state.auth_open = true;
@@ -764,6 +884,10 @@ fn scenes() -> Vec<Scene> {
         Scene::Therapie,
         Scene::TherapieList,
         Scene::AuthLogin,
+        Scene::AuthLoginOther,
+        Scene::AuthLoginLocked,
+        Scene::AuthSigningIn,
+        Scene::AuthQuitConfirm,
         Scene::AuthLocked,
         Scene::AuthLanguage,
         Scene::AuthWelcome,
@@ -771,9 +895,14 @@ fn scenes() -> Vec<Scene> {
         Scene::AuthAppearance,
         Scene::AuthApps,
         Scene::AuthFinish,
+        Scene::AuthFinishSkipped,
+        Scene::AuthRecoveryCustom,
         Scene::AuthRecover,
         Scene::AuthPasswordChange,
         Scene::AuthUnlocked,
+        Scene::AuthParityLogin,
+        Scene::AuthParityLocked,
+        Scene::AuthParityQuickSwitch,
     ];
     scenes.extend(SettingsTab::ALL.into_iter().map(Scene::Settings));
     scenes.push(Scene::SettingsRoleForm);
@@ -854,6 +983,55 @@ fn apply_textures(textures: &mut HashMap<TextureId, Texture>, delta: &egui::Text
         } else {
             textures.insert(*id, Texture::from_image(&image.image));
         }
+    }
+}
+
+/// Clock settings of the sign-in parity scenes: a selected date format, time zone and seconds.
+fn parity_clock(state: &GalleryState) {
+    let mut profile = state.store.company_profile().expect("company profile");
+    if profile.name.trim().is_empty() {
+        profile.name = "Strudelcode GmbH".to_string();
+    }
+    profile.date_format = "MM/DD/YYYY".to_string();
+    profile.timezone = "America/New_York".to_string();
+    profile.time_show_seconds = Some(true);
+    socdof_core::settings_service::save_company_profile(&state.store, &profile)
+        .expect("saved parity profile");
+}
+
+/// Makes `mira` a passwordless account and stores profile pictures for the demo accounts.
+fn parity_profile_pictures(state: &GalleryState) {
+    if let Ok(Some(mut mira)) = state.store.find_user_by_username("mira") {
+        mira.passwordless = true;
+        state
+            .store
+            .update_user(&mira)
+            .expect("passwordless account");
+    }
+    for (username, color) in [
+        ("admin", [37u8, 99, 235, 255]),
+        ("mira", [16u8, 185, 129, 255]),
+        ("jonas", [217u8, 119, 6, 255]),
+    ] {
+        let Some(user) = state.store.find_user_by_username(username).ok().flatten() else {
+            continue;
+        };
+        let mut pixels = Vec::with_capacity(8 * 8 * 4);
+        for y in 0..8u8 {
+            for x in 0..8u8 {
+                let shade = if (x / 4 + y / 4) % 2 == 0 { 1.0 } else { 0.78 };
+                pixels.extend_from_slice(&[
+                    (color[0] as f32 * shade) as u8,
+                    (color[1] as f32 * shade) as u8,
+                    (color[2] as f32 * shade) as u8,
+                    255,
+                ]);
+            }
+        }
+        let data_url =
+            socdof_core::settings_service::encode_png_data_url(8, 8, &pixels).expect("avatar png");
+        socdof_core::settings_service::save_user_avatar(&state.store, user.id, Some(&data_url))
+            .expect("avatar saved");
     }
 }
 

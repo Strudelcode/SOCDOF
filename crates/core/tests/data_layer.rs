@@ -51,6 +51,7 @@ fn create_user(store: &Store, username: &str, role_id: Option<Uuid>) -> User {
         active: true,
         password_hash: security::hash_password("admin-passwort").expect("hash"),
         must_change_password: false,
+        passwordless: false,
         created_at: NOW,
         updated_at: NOW,
     };

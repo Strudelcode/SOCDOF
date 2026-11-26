@@ -13,12 +13,20 @@ use crate::store::Store;
 /// Prefix of the per-user security-answer keys.
 pub const SECURITY_QUESTIONS_PREFIX: &str = "user_security_questions:";
 
+/// Catalogue ids of the two questions of the classic form.
+///
+/// Answers configured through the two-field form (settings and the forced password change) keep
+/// these ids, so their labels come from the catalogue like every other text.
+pub const DEFAULT_QUESTIONS: [&str; 2] = ["setup_recovery_q1", "setup_recovery_q5"];
+
 /// Persisted hashed answers, in the order of the questions shown by the UI.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SecurityAnswers {
     /// Argon2id hashes, one per question.
     pub answer_hashes: Vec<String>,
+    /// Catalogue id (or free text of a custom question) per hash, in the same order.
+    pub questions: Vec<String>,
 }
 
 impl SecurityAnswers {
@@ -40,7 +48,57 @@ pub fn security_answers(store: &Store, user_id: Uuid) -> CoreResult<SecurityAnsw
     }
 }
 
-/// Validates, hashes and stores the answers.
+/// Loads the questions that belong to the configured answers.
+///
+/// Accounts written before the questions were stored get the two classic prompts in the order of
+/// their hashes, so their recovery form keeps working.
+pub fn questions_of(store: &Store, user_id: Uuid) -> CoreResult<Vec<String>> {
+    let stored = security_answers(store, user_id)?;
+    Ok((0..stored.answer_hashes.len())
+        .map(|index| {
+            stored.questions.get(index).cloned().unwrap_or_else(|| {
+                DEFAULT_QUESTIONS
+                    .get(index)
+                    .copied()
+                    .unwrap_or("setup_recovery_q1")
+                    .to_string()
+            })
+        })
+        .collect())
+}
+
+/// Validates, hashes and stores a single question with its answer.
+///
+/// Used by the first-run wizard, which offers the catalogue questions, a custom question and the
+/// explicit "no question" choice of the TypeScript edition.
+pub fn save_security_question(
+    store: &Store,
+    user_id: Uuid,
+    question: &str,
+    answer: &str,
+) -> CoreResult<()> {
+    let question = question.trim();
+    if question.is_empty() {
+        return Err(CoreError::Validation(
+            "security_question_required".to_string(),
+        ));
+    }
+    let answer = answer.trim();
+    if answer.len() < 2 {
+        return Err(CoreError::Validation(
+            "security_answer_required".to_string(),
+        ));
+    }
+    store.put_setting(
+        &key(user_id),
+        &serde_json::to_value(SecurityAnswers {
+            answer_hashes: vec![hash_secret(&answer.to_lowercase())?],
+            questions: vec![question.to_string()],
+        })?,
+    )
+}
+
+/// Validates, hashes and stores the answers of the two-field form.
 pub fn save_security_answers(store: &Store, user_id: Uuid, answers: &[String]) -> CoreResult<()> {
     if answers.len() != 2 {
         return Err(CoreError::Validation("security_two_answers".to_string()));
@@ -59,8 +117,28 @@ pub fn save_security_answers(store: &Store, user_id: Uuid, answers: &[String]) -
         &key(user_id),
         &serde_json::to_value(SecurityAnswers {
             answer_hashes: hashes,
+            questions: DEFAULT_QUESTIONS
+                .iter()
+                .map(|id| (*id).to_string())
+                .collect(),
         })?,
     )
+}
+
+/// Verifies an answer against every configured question.
+///
+/// The recovery form of the TypeScript edition asks for one answer next to the configured
+/// questions, so a single input has to be checked against all of them.
+pub fn verify_any_answer(store: &Store, user_id: Uuid, answer: &str) -> CoreResult<bool> {
+    let stored = security_answers(store, user_id)?;
+    let answer = answer.trim().to_lowercase();
+    if answer.len() < 2 {
+        return Ok(false);
+    }
+    Ok(stored
+        .answer_hashes
+        .iter()
+        .any(|hash| !hash.is_empty() && verify_password(&answer, hash)))
 }
 
 /// Verifies one answer by its question index.
@@ -116,6 +194,51 @@ mod tests {
         assert!(!security_answers(&store, user)
             .expect("empty")
             .is_configured());
+    }
+
+    #[test]
+    fn stores_one_question_with_its_label_and_verifies_it() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+
+        save_security_question(&store, user, "setup_recovery_q3", "Dune")
+            .expect("single question saved");
+        let stored = security_answers(&store, user).expect("stored");
+        assert_eq!(stored.answer_hashes.len(), 1);
+        assert_eq!(
+            questions_of(&store, user).expect("questions"),
+            ["setup_recovery_q3"]
+        );
+        assert!(verify_any_answer(&store, user, "DUNE").expect("verify"));
+        assert!(!verify_any_answer(&store, user, "Foundation").expect("verify"));
+
+        save_security_question(&store, user, "Wie hieß mein Hund?", "Bella")
+            .expect("custom question saved");
+        assert_eq!(
+            questions_of(&store, user).expect("questions"),
+            ["Wie hieß mein Hund?"]
+        );
+        assert!(verify_any_answer(&store, user, "bella").expect("verify"));
+
+        assert!(save_security_question(&store, user, "", "answer").is_err());
+        assert!(save_security_question(&store, user, "setup_recovery_q1", " ").is_err());
+    }
+
+    #[test]
+    fn the_two_field_form_keeps_the_default_questions() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        save_security_answers(
+            &store,
+            user,
+            &["first pet".to_string(), "birth city".to_string()],
+        )
+        .expect("saved");
+        assert_eq!(
+            questions_of(&store, user).expect("questions"),
+            DEFAULT_QUESTIONS
+        );
+        assert!(verify_any_answer(&store, user, "birth city").expect("verify"));
     }
 
     #[test]

@@ -9,7 +9,7 @@ use crate::now_millis;
 use crate::security::verify_password;
 
 const COLUMNS: &str = "id, username, display_name, role, role_id, active, password_hash, \
-                       must_change_password, created_at, updated_at";
+                       must_change_password, passwordless, created_at, updated_at";
 
 /// Inserts a user. The password must already be hashed by [`crate::security::hash_password`].
 pub fn insert(conn: &Connection, user: &User) -> CoreResult<()> {
@@ -17,8 +17,8 @@ pub fn insert(conn: &Connection, user: &User) -> CoreResult<()> {
 
     conn.execute(
         "INSERT INTO users (id, username, display_name, role, role_id, active, password_hash,
-            must_change_password, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            must_change_password, passwordless, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             user.id.to_string(),
             user.username.trim(),
@@ -28,6 +28,7 @@ pub fn insert(conn: &Connection, user: &User) -> CoreResult<()> {
             user.active,
             user.password_hash,
             user.must_change_password,
+            user.passwordless,
             user.created_at,
             user.updated_at,
         ],
@@ -152,7 +153,8 @@ fn update_internal(
     let transaction = conn.unchecked_transaction()?;
     let changed = transaction.execute(
         "UPDATE users SET username = ?2, display_name = ?3, role = ?4, role_id = ?5,
-            active = ?6, must_change_password = ?7, password_hash = ?8, updated_at = ?9
+            active = ?6, must_change_password = ?7, password_hash = ?8, passwordless = ?9,
+            updated_at = ?10
          WHERE id = ?1",
         params![
             user.id.to_string(),
@@ -163,6 +165,7 @@ fn update_internal(
             user.active,
             user.must_change_password,
             user.password_hash,
+            user.passwordless,
             user.updated_at,
         ],
     )?;
@@ -273,6 +276,7 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<User> {
         active: row.get("active")?,
         password_hash: row.get("password_hash")?,
         must_change_password: row.get("must_change_password")?,
+        passwordless: row.get("passwordless")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -289,6 +293,7 @@ mod tests {
                 id TEXT PRIMARY KEY, username TEXT NOT NULL, display_name TEXT NOT NULL,
                 role TEXT NOT NULL, role_id TEXT, active INTEGER NOT NULL,
                 password_hash TEXT NOT NULL, must_change_password INTEGER NOT NULL,
+                passwordless INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
             );
             CREATE TABLE auth_sessions (
@@ -311,6 +316,7 @@ mod tests {
             active: true,
             password_hash: "hash".to_string(),
             must_change_password: false,
+            passwordless: false,
             created_at: 1,
             updated_at: 1,
         }
@@ -462,6 +468,7 @@ mod first_admin_tests {
                 id TEXT PRIMARY KEY, username TEXT NOT NULL, display_name TEXT NOT NULL,
                 role TEXT NOT NULL, role_id TEXT, active INTEGER NOT NULL,
                 password_hash TEXT NOT NULL, must_change_password INTEGER NOT NULL,
+                passwordless INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
             );",
         )
@@ -475,6 +482,7 @@ mod first_admin_tests {
             active: true,
             password_hash: "argon-hash".to_string(),
             must_change_password: false,
+            passwordless: false,
             created_at: 1,
             updated_at: 1,
         };

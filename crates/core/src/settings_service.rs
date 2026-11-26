@@ -314,6 +314,14 @@ pub fn normalize_profile(profile: &mut CompanyProfile) {
     if profile.accent_color.trim().is_empty() {
         profile.accent_color = "indigo".to_string();
     }
+
+    if !crate::date::DATE_FORMATS.contains(&profile.date_format.as_str()) {
+        profile.date_format = "DD.MM.YYYY".to_string();
+    }
+
+    if !crate::date::TIMEZONES.contains(&profile.timezone.as_str()) {
+        profile.timezone = "Europe/Berlin".to_string();
+    }
 }
 
 /// Preferences of a user, defaulting to the company profile values.
@@ -418,9 +426,10 @@ pub fn user_avatar(store: &Store, user_id: Uuid) -> CoreResult<Option<String>> {
 /// Stores or clears a user's avatar data URL (`data:image/png;base64,...`).
 pub fn save_user_avatar(store: &Store, user_id: Uuid, data_url: Option<&str>) -> CoreResult<()> {
     match data_url.map(str::trim).filter(|value| !value.is_empty()) {
-        Some(value) => {
-            store.put_setting(&user_avatar_key(user_id), &serde_json::Value::String(value.to_string()))
-        }
+        Some(value) => store.put_setting(
+            &user_avatar_key(user_id),
+            &serde_json::Value::String(value.to_string()),
+        ),
         None => store.remove_setting(&user_avatar_key(user_id)),
     }
 }
@@ -861,7 +870,9 @@ mod tests {
 
         save_user_avatar(&store, user_id, Some(&data_url)).expect("save avatar");
         assert_eq!(
-            user_avatar(&store, user_id).expect("load avatar").as_deref(),
+            user_avatar(&store, user_id)
+                .expect("load avatar")
+                .as_deref(),
             Some(data_url.as_str())
         );
 
@@ -875,7 +886,10 @@ mod tests {
             user_wallpaper(&store, user_id).expect("user wallpaper"),
             wallpaper
         );
-        assert_eq!(desktop_wallpaper(&store).expect("desktop wallpaper"), wallpaper);
+        assert_eq!(
+            desktop_wallpaper(&store).expect("desktop wallpaper"),
+            wallpaper
+        );
 
         save_user_avatar(&store, user_id, None).expect("clear avatar");
         assert_eq!(user_avatar(&store, user_id).expect("cleared"), None);

@@ -157,6 +157,9 @@ struct ProfileDraft {
     card_payment_enabled: bool,
     card_terminal_name: String,
     currency: String,
+    date_format: String,
+    time_show_seconds: Option<bool>,
+    timezone: String,
     backup_folder_path: String,
     auto_backup_enabled: bool,
     backup_interval_minutes: String,
@@ -189,6 +192,9 @@ impl ProfileDraft {
             card_payment_enabled: profile.card_payment_enabled,
             card_terminal_name: profile.card_terminal_name.clone(),
             currency: profile.currency.clone(),
+            date_format: profile.date_format.clone(),
+            time_show_seconds: profile.time_show_seconds,
+            timezone: profile.timezone.clone(),
             backup_folder_path: profile.backup_folder_path.clone(),
             auto_backup_enabled: profile.auto_backup_enabled,
             backup_interval_minutes: profile.backup_interval_minutes.to_string(),
@@ -233,6 +239,9 @@ impl ProfileDraft {
             card_payment_enabled: self.card_payment_enabled,
             card_terminal_name: self.card_terminal_name.clone(),
             currency: self.currency.clone(),
+            date_format: self.date_format.clone(),
+            time_show_seconds: self.time_show_seconds,
+            timezone: self.timezone.clone(),
             backup_folder_path: self.backup_folder_path.clone(),
             auto_backup_enabled: self.auto_backup_enabled,
             backup_interval_minutes,
@@ -401,6 +410,7 @@ impl UserDraft {
                 active: true,
                 password_hash: String::new(),
                 must_change_password: true,
+                passwordless: false,
                 created_at: now,
                 updated_at: now,
             },
@@ -429,7 +439,15 @@ impl UserDraft {
             }
         }
 
-        if base.is_none() || !self.password.is_empty() {
+        // A regular account without a password is passwordless, like the reference `createUser`;
+        // administrators still require one. The stored hash is random and never matches input.
+        let passwordless = self.password.is_empty() && user.role == UserRole::User;
+        user.passwordless = passwordless;
+        if passwordless {
+            user.password_hash = hash_password(&Uuid::new_v4().to_string())
+                .map_err(|_| "settings_error_password_short")?;
+            user.must_change_password = false;
+        } else if base.is_none() || !self.password.is_empty() {
             if self.password.chars().count() < MIN_PASSWORD_LENGTH {
                 return Err("settings_error_password_short");
             }
@@ -561,6 +579,7 @@ pub struct SettingsState {
     recovery_answer_one: String,
     recovery_answer_two: String,
     recovery_configured: bool,
+    auth_security: socdof_core::auth_security::AuthSecuritySettings,
     update_settings: UpdateSettings,
     portable_settings: PortableSettings,
     user_editor: Option<UserDraft>,
@@ -577,6 +596,8 @@ pub struct SettingsState {
     language_popup: PopupState,
     startup_popup: PopupState,
     security_user_popup: PopupState,
+    date_format_popup: PopupState,
+    timezone_popup: PopupState,
     user_role_popup: PopupState,
     user_account_type_popup: PopupState,
     update_channel_popup: PopupState,
@@ -608,6 +629,7 @@ impl Default for SettingsState {
             recovery_answer_one: String::new(),
             recovery_answer_two: String::new(),
             recovery_configured: false,
+            auth_security: socdof_core::auth_security::AuthSecuritySettings::default(),
             update_settings: UpdateSettings::default(),
             portable_settings: PortableSettings::default(),
             user_editor: None,
@@ -624,6 +646,8 @@ impl Default for SettingsState {
             language_popup: PopupState::default(),
             startup_popup: PopupState::default(),
             security_user_popup: PopupState::default(),
+            date_format_popup: PopupState::default(),
+            timezone_popup: PopupState::default(),
             user_role_popup: PopupState::default(),
             user_account_type_popup: PopupState::default(),
             update_channel_popup: PopupState::default(),
@@ -733,6 +757,7 @@ impl SettingsState {
         }
 
         self.profile = ProfileDraft::from_profile(&store.company_profile()?);
+        self.auth_security = socdof_core::auth_security::load(store)?;
         self.users = store.list_users()?;
         self.roles = store.list_roles()?;
         self.active_user = self
@@ -1284,6 +1309,7 @@ pub fn seed_settings(store: &Store, texts: &UiTexts) -> socdof_core::CoreResult<
             active: true,
             password_hash: hash_password("socdof-admin")?,
             must_change_password: false,
+            passwordless: false,
             created_at: now,
             updated_at: now,
         };
@@ -1296,6 +1322,7 @@ pub fn seed_settings(store: &Store, texts: &UiTexts) -> socdof_core::CoreResult<
             active: true,
             password_hash: hash_password("socdof-user")?,
             must_change_password: true,
+            passwordless: false,
             created_at: now,
             updated_at: now,
         };
@@ -2477,6 +2504,65 @@ fn general_tab(
                 None,
             );
         });
+        // Clock preferences of the reference company profile: date format, time zone and seconds.
+        // Stacked instead of two columns: the fixed control width would widen the card on a phone.
+        ui.add_space(8.0);
+        ui.label(
+            RichText::new(texts.get("settings_date_format"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        let mut date_index = socdof_core::date::DATE_FORMATS
+            .iter()
+            .position(|format| *format == state.profile.date_format)
+            .unwrap_or(0);
+        columns_select(
+            ui,
+            theme,
+            focus,
+            &mut state.date_format_popup,
+            "settings-date-format",
+            &mut date_index,
+            &socdof_core::date::DATE_FORMATS,
+        );
+        state.profile.date_format = socdof_core::date::DATE_FORMATS[date_index].to_string();
+
+        ui.label(
+            RichText::new(texts.get("settings_timezone"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        let mut zone_index = socdof_core::date::TIMEZONES
+            .iter()
+            .position(|zone| *zone == state.profile.timezone)
+            .unwrap_or(0);
+        columns_select(
+            ui,
+            theme,
+            focus,
+            &mut state.timezone_popup,
+            "settings-timezone",
+            &mut zone_index,
+            &socdof_core::date::TIMEZONES,
+        );
+        state.profile.timezone = socdof_core::date::TIMEZONES[zone_index].to_string();
+
+        ui.add_space(8.0);
+        // Stacked, so the long label and the toggle also fit a 360 px phone panel.
+        ui.label(
+            RichText::new(texts.get("settings_time_seconds"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        let seconds_on = state.profile.time_show_seconds != Some(false);
+        let seconds_label = if seconds_on {
+            texts.get("settings_time_seconds_on")
+        } else {
+            texts.get("settings_time_seconds_off")
+        };
+        if button(ui, theme, focus, seconds_label, ButtonVariant::Secondary).activated {
+            state.profile.time_show_seconds = Some(!seconds_on);
+        }
         ui.add_space(8.0);
         if button(
             ui,
@@ -3065,6 +3151,41 @@ fn security_tab(
         ));
         ui.label(format!("{}: {hours}", texts.get("settings_session_hours")));
     });
+
+    ui.add_space(12.0);
+    let mut security_changed = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_sign_in_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(texts.get("settings_sign_in_hint"))
+                .size(FONT_SMALL)
+                .color(theme.palette.text_muted),
+        );
+        // The reference only allows the single-user auto login while exactly one account exists.
+        let mut auto_login = state.auth_security.auto_login_single_user;
+        if ui
+            .add_enabled(
+                state.users.len() <= 1,
+                egui::Checkbox::new(&mut auto_login, texts.get("settings_auto_login_single")),
+            )
+            .changed()
+        {
+            state.auth_security.auto_login_single_user = auto_login;
+            security_changed = true;
+        }
+        let mut quick_switch = state.auth_security.allow_quick_user_switch;
+        if ui
+            .checkbox(&mut quick_switch, texts.get("settings_quick_user_switch"))
+            .changed()
+        {
+            state.auth_security.allow_quick_user_switch = quick_switch;
+            security_changed = true;
+        }
+    });
+    if security_changed {
+        let _ = socdof_core::auth_security::save(store, &state.auth_security);
+    }
 
     ui.add_space(12.0);
     card(ui, theme, |ui| {

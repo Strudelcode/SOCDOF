@@ -11,8 +11,9 @@ use std::rc::Rc;
 use egui::{Context, Event, Modifiers, PointerButton, Pos2, RawInput, Rect, Ui, Vec2};
 use socdof_core::domain::settings::Language;
 use socdof_core::store::Store;
-use socdof_ui::auth::{auth, AuthState};
+use socdof_ui::auth::{auth, AuthState, RecoveryChoice, SetupAccountType, SetupTemplate};
 use socdof_ui::auth_kit::{input, password_input, PasswordField};
+use socdof_ui::auth_screens::{module_visible_for, next_step, previous_step, template_apps_for};
 use socdof_ui::focus::FocusState;
 use socdof_ui::i18n::UiTexts;
 use socdof_ui::snapshot::signature;
@@ -44,6 +45,189 @@ fn text_pos(lines: &[String], needle: &str) -> Option<(f32, f32)> {
     let x = parts.next()?.trim().parse().ok()?;
     let y = parts.next()?.trim().parse().ok()?;
     Some((x, y))
+}
+
+/// Paints the first-run wizard once and returns the paint commands of the settled frame.
+fn render_setup(state: &mut AuthState, store: &Store, width: f32, height: f32) -> Vec<String> {
+    let ctx = socdof_ui::theme::headless_context();
+    let theme = Theme::new(Appearance::Light, "indigo");
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut focus = FocusState::default();
+    let mut output = None;
+    for _ in 0..2 {
+        output = Some(ctx.run(input_frame(width, height), |ctx| {
+            auth(ctx, &theme, &texts, &mut focus, state, store, now);
+        }));
+    }
+    signature(&output.expect("wizard frame"))
+}
+
+/// `auth.setupSkip` turns the whole optional block off: appearance and apps are left out and the
+/// wizard continues on the finish step. Going back from there returns to the account step, and the
+/// choices made before the skip stay untouched.
+#[test]
+fn skipping_the_optional_setup_reaches_the_finish_step() {
+    let store = Store::open_in_memory().expect("in-memory store");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.accent_choice = Some("emerald".to_string());
+    state.setup_apps = vec!["contacts".to_string()];
+
+    state.setup_step = 3;
+    assert_eq!(next_step(&state), 4, "appearance continues to apps");
+    state.setup_step = 2;
+    assert_eq!(next_step(&state), 3, "account continues to appearance");
+
+    state.setup_skip_extras = true;
+    state.setup_step = 2;
+    assert_eq!(next_step(&state), 5, "account jumps to the finish step");
+    state.setup_step = 4;
+    assert_eq!(next_step(&state), 5, "apps jumps to the finish step");
+    state.setup_step = 5;
+    assert_eq!(previous_step(&state), 2, "back returns to the account step");
+
+    assert_eq!(state.accent_choice.as_deref(), Some("emerald"));
+    assert_eq!(state.setup_apps, ["contacts"]);
+
+    state.setup_skip_extras = false;
+    state.setup_step = 5;
+    assert_eq!(
+        previous_step(&state),
+        4,
+        "without skip back returns to apps"
+    );
+}
+
+/// The skipped setup is named on the finish step instead of leaving the user without a trace.
+#[test]
+fn the_finish_step_names_the_skipped_setup() {
+    let store = Store::open_in_memory().expect("in-memory store");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.setup_step = 5;
+    state.setup_skip_extras = true;
+    state.display_name = "Alex Administrator".to_string();
+    state.username = "admin".to_string();
+
+    let lines = render_setup(&mut state, &store, 900.0, 1200.0);
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let notice = format!("{:?}", texts.get("setup_skip_notice"));
+    assert!(
+        lines.iter().any(|line| line.contains(&notice)),
+        "the finish step must name the skipped appearance and apps"
+    );
+}
+
+/// `SETUP_BUSINESS_ONLY_MODULES` of the TypeScript wizard: a personal account does not see
+/// invoices, accounting, purchases, POS or support services, neither in the module list nor in the
+/// template result.
+#[test]
+fn the_apps_step_hides_business_modules_for_a_personal_account() {
+    for slug in ["invoices", "accounting", "purchases", "pos", "support"] {
+        assert!(
+            !module_visible_for(SetupAccountType::Personal, slug),
+            "{slug} must be hidden for a personal account"
+        );
+        assert!(
+            module_visible_for(SetupAccountType::Business, slug),
+            "{slug} stays visible for a business account"
+        );
+    }
+    assert!(module_visible_for(SetupAccountType::Personal, "contacts"));
+    let filtered = template_apps_for(SetupTemplate::Business, SetupAccountType::Personal);
+    assert!(!filtered.is_empty());
+    assert!(
+        filtered
+            .iter()
+            .all(|slug| module_visible_for(SetupAccountType::Personal, slug)),
+        "the personal template must not carry business modules: {filtered:?}"
+    );
+
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let invoices = format!("{:?}", texts.get("settings_module_invoices"));
+    let contacts = format!("{:?}", texts.get("settings_module_contacts"));
+
+    let store = Store::open_in_memory().expect("in-memory store");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.setup_step = 4;
+    state.account_type = SetupAccountType::Personal;
+    state.template_choice = SetupTemplate::Personal;
+    state.setup_apps.clear();
+    let personal = render_setup(&mut state, &store, 900.0, 2400.0);
+    assert!(
+        !personal.iter().any(|line| line.contains(&invoices)),
+        "a personal account must not list invoices"
+    );
+    assert!(
+        personal.iter().any(|line| line.contains(&contacts)),
+        "a personal account still lists contacts"
+    );
+
+    state.account_type = SetupAccountType::Business;
+    state.template_choice = SetupTemplate::Business;
+    state.setup_apps.clear();
+    let business = render_setup(&mut state, &store, 900.0, 2400.0);
+    assert!(
+        business.iter().any(|line| line.contains(&invoices)),
+        "a business account lists invoices"
+    );
+}
+
+/// The appearance step offers the remove action only while a wallpaper is chosen. The choice is a
+/// transient signal to the host, so the wizard keeps its own flag for the row.
+#[test]
+fn the_appearance_step_offers_removing_a_chosen_wallpaper() {
+    let store = Store::open_in_memory().expect("in-memory store");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.setup_step = 3;
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let remove = format!("{:?}", texts.get("setup_remove_image"));
+
+    let without = render_setup(&mut state, &store, 900.0, 1600.0);
+    assert!(
+        !without.iter().any(|line| line.contains(&remove)),
+        "the remove action needs a chosen wallpaper"
+    );
+
+    state.wallpaper_picked = true;
+    let with = render_setup(&mut state, &store, 900.0, 1600.0);
+    assert!(
+        with.iter().any(|line| line.contains(&remove)),
+        "a chosen wallpaper can be removed again"
+    );
+}
+
+/// The account step offers the catalogue questions of the TypeScript setup instead of two fixed
+/// prompts: the selected question is painted as the value of the select.
+#[test]
+fn the_account_step_offers_the_recovery_question_choices() {
+    let store = Store::open_in_memory().expect("in-memory store");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.setup_step = 2;
+    state.recovery_choice = socdof_ui::auth::RecoveryChoice::Preset;
+    state.recovery_preset = 0;
+
+    let lines = render_setup(&mut state, &store, 900.0, 2400.0);
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let question = format!("{:?}", texts.get("setup_recovery_q1"));
+    let title = format!("{:?}", texts.get("setup_recovery_title"));
+    assert!(
+        lines.iter().any(|line| line.contains(&title)),
+        "the recovery section is painted"
+    );
+    assert!(
+        lines.iter().any(|line| line.contains(&question)),
+        "the selected recovery question is painted"
+    );
 }
 
 /// The apps step paints "Choose individual apps" on the left and "Selected apps appear on your
@@ -125,6 +309,87 @@ fn a_rejected_continue_shows_the_error_above_the_footer() {
         y > 780.0 && y < 982.0,
         "error painted at y={y}, expected the band above the footer"
     );
+}
+
+/// Creates the first administrator and returns the signed-in, then locked, state.
+fn locked_admin(now: i64) -> (Store, AuthState) {
+    let store = Store::open_in_memory().expect("in-memory store");
+    let mut state = AuthState::new(&store, now).expect("setup state");
+    state.show_setup();
+    state.display_name = "Alex Administrator".to_string();
+    state.username = "admin".to_string();
+    state.password = "Socdof2026!".to_string();
+    state.password_confirm = state.password.clone();
+    state.recovery_choice = RecoveryChoice::None;
+    state
+        .create_first_admin(&store, now)
+        .expect("first administrator");
+    state.lock(now);
+    (store, state)
+}
+
+/// Paints one auth view and returns the paint commands of the settled frame.
+fn render_auth(state: &mut AuthState, store: &Store, theme: &Theme, height: f32) -> Vec<String> {
+    let ctx = socdof_ui::theme::headless_context();
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let mut focus = FocusState::default();
+    let mut output = None;
+    for _ in 0..2 {
+        output = Some(ctx.run(input_frame(900.0, height), |ctx| {
+            auth(ctx, theme, &texts, &mut focus, state, store, now);
+        }));
+    }
+    signature(&output.expect("auth frame"))
+}
+
+/// The legacy lock screen is a dark backdrop in both appearances: clock, the account, the locked
+/// heading and one password field, plus the account strip with the user switch.
+#[test]
+fn the_lock_screen_stays_dark_and_names_the_locked_workstation() {
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let (store, mut state) = locked_admin(now);
+    assert_eq!(state.view, socdof_ui::auth::AuthView::Locked);
+    let theme = Theme::new(Appearance::Light, "indigo");
+    let lines = render_auth(&mut state, &store, &theme, 1000.0);
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    for key in ["auth_locked_title", "auth_switch_user"] {
+        let label = format!("{:?}", texts.get(key));
+        assert!(
+            lines.iter().any(|line| line.contains(&label)),
+            "the lock screen must paint {key}"
+        );
+    }
+    // The legacy screens force the dark palette, independent of the desktop appearance.
+    assert_eq!(
+        socdof_ui::auth::screen_theme(&theme, socdof_ui::auth::AuthView::Locked).appearance,
+        Appearance::Dark
+    );
+    assert_eq!(
+        socdof_ui::auth::screen_theme(&theme, socdof_ui::auth::AuthView::Setup).appearance,
+        Appearance::Light
+    );
+}
+
+/// A cleared account selection switches the sign-in form into the "other user" mode of the
+/// legacy screen, with its own heading and description.
+#[test]
+fn the_login_screen_names_the_other_user_mode() {
+    let now = socdof_ui::dashboard::SAMPLE_NOW_MS;
+    let (store, mut state) = locked_admin(now);
+    state.show_login();
+    state.other_user = true;
+    state.username.clear();
+    let theme = Theme::new(Appearance::Light, "indigo");
+    let lines = render_auth(&mut state, &store, &theme, 900.0);
+    let texts = UiTexts::embedded(Language::De).expect("embedded catalogue");
+    for key in ["auth_other_user", "auth_other_user_desc"] {
+        let label = format!("{:?}", texts.get(key));
+        assert!(
+            lines.iter().any(|line| line.contains(&label)),
+            "the sign-in form must paint {key}"
+        );
+    }
 }
 
 /// Minimal egui harness that keeps the kit focus state between frames.

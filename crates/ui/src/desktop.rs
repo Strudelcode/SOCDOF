@@ -1049,6 +1049,76 @@ pub fn default_window_rect(work_area: Rect, index: usize) -> Rect {
     clamp_rect(Rect::from_min_size(min, size), work_area)
 }
 
+/// Clock settings of the company profile that drive the taskbar and the sign-in clocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClockSettings {
+    /// Date format (`DD.MM.YYYY`, `YYYY-MM-DD`, `MM/DD/YYYY`).
+    pub date_format: String,
+    /// Seconds setting; `None` keeps the reference default (tray on, sign-in off).
+    pub time_show_seconds: Option<bool>,
+    /// IANA time zone of the clocks.
+    pub timezone: String,
+}
+
+impl Default for ClockSettings {
+    fn default() -> Self {
+        ClockSettings {
+            date_format: "DD.MM.YYYY".to_string(),
+            time_show_seconds: None,
+            timezone: "Europe/Berlin".to_string(),
+        }
+    }
+}
+
+impl ClockSettings {
+    /// Reads the clock settings from the company profile.
+    pub fn from_profile(profile: &socdof_core::domain::settings::CompanyProfile) -> Self {
+        ClockSettings {
+            date_format: if profile.date_format.trim().is_empty() {
+                "DD.MM.YYYY".to_string()
+            } else {
+                profile.date_format.clone()
+            },
+            time_show_seconds: profile.time_show_seconds,
+            timezone: if profile.timezone.trim().is_empty() {
+                "Europe/Berlin".to_string()
+            } else {
+                profile.timezone.clone()
+            },
+        }
+    }
+
+    /// Sign-in clock seconds: the reference shows them only when `time_show_seconds === true`.
+    pub fn sign_in_seconds(&self) -> bool {
+        self.time_show_seconds == Some(true)
+    }
+
+    /// Taskbar clock seconds: the reference keeps them unless `time_show_seconds === false`.
+    pub fn taskbar_seconds(&self) -> bool {
+        self.time_show_seconds != Some(false)
+    }
+
+    /// Twelve hour sign-in clock in the configured zone.
+    pub fn sign_in_time(&self, millis: i64) -> String {
+        socdof_core::date::format_time(millis, self.sign_in_seconds(), &self.timezone)
+    }
+
+    /// Twelve hour sign-in date in the configured format and zone.
+    pub fn sign_in_date(&self, millis: i64) -> String {
+        socdof_core::date::format_date_style(millis, &self.date_format, &self.timezone)
+    }
+
+    /// Twenty-four hour taskbar clock in the configured zone.
+    pub fn taskbar_time(&self, millis: i64) -> String {
+        socdof_core::date::format_time_24h(millis, self.taskbar_seconds(), &self.timezone)
+    }
+
+    /// Taskbar date in the configured format and zone.
+    pub fn taskbar_date(&self, millis: i64) -> String {
+        socdof_core::date::format_date_style(millis, &self.date_format, &self.timezone)
+    }
+}
+
 /// Formats a millisecond timestamp as an `HH:MM` clock label (UTC, so snapshots stay stable).
 pub fn format_clock(millis: i64) -> String {
     let total_minutes = millis.div_euclid(60_000);
@@ -1114,39 +1184,6 @@ fn day_of_month(millis: i64) -> u32 {
 
 /// Width of the locale pill in the taskbar tray.
 const LANGUAGE_PILL_WIDTH: f32 = 40.0;
-
-/// 24 hour clock label with seconds, as the reference taskbar prints it (`12:36:11`).
-fn taskbar_clock(millis: i64) -> String {
-    let total_seconds = millis.div_euclid(1_000);
-    let hour = total_seconds.div_euclid(3_600).rem_euclid(24);
-    let minute = total_seconds.div_euclid(60).rem_euclid(60);
-    let second = total_seconds.rem_euclid(60);
-    format!("{hour:02}:{minute:02}:{second:02}")
-}
-
-/// `DD.MM.YYYY` date under the taskbar clock.
-fn taskbar_date(millis: i64) -> String {
-    let (year, month, day) = civil_date(millis);
-    format!("{day:02}.{month:02}.{year:04}")
-}
-
-/// Civil date of a millisecond timestamp (Howard Hinnant's `civil_from_days`).
-fn civil_date(millis: i64) -> (i32, u32, u32) {
-    let z = millis.div_euclid(86_400_000) + 719_468;
-    let day_of_era = z.rem_euclid(146_097);
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let year = year_of_era + (z - day_of_era) / 146_097 * 400;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_index = (5 * day_of_year + 2) / 153;
-    let day = (day_of_year - (153 * month_index + 2) / 5 + 1) as u32;
-    let month = if month_index < 10 {
-        month_index + 3
-    } else {
-        month_index - 9
-    } as u32;
-    (year as i32, month, day)
-}
 
 /// Paints the German locale pill of the reference tray in front of the clock.
 fn language_pill(painter: &egui::Painter, theme: &Theme, bar: Rect, right: f32) {
@@ -1971,12 +2008,12 @@ fn desktop_impl(
                 Color32::from_rgb(0x64, 0x74, 0x8b)
             };
             let clock = painter.layout_no_wrap(
-                taskbar_clock(now),
+                shell.clock.taskbar_time(now),
                 FontId::new(13.0, crate::theme::mono_bold()),
                 clock_color,
             );
             let date = painter.layout_no_wrap(
-                taskbar_date(now),
+                shell.clock.taskbar_date(now),
                 FontId::new(10.0, crate::theme::mono_bold()),
                 date_color,
             );

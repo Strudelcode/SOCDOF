@@ -54,7 +54,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 19;
+pub const SCHEMA_VERSION: i64 = 20;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -759,6 +759,11 @@ impl Store {
         if version < 19 {
             self.conn.execute_batch(SCHEMA_V19)?;
             version = 19;
+        }
+
+        if version < 20 {
+            self.conn.execute_batch(SCHEMA_V20)?;
+            version = 20;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -1870,6 +1875,16 @@ impl Store {
         sessions::login(&self.conn, username, password, now)
     }
 
+    /// Signs a passwordless account in directly (quick user switch).
+    pub fn quick_switch(&self, user_id: uuid::Uuid, now: i64) -> CoreResult<LoginOutcome> {
+        sessions::quick_switch(&self.conn, user_id, now)
+    }
+
+    /// Signs the single active account in automatically when the security switch is on.
+    pub fn auto_login_single_user(&self, now: i64) -> CoreResult<Option<LoginOutcome>> {
+        sessions::auto_login_single_user(&self.conn, now)
+    }
+
     /// Looks up the active session for a plain token.
     pub fn session_for_token(&self, token: &str, now: i64) -> CoreResult<Option<Session>> {
         sessions::find_active(&self.conn, token, now)
@@ -2181,6 +2196,11 @@ ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 "#;
 
 /// Schema v19: persist double-entry stock movements and backfill existing movement history.
+const SCHEMA_V20: &str = r#"
+-- Passwordless accounts of the reference app: regular users may sign in without a password.
+ALTER TABLE users ADD COLUMN passwordless INTEGER NOT NULL DEFAULT 0;
+"#;
+
 const SCHEMA_V19: &str = r#"
 CREATE TABLE IF NOT EXISTS stock_journal_entries (
     id TEXT PRIMARY KEY,
@@ -2235,6 +2255,7 @@ mod tests {
     use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
     use crate::domain::pos::{PaymentMethod, PosOrder, PosOrderLine};
     use crate::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
+    use crate::domain::session::{LoginOutcome, LOCKOUT_MS, MAX_FAILED_ATTEMPTS};
     use crate::domain::settings::ThemeMode;
     use crate::domain::stock::StockMoveKind;
     use crate::domain::user::UserRole;
@@ -2750,6 +2771,7 @@ mod tests {
             active: true,
             password_hash: crate::security::hash_password(password).expect("hash"),
             must_change_password: true,
+            passwordless: false,
             created_at: now,
             updated_at: now,
         };
@@ -2972,5 +2994,108 @@ mod tests {
         store.save_company_profile(&profile).expect("saved");
 
         assert_eq!(store.company_profile().expect("profile"), profile);
+    }
+
+    fn passwordless_guest(store: &Store, username: &str) -> User {
+        let now = now_millis();
+        let guest = User {
+            id: Uuid::new_v4(),
+            username: username.to_string(),
+            display_name: format!("Gast {username}"),
+            role: UserRole::User,
+            role_id: None,
+            active: true,
+            password_hash: crate::security::hash_password("random-placeholder").expect("hash"),
+            must_change_password: false,
+            passwordless: true,
+            created_at: now,
+            updated_at: now,
+        };
+        store.insert_user(&guest).expect("guest inserted");
+        guest
+    }
+
+    #[test]
+    fn quick_switch_signs_in_passwordless_accounts_only() {
+        let store = Store::open_in_memory().expect("store");
+        let admin = user(&store, "admin-passwort");
+        let guest = passwordless_guest(&store, "gast");
+
+        match store.quick_switch(guest.id, 1_000).expect("quick switch") {
+            LoginOutcome::Success { user, .. } => assert_eq!(user.id, guest.id),
+            other => panic!("expected a session, got {other:?}"),
+        }
+        assert!(matches!(
+            store.quick_switch(admin.id, 1_000).expect("admin switch"),
+            LoginOutcome::Invalid
+        ));
+
+        // The lockout is shared with the password path and blocks the quick switch too.
+        for _ in 0..MAX_FAILED_ATTEMPTS {
+            let _ = store.login("gast", "falsch", 2_000);
+        }
+        assert!(matches!(
+            store.quick_switch(guest.id, 2_100).expect("locked switch"),
+            LoginOutcome::Locked { .. }
+        ));
+        assert!(matches!(
+            store
+                .quick_switch(guest.id, 2_100 + LOCKOUT_MS + 1)
+                .expect("after lockout"),
+            LoginOutcome::Success { .. }
+        ));
+    }
+
+    #[test]
+    fn auto_login_requires_the_switch_and_exactly_one_account() {
+        let store = Store::open_in_memory().expect("store");
+        let admin = user(&store, "admin-passwort");
+        assert!(store
+            .auto_login_single_user(1_000)
+            .expect("disabled")
+            .is_none());
+
+        crate::auth_security::save(
+            &store,
+            &crate::auth_security::AuthSecuritySettings {
+                auto_login_single_user: true,
+                allow_quick_user_switch: true,
+            },
+        )
+        .expect("settings");
+        match store.auto_login_single_user(1_000).expect("auto login") {
+            Some(LoginOutcome::Success { user, .. }) => assert_eq!(user.id, admin.id),
+            other => panic!("expected the single account, got {other:?}"),
+        }
+
+        // A second account turns the automatic sign-in off, even with the switch on.
+        let second = passwordless_guest(&store, "gast");
+        assert!(store
+            .auto_login_single_user(2_000)
+            .expect("two accounts")
+            .is_none());
+        // The switch stays on; the core simply refuses to pick one of two accounts.
+        assert!(
+            crate::auth_security::load(&store)
+                .expect("settings")
+                .auto_login_single_user
+        );
+        assert_eq!(store.user_count().expect("count"), 2);
+        let _ = second;
+    }
+
+    #[test]
+    fn security_settings_round_trip_with_reference_defaults() {
+        let store = Store::open_in_memory().expect("store");
+        assert_eq!(
+            crate::auth_security::load(&store).expect("defaults"),
+            crate::auth_security::AuthSecuritySettings::default()
+        );
+        let changed = crate::auth_security::AuthSecuritySettings {
+            auto_login_single_user: true,
+            allow_quick_user_switch: false,
+        };
+        crate::auth_security::save(&store, &changed).expect("save");
+        assert_eq!(crate::auth_security::load(&store).expect("load"), changed);
     }
 }

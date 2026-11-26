@@ -637,6 +637,8 @@ pub struct ShellState {
     pub task_view: TaskView,
     /// Overflow menu of app buttons that do not fit on the taskbar.
     pub overflow: OverflowMenu,
+    /// Clock settings of the company profile (date format, seconds, time zone).
+    pub clock: crate::desktop::ClockSettings,
 }
 
 impl ShellState {
@@ -652,6 +654,7 @@ impl ShellState {
             studio: StudioState::new(),
             task_view: TaskView::new(),
             overflow: OverflowMenu::new(),
+            clock: crate::desktop::ClockSettings::default(),
         }
     }
 

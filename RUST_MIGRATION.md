@@ -2418,3 +2418,118 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
 - The native Rust host now shows a splash immediately and loads/migrates its database in the background, with a visible retry path if startup fails.
 - **Verification state:** implementation committed on PR #22; the latest full CI runs are queued behind an older long-running run. The new cross-platform build, package smoke and startup changes are not yet certified green.
 - **Still open before calling distribution production-ready:** native Windows code signing, native Rust self-update, native Windows signing, and any requested Linux .deb/AppImage packaging. Native macOS remains blocked on the upstream objc2 0.4.1 dependency; the Tauri universal DMG is the installable macOS target for now. Tauri signed-updater packages remain the transition fallback.
+
+
+## 2026-11-26 — First-run and sign-in parity pass (native Rust UI)
+
+- Walked the native first-run flow and the sign-in screens against the committed TypeScript
+  references in `docs/artifacts/gui-parity/` and `SOCDOF - TS/src/components/auth/AuthGate.tsx`:
+  language card, account step, appearance, apps, finish, login and password recovery.
+- Account step now matches `validateAccountStep`: the password strength row (five-point scoring,
+  five colours, tips line), the inline confirmation mismatch and the avatar remove action. The
+  recovery question is one select with the eight catalogue questions, a custom question and the
+  explicit "no question" choice, followed by one required answer.
+- The wizard header carries the step chip on the left (`setup_step_*`) and keeps the constant
+  `auth.accountSetup · auth.stepAccount` line under the title, like the TypeScript markup.
+- Appearance and apps: "Skip" jumps to the finish step, back returns to the account step, and the
+  finish step names the skipped block and can re-enable it. Personal accounts hide invoices,
+  accounting, purchases, POS and support (`SETUP_BUSINESS_ONLY_MODULES`) and only offer the
+  personal and practice templates. A chosen wallpaper can be removed again; the wizard keeps its
+  own `wallpaper_picked` flag because the host consumes the choice on the next frame.
+- Recovery stores the questions next to their hashed answers (`SecurityAnswers::questions`,
+  `save_security_question`, `questions_of`, `verify_any_answer`). The recovery form asks one answer
+  that is checked against every configured question; accounts written before the questions were
+  stored fall back to the two classic prompts.
+- New catalogue keys `setup_recovery_q1`…`q8`, `setup_recovery_custom`, `setup_recovery_none`,
+  `setup_recovery_question_required`, `setup_recovery_answer_required`, `setup_remove_image`,
+  `setup_skip_extras`, `setup_skip_notice`, `setup_enable_extras`, `setup_password_tips` and
+  `setup_strength_very_weak`/`very_strong` in all four languages; `catalogue-keys.json`
+  regenerated (2,265 keys). `auth_recovery_subtitle` now matches `auth.newPasswordTitle`.
+- **Verification state:** uncommitted; `cargo fmt -p socdof-ui -- --check`, `cargo clippy -p
+  socdof-ui --all-targets -- -D warnings`, `cargo test -p socdof-ui` (402 lib, 8 forms, 10
+  keyboard, 17 phone, 2 visual goldens, 10 wizard) and `cargo test -p socdof-core
+  security_questions` are green. Evidence images `rust-11`…`rust-20` in
+  `docs/artifacts/gui-parity/`.
+
+
+## 2026-11-26 — Sign-in, lock screen and desktop hand-off parity pass
+
+- Compared the native sign-in, signing-in, lock and desktop hand-off screens with the TypeScript
+  `AuthGate` (`LoginScreen`, `AuthLoadingScreen`, `LockScreen`) and the committed reference
+  `docs/artifacts/gui-parity/ts-04-lock-screen.png`, then closed the differences below.
+- **Backdrop:** the legacy sign-in and lock screens always use the dark backdrop, whatever
+  appearance the desktop uses. `auth::screen_theme` now forces the dark palette for `Login` and
+  `Locked`; the wizard and the forms keep the chosen appearance.
+- **Sign-in form:** an explicit "other user" mode (heading, description and username field) instead
+  of silently preselecting the first account, the bottom account strip at every width (centred on a
+  phone), a fixed-height message slot, and the lockout countdown in seconds with a disabled field
+  and submit arrow (`PasswordField::enabled`).
+- **Loading state:** the TypeScript form awaits the store call and paints `AuthLoadingScreen`.
+  `AuthState::begin_sign_in` / `tick_sign_in` keep that screen (avatar, "sign in" label, animated
+  dots) visible for `SIGN_IN_LOADING_MS` before the synchronous login runs; missing credentials
+  still fail immediately as a form error.
+- **Close confirmation:** the close button of the sign-in screen now asks
+  "Möchtest du die App wirklich schließen?" instead of quitting on the first click.
+- **Lock screen:** rebuilt as the legacy full screen – clock and date, avatar, display name,
+  "Arbeitsplatz gesperrt", one glass password field with the arrow submit, the account strip with
+  the current account highlighted and a "Benutzer wechseln" tile that signs out, plus minimise,
+  fullscreen and language in the top-right corner. The old card with branding, `@username`, unlock
+  and sign-out buttons, recovery link and hints is gone.
+- **Desktop hand-off:** unchanged and verified against the host: the gallery closes the auth overlay
+  as soon as `AuthView::Unlocked` with a user is reached, so the desktop paints directly; the
+  "signed in" card is only a preview scene.
+- New catalogue keys `auth_locked_title`, `auth_retry`, `auth_other_user`, `auth_other_user_desc`,
+  `auth_switch_user`, `desktop_quit_confirm_title`, `desktop_quit_confirm_no` and
+  `desktop_quit_confirm_yes` in all four languages; `catalogue-keys.json` regenerated (2,288 keys).
+- **Verification state:** uncommitted; `cargo fmt -p socdof-ui -- --check` and `cargo clippy -p
+  socdof-ui --all-targets -- -D warnings` are green, as are `cargo test -p socdof-ui` (405 lib
+  including the phone sweep, 8 forms, 10 keyboard, 17 phone, 2 visual, 12 wizard) and the 360 px
+  preview renders of the sign-in and lock screens. Evidence images `rust-21`…`rust-27` in
+  `docs/artifacts/gui-parity/`.
+- **Still open:** the Electron window controls map to viewport commands and depend on the host
+  window manager.
+
+## 2026-11-26 — Sign-in parity closure: passwordless, auto login, quick switch and clock preferences
+
+- Closed the four gaps the previous pass reported, against the TypeScript implementation rather than
+  screenshots: `quickSwitchUser` and `tryAutoLoginSingleUser` in `SOCDOF - TS/src/lib/auth.ts`,
+  `createUser` (passwordless flag), `formatSystemTime` / `formatSystemDate` in
+  `SOCDOF - TS/src/lib/i18n.ts`, the settings UI in `SettingsModule.tsx:4275–4326` and the sign-in
+  and lock clocks in `AuthGate.tsx:2029/2443`.
+- **Company clock preferences:** `CompanyProfile` now stores `date_format`, `time_show_seconds` and
+  `timezone` with the reference defaults (`DD.MM.YYYY`, tri-state seconds, `Europe/Berlin`), the
+  settings profile tab edits all three, and `catalogue` keys document them in four languages.
+  `socdof_core::date` converts the seven zones the reference offers (European last-Sunday rule, US
+  second-Sunday/first-Sunday rule) without a new dependency and formats `format_time`,
+  `format_time_24h` and `format_date_style`. `desktop::ClockSettings` feeds the sign-in clock
+  (`time_show_seconds === true`), the lock screen and the taskbar (`!== false`), so the two screens
+  keep the reference asymmetry.
+- **Passwordless accounts:** `User` carries the reference `passwordless` flag (schema v20, serde
+  default for older data), a regular account created without a password becomes passwordless with
+  a random stored hash, and `Store::quick_switch` signs such an account in directly while inactive,
+  password-protected and locked accounts stay rejected. The login screen shows one
+  "{name} fortfahren" button and no password field; the lock screen unlocks a passwordless session
+  the same way.
+- **Automatic single-user login and quick switch:** `auth_security` persists
+  `auto_login_single_user` and `allow_quick_user_switch` with the reference defaults (off/on,
+  matching `SecuritySettings`). `AuthState::new` signs in automatically when the switch is on and
+  exactly one active account exists. The lock-screen strip switches a passwordless account
+  immediately, while the login strip only selects it and the "{name} fortfahren" button signs in,
+  like `chooseUser` / `quickSwitchUser`. The security tab edits both switches and
+  disables the auto login while more than one account exists, like `updateSecuritySettings`.
+- **Profile pictures:** the login and lock strips, and both header avatars, decode the stored
+  `avatar:<id>` data URL through `settings_service::decode_data_url_rgba`; initials remain only the
+  fallback for accounts without a picture. Decoded images are cached per account in `AuthState`,
+  and the picture chosen during setup is stored for the first administrator.
+- **Verification:** `cargo test -p socdof-core --lib` (396 tests, including the new quick-switch,
+  auto-login and security-settings tests), `cargo test -p socdof-ui` (405 lib plus forms, keyboard,
+  phone, visual, wizard and the new `auth_parity` suite), `cargo fmt -p socdof-ui -p socdof-core --
+  --check` and `cargo clippy -p socdof-ui --all-targets -- -D warnings` are green. The desktop
+  goldens were regenerated for the configured `Europe/Berlin` taskbar clock and date. The new tests render the
+  login and lock screen at 900 px and 360 px, assert the configured clock/date, the passwordless
+  continue button, both strip avatars and the auto-login state.
+- **Evidence:** `rust-28-auth-parity-login-{light,dark}-{900,360}.png`,
+  `rust-29-auth-parity-locked-{light,dark}-{900,360}.png` and
+  `rust-30-auth-parity-quick-switch-{light,dark}-{900,360}.png` in `docs/artifacts/gui-parity/`
+  show the selected `MM/DD/YYYY` / New York clock with seconds, the stored profile pictures and the
+  quick-switch continue button.

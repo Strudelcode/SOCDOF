@@ -40,7 +40,9 @@ fn semantic_scene_key(variant: SnapshotVariant) -> Option<&'static str> {
         SnapshotVariant::Therapie => Some("therapie_title"),
         SnapshotVariant::Login => Some("auth_forgot_password"),
         SnapshotVariant::Setup => Some("setup_language_title"),
-        SnapshotVariant::Locked => Some("auth_unlock_password"),
+        // The lock screen now follows the legacy full screen, whose heading is the locked
+        // workstation rather than the password field label.
+        SnapshotVariant::Locked => Some("auth_locked_title"),
         SnapshotVariant::Onboarding => Some("onboarding_title"),
         SnapshotVariant::Studio | SnapshotVariant::StudioData | SnapshotVariant::StudioLayout => {
             Some("studio_title")
@@ -179,11 +181,16 @@ fn primitives_match_the_golden_files() {
 
                 if is_evolving_shell_scene(variant) {
                     // The scenes render at a fixed timestamp (one second), which the taskbar tray
-                    // prints as its 24 hour label with seconds (`00:00:01`); that line proves the
-                    // shell drew a clock. The clock widget column of the older shell is gone.
+                    // prints as its 24 hour label in the configured zone with seconds; that line
+                    // proves the shell drew a clock. The clock widget column of the older shell
+                    // is gone.
+                    let expected = format!(
+                        "\"{}\"",
+                        socdof_core::date::format_time_24h(1_000, true, "Europe/Berlin")
+                    );
                     assert!(
-                        painted.contains("\"00:00:01\""),
-                        "{variant:?} scene is missing its desktop clock ({language:?}, {appearance:?})"
+                        painted.contains(&expected),
+                        "{variant:?} scene is missing its desktop clock {expected} ({language:?}, {appearance:?})"
                     );
                     assert!(
                         actual.len() > 100,

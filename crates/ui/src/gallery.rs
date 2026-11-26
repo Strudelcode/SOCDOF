@@ -689,7 +689,12 @@ impl GalleryState {
             desktop_pinned,
             calculator: crate::calculator::CalculatorWindow::new(),
             desktop_windows: WindowManager::default(),
-            shell: ShellState::new(),
+            shell: {
+                let mut shell = ShellState::new();
+                shell.clock =
+                    crate::desktop::ClockSettings::from_profile(&store.company_profile()?);
+                shell
+            },
             dashboard,
             dashboard_open: false,
             contacts: contacts_state,
@@ -1153,6 +1158,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 }
             }
         }
+        // The sign-in clock follows the company profile, which the settings app may have changed.
+        if let Ok(profile) = state.store.company_profile() {
+            state.auth.clock = crate::desktop::ClockSettings::from_profile(&profile);
+        }
         if state.auth.back && state.auth.allow_exit {
             state.auth_open = false;
             state.auth.back = false;
@@ -1162,6 +1171,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
     }
 
     if state.desktop_open {
+        // Clock preferences may have changed in the settings app since the last frame.
+        if let Ok(profile) = state.store.company_profile() {
+            state.shell.clock = crate::desktop::ClockSettings::from_profile(&profile);
+        }
         // The desktop frame borrows the whole shell, so the widgets panel edits a copy of the
         // widget layer and hands it back after the frame.
         let mut widget_layer = state.shell.widgets.clone();
@@ -3572,6 +3585,7 @@ mod tests {
             active: true,
             password_hash: "test-hash".to_string(),
             must_change_password: false,
+            passwordless: false,
             created_at: now_millis(),
             updated_at: now_millis(),
         };

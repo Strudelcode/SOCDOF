@@ -9,9 +9,11 @@ use egui::{Align, FontFamily, FontId, Layout, Pos2, Rect, RichText, Ui, Vec2};
 use socdof_core::domain::settings::{Language, ThemeMode};
 use socdof_core::domain::user::User;
 use socdof_core::store::Store;
+use uuid::Uuid;
 
 use crate::auth::{
-    language_label, messages, AuthState, SetupAccountType, SetupTemplate, SETUP_STEPS,
+    language_label, messages, AuthState, RecoveryChoice, SetupAccountType, SetupTemplate,
+    SETUP_STEPS,
 };
 use crate::auth_kit as kit;
 use crate::focus::FocusState;
@@ -26,6 +28,23 @@ const ERROR_BAND_PADDING: f32 = 8.0;
 /// Clear space between the scrolled body and the band: a row that is cut off at the body edge keeps
 /// this distance, so no line ever sits on the band's border.
 const ERROR_BAND_GAP: f32 = 16.0;
+
+/// Catalogue ids of the eight recovery questions offered by the wizard, in the order of the
+/// TypeScript `RECOVERY_QUESTIONS` list.
+pub const RECOVERY_QUESTION_IDS: [&str; 8] = [
+    "setup_recovery_q1",
+    "setup_recovery_q2",
+    "setup_recovery_q3",
+    "setup_recovery_q4",
+    "setup_recovery_q5",
+    "setup_recovery_q6",
+    "setup_recovery_q7",
+    "setup_recovery_q8",
+];
+
+/// Modules the TypeScript setup hides for a personal account.
+pub const BUSINESS_ONLY_MODULES: [&str; 5] =
+    ["invoices", "accounting", "purchases", "pos", "support"];
 
 const LANGUAGES: [(Language, &str, &str); 4] = [
     (Language::De, "DE", "setup_lang_de_subtitle"),
@@ -65,6 +84,64 @@ const TEMPLATES: [(SetupTemplate, Icon, &str, &str, u32); 4] = [
         0xf59e0b,
     ),
 ];
+
+/// Whether the setup shows a module for the chosen account type.
+///
+/// The TypeScript wizard hides invoices, accounting, purchases, POS and support services while the
+/// account is personal (`SETUP_BUSINESS_ONLY_MODULES`).
+pub fn module_visible_for(account_type: SetupAccountType, slug: &str) -> bool {
+    account_type == SetupAccountType::Business || !BUSINESS_ONLY_MODULES.contains(&slug)
+}
+
+/// Desktop apps of a template for the chosen account type.
+pub fn template_apps_for(
+    template: SetupTemplate,
+    account_type: SetupAccountType,
+) -> Vec<&'static str> {
+    template_apps(template)
+        .into_iter()
+        .filter(|slug| module_visible_for(account_type, slug))
+        .collect()
+}
+
+/// Catalogue label of a stored recovery question, localized at paint time.
+///
+/// Custom questions are stored as their free text and come back unchanged.
+pub fn recovery_question_label(texts: &UiTexts, question: &str) -> String {
+    if RECOVERY_QUESTION_IDS.contains(&question) {
+        texts.get(question).to_owned()
+    } else {
+        question.to_owned()
+    }
+}
+
+/// Catalogue key of the wizard step chip, `None` for the language card.
+fn wizard_step_key(step: usize) -> Option<&'static str> {
+    match step {
+        1 => Some("setup_step_welcome"),
+        2 => Some("setup_step_account"),
+        3 => Some("setup_step_appearance"),
+        4 => Some("setup_step_apps"),
+        5 => Some("setup_step_finish"),
+        _ => None,
+    }
+}
+
+/// Next step, skipping the appearance and apps steps when the user turned setup off.
+pub fn next_step(state: &AuthState) -> usize {
+    match state.setup_step {
+        2..=4 if state.setup_skip_extras => SETUP_STEPS - 1,
+        step => (step + 1).min(SETUP_STEPS - 1),
+    }
+}
+
+/// Previous step, skipping the appearance and apps steps when setup is turned off.
+pub fn previous_step(state: &AuthState) -> usize {
+    match state.setup_step {
+        5 if state.setup_skip_extras => 2,
+        step => step.saturating_sub(1),
+    }
+}
 
 /// Desktop apps of a template, in reading order.
 pub fn template_apps(template: SetupTemplate) -> Vec<&'static str> {
@@ -132,32 +209,62 @@ pub fn login(
 ) {
     let users = store.list_users().unwrap_or_default();
     let active: Vec<User> = users.into_iter().filter(|user| user.active).collect();
-    if state.username.is_empty() {
+    // The legacy form preselects the first account unless the user opened the "other user" mode.
+    if state.username.is_empty() && !state.other_user {
         if let Some(first) = active.first() {
             state.username = first.username.clone();
         }
     }
-    let selected = active
-        .iter()
-        .find(|user| user.username == state.username)
-        .cloned();
+    let selected = if state.other_user {
+        None
+    } else {
+        active
+            .iter()
+            .find(|user| user.username == state.username)
+            .cloned()
+    };
     let mut sign_in = false;
     let mut recover = false;
     let mut switch_to: Option<String> = None;
     let mut clear_user = false;
+    let mut quick_desktop = false;
+    let security = socdof_core::auth_security::load(store).unwrap_or_default();
+    // The reference shows the auto-login notice while exactly one account exists.
+    let auto_login_card = security.auto_login_single_user && active.len() == 1 && !state.other_user;
+    let account_avatars: Vec<(Uuid, Option<crate::wallpaper::CustomWallpaper>)> = active
+        .iter()
+        .map(|user| (user.id, state.avatar_for(store, user.id)))
+        .collect();
+    let selected_avatar = selected.as_ref().and_then(|user| {
+        account_avatars
+            .iter()
+            .find(|(id, _)| *id == user.id)
+            .and_then(|(_, avatar)| avatar.clone())
+    });
+    let continue_label = selected
+        .as_ref()
+        .filter(|user| user.passwordless)
+        .map(|user| {
+            texts
+                .get("auth_continue_as")
+                .replace("{name}", &user.display_name)
+        });
+    // The legacy form disables the field and shows a per-second countdown while the store lockout
+    // is running.
+    let remaining = state.lockout_seconds(now);
 
     let top = ((ui.available_height() - 560.0) * 0.22).max(8.0);
     ui.add_space(top);
     kit::centered(ui, 520.0, |ui| {
         ui.vertical_centered(|ui| {
             ui.label(
-                RichText::new(crate::desktop::format_clock_12h(now))
+                RichText::new(state.clock.sign_in_time(now))
                     .size(36.0)
                     .family(crate::theme::light())
                     .color(theme.palette.text),
             );
             ui.label(
-                RichText::new(socdof_core::date::format_date(now))
+                RichText::new(state.clock.sign_in_date(now))
                     .size(12.0)
                     .family(crate::theme::semibold())
                     .color(crate::tokens::with_alpha(theme.palette.text, 217)),
@@ -166,9 +273,15 @@ pub fn login(
             ui.add_space((ui.available_height() * 0.22).max(28.0));
             let (name, initials) = match &selected {
                 Some(user) => (user.display_name.clone(), kit::initials(&user.display_name)),
-                None => (texts.get("auth_sign_in").to_string(), String::new()),
+                None => (texts.get("auth_other_user").to_string(), String::new()),
             };
-            kit::avatar(ui, theme, state.avatar.as_ref(), &initials, 80.0);
+            kit::avatar(
+                ui,
+                theme,
+                selected_avatar.as_ref().or(state.avatar.as_ref()),
+                &initials,
+                80.0,
+            );
             ui.add_space(14.0);
             ui.label(
                 RichText::new(&name)
@@ -176,18 +289,64 @@ pub fn login(
                     .family(crate::theme::semibold())
                     .color(theme.palette.text),
             );
+            if selected.is_none() {
+                ui.label(
+                    RichText::new(texts.get("auth_other_user_desc"))
+                        .size(12.0)
+                        .color(with_alpha(theme.palette.text, 166)),
+                );
+            }
             ui.add_space(14.0);
+            if auto_login_card {
+                // `auth.autologin_active_notice` card with the "Direkt zum Desktop" shortcut.
+                egui::Frame::none()
+                    .fill(egui::Color32::from_white_alpha(38))
+                    .rounding(egui::Rounding::same(16.0))
+                    .inner_margin(egui::Margin::symmetric(10.0, 8.0))
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(
+                                RichText::new(texts.get("auth_autologin_notice"))
+                                    .size(11.0)
+                                    .color(theme.palette.text),
+                            );
+                            let button = egui::Button::new(
+                                RichText::new(format!(
+                                    "{} \u{2192}",
+                                    texts.get("auth_autologin_quick_enter")
+                                ))
+                                .size(11.0)
+                                .strong()
+                                .color(theme.palette.text),
+                            )
+                            .fill(egui::Color32::from_white_alpha(56))
+                            .rounding(egui::Rounding::same(10.0));
+                            if ui.add(button).clicked() {
+                                quick_desktop = true;
+                            }
+                        });
+                    });
+                ui.add_space(8.0);
+            }
             kit::centered(ui, 324.0, |ui| {
-                if state.username.is_empty() {
+                if state.other_user {
                     kit::input(
                         ui,
                         theme,
                         focus,
                         &mut state.username,
-                        texts.get("auth_username_hint"),
+                        texts.get("auth_username"),
                         texts.get("auth_username"),
                     );
                     ui.add_space(8.0);
+                }
+                if let Some(label) = continue_label.as_deref() {
+                    // A passwordless account has no password field; the reference shows a single
+                    // "continue as" button instead.
+                    if kit::primary_button(ui, theme, focus, label) {
+                        sign_in = true;
+                    }
+                    return;
                 }
                 let field = kit::password_input(
                     ui,
@@ -198,6 +357,7 @@ pub fn login(
                     texts.get("auth_password_hint"),
                     kit::PasswordField {
                         autofocus: true,
+                        enabled: remaining == 0,
                         ..Default::default()
                     },
                 );
@@ -206,20 +366,50 @@ pub fn login(
                     Pos2::new(frame.right() - 24.0, frame.center().y),
                     Vec2::splat(34.0),
                 );
-                if kit::overlay_circle_button(
-                    ui,
-                    theme,
-                    focus,
-                    arrow,
-                    Icon::ChevronRight,
-                    texts.get("auth_sign_in"),
-                ) {
-                    sign_in = true;
+                if remaining == 0 {
+                    if kit::overlay_circle_button(
+                        ui,
+                        theme,
+                        focus,
+                        arrow,
+                        Icon::ChevronRight,
+                        texts.get("auth_sign_in"),
+                    ) {
+                        sign_in = true;
+                    }
+                } else {
+                    // `disabled:opacity-30` of the legacy submit button.
+                    ui.painter().circle_filled(
+                        arrow.center(),
+                        17.0,
+                        egui::Color32::from_white_alpha(40),
+                    );
+                    Icon::ChevronRight.draw(
+                        ui.painter(),
+                        egui::Rect::from_center_size(arrow.center(), Vec2::splat(18.0)),
+                        egui::Color32::from_white_alpha(90),
+                        1.6,
+                    );
                 }
             });
-            ui.add_space(8.0);
-            messages(ui, theme, texts, state, now, true);
-            ui.add_space(4.0);
+            // Fixed-height slot: the countdown or error appears here without moving the link.
+            ui.add_space(6.0);
+            ui.allocate_ui_with_layout(
+                Vec2::new(ui.available_width(), 22.0),
+                Layout::top_down(Align::Center),
+                |ui| {
+                    if remaining > 0 {
+                        ui.label(
+                            RichText::new(format!("{} {}s", texts.get("auth_retry"), remaining))
+                                .size(12.0)
+                                .color(theme.palette.warning),
+                        );
+                    } else {
+                        messages(ui, theme, texts, state, now, true);
+                    }
+                },
+            );
+            ui.add_space(2.0);
             let link_color = if crate::auth_kit::dark(theme) {
                 with_alpha(theme.palette.text, 75)
             } else {
@@ -237,15 +427,18 @@ pub fn login(
         });
     });
 
-    // Account tiles in the lower left corner, like the legacy sign-in screen. The legacy sign-in
-    // screen has no account strip, so narrow windows keep the single centred account instead.
+    // Account strip along the bottom, like the legacy sign-in screen: left aligned on the desktop
+    // and centred on a narrow window.
     let screen = ui.ctx().screen_rect();
-    if screen.width() >= kit::COMPACT_WIDTH {
+    let strip_width = active.len() as f32 * 94.0 + 100.0;
+    let strip_left = if screen.width() < kit::COMPACT_WIDTH {
+        screen.left() + ((screen.width() - strip_width) * 0.5).max(0.0)
+    } else {
+        screen.left() + 28.0
+    };
+    {
         egui::Area::new(egui::Id::new("socdof-login-accounts"))
-            .fixed_pos(Pos2::new(
-                screen.left() + 28.0,
-                screen.bottom() - 32.0 - 86.0,
-            ))
+            .fixed_pos(Pos2::new(strip_left, screen.bottom() - 32.0 - 86.0))
             .order(egui::Order::Foreground)
             .show(ui.ctx(), |ui| {
                 ui.horizontal(|ui| {
@@ -257,11 +450,15 @@ pub fn login(
                             Pos2::new(rect.center().x - 22.0, rect.top()),
                             Vec2::splat(44.0),
                         );
+                        let avatar = account_avatars
+                            .iter()
+                            .find(|(id, _)| *id == user.id)
+                            .and_then(|(_, avatar)| avatar.as_ref());
                         kit::draw_avatar(
                             ui,
                             theme,
                             avatar_rect,
-                            None,
+                            avatar,
                             &kit::initials(&user.display_name),
                         );
                         if response.hovered() {
@@ -316,14 +513,14 @@ pub fn login(
                     // The caption wraps inside the tile: the label is longer than the 86 point
                     // column, and a single line was clipped at the tile edge.
                     let galley = ui.painter().layout(
-                        texts.get("setup_other_user").to_owned(),
+                        texts.get("auth_other_user").to_owned(),
                         egui::FontId::proportional(11.0),
                         theme.palette.text_muted,
-                        86.0,
+                        110.0,
                     );
                     let caption = egui::Rect::from_min_size(
-                        Pos2::new(rect.center().x - 43.0, tile.bottom() + 6.0),
-                        Vec2::new(86.0, 30.0),
+                        Pos2::new(rect.center().x - 55.0, tile.bottom() + 6.0),
+                        Vec2::new(110.0, 30.0),
                     );
                     ui.painter().with_clip_rect(caption).galley(
                         Pos2::new(rect.center().x - galley.size().x * 0.5, caption.top()),
@@ -379,7 +576,8 @@ pub fn login(
                 )
                 .activated
                 {
-                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                    // The legacy sign-in screen asks before it closes the application.
+                    state.quit_confirm = true;
                 }
                 language_selector(ui, theme, texts, state);
             });
@@ -399,20 +597,88 @@ pub fn login(
             });
     }
 
+    if quick_desktop {
+        let _ = state.auto_login(store, now);
+    }
     if let Some(username) = switch_to {
+        state.other_user = false;
         state.begin_switch(&username);
     }
     if clear_user {
+        state.other_user = true;
         state.username.clear();
         state.password.clear();
         state.error = None;
     }
     if sign_in || submit {
-        let _ = state.login(store, now);
+        match selected.as_ref().filter(|user| user.passwordless) {
+            Some(user) => {
+                let _ = state.quick_switch_to(store, user.id, now);
+            }
+            None => state.begin_sign_in(now),
+        }
     }
     if recover {
         state.begin_recovery(store);
     }
+    quit_confirmation(ui, theme, texts, focus, state);
+}
+
+/// Asks before the close button of the sign-in screen ends the application.
+fn quit_confirmation(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+) {
+    if !state.quit_confirm {
+        return;
+    }
+    let screen = ui.ctx().screen_rect();
+    egui::Area::new(egui::Id::new("socdof-quit-confirm"))
+        .fixed_pos(screen.min)
+        .order(egui::Order::Foreground)
+        .show(ui.ctx(), |ui| {
+            ui.allocate_ui_with_layout(
+                Vec2::new(screen.width(), 0.0),
+                Layout::top_down(Align::Min),
+                |ui| {
+                    ui.painter().rect_filled(
+                        screen,
+                        egui::Rounding::ZERO,
+                        egui::Color32::from_black_alpha(140),
+                    );
+                    ui.vertical_centered(|ui| {
+                        ui.add_space((screen.height() * 0.36).max(40.0));
+                        kit::card(ui, theme, 340.0, 18.0, |ui| {
+                            ui.label(
+                                RichText::new(texts.get("desktop_quit_confirm_title"))
+                                    .size(14.0)
+                                    .family(crate::theme::semibold())
+                                    .color(theme.palette.text),
+                            );
+                            ui.add_space(12.0);
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                if kit::small_button(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    Icon::Close,
+                                    texts.get("desktop_quit_confirm_yes"),
+                                ) {
+                                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                                }
+                                if kit::link(ui, theme, focus, texts.get("desktop_quit_confirm_no"))
+                                {
+                                    state.quit_confirm = false;
+                                }
+                            });
+                        });
+                    });
+                },
+            );
+        });
 }
 
 /// Draws the first-run wizard and reports what the user asked for through the state.
@@ -460,9 +726,12 @@ pub fn setup(
         if dense { 20.0 } else { kit::card_padding(ui) },
         height,
         |ui| {
-            // The legacy wizard header carries only the language selector; the step label lives in
-            // the `auth.accountSetup · auth.stepAccount` line under the title.
+            // The legacy wizard header carries the step chip on the left and the language selector
+            // on the right (`auth.wizardStep.N` and the compact select).
             ui.horizontal(|ui| {
+                if let Some(step_key) = wizard_step_key(state.setup_step) {
+                    kit::chip(ui, theme, texts.get(step_key));
+                }
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     language_selector(ui, theme, texts, state);
                 });
@@ -486,27 +755,13 @@ pub fn setup(
             } else {
                 ""
             };
-            // The chip names the current step instead of always announcing the account step; the
-            // welcome page has no number of its own, so it shows the heading alone.
-            let step_prefix = match texts.language() {
-                Language::De => "Schritt",
-                Language::En => "Step",
-                Language::Fr => "Étape",
-                _ => "Paso",
-            };
-            let chip = match state.setup_step {
-                2 => texts.get("setup_chip_account").to_owned(),
-                3 => format!("{step_prefix} 3: {}", texts.get("setup_step_appearance")),
-                4 => format!("{step_prefix} 4: {}", texts.get("setup_step_apps")),
-                5 => format!("{step_prefix} 5: {}", texts.get("setup_step_finish")),
-                _ => String::new(),
-            };
-            let heading = texts.get("setup_account_heading").to_owned();
-            let step = if chip.is_empty() {
-                heading
-            } else {
-                format!("{heading} · {chip}")
-            };
+            // The step chip above names the current step; the line under the title keeps the
+            // constant `auth.accountSetup · auth.stepAccount` pairing of the legacy wizard.
+            let step = format!(
+                "{} · {}",
+                texts.get("setup_account_heading"),
+                texts.get("setup_chip_account")
+            );
             let notice_galley = ui.painter().layout_no_wrap(
                 notice.to_owned(),
                 egui::FontId::new(12.0, crate::theme::semibold()),
@@ -600,7 +855,7 @@ pub fn setup(
                             2 => account_step(ui, theme, texts, focus, state),
                             3 => appearance_step(ui, theme, texts, focus, state),
                             4 => apps_step(ui, theme, texts, focus, state, store),
-                            5 => finish_step(ui, theme, texts, state),
+                            5 => finish_step(ui, theme, texts, focus, state),
                             _ => {}
                         }
                         ui.add_space(10.0);
@@ -654,7 +909,7 @@ pub fn setup(
     );
 
     if back && state.setup_step > 0 {
-        state.setup_step -= 1;
+        state.setup_step = previous_step(state);
         state.error = None;
     }
     if next && state.setup_step + 1 < SETUP_STEPS {
@@ -664,7 +919,7 @@ pub fn setup(
                 return;
             }
         }
-        state.setup_step += 1;
+        state.setup_step = next_step(state);
         state.error = None;
     }
     if create || (submit && state.setup_step + 1 == SETUP_STEPS) {
@@ -833,13 +1088,18 @@ fn account_step(
             label,
             state.account_type == kind,
         ) {
+            // The legacy form resets the app selection to the template of the clicked type, so a
+            // personal account cannot keep business modules from an earlier click.
             state.account_type = kind;
-            if state.setup_apps.is_empty() {
-                state.setup_apps = template_apps(state.template_choice)
-                    .iter()
-                    .map(|slug| (*slug).to_owned())
-                    .collect();
-            }
+            state.template_choice = if kind == SetupAccountType::Personal {
+                SetupTemplate::Personal
+            } else {
+                SetupTemplate::Business
+            };
+            state.setup_apps = template_apps_for(state.template_choice, kind)
+                .iter()
+                .map(|slug| (*slug).to_owned())
+                .collect();
         }
     });
 
@@ -872,6 +1132,20 @@ fn account_step(
                         apply_avatar(state, &data);
                     }
                 }
+                // The legacy form offers a remove action next to the upload button while a
+                // picture is set, so an accidental upload can be undone without reopening the
+                // file picker.
+                if state.avatar.is_some()
+                    && kit::small_button(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Trash,
+                        texts.get("setup_remove_image"),
+                    )
+                {
+                    state.avatar = None;
+                }
                 ui.add_space(4.0);
                 kit::hint(ui, theme, texts.get("setup_profile_picture_hint"));
             });
@@ -903,6 +1177,7 @@ fn account_step(
             ..Default::default()
         },
     );
+    password_strength(ui, theme, texts, &state.password);
     ui.add_space(10.0);
     kit::field_label(ui, theme, texts.get("auth_password_confirm"), true);
     ui.add_space(4.0);
@@ -918,30 +1193,182 @@ fn account_step(
             ..Default::default()
         },
     );
+    // The legacy form reports a difference while the user is still typing the confirmation
+    // instead of waiting for the next click on "Continue".
+    if !state.password_confirm.is_empty() && state.password != state.password_confirm {
+        ui.add_space(3.0);
+        ui.label(
+            RichText::new(texts.get("auth_error_password_mismatch"))
+                .size(11.0)
+                .color(theme.palette.warning),
+        );
+    }
 
     ui.add_space(12.0);
     warning(ui, theme, texts.get("setup_password_warning"));
 
+    // `auth.securityQuestionsTitle` + one select + answer of the legacy setup form.
     ui.add_space(12.0);
     kit::field_label(ui, theme, texts.get("setup_recovery_title"), false);
     ui.add_space(4.0);
-    kit::input(
-        ui,
-        theme,
-        focus,
-        &mut state.recovery_answer_one,
-        texts.get("setup_answer"),
-        texts.get("auth_recovery_question_one"),
+    recovery_choice_selector(ui, theme, texts, state);
+    if state.recovery_choice == RecoveryChoice::Custom {
+        ui.add_space(8.0);
+        kit::input(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_custom_question,
+            texts.get("setup_recovery_custom"),
+            texts.get("setup_recovery_custom"),
+        );
+    }
+    if state.recovery_choice != RecoveryChoice::None {
+        ui.add_space(8.0);
+        kit::input(
+            ui,
+            theme,
+            focus,
+            &mut state.recovery_answer_one,
+            texts.get("setup_answer"),
+            texts.get("setup_answer"),
+        );
+    }
+}
+
+/// Compact select of the recovery question: the eight catalogue questions, a custom question and
+/// the explicit "no question" choice of the TypeScript setup.
+fn recovery_choice_selector(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &mut AuthState) {
+    let presets: Vec<&str> = RECOVERY_QUESTION_IDS
+        .iter()
+        .map(|id| texts.get(id))
+        .collect();
+    let labels: Vec<&str> = presets
+        .iter()
+        .copied()
+        .chain([
+            texts.get("setup_recovery_custom"),
+            texts.get("setup_recovery_none"),
+        ])
+        .collect();
+    let custom_index = RECOVERY_QUESTION_IDS.len();
+    let selected = match state.recovery_choice {
+        RecoveryChoice::Preset => state.recovery_preset.min(custom_index - 1),
+        RecoveryChoice::Custom => custom_index,
+        RecoveryChoice::None => custom_index + 1,
+    };
+    let rounding = egui::Rounding::same(12.0);
+    let width = ui.available_width();
+    ui.scope(|ui| {
+        let style = ui.style_mut();
+        style.spacing.interact_size.y = 34.0;
+        style.spacing.button_padding = Vec2::new(10.0, 6.0);
+        style.text_styles.insert(
+            egui::TextStyle::Button,
+            egui::FontId::new(12.5, crate::theme::semibold()),
+        );
+        for widget in [
+            &mut style.visuals.widgets.inactive,
+            &mut style.visuals.widgets.hovered,
+            &mut style.visuals.widgets.active,
+            &mut style.visuals.widgets.open,
+        ] {
+            widget.rounding = rounding;
+            widget.expansion = 0.0;
+            widget.bg_fill = theme.palette.surface;
+            widget.bg_stroke = egui::Stroke::new(1.0_f32, kit::hairline_color(theme));
+            widget.fg_stroke.color = theme.palette.text;
+        }
+        style.visuals.widgets.hovered.bg_fill = theme.palette.surface_muted;
+        style.visuals.widgets.active.bg_fill = theme.palette.surface_muted;
+        egui::ComboBox::from_id_source("socdof-setup-recovery")
+            .selected_text(labels[selected])
+            .width(width - 8.0)
+            .show_ui(ui, |ui| {
+                for (index, label) in labels.iter().enumerate() {
+                    if ui.selectable_label(selected == index, *label).clicked() {
+                        if index < custom_index {
+                            state.recovery_choice = RecoveryChoice::Preset;
+                            state.recovery_preset = index;
+                        } else if index == custom_index {
+                            state.recovery_choice = RecoveryChoice::Custom;
+                        } else {
+                            state.recovery_choice = RecoveryChoice::None;
+                        }
+                    }
+                }
+            });
+    });
+}
+
+/// Strength row of the setup password: label, five-step bar and the tips line.
+///
+/// The scoring follows the TypeScript wizard ([`computePasswordStrength`] in `AuthGate.tsx`):
+/// length 8, length 12, mixed case, digits and symbols are the five points that move the label.
+fn password_strength(ui: &mut Ui, theme: &Theme, texts: &UiTexts, password: &str) {
+    let length = password.chars().count();
+    let mut points = 0;
+    if length >= 8 {
+        points += 1;
+    }
+    if length >= 12 {
+        points += 1;
+    }
+    if password.chars().any(char::is_lowercase) && password.chars().any(char::is_uppercase) {
+        points += 1;
+    }
+    if password.chars().any(|c| c.is_ascii_digit()) {
+        points += 1;
+    }
+    if password.chars().any(|c| !c.is_alphanumeric()) {
+        points += 1;
+    }
+    let (key, color, percent) = if length == 0 {
+        return;
+    } else if length < 6 {
+        ("setup_strength_very_weak", tint(0xf43f5e), 20.0)
+    } else if points <= 2 {
+        ("setup_strength_weak", tint(0xf59e0b), 40.0)
+    } else if points == 3 {
+        ("setup_strength_ok", tint(0xeab308), 65.0)
+    } else if points == 4 {
+        ("setup_strength_strong", tint(0x10b981), 85.0)
+    } else {
+        ("setup_strength_very_strong", tint(0x059669), 100.0)
+    };
+
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        ui.label(
+            RichText::new(format!("{}: ", texts.get("setup_strength_label")))
+                .size(11.0)
+                .color(theme.palette.text_muted),
+        );
+        ui.label(
+            RichText::new(texts.get(key))
+                .size(11.0)
+                .family(crate::theme::semibold())
+                .color(color),
+        );
+    });
+    ui.add_space(4.0);
+    let (track, _) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), 6.0), egui::Sense::hover());
+    ui.painter().rect(
+        track,
+        egui::Rounding::same(3.0),
+        kit::inset_fill(theme),
+        egui::Stroke::NONE,
     );
-    ui.add_space(8.0);
-    kit::input(
-        ui,
-        theme,
-        focus,
-        &mut state.recovery_answer_two,
-        texts.get("setup_answer"),
-        texts.get("auth_recovery_question_two"),
+    let filled = Rect::from_min_size(
+        track.min,
+        Vec2::new(track.width() * percent / 100.0, track.height()),
     );
+    ui.painter()
+        .rect(filled, egui::Rounding::same(3.0), color, egui::Stroke::NONE);
+    ui.add_space(4.0);
+    kit::hint(ui, theme, texts.get("setup_password_tips"));
 }
 
 /// Amber note of the legacy account form (`bg-amber-50 border-amber-200`).
@@ -1150,8 +1577,11 @@ fn appearance_step(
                     );
                 },
             );
-            if kit::link(ui, theme, focus, texts.get("onboarding_skip")) {
-                state.setup_step += 1;
+            // `auth.setupSkip` turns the whole optional block off: appearance and apps are left
+            // out and the wizard continues on the finish step.
+            if kit::link(ui, theme, focus, texts.get("setup_skip_extras")) {
+                state.setup_skip_extras = true;
+                state.setup_step = SETUP_STEPS - 1;
             }
         });
 
@@ -1297,11 +1727,25 @@ fn appearance_step(
                                     .color(theme.palette.text_muted),
                             );
                             ui.add_space(2.0);
-                            if kit::link(ui, theme, focus, texts.get("setup_wallpaper_choose")) {
-                                if let Some(data) = pick_png() {
-                                    apply_wallpaper(state, &data);
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = 12.0;
+                                if kit::link(ui, theme, focus, texts.get("setup_wallpaper_choose"))
+                                {
+                                    if let Some(data) = pick_png() {
+                                        apply_wallpaper(state, &data);
+                                    }
                                 }
-                            }
+                                // `auth.setupWallpaperRemove`: resets the choice to the plain
+                                // gradient, which the host applies as the persistent wallpaper.
+                                if state.wallpaper_picked
+                                    && kit::link(ui, theme, focus, texts.get("setup_remove_image"))
+                                {
+                                    state.wallpaper_custom = None;
+                                    state.wallpaper_picked = false;
+                                    state.wallpaper_choice =
+                                        Some(crate::wallpaper::Wallpaper::Plain);
+                                }
+                            });
                         },
                     );
                 });
@@ -1324,16 +1768,31 @@ fn apps_step(
     store: &Store,
 ) {
     if state.setup_apps.is_empty() {
-        state.setup_apps = template_apps(state.template_choice)
+        state.setup_apps = template_apps_for(state.template_choice, state.account_type)
             .iter()
             .map(|slug| (*slug).to_owned())
             .collect();
     }
     section_row(ui, theme, texts.get("setup_apps_panel_title"), None);
+    ui.add_space(6.0);
+    if kit::link(ui, theme, focus, texts.get("setup_skip_extras")) {
+        state.setup_skip_extras = true;
+        state.setup_step = SETUP_STEPS - 1;
+    }
     ui.add_space(8.0);
-    for row in TEMPLATES.chunks(2) {
+    // The legacy cards hide business and retail for a personal account.
+    let templates: Vec<_> = TEMPLATES
+        .iter()
+        .filter(|(template, ..)| {
+            state.account_type == SetupAccountType::Business
+                || matches!(template, SetupTemplate::Personal | SetupTemplate::Practice)
+        })
+        .collect();
+    for row in templates.chunks(2) {
         kit::columns(ui, 10.0, 2, |ui, index, _| {
-            if let Some((template, icon, title_key, description_key, color)) = row.get(index) {
+            if let Some((template, icon, title_key, description_key, color)) =
+                row.get(index).copied()
+            {
                 if kit::app_tile(
                     ui,
                     theme,
@@ -1346,7 +1805,7 @@ fn apps_step(
                     state.template_choice == *template,
                 ) {
                     state.template_choice = *template;
-                    state.setup_apps = template_apps(*template)
+                    state.setup_apps = template_apps_for(*template, state.account_type)
                         .iter()
                         .map(|slug| (*slug).to_owned())
                         .collect();
@@ -1367,6 +1826,7 @@ fn apps_step(
     let rows: Vec<_> = modules
         .iter()
         .filter(|module| module.license != socdof_core::app_store::ModuleLicense::Locked)
+        .filter(|module| module_visible_for(state.account_type, module.module.as_str()))
         .collect();
     for row in rows.chunks(2) {
         kit::columns(ui, 10.0, 2, |ui, index, _| {
@@ -1449,8 +1909,39 @@ fn section_row(ui: &mut Ui, theme: &Theme, label: &str, hint: Option<&str>) {
 }
 
 /// Step 5: summary before the account is created.
-fn finish_step(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &AuthState) {
+fn finish_step(
+    ui: &mut Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+) {
     kit::muted(ui, theme, texts.get("setup_wizard_finish_body"));
+    if state.setup_skip_extras {
+        ui.add_space(10.0);
+        kit::panel(ui, theme, |ui| {
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 8.0;
+                let (rect, _) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
+                Icon::Info.draw(ui.painter(), rect, theme.palette.text_muted, 1.5);
+                ui.allocate_ui_with_layout(
+                    Vec2::new((ui.available_width() - 4.0).max(80.0), 0.0),
+                    Layout::top_down(Align::Min),
+                    |ui| {
+                        ui.label(
+                            RichText::new(texts.get("setup_skip_notice"))
+                                .size(11.5)
+                                .color(theme.palette.text_muted),
+                        );
+                        if kit::link(ui, theme, focus, texts.get("setup_enable_extras")) {
+                            state.setup_skip_extras = false;
+                            state.setup_step = 3;
+                        }
+                    },
+                );
+            });
+        });
+    }
     ui.add_space(10.0);
     kit::panel(ui, theme, |ui| {
         let rows = [
@@ -1513,7 +2004,12 @@ fn section_label(ui: &mut Ui, theme: &Theme, icon: Icon, label: &str) {
 }
 
 /// Compact language dropdown of the wizard header.
-fn language_selector(ui: &mut Ui, theme: &Theme, texts: &UiTexts, state: &mut AuthState) {
+pub(crate) fn language_selector(
+    ui: &mut Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &mut AuthState,
+) {
     let current = state.language_choice.unwrap_or_else(|| texts.language());
     let mut selected = current;
     // The legacy header uses a compact `text-xs` select (`rounded-xl border px-2.5 py-1`), so the
@@ -1611,7 +2107,8 @@ fn apply_wallpaper(state: &mut AuthState, data: &[u8]) {
                 height,
                 pixels: std::sync::Arc::new(rgba),
                 revision: 0,
-            })
+            });
+            state.wallpaper_picked = true;
         }
         Err(_) => state.error = Some("setup_wallpaper_invalid"),
     }

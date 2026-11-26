@@ -4,6 +4,7 @@
 //! headless CLI both talk to the store through this API.
 
 pub mod app_store;
+pub mod auth_security;
 pub mod autosave;
 pub mod backup;
 pub mod backup_scheduler;

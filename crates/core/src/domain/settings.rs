@@ -105,6 +105,12 @@ pub struct CompanyProfile {
     pub backup_interval_minutes: i64,
     /// Number of automatic backups that are kept.
     pub backup_max_keep_count: i64,
+    /// Date format of the system clocks (`DD.MM.YYYY`, `YYYY-MM-DD`, `MM/DD/YYYY`).
+    pub date_format: String,
+    /// Whether clocks show seconds; `None` keeps the reference default (tray on, sign-in off).
+    pub time_show_seconds: Option<bool>,
+    /// IANA time zone of the system clocks.
+    pub timezone: String,
 }
 
 impl Default for CompanyProfile {
@@ -134,6 +140,9 @@ impl Default for CompanyProfile {
             auto_backup_enabled: false,
             backup_interval_minutes: 120,
             backup_max_keep_count: 10,
+            date_format: "DD.MM.YYYY".to_string(),
+            time_show_seconds: None,
+            timezone: "Europe/Berlin".to_string(),
         }
     }
 }

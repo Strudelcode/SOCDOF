@@ -9,7 +9,7 @@
 //! session is locked and only the account password opens it again. Locking never destroys the
 //! session, so unlocking keeps the user in the app; signing out revokes it.
 
-use egui::{Context, Key, RichText};
+use egui::{Align, Context, Key, Layout, Pos2, RichText, Vec2};
 use socdof_core::domain::session::{LoginOutcome, Session, LOCKOUT_MS, MAX_FAILED_ATTEMPTS};
 use socdof_core::domain::user::{User, UserRole};
 use socdof_core::security::{hash_password, MIN_PASSWORD_LENGTH};
@@ -29,6 +29,27 @@ pub const DEFAULT_IDLE_TIMEOUT_MS: i64 = 5 * 60 * 1000;
 
 /// Number of steps in the first-run wizard.
 pub const SETUP_STEPS: usize = 6;
+
+/// Minimum time the sign-in loading screen stays visible.
+///
+/// The legacy form awaits an asynchronous store call; the native call returns at once, so the
+/// loading screen keeps the feedback the user expects instead of flashing for a single frame.
+pub const SIGN_IN_LOADING_MS: i64 = 450;
+
+/// Question the wizard stores for password recovery.
+///
+/// The TypeScript wizard offers the catalogue questions, a free custom question and an explicit
+/// "no question" choice; the same three cases are modelled here.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum RecoveryChoice {
+    /// One of the eight catalogue questions.
+    #[default]
+    Preset,
+    /// A question typed by the user.
+    Custom,
+    /// No recovery question, so the password cannot be recovered.
+    None,
+}
 
 /// Catalogue keys of the wizard steps, in order.
 /// Account type selected during first-run setup.
@@ -110,6 +131,12 @@ pub struct AuthState {
     pub failed_unlocks: u32,
     /// End of the unlock lockout, if one is running.
     pub locked_until: Option<i64>,
+    /// End of the sign-in loading screen, zero when no sign-in is running.
+    pub signing_in_until: i64,
+    /// Whether the close button of the sign-in screen asks before quitting.
+    pub quit_confirm: bool,
+    /// Whether the sign-in form is in the "other user" mode of the legacy screen.
+    pub other_user: bool,
     /// Catalogue key of the last error.
     pub error: Option<&'static str>,
     /// Catalogue key of the last status message.
@@ -138,6 +165,16 @@ pub struct AuthState {
     pub recovery_answer_one: String,
     /// Second configured recovery answer.
     pub recovery_answer_two: String,
+    /// Question choice of the wizard.
+    pub recovery_choice: RecoveryChoice,
+    /// Index of the catalogue question chosen in the wizard (0-based).
+    pub recovery_preset: usize,
+    /// Free text of the custom question chosen in the wizard.
+    pub recovery_custom_question: String,
+    /// Questions configured for the account being recovered, as catalogue ids or free text.
+    pub recovery_questions: Vec<String>,
+    /// Whether the wizard skips the appearance and apps steps.
+    pub setup_skip_extras: bool,
     /// New password during recovery.
     pub recovery_new_password: String,
     /// Confirmation of the new recovery password.
@@ -152,6 +189,11 @@ pub struct AuthState {
     pub import_pending: bool,
     /// PNG dropped onto the wizard, applied as wallpaper after setup.
     pub wallpaper_custom: Option<crate::wallpaper::CustomWallpaper>,
+    /// Whether the wizard holds a chosen wallpaper and therefore offers the remove action.
+    ///
+    /// The host consumes `wallpaper_choice` and `wallpaper_custom` on the next frame, so the
+    /// wizard keeps its own flag for the thumbnail row of the appearance step.
+    pub wallpaper_picked: bool,
     /// Company name captured for a business account.
     pub company_name: String,
     /// Company street and house number captured for a business account.
@@ -174,14 +216,22 @@ pub struct AuthState {
     pub password_visible: bool,
     /// Profile picture chosen in the wizard.
     pub avatar: Option<crate::wallpaper::CustomWallpaper>,
+    /// Clock settings of the sign-in and lock screen, from the company profile.
+    pub clock: crate::desktop::ClockSettings,
+    /// Decoded account pictures of the account strips, loaded once per account.
+    pub account_avatars: std::collections::HashMap<Uuid, Option<crate::wallpaper::CustomWallpaper>>,
     token: Option<String>,
 }
 
 impl AuthState {
     /// Loads the starting screen: setup when no account exists, login otherwise.
+    ///
+    /// A database with exactly one active account signs in automatically when the reference
+    /// security switch `autoLoginSingleUser` is on.
     pub fn new(store: &Store, now: i64) -> socdof_core::CoreResult<Self> {
         let users = store.user_count()?;
-        Ok(Self {
+        let clock = crate::desktop::ClockSettings::from_profile(&store.company_profile()?);
+        let mut state = Self {
             view: if users == 0 {
                 AuthView::Setup
             } else {
@@ -190,8 +240,102 @@ impl AuthState {
             idle_timeout_ms: DEFAULT_IDLE_TIMEOUT_MS,
             last_activity_ms: now,
             company_currency: "€".to_string(),
+            clock,
             ..Self::default()
-        })
+        };
+        if users > 0 {
+            if let Some(LoginOutcome::Success {
+                user,
+                session,
+                token,
+            }) = store.auto_login_single_user(now)?
+            {
+                state.apply_sign_in(*user, session, token, now);
+            }
+        }
+        Ok(state)
+    }
+
+    /// Applies a successful sign-in of the password, quick-switch or auto-login path.
+    fn apply_sign_in(&mut self, user: User, session: Session, token: String, now: i64) {
+        self.username = user.username.clone();
+        let must_change = user.must_change_password;
+        self.user = Some(user);
+        self.session = Some(session);
+        self.token = Some(token);
+        self.password.clear();
+        self.password_confirm.clear();
+        self.error = None;
+        self.status = Some("auth_welcome");
+        self.failed_unlocks = 0;
+        self.locked_until = None;
+        self.last_activity_ms = now;
+        self.view = if must_change {
+            AuthView::ChangePassword
+        } else {
+            AuthView::Unlocked
+        };
+    }
+
+    /// Runs the reference single-user auto login on demand (the login card and the start).
+    pub fn auto_login(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        if let Some(LoginOutcome::Success {
+            user,
+            session,
+            token,
+        }) = store.auto_login_single_user(now)?
+        {
+            self.apply_sign_in(*user, session, token, now);
+        }
+        Ok(())
+    }
+
+    /// Signs a passwordless account in directly, the reference quick user switch.
+    pub fn quick_switch_to(
+        &mut self,
+        store: &Store,
+        user_id: Uuid,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        match store.quick_switch(user_id, now)? {
+            LoginOutcome::Success {
+                user,
+                session,
+                token,
+            } => self.apply_sign_in(*user, session, token, now),
+            LoginOutcome::Locked { until } => {
+                self.locked_until = Some(until);
+                self.error = Some("auth_error_locked");
+            }
+            LoginOutcome::Invalid => self.error = Some("auth_error_invalid"),
+        }
+        Ok(())
+    }
+
+    /// Stored profile picture of an account, decoded once and cached for the account strips.
+    pub fn avatar_for(
+        &mut self,
+        store: &Store,
+        user_id: Uuid,
+    ) -> Option<crate::wallpaper::CustomWallpaper> {
+        if let Some(cached) = self.account_avatars.get(&user_id) {
+            return cached.clone();
+        }
+        let avatar = socdof_core::settings_service::user_avatar(store, user_id)
+            .ok()
+            .flatten()
+            .and_then(|data_url| socdof_core::settings_service::decode_data_url_rgba(&data_url))
+            .map(
+                |(width, height, pixels)| crate::wallpaper::CustomWallpaper {
+                    width,
+                    height,
+                    pixels: std::sync::Arc::new(pixels),
+                    // Unique and stable per account so the texture cache never mixes two pictures.
+                    revision: (user_id.as_u128() as u64) | 1,
+                },
+            );
+        self.account_avatars.insert(user_id, avatar.clone());
+        avatar
     }
 
     /// Creates a signed-in state through the real login path. Used by the gallery fixtures.
@@ -222,6 +366,9 @@ impl AuthState {
         self.error = None;
         self.status = None;
         self.back = false;
+        self.signing_in_until = 0;
+        self.quit_confirm = false;
+        self.other_user = false;
     }
 
     /// Shows the first-run setup form.
@@ -239,6 +386,15 @@ impl AuthState {
         self.recovery_new_password.clear();
         self.recovery_confirm_password.clear();
         self.recovery_target = None;
+        self.recovery_choice = RecoveryChoice::Preset;
+        self.recovery_preset = 0;
+        self.recovery_custom_question.clear();
+        self.recovery_questions.clear();
+        self.setup_skip_extras = false;
+        self.wallpaper_picked = false;
+        self.signing_in_until = 0;
+        self.quit_confirm = false;
+        self.other_user = false;
         self.avatar = None;
         self.setup_apps.clear();
         self.setup_business_skipped = false;
@@ -276,28 +432,7 @@ impl AuthState {
                 user,
                 session,
                 token,
-            } => {
-                self.username = user.username.clone();
-                self.user = Some(*user);
-                self.session = Some(session);
-                self.token = Some(token);
-                self.password.clear();
-                self.password_confirm.clear();
-                self.error = None;
-                self.status = Some("auth_welcome");
-                self.failed_unlocks = 0;
-                self.locked_until = None;
-                self.last_activity_ms = now;
-                self.view = if self
-                    .user
-                    .as_ref()
-                    .is_some_and(|user| user.must_change_password)
-                {
-                    AuthView::ChangePassword
-                } else {
-                    AuthView::Unlocked
-                };
-            }
+            } => self.apply_sign_in(*user, session, token, now),
             LoginOutcome::Locked { until } => {
                 self.password.clear();
                 self.locked_until = Some(until);
@@ -397,16 +532,31 @@ impl AuthState {
             self.error = Some("auth_error_password_short");
             return Ok(());
         }
-        let has_first_answer = !self.recovery_answer_one.trim().is_empty();
-        let has_second_answer = !self.recovery_answer_two.trim().is_empty();
-        if has_first_answer != has_second_answer
-            || (has_first_answer
-                && (self.recovery_answer_one.trim().chars().count() < 2
-                    || self.recovery_answer_two.trim().chars().count() < 2))
-        {
-            self.error = Some("auth_recovery_answers_required");
-            return Ok(());
-        }
+        // The wizard asks for one question (catalogue, custom or none) and one answer, like the
+        // TypeScript setup screen. "No question" is a valid choice and stores nothing.
+        let answer = self.recovery_answer_one.trim().to_string();
+        let question = match self.recovery_choice {
+            RecoveryChoice::None => None,
+            RecoveryChoice::Custom => {
+                let custom = self.recovery_custom_question.trim().to_string();
+                if custom.is_empty() {
+                    self.error = Some("setup_recovery_question_required");
+                    return Ok(());
+                }
+                if answer.chars().count() < 2 {
+                    self.error = Some("setup_recovery_answer_required");
+                    return Ok(());
+                }
+                Some(custom)
+            }
+            RecoveryChoice::Preset => {
+                if answer.chars().count() < 2 {
+                    self.error = Some("setup_recovery_answer_required");
+                    return Ok(());
+                }
+                Some(format!("setup_recovery_q{}", self.recovery_preset + 1))
+            }
+        };
         let password = self.password.clone();
         let user = User {
             id: Uuid::new_v4(),
@@ -419,6 +569,7 @@ impl AuthState {
                 socdof_core::CoreError::Validation("auth_password_hash".to_string())
             })?,
             must_change_password: false,
+            passwordless: false,
             created_at: now,
             updated_at: now,
         };
@@ -436,18 +587,13 @@ impl AuthState {
             &account_type_key,
             &serde_json::Value::String(self.account_type.as_str().to_owned()),
         )?;
-        if has_first_answer {
-            socdof_core::security_questions::save_security_answers(
-                store,
-                user.id,
-                &[
-                    self.recovery_answer_one.trim().to_owned(),
-                    self.recovery_answer_two.trim().to_owned(),
-                ],
+        if let Some(question) = &question {
+            socdof_core::security_questions::save_security_question(
+                store, user.id, question, &answer,
             )?;
         }
         if store.insert_first_admin(&user).is_err() {
-            if has_first_answer {
+            if question.is_some() {
                 let _ = socdof_core::security_questions::delete_security_answers(store, user.id);
                 let _ = store.remove_setting(&account_type_key);
             }
@@ -457,6 +603,22 @@ impl AuthState {
                 "auth_error_storage"
             });
             return Ok(());
+        }
+
+        // The profile picture chosen in the wizard belongs to the account and feeds the sign-in
+        // and lock-screen account strips.
+        if let Some(avatar) = self.avatar.as_ref() {
+            if let Ok(data_url) = socdof_core::settings_service::encode_png_data_url(
+                avatar.width as u32,
+                avatar.height as u32,
+                avatar.pixels.as_slice(),
+            ) {
+                let _ = socdof_core::settings_service::save_user_avatar(
+                    store,
+                    user.id,
+                    Some(&data_url),
+                );
+            }
         }
 
         if self.account_type == SetupAccountType::Business {
@@ -492,6 +654,7 @@ impl AuthState {
         self.password_confirm.clear();
         self.recovery_answer_one.clear();
         self.recovery_answer_two.clear();
+        self.recovery_custom_question.clear();
         self.login(store, now)?;
         if self.view == AuthView::Unlocked {
             self.status = Some("auth_setup_done");
@@ -522,17 +685,17 @@ impl AuthState {
                 return;
             }
         };
-        let answers = match socdof_core::security_questions::security_answers(store, user.id) {
-            Ok(answers) if answers.answer_hashes.len() >= 2 => answers,
-            _ => {
-                self.error = Some("auth_recovery_unavailable");
-                return;
-            }
-        };
-        if !answers.is_configured() {
+        // One configured question is enough: the wizard stores a single one, and the recovery form
+        // checks the answer against every stored question.
+        let configured = socdof_core::security_questions::security_answers(store, user.id)
+            .map(|answers| answers.is_configured())
+            .unwrap_or(false);
+        if !configured {
             self.error = Some("auth_recovery_unavailable");
             return;
         }
+        self.recovery_questions =
+            socdof_core::security_questions::questions_of(store, user.id).unwrap_or_default();
         self.username = user.username;
         self.password.clear();
         self.recovery_target = Some(user.id);
@@ -563,19 +726,11 @@ impl AuthState {
             self.error = Some("auth_error_password_mismatch");
             return Ok(());
         }
-        let first = socdof_core::security_questions::verify_security_answer(
+        if !socdof_core::security_questions::verify_any_answer(
             store,
             user_id,
-            0,
             &self.recovery_answer_one,
-        )?;
-        let second = socdof_core::security_questions::verify_security_answer(
-            store,
-            user_id,
-            1,
-            &self.recovery_answer_two,
-        )?;
-        if !first || !second {
+        )? {
             self.error = Some("auth_recovery_invalid");
             return Ok(());
         }
@@ -591,6 +746,7 @@ impl AuthState {
         self.password.clear();
         self.password_confirm.clear();
         self.recovery_target = None;
+        self.recovery_questions.clear();
         self.recovery_answer_one.clear();
         self.recovery_answer_two.clear();
         self.recovery_new_password.clear();
@@ -768,6 +924,59 @@ impl AuthState {
             .max(1)
     }
 
+    /// Remaining lockout in whole seconds, zero when no lockout is running.
+    pub fn lockout_seconds(&self, now: i64) -> i64 {
+        self.locked_until
+            .map(|until| ((until - now).max(0) + 999) / 1000)
+            .unwrap_or(0)
+    }
+
+    /// Starts the sign-in with its loading screen.
+    ///
+    /// The TypeScript form awaits the store call and paints [`AuthLoadingScreen`] meanwhile. The
+    /// native store call is synchronous, so the screen runs for [`SIGN_IN_LOADING_MS`] and
+    /// [`AuthState::tick_sign_in`] performs the login afterwards; missing credentials still fail
+    /// immediately with the usual form error.
+    pub fn begin_sign_in(&mut self, now: i64) {
+        if self.view != AuthView::Login {
+            return;
+        }
+        if self.username.trim().is_empty() || self.password.is_empty() {
+            self.error = Some("auth_error_required");
+            return;
+        }
+        self.error = None;
+        self.signing_in_until = now + SIGN_IN_LOADING_MS;
+    }
+
+    /// Finishes a started sign-in once the loading screen elapsed.
+    pub fn tick_sign_in(&mut self, store: &Store, now: i64) {
+        if self.signing_in_until != 0 && now >= self.signing_in_until {
+            self.signing_in_until = 0;
+            let _ = self.login(store, now);
+        }
+    }
+
+    /// Whether the sign-in loading screen is on screen.
+    pub fn signing_in(&self, now: i64) -> bool {
+        self.signing_in_until > now
+    }
+}
+
+/// Theme one auth view paints with.
+///
+/// The legacy sign-in and lock screens always sit on the dark backdrop, independent of the
+/// appearance chosen for the desktop; the wizard and the forms follow the chosen appearance.
+pub fn screen_theme(theme: &Theme, view: AuthView) -> Theme {
+    match view {
+        AuthView::Login | AuthView::Locked => {
+            Theme::new(crate::theme::Appearance::Dark, theme.accent.id.clone())
+        }
+        _ => theme.clone(),
+    }
+}
+
+impl AuthState {
     /// Whether the current account is an administrator.
     pub fn is_admin(&self) -> bool {
         self.user.as_ref().is_some_and(User::is_admin)
@@ -942,22 +1151,35 @@ pub fn auth(
         state.note_activity(now);
     }
     if ctx.input(|input| input.key_pressed(Key::Escape)) {
-        match state.view {
-            AuthView::Login | AuthView::Setup if state.allow_exit => state.back = true,
-            AuthView::Login | AuthView::Setup => {}
-            AuthView::Recover => {
-                if state.session.is_some() {
-                    let _ = state.sign_out(store, now);
-                } else {
-                    state.show_login();
+        if state.quit_confirm {
+            state.quit_confirm = false;
+        } else {
+            match state.view {
+                AuthView::Login | AuthView::Setup if state.allow_exit => state.back = true,
+                AuthView::Login | AuthView::Setup => {}
+                AuthView::Recover => {
+                    if state.session.is_some() {
+                        let _ = state.sign_out(store, now);
+                    } else {
+                        state.show_login();
+                    }
                 }
+                AuthView::ChangePassword => {}
+                AuthView::Unlocked => state.lock(now),
+                AuthView::Locked => {}
             }
-            AuthView::ChangePassword => {}
-            AuthView::Unlocked => state.lock(now),
-            AuthView::Locked => {}
         }
     }
     let submit = ctx.input(|input| input.key_pressed(Key::Enter));
+
+    // A started sign-in runs on the next frame, so the loading screen of the legacy form is
+    // actually painted instead of flashing for a single frame.
+    if state.view == AuthView::Login {
+        state.tick_sign_in(store, now);
+    }
+
+    let screen_theme = screen_theme(theme, state.view);
+    let theme = &screen_theme;
 
     let view = state.view;
     egui::CentralPanel::default()
@@ -968,6 +1190,9 @@ pub fn auth(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     match view {
+                        AuthView::Login if state.signing_in(now) => {
+                            signing_in_screen(ui, theme, texts, state, now)
+                        }
                         AuthView::Login => crate::auth_screens::login(
                             ui, theme, texts, focus, state, store, now, submit,
                         ),
@@ -979,10 +1204,20 @@ pub fn auth(
                         | AuthView::Recover
                         | AuthView::ChangePassword => {
                             // The card views are shorter than the viewport, so keep them vertically
-                            // centered instead of glued to the top of the scroll area.
-                            let top = ((ui.available_height() - 520.0) * 0.5).clamp(24.0, 200.0);
+                            // centered instead of glued to the top of the scroll area. The lock
+                            // screen is a full screen and lays out its own clock spacing.
+                            let top = if view == AuthView::Locked {
+                                0.0
+                            } else {
+                                ((ui.available_height() - 520.0) * 0.5).clamp(24.0, 200.0)
+                            };
                             ui.add_space(top);
-                            crate::auth_kit::centered(ui, 460.0, |ui| match view {
+                            let card_width = if view == AuthView::Locked {
+                                520.0
+                            } else {
+                                460.0
+                            };
+                            crate::auth_kit::centered(ui, card_width, |ui| match view {
                                 AuthView::Locked => lock_screen(
                                     ui,
                                     theme,
@@ -1041,7 +1276,7 @@ fn recovery_form(
         ui.add_space(2.0);
         kit::muted(ui, theme, texts.get("auth_recovery_subtitle"));
         ui.add_space(12.0);
-        answer_fields(ui, theme, texts, focus, state);
+        recovery_answer_field(ui, theme, texts, focus, state);
         ui.add_space(10.0);
         kit::field_label(ui, theme, texts.get("auth_recovery_new_password"), true);
         ui.add_space(4.0);
@@ -1166,7 +1401,48 @@ fn pwd_card(ui: &mut egui::Ui, theme: &Theme, add: impl FnOnce(&mut egui::Ui)) {
     });
 }
 
-/// Draws the two security questions of the recovery and forced-password forms.
+/// Draws the configured questions and one answer field, like the TypeScript recovery form.
+///
+/// The account keeps its questions as catalogue ids (or as the free text of a custom question), so
+/// the label is localized here instead of being baked into the stored answer.
+fn recovery_answer_field(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut AuthState,
+) {
+    let labels: Vec<String> = if state.recovery_questions.is_empty() {
+        socdof_core::security_questions::DEFAULT_QUESTIONS
+            .iter()
+            .map(|id| texts.get(id).to_string())
+            .collect()
+    } else {
+        state
+            .recovery_questions
+            .iter()
+            .map(|question| crate::auth_screens::recovery_question_label(texts, question))
+            .collect()
+    };
+    // The joined questions form one wrapping paragraph, like `text-sm text-slate-500` of the
+    // TypeScript recovery form; a horizontal label would grow the card past a 360 px panel.
+    ui.label(
+        RichText::new(labels.join(" · "))
+            .size(12.0)
+            .color(theme.palette.text_muted),
+    );
+    ui.add_space(4.0);
+    kit::input(
+        ui,
+        theme,
+        focus,
+        &mut state.recovery_answer_one,
+        texts.get("auth_recovery_answer_one"),
+        texts.get("auth_recovery_answer_one"),
+    );
+}
+
+/// Draws the two security questions of the forced-password form.
 fn answer_fields(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1214,7 +1490,54 @@ struct CardInput<'a> {
     submit: bool,
 }
 
-/// Rough password strength from zero to three, matching the legacy meter.
+/// Draws the sign-in loading screen of the legacy form.
+///
+/// The avatar and the "sign in" label with its animated dots stay on the dark backdrop while the
+/// store call runs.
+fn signing_in_screen(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    state: &AuthState,
+    now: i64,
+) {
+    let screen = ui.ctx().screen_rect();
+    let initials = state
+        .user
+        .as_ref()
+        .map(|user| kit::initials(&user.display_name))
+        .unwrap_or_default();
+    ui.allocate_ui_with_layout(screen.size(), Layout::top_down(Align::Center), |ui| {
+        ui.add_space((screen.height() * 0.38).max(40.0));
+        kit::avatar(ui, theme, None, &initials, 80.0);
+        ui.add_space(18.0);
+        let step = (now / 350).rem_euclid(4) as usize;
+        ui.label(
+            RichText::new(format!("{}{}", texts.get("auth_sign_in"), ".".repeat(step)))
+                .size(20.0)
+                .family(crate::theme::light())
+                .color(theme.palette.text),
+        );
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 6.0;
+            // `ui.horizontal` starts at the left edge, so centre the four dots by hand.
+            ui.add_space((ui.available_width() - 42.0).max(0.0) * 0.5);
+            for index in 0..4 {
+                let (rect, _) = ui.allocate_exact_size(Vec2::splat(6.0), egui::Sense::hover());
+                let alpha = if index == step { 230 } else { 110 };
+                ui.painter().circle_filled(
+                    rect.center(),
+                    3.0,
+                    crate::tokens::with_alpha(theme.palette.text, alpha),
+                );
+            }
+        });
+    });
+}
+
+/// Draws the lock screen: clock, the signed-in account and one password field on the dark
+/// backdrop, plus the account strip along the bottom, like the legacy lock screen.
 fn lock_screen(
     ui: &mut egui::Ui,
     theme: &Theme,
@@ -1224,204 +1547,285 @@ fn lock_screen(
     input: CardInput<'_>,
 ) {
     let CardInput { store, now, submit } = input;
-    let mut unlock = false;
-    let mut sign_out = false;
-    let mut recover = false;
-    // The legacy lock screen is a screen, not a form: a large clock, the date and the avatar of the
-    // signed-in account above one password field.
-    ui.add_space(10.0);
-    ui.vertical_centered(|ui| {
-        ui.label(
-            RichText::new(crate::desktop::format_clock_12h(now))
-                .size(48.0)
-                .strong()
-                .color(theme.palette.text),
-        );
-        ui.label(
-            RichText::new(crate::reports::format_date(now))
-                .size(FONT_SMALL)
-                .color(theme.palette.text_muted),
-        );
-        ui.add_space(18.0);
-        if let Some(user) = state.user.as_ref() {
-            let initial = user
-                .display_name
-                .chars()
-                .next()
-                .map(|character| character.to_uppercase().to_string())
-                .unwrap_or_default();
-            let (avatar, _) = ui.allocate_exact_size(egui::Vec2::splat(56.0), egui::Sense::hover());
-            ui.painter()
-                .circle_filled(avatar.center(), 28.0, theme.accent.base);
-            let galley = ui.painter().layout_no_wrap(
-                initial,
-                egui::FontId::proportional(22.0),
-                theme.palette.accent_on,
-            );
-            ui.painter().galley(
-                avatar.center() - galley.size() / 2.0,
-                galley,
-                theme.palette.accent_on,
-            );
-            ui.add_space(8.0);
-            ui.label(RichText::new(&user.display_name).size(FONT_TITLE).strong());
-            ui.label(
-                RichText::new(format!("@{}", user.username))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
-            );
-        }
-        ui.add_space(14.0);
-    });
-    let others: Vec<User> = store
+    let users: Vec<User> = store
         .list_users()
         .unwrap_or_default()
         .into_iter()
-        .filter(|user| {
-            user.active
-                && match state.user.as_ref() {
-                    Some(current) => current.id != user.id,
-                    None => true,
-                }
-        })
+        .filter(|user| user.active)
         .collect();
-    card(ui, theme, |ui| {
-        kit::field_label(ui, theme, texts.get("auth_unlock_password"), true);
-        ui.add_space(4.0);
-        kit::password_input(
-            ui,
-            theme,
-            focus,
-            &mut state.password,
-            texts.get("auth_password_hint"),
-            texts.get("auth_unlock_password"),
-            kit::PasswordField::default(),
-        );
-        messages(ui, theme, texts, state, now, true);
-        ui.add_space(8.0);
-        ui.horizontal(|ui| {
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("auth_unlock"),
-                ButtonVariant::Primary,
-            )
-            .activated
-            {
-                unlock = true;
-            }
-            if button(
-                ui,
-                theme,
-                focus,
-                texts.get("auth_sign_out"),
-                ButtonVariant::Ghost,
-            )
-            .activated
-            {
-                sign_out = true;
-            }
-        });
-        ui.add_space(6.0);
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("auth_forgot_password"),
-            ButtonVariant::Ghost,
-        )
-        .activated
-        {
-            recover = true;
-        }
-        ui.label(
-            RichText::new(if state.forgot_hint {
-                texts.get("auth_forgot_hint")
-            } else {
-                texts.get("auth_lock_hint")
-            })
-            .size(FONT_SMALL)
-            .color(theme.palette.text_muted),
-        );
+    let mut unlock = false;
+    let mut switch_user = false;
+    let mut quick_switch: Option<Uuid> = None;
+    let quick_switch_allowed = socdof_core::auth_security::load(store)
+        .map(|settings| settings.allow_quick_user_switch)
+        .unwrap_or(true);
+    let account_avatars: Vec<(Uuid, Option<crate::wallpaper::CustomWallpaper>)> = users
+        .iter()
+        .map(|user| (user.id, state.avatar_for(store, user.id)))
+        .collect();
+    let current_avatar = state.user.as_ref().and_then(|current| {
+        account_avatars
+            .iter()
+            .find(|(id, _)| *id == current.id)
+            .and_then(|(_, avatar)| avatar.clone())
     });
-    if recover {
-        if let Some(user) = state.user.clone() {
-            let configured = socdof_core::security_questions::security_answers(store, user.id)
-                .map(|answers| answers.answer_hashes.len() >= 2 && answers.is_configured())
-                .unwrap_or(false);
-            if configured {
-                state.username = user.username;
-                state.begin_recovery(store);
-            } else {
-                state.forgot_hint = !state.forgot_hint;
-            }
-        } else {
-            state.forgot_hint = !state.forgot_hint;
-        }
-    }
-    if !others.is_empty() {
-        ui.add_space(12.0);
+    let current_passwordless = state.user.as_ref().is_some_and(|user| user.passwordless);
+    let top = ((ui.available_height() - 560.0) * 0.22).max(8.0);
+    ui.add_space(top);
+    kit::centered(ui, 520.0, |ui| {
         ui.vertical_centered(|ui| {
             ui.label(
-                RichText::new(texts.get("auth_switch_account"))
-                    .size(FONT_SMALL)
-                    .color(theme.palette.text_muted),
+                RichText::new(state.clock.sign_in_time(now))
+                    .size(36.0)
+                    .family(crate::theme::light())
+                    .color(theme.palette.text),
             );
-        });
-        ui.add_space(6.0);
-        ui.horizontal_wrapped(|ui| {
-            for user in &others {
-                let id = egui::Id::new(("socdof-lock-switch", user.id.to_string()));
-                let focused = focus.register(id);
-                let (rect, response) =
-                    ui.allocate_exact_size(egui::Vec2::new(128.0, 56.0), egui::Sense::click());
-                let painter = ui.painter().clone();
-                painter.rect(
-                    rect,
-                    egui::Rounding::same(crate::tokens::RADIUS_CONTROL),
-                    if response.hovered() || focused {
-                        theme.palette.surface_muted
-                    } else {
-                        theme.palette.surface
+            ui.label(
+                RichText::new(state.clock.sign_in_date(now))
+                    .size(12.0)
+                    .family(crate::theme::semibold())
+                    .color(crate::tokens::with_alpha(theme.palette.text, 217)),
+            );
+            // The legacy screen centres the account block in the space below the clock.
+            ui.add_space((ui.available_height() * 0.22).max(28.0));
+            let (name, initials) = match state.user.as_ref() {
+                Some(user) => (user.display_name.clone(), kit::initials(&user.display_name)),
+                None => (String::new(), String::new()),
+            };
+            kit::avatar(ui, theme, current_avatar.as_ref(), &initials, 80.0);
+            ui.add_space(14.0);
+            ui.label(
+                RichText::new(&name)
+                    .size(20.0)
+                    .family(crate::theme::semibold())
+                    .color(theme.palette.text),
+            );
+            ui.label(
+                RichText::new(texts.get("auth_locked_title"))
+                    .size(12.0)
+                    .color(crate::tokens::with_alpha(theme.palette.text, 166)),
+            );
+            ui.add_space(14.0);
+            kit::centered(ui, 324.0, |ui| {
+                if current_passwordless {
+                    // A locked passwordless account continues without a password.
+                    if kit::primary_button(
+                        ui,
+                        theme,
+                        focus,
+                        &texts.get("auth_continue_as").replace(
+                            "{name}",
+                            state
+                                .user
+                                .as_ref()
+                                .map(|user| user.display_name.as_str())
+                                .unwrap_or_default(),
+                        ),
+                    ) {
+                        unlock = true;
+                    }
+                    return;
+                }
+                let field = kit::password_input(
+                    ui,
+                    theme,
+                    focus,
+                    &mut state.password,
+                    texts.get("auth_password"),
+                    texts.get("auth_unlock_password"),
+                    kit::PasswordField {
+                        autofocus: true,
+                        ..Default::default()
                     },
-                    egui::Stroke::new(1.0_f32, theme.palette.border),
                 );
-                let initial = user
-                    .display_name
-                    .chars()
-                    .next()
-                    .map(|character| character.to_uppercase().to_string())
-                    .unwrap_or_default();
-                let avatar = egui::Pos2::new(rect.left() + 24.0, rect.center().y);
-                painter.circle_filled(avatar, 14.0, theme.accent.base);
-                painter.text(
-                    avatar,
-                    egui::Align2::CENTER_CENTER,
-                    initial,
-                    egui::FontId::proportional(14.0),
-                    theme.palette.accent_on,
+                let frame = field.rect.expand2(Vec2::new(12.0, 11.0));
+                let arrow = egui::Rect::from_center_size(
+                    Pos2::new(frame.right() - 24.0, frame.center().y),
+                    Vec2::splat(34.0),
                 );
-                painter.text(
-                    egui::Pos2::new(rect.left() + 46.0, rect.center().y),
-                    egui::Align2::LEFT_CENTER,
-                    &user.display_name,
-                    egui::FontId::proportional(FONT_SMALL),
-                    theme.palette.text,
+                if kit::overlay_circle_button(
+                    ui,
+                    theme,
+                    focus,
+                    arrow,
+                    Icon::ChevronRight,
+                    texts.get("auth_unlock"),
+                ) {
+                    unlock = true;
+                }
+            });
+            ui.add_space(8.0);
+            messages(ui, theme, texts, state, now, true);
+        });
+    });
+
+    // Window controls and the language selector share the top right corner, like the legacy lock
+    // screen; it has no close button because the session stays alive.
+    let screen = ui.ctx().screen_rect();
+    egui::Area::new(egui::Id::new("socdof-lock-language"))
+        .fixed_pos(Pos2::new(screen.right() - 256.0, screen.top() + 16.0))
+        .order(egui::Order::Foreground)
+        .show(ui.ctx(), |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 8.0;
+                if crate::components::icon_button(
+                    ui,
+                    theme,
+                    focus,
+                    Icon::Minimize,
+                    texts.get("desktop_minimize_app"),
+                )
+                .activated
+                {
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                }
+                if crate::components::icon_button(
+                    ui,
+                    theme,
+                    focus,
+                    Icon::Maximize,
+                    texts.get("desktop_enter_fullscreen"),
+                )
+                .activated
+                {
+                    crate::desktop::toggle_fullscreen(ui.ctx());
+                }
+                crate::auth_screens::language_selector(ui, theme, texts, state);
+            });
+        });
+
+    // Bottom account strip: every active account and the "switch user" tile. Selecting another
+    // account keeps the session and only changes which password the form unlocks.
+    let total = users.len() as f32 * 94.0 + 110.0;
+    let left = if screen.width() < kit::COMPACT_WIDTH {
+        screen.left() + ((screen.width() - total) * 0.5).max(0.0)
+    } else {
+        screen.left() + 28.0
+    };
+    egui::Area::new(egui::Id::new("socdof-lock-accounts"))
+        .fixed_pos(Pos2::new(left, screen.bottom() - 32.0 - 86.0))
+        .order(egui::Order::Foreground)
+        .show(ui.ctx(), |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 18.0;
+                for user in &users {
+                    let selected = state
+                        .user
+                        .as_ref()
+                        .is_some_and(|current| current.id == user.id);
+                    let (rect, response) =
+                        ui.allocate_exact_size(Vec2::new(76.0, 86.0), egui::Sense::click());
+                    if selected || response.hovered() {
+                        ui.painter().rect(
+                            rect.shrink(2.0),
+                            egui::Rounding::same(12.0),
+                            crate::tokens::with_alpha(
+                                theme.palette.text,
+                                if selected { 20 } else { 10 },
+                            ),
+                            egui::Stroke::new(1.0_f32, kit::hairline_color(theme)),
+                        );
+                    }
+                    let avatar_rect = egui::Rect::from_min_size(
+                        Pos2::new(rect.center().x - 22.0, rect.top() + 4.0),
+                        Vec2::splat(44.0),
+                    );
+                    let avatar = account_avatars
+                        .iter()
+                        .find(|(id, _)| *id == user.id)
+                        .and_then(|(_, avatar)| avatar.as_ref());
+                    kit::draw_avatar(
+                        ui,
+                        theme,
+                        avatar_rect,
+                        avatar,
+                        &kit::initials(&user.display_name),
+                    );
+                    let galley = ui.painter().layout(
+                        user.display_name
+                            .split_whitespace()
+                            .next()
+                            .unwrap_or_default()
+                            .to_owned(),
+                        egui::FontId::proportional(11.0),
+                        theme.palette.text,
+                        140.0,
+                    );
+                    let caption = egui::Rect::from_min_size(
+                        Pos2::new(rect.center().x - 37.0, avatar_rect.bottom() + 6.0),
+                        Vec2::new(74.0, 14.0),
+                    );
+                    ui.painter().with_clip_rect(caption).galley(
+                        Pos2::new(rect.center().x - galley.size().x * 0.5, caption.top()),
+                        galley,
+                        theme.palette.text,
+                    );
+                    if response.clicked() {
+                        if user.passwordless && quick_switch_allowed {
+                            quick_switch = Some(user.id);
+                        } else {
+                            state.user = Some(user.clone());
+                            state.password.clear();
+                            state.error = None;
+                            focus.set_focus(None);
+                        }
+                    }
+                }
+                let (rect, response) =
+                    ui.allocate_exact_size(Vec2::new(110.0, 86.0), egui::Sense::click());
+                let tile = egui::Rect::from_min_size(
+                    Pos2::new(rect.center().x - 22.0, rect.top() + 4.0),
+                    Vec2::splat(44.0),
+                );
+                ui.painter().circle(
+                    tile.center(),
+                    22.0,
+                    egui::Color32::TRANSPARENT,
+                    egui::Stroke::new(1.4_f32, kit::hairline_color(theme)),
+                );
+                Icon::User.draw(
+                    ui.painter(),
+                    egui::Rect::from_center_size(tile.center(), Vec2::splat(20.0)),
+                    theme.palette.text_muted,
+                    1.5,
+                );
+                let galley = ui.painter().layout(
+                    texts.get("auth_switch_user").to_owned(),
+                    egui::FontId::proportional(11.0),
+                    theme.palette.text_muted,
+                    110.0,
+                );
+                let caption = egui::Rect::from_min_size(
+                    Pos2::new(rect.center().x - 55.0, tile.bottom() + 6.0),
+                    Vec2::new(110.0, 30.0),
+                );
+                ui.painter().with_clip_rect(caption).galley(
+                    Pos2::new(rect.center().x - galley.size().x * 0.5, caption.top()),
+                    galley,
+                    theme.palette.text_muted,
                 );
                 if response.clicked() {
-                    state.user = Some(user.clone());
-                    state.password.clear();
-                    state.error = None;
-                    focus.set_focus(None);
+                    switch_user = true;
                 }
-            }
+            });
         });
+
+    if let Some(user_id) = quick_switch {
+        let _ = state.quick_switch_to(store, user_id, now);
+        return;
     }
     if unlock || submit {
-        let _ = state.unlock(store, now);
+        match state.user.as_ref().filter(|user| user.passwordless) {
+            Some(user) => {
+                let _ = state.quick_switch_to(store, user.id, now);
+            }
+            None => {
+                let _ = state.unlock(store, now);
+            }
+        }
     }
-    if sign_out {
+    if switch_user {
         let _ = state.sign_out(store, now);
     }
 }
@@ -1542,6 +1946,7 @@ pub fn seed_auth_user(store: &Store, now: i64) -> socdof_core::CoreResult<User> 
         active: true,
         password_hash: hash_password("Socdof2026!")?,
         must_change_password: false,
+        passwordless: false,
         created_at: now,
         updated_at: now,
     };
@@ -1656,6 +2061,7 @@ mod tests {
             active: false,
             password_hash: hash_password("Socdof2026!").unwrap(),
             must_change_password: false,
+            passwordless: false,
             created_at: NOW,
             updated_at: NOW,
         };
@@ -1776,6 +2182,9 @@ mod tests {
         assert_eq!(state.error, Some("auth_error_password_mismatch"));
 
         state.password_confirm = "Socdof2026!".to_string();
+        // The wizard defaults to the first recovery question and requires an answer; the shortest
+        // valid path is the explicit "no question" choice of the TypeScript setup.
+        state.recovery_choice = RecoveryChoice::None;
         state.create_first_admin(&store, NOW).unwrap();
         assert_eq!(state.view, AuthView::Unlocked);
         assert_eq!(state.status, Some("auth_setup_done"));
@@ -1825,6 +2234,148 @@ mod tests {
             "FIRST PET"
         )
         .expect("verify first answer"));
+    }
+
+    #[test]
+    fn first_admin_setup_stores_a_custom_or_no_recovery_question() {
+        // A custom question is stored as free text, together with its hashed answer.
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AuthState::new(&store, now_millis()).expect("setup state");
+        state.display_name = "Custom Admin".to_string();
+        state.username = "custom-admin".to_string();
+        state.password = "CustomAdmin2026!".to_string();
+        state.password_confirm = state.password.clone();
+        state.recovery_choice = RecoveryChoice::Custom;
+        state.recovery_custom_question = "Wie hieß mein Hund?".to_string();
+        state.recovery_answer_one = "Bella".to_string();
+        state
+            .create_first_admin(&store, now_millis())
+            .expect("create with custom question");
+        let user = store
+            .find_user_by_username("custom-admin")
+            .expect("find")
+            .expect("created");
+        assert_eq!(
+            socdof_core::security_questions::questions_of(&store, user.id).expect("questions"),
+            ["Wie hieß mein Hund?"]
+        );
+        assert!(
+            socdof_core::security_questions::verify_any_answer(&store, user.id, "BELLA")
+                .expect("verify")
+        );
+
+        // "No question" is valid and stores nothing, so recovery stays unavailable.
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AuthState::new(&store, now_millis()).expect("setup state");
+        state.display_name = "Plain Admin".to_string();
+        state.username = "plain-admin".to_string();
+        state.password = "PlainAdmin2026!".to_string();
+        state.password_confirm = state.password.clone();
+        state.recovery_choice = RecoveryChoice::None;
+        state
+            .create_first_admin(&store, now_millis())
+            .expect("create without question");
+        let user = store
+            .find_user_by_username("plain-admin")
+            .expect("find")
+            .expect("created");
+        assert!(
+            !socdof_core::security_questions::security_answers(&store, user.id)
+                .expect("answers")
+                .is_configured()
+        );
+
+        // A missing answer is rejected before the account is written.
+        let store = Store::open_in_memory().expect("store");
+        let mut state = AuthState::new(&store, now_millis()).expect("setup state");
+        state.display_name = "Late Admin".to_string();
+        state.username = "late-admin".to_string();
+        state.password = "LateAdmin2026!".to_string();
+        state.password_confirm = state.password.clone();
+        state.recovery_choice = RecoveryChoice::Preset;
+        state.recovery_preset = 2;
+        state
+            .create_first_admin(&store, now_millis())
+            .expect("missing answer is a form error");
+        assert_eq!(state.error, Some("setup_recovery_answer_required"));
+        assert_eq!(store.user_count().expect("count"), 0);
+    }
+
+    #[test]
+    fn one_configured_question_recovers_the_account() {
+        let store = store_with_admin();
+        let mut state = signed_in(&store);
+        let user_id = state.user.as_ref().expect("signed-in user").id;
+        socdof_core::security_questions::save_security_question(
+            &store,
+            user_id,
+            "setup_recovery_q5",
+            "Bolzano",
+        )
+        .expect("save single question");
+
+        state.show_login();
+        state.username = "admin".to_string();
+        state.begin_recovery(&store);
+        assert_eq!(state.view, AuthView::Recover);
+        assert_eq!(state.recovery_questions, ["setup_recovery_q5"]);
+
+        state.recovery_answer_one = "bolzano".to_string();
+        state.recovery_answer_two.clear();
+        state.recovery_new_password = "recovered-password-2026".to_string();
+        state.recovery_confirm_password = state.recovery_new_password.clone();
+        state
+            .reset_password_with_recovery(&store, now_millis())
+            .expect("password reset");
+        assert_eq!(state.view, AuthView::Login);
+        assert!(store
+            .authenticate("admin", "recovered-password-2026")
+            .expect("new password")
+            .is_some());
+    }
+
+    #[test]
+    fn the_sign_in_loading_screen_runs_before_the_login_completes() {
+        let store = store_with_admin();
+        let mut state = AuthState::new(&store, NOW).expect("state");
+        state.username = "admin".to_string();
+        state.password = "Socdof2026!".to_string();
+        state.begin_sign_in(NOW);
+        assert!(state.signing_in(NOW));
+        assert_eq!(state.view, AuthView::Login);
+
+        state.tick_sign_in(&store, NOW + SIGN_IN_LOADING_MS / 2);
+        assert_eq!(
+            state.view,
+            AuthView::Login,
+            "the screen stays until its delay elapsed"
+        );
+        state.tick_sign_in(&store, NOW + SIGN_IN_LOADING_MS);
+        assert_eq!(state.view, AuthView::Unlocked);
+        assert!(!state.signing_in(NOW + SIGN_IN_LOADING_MS));
+    }
+
+    #[test]
+    fn missing_credentials_stay_a_form_error_instead_of_a_loading_screen() {
+        let store = store_with_admin();
+        let mut state = AuthState::new(&store, NOW).expect("state");
+        state.username = "admin".to_string();
+        state.begin_sign_in(NOW);
+        assert_eq!(state.error, Some("auth_error_required"));
+        assert!(!state.signing_in(NOW));
+        assert_eq!(state.view, AuthView::Login);
+    }
+
+    #[test]
+    fn the_lockout_counts_down_in_seconds_like_the_legacy_form() {
+        let store = store_with_admin();
+        let mut state = AuthState::new(&store, NOW).expect("state");
+        state.locked_until = Some(NOW + 4_500);
+        assert_eq!(state.lockout_seconds(NOW), 5);
+        assert_eq!(state.lockout_seconds(NOW + 4_000), 1);
+        assert_eq!(state.lockout_seconds(NOW + 4_500), 0);
+        state.locked_until = None;
+        assert_eq!(state.lockout_seconds(NOW), 0);
     }
 
     #[test]
@@ -2015,6 +2566,7 @@ mod auth_flow_tests {
         auth.display_name = "SOCDOF Owner".to_string();
         auth.password = "correct horse battery".to_string();
         auth.password_confirm = auth.password.clone();
+        auth.recovery_answer_one = "Rex".to_string();
     }
 
     #[test]
