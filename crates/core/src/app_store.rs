@@ -104,7 +104,7 @@ const fn definition(
 }
 
 /// The catalogue, in the same order as the permission matrix.
-const MODULES: [ModuleDefinition; 18] = [
+const MODULES: [ModuleDefinition; 19] = [
     definition(
         AppModule::Dashboard,
         "settings_module_dashboard",
@@ -231,6 +231,13 @@ const MODULES: [ModuleDefinition; 18] = [
         ModuleLicense::Trial,
         false,
     ),
+    definition(
+        AppModule::QuickBilling,
+        "settings_module_quick_billing",
+        "app_store_desc_quick_billing",
+        ModuleLicense::Trial,
+        false,
+    ),
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -248,7 +255,8 @@ struct Activation {
 /// Which of the active modules the desktop grid shows is a separate product decision (the grid
 /// shows twelve Rust module tiles instead of the twelve original TypeScript apps); it is tracked
 /// as an open question in `NEXT_STEPS_AI.md`.
-pub const REFERENCE_STARTUP_DISABLED: [&str; 4] = ["support", "reports", "therapy", "fleet"];
+pub const REFERENCE_STARTUP_DISABLED: [&str; 5] =
+    ["support", "reports", "therapy", "fleet", "ios_billing"];
 
 fn load(store: &Store) -> CoreResult<Activation> {
     match store.get_setting(APP_STORE_SETTINGS_KEY)? {
@@ -382,7 +390,7 @@ pub fn apply_selection(store: &Store, selected: &[String]) -> CoreResult<()> {
 }
 
 /// Catalogue definitions are kept in sync with the permission matrix.
-pub fn catalogue_modules() -> [AppModule; 18] {
+pub fn catalogue_modules() -> [AppModule; 19] {
     ALL_MODULES
 }
 
@@ -417,8 +425,10 @@ mod tests {
             .iter()
             .filter(|module| module.license == ModuleLicense::Locked)
             .all(|module| !module.active));
-        // Licensed modules start active, except the four that the reference start-up set keeps in
-        // the App Store (`REFERENCE_STARTUP_DISABLED`). Required modules are always active.
+        // Licensed modules start active, except the five that the reference start-up set keeps in
+        // the App Store (`REFERENCE_STARTUP_DISABLED`): the legacy desktop filters `ios_billing` and
+        // `restaurant` out of the installed list, so the register is installed on demand there too.
+        // Required modules are always active.
         assert!(modules
             .iter()
             .filter(|module| module.license != ModuleLicense::Locked)
@@ -431,13 +441,16 @@ mod tests {
             .filter(|module| module.required)
             .all(|module| module.active && !module.can_toggle()));
         // The reference start set is pinned by name, so a changed constant cannot make the check
-        // above follow it silently: exactly these four modules start in the App Store.
+        // above follow it silently: exactly these five modules start in the App Store.
         let inactive: Vec<&str> = modules
             .iter()
             .filter(|module| !module.active)
             .map(|module| module.module.as_str())
             .collect();
-        assert_eq!(inactive, vec!["reports", "support", "therapy", "fleet"]);
+        assert_eq!(
+            inactive,
+            vec!["reports", "support", "therapy", "fleet", "ios_billing"]
+        );
         assert_eq!(
             modules.iter().filter(|module| module.active).count(),
             14,

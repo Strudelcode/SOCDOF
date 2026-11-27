@@ -47,9 +47,8 @@ use crate::invoice_bridge::{
     payment_context_view, payment_view, preview_tokens, resolve_template, sample_preview_invoice,
     status_from_wire, suggest_number, write_invoice_export, ContactMailView, FatturaInput,
     InvoiceDefaults, InvoiceDunningView, InvoiceExportFormat, InvoiceExportReport,
-    InvoiceFatturaView, InvoiceInput, InvoiceItemInput, InvoiceMailView,
-    InvoicePaymentContextView, InvoicePaymentView, InvoicePreview, InvoiceView,
-    PaymentCaptureDetails,
+    InvoiceFatturaView, InvoiceInput, InvoiceItemInput, InvoiceMailView, InvoicePaymentContextView,
+    InvoicePaymentView, InvoicePreview, InvoiceView, PaymentCaptureDetails,
 };
 use crate::project_bridge::{
     csv_bytes as project_csv_bytes, overview as project_overview_view, project_view, task_view,
@@ -1521,8 +1520,7 @@ impl DesktopState {
             .map(str::trim)
             .filter(|s| !s.is_empty())
             .unwrap_or(&default_subject);
-        let default_body =
-            socdof_core::domain::mail::invoice_body(&invoice, &customer, &company);
+        let default_body = socdof_core::domain::mail::invoice_body(&invoice, &customer, &company);
         let body_val = body.unwrap_or(&default_body);
         Ok(socdof_core::domain::mail::invoice_eml_with(
             &invoice,
@@ -1543,11 +1541,7 @@ impl DesktopState {
             .ok_or_else(|| CoreError::NotFound(id.to_string()))?;
         let company = store.company_profile()?;
         let existing = store.invoice_payment(id)?;
-        Ok(payment_context_view(
-            &invoice,
-            &company,
-            existing.as_ref(),
-        ))
+        Ok(payment_context_view(&invoice, &company, existing.as_ref()))
     }
 
     /// Records a payment and marks the invoice paid in the same transaction.

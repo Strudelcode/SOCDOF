@@ -9,7 +9,7 @@
 | **Started** | 2026-11-07 |
 | **State** | 2026-11-15, the native egui host uses the real SQLite store and login/setup flow; CI run 1235 has been triaged and corrective changes are committed for re-verification. First-run language/theme/accent choices are persisted to the created account and per-account appearance is restored after sign-in. The Tauri webview remains the packaged default until the native shell and installer are verified. Visual acceptance is closed; all ten screenshot pairs pass in §15.7. |
 | **Current phase** | Phase 11 — **application foundation first**. Prioritize login/account lifecycle, settings persistence, desktop shell/navigation, visual consistency, startup behavior and a reliable Windows installer before resuming remaining app-level parity work. |
-| **Overall progress** | Core persistence, authentication, settings modules and 18 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
+| **Overall progress** | Core persistence, authentication, settings modules and 19 permission modules exist. The native host is still a transition build: packaged installer, native shell polish, account-preference restoration, OS integration and final visual acceptance remain to be verified. App-level parity work is paused until the foundation is stable. |
 | **Versioning** | Rust workspace, Tauri app and UI manifests are aligned at **`26.0.0`**; the TypeScript reference stays `25.2.1`. The v26 changelog body is prepared; the tag is not cut. See §2.1. |
 | **Legacy app** | Unchanged in `SOCDOF - TS` (TypeScript + React + Electron) |
 | **Goal** | Same product, Rust core + Rust UI, ~10× smaller installer, ~3× less RAM |
@@ -2846,3 +2846,66 @@ visual goldens (regenerated for the eight `reports` scenes) and the new scene `i
 **Evidence:** `rust-42-invoices-fattura-{light,dark}.png`, `rust-43-reports-export-{light,dark}.png`,
 `rust-44-purchases-product-{light,dark}.png`, rendered with `socdof-ui-preview invoices-fattura`,
 `... reports` and `... purchases-form` and inspected in both appearances.
+
+---
+
+## 16.26 Quick billing `ios_billing` (2026-11-27)
+
+**Reference:** `SOCDOF - TS/src/components/sales/IOSBillingModule.tsx` (five tabs: checkout, inventory,
+receipts, stats, settings; payment methods `cash`, `card`, `apple_pay`; dish options with groups,
+surcharges and defaults; receipts without a cancellation path in the reference).
+
+**Change**
+
+- `crates/core/src/domain/quick_billing.rs`: `QuickDish` (category, gross price, tax rate, stock,
+  enabled, emoji, SKU, option list), `DishOption` (group, name, surcharge, preselected),
+  `PaymentMethod`, `ReceiptStatus`, `ReceiptLine` (gross/net/tax with half-up rounding on the
+  contained tax), `QuickReceipt` (gross/net/tax split, item count, `storno`), `DaySummary`
+  (`average`, `payment_total`), `summarize`, `dish_sales`, `option_sales`, `next_number`,
+  `next_storno_number` and `tse_signature`. 8 unit tests.
+- `crates/core/src/store/quick_billing.rs`: dishes and receipts, receipt positions stored as JSON so a
+  later menu edit can never rewrite a paid receipt. `insert_receipt` writes the receipt and decrements
+  the tracked stock in one transaction; `cancel_receipt` marks the original `cancelled`, writes a
+  linked storno receipt with negated amounts and adds the stock back. Settings (register name, receipt
+  footer) live under `quick_billing_settings`. 5 store tests.
+- Schema **v21** adds `quick_dishes` and `quick_receipts` plus three indexes; existing databases
+  migrate in place, no table is rewritten.
+- `crates/ui/src/quick_billing.rs`: the five tabs, category chips and search, dish tiles, cart with
+  quantity controls, option sheet (one option per group, kitchen note), payment sheet (cash with
+  tendered/change, card, NFC), receipt detail with TSE signature and cancellation confirmation, dish
+  form with option rows and delete confirmation, statistics from the stored receipts, and register
+  settings. Dialogs clamp their width to the viewport, so the dish form fits the 360 px phone panel.
+- Wiring: `AppModule::QuickBilling` (`ios_billing`) with `ALL_MODULES` 18 → 19, app-store entry
+  (trial, reference start-up disabled like the legacy desktop, which filters `ios_billing` out of the
+  installed list), chrome app tile, desktop icon, native window (open, restore, minimise, fullscreen),
+  settings label, permission matrix. i18n: 134 keys in de/en/fr/es, `UI_KEYS` and
+  `catalogue-keys.json` regenerated (2,607 keys). Preview scenes `quick-billing`,
+  `quick-billing-receipts`, `quick-billing-stats`.
+
+**Verification**
+
+- `cargo fmt --all -- --check` clean (the command also formatted three pre-existing unformatted files
+  in `crates/app` and `crates/web`; formatting only, no logic change).
+- `cargo clippy -p socdof-core --all-targets -- -D warnings` and `-p socdof-ui` clean.
+- `cargo test -p socdof-core --lib`: 420 passed, 0 failed (12 new).
+- `cargo test -p socdof-ui --lib`: 455 passed, 0 failed (6 new), including the phone sweep with the
+  new cases at 360/390/412/432 px in both appearances.
+- `cargo test -p socdof-ui --test visual`: 2 passed. The App Store snapshot assertion now expects the
+  19 registered modules instead of freezing a catalogue-dependent image.
+- `cargo test -p socdof-app --test backoffice`: module count updated to 19.
+- Sale flow proof (`two_payment_methods_and_a_storno_reach_sqlite_journal_and_statistics`): one cash
+  sale (with side and kitchen note) and one card sale are written to SQLite with `BON-2026-0001`/
+  `BON-2026-0002`, the tracked stock drops in the same transaction, the statistics read 2.300 gross
+  (1.850 cash + 450 card); cancelling the cash sale adds `STO-2026-0001` with −1.850 gross, marks the
+  original `cancelled`, restores the stock and leaves the statistics at one receipt and 450 gross.
+
+**Evidence:** `rust-45-quick-billing-checkout-{light,dark}.png`,
+`rust-46-quick-billing-receipts-{light,dark}.png`, `rust-47-quick-billing-stats-{light,dark}.png`,
+rendered with `socdof-ui-preview quick-billing` and inspected in both appearances. The journal shows
+`BON-2026-0001` (cancelled, 5,40 €), its `STO-2026-0001` (−5,40 €), `BON-2026-0002` (card, 4,50 €)
+and `BON-2026-0003` (NFC, 9,80 €); the statistics card reads 14,30 € revenue for two receipts with
+the tax split 0,64 € / 0,72 €.
+
+**Still open:** receipt printing and e-mail delivery, the reference's photo evidence (the workspace has
+no image backend), and a real TSE signature — `tse_signature` is a deterministic checksum, not a
+certified signature.

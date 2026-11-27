@@ -54,6 +54,7 @@ pub mod pos;
 pub mod products;
 pub mod projects;
 pub mod purchases;
+pub mod quick_billing;
 pub mod reports;
 pub mod restaurant;
 pub mod richtext;

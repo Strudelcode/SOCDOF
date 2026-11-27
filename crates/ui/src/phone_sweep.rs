@@ -41,6 +41,7 @@ use crate::pos::{PosState, PosView};
 use crate::products::{ProductsState, ProductsView};
 use crate::projects::{ProjectsState, ProjectsView};
 use crate::purchases::{PurchasesState, PurchasesView};
+use crate::quick_billing::{QuickBillingState, QuickBillingView};
 use crate::reports::ReportsState;
 use crate::restaurant::{RestaurantState, RestaurantView};
 use crate::settings::{SettingsIntent, SettingsState, SettingsTab};
@@ -521,6 +522,7 @@ fn every_screen_fits_the_phone_panel() {
             sweep_projects(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_fleet(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_restaurant(&store, &theme, &texts, now, &mut focus, &mut report);
+            sweep_quick_billing(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_documentation(&theme, &texts, &mut focus, &mut report);
             sweep_auth(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_desktop(&store, &theme, &texts, now, &mut report);
@@ -1456,8 +1458,8 @@ fn sweep_settings_editor_actions(texts: &UiTexts, theme: &Theme, now: i64, repor
     let roles_before = store.list_roles().expect("roles before the create").len();
     state.set_tab(SettingsTab::Roles);
     state.dispatch(SettingsIntent::NewRole, &store);
-    input.type_from_end(&mut state, 22, "Sweep-Rolle");
-    input.type_from_end(&mut state, 21, "Über den Sweep-Button angelegt");
+    input.type_from_end(&mut state, 23, "Sweep-Rolle");
+    input.type_from_end(&mut state, 22, "Über den Sweep-Button angelegt");
     input.click_from_end(&mut state, 2);
     let roles = store.list_roles().expect("roles after the create");
     assert_eq!(
@@ -1506,7 +1508,7 @@ fn sweep_settings_editor_actions(texts: &UiTexts, theme: &Theme, now: i64, repor
 
     // Toggling one permission through the real dropdown and saving persists exactly that change.
     state.dispatch(SettingsIntent::EditRole(created_role.id), &store);
-    input.choose_option(&mut state, 18, 2);
+    input.choose_option(&mut state, 19, 2);
     input.click_from_end(&mut state, 2);
     let toggled = store
         .list_roles()
@@ -2009,6 +2011,127 @@ fn sweep_restaurant(
             crate::restaurant::restaurant(ctx, theme, texts, focus, &mut state, store, now);
         },
     );
+}
+
+/// Quick billing: the five tabs, the option sheet, the payment sheet, the dish form and the receipt
+/// detail, each painted with a cart and a stored receipt so no case is an empty screen.
+fn sweep_quick_billing(
+    store: &Store,
+    theme: &Theme,
+    texts: &UiTexts,
+    now: i64,
+    focus: &mut FocusState,
+    report: &mut Report,
+) {
+    use socdof_core::domain::quick_billing::{
+        tse_signature, PaymentMethod, QuickReceipt, ReceiptLine, ReceiptStatus,
+    };
+    use socdof_core::money::Money;
+
+    report.cover(AppModule::QuickBilling);
+    let mut state = QuickBillingState::new();
+    let _ = state.reset_for_open(store);
+    if let Some(dish) = state
+        .dishes
+        .iter()
+        .find(|dish| !dish.options.is_empty())
+        .cloned()
+    {
+        state.add_line(&dish, dish.default_options(), "Ohne Zwiebeln, bitte");
+    }
+    if let Some(dish) = state.dishes.last().cloned() {
+        state.add_line(&dish, Vec::new(), "");
+    }
+    if let Some(dish) = state.dishes.first().cloned() {
+        let line = ReceiptLine {
+            dish_id: Some(dish.id),
+            name: dish.name.clone(),
+            category: dish.category.clone(),
+            emoji: dish.emoji.clone(),
+            quantity: 2,
+            unit_price: dish.price,
+            tax_rate_bp: dish.tax_rate_bp,
+            options: dish.options.iter().map(|option| option.label()).collect(),
+            note: None,
+        };
+        state.receipts.push(QuickReceipt {
+            id: Uuid::new_v4(),
+            number: "BON-2026-0001".to_string(),
+            status: ReceiptStatus::Completed,
+            created_at: now,
+            cancelled_at: None,
+            storno_of: None,
+            payment: PaymentMethod::Cash,
+            tendered: dish.price.times(2),
+            change: Money::ZERO,
+            tse_signature: tse_signature(now),
+            lines: vec![line],
+        });
+    }
+
+    for view in QuickBillingView::ALL {
+        state.view = view;
+        report.case(
+            &format!("quick billing {view:?}"),
+            texts.get("quick_billing_title"),
+            |ctx| {
+                crate::quick_billing::quick_billing(
+                    ctx, theme, texts, focus, &mut state, store, now,
+                );
+            },
+        );
+    }
+
+    state.view = QuickBillingView::Checkout;
+    if let Some(id) = state
+        .dishes
+        .iter()
+        .find(|dish| !dish.options.is_empty())
+        .map(|dish| dish.id)
+    {
+        state.tap_dish(id);
+    }
+    report.case(
+        "quick billing option sheet",
+        texts.get("quick_billing_title"),
+        |ctx| {
+            crate::quick_billing::quick_billing(ctx, theme, texts, focus, &mut state, store, now);
+        },
+    );
+    state.option_dish = None;
+    state.open_payment();
+    report.case(
+        "quick billing payment sheet",
+        texts.get("quick_billing_title"),
+        |ctx| {
+            crate::quick_billing::quick_billing(ctx, theme, texts, focus, &mut state, store, now);
+        },
+    );
+    state.payment_open = false;
+
+    state.view = QuickBillingView::Menu;
+    state.start_new_dish();
+    report.case(
+        "quick billing dish form",
+        texts.get("quick_billing_title"),
+        |ctx| {
+            crate::quick_billing::quick_billing(ctx, theme, texts, focus, &mut state, store, now);
+        },
+    );
+    state.dish_form = None;
+
+    state.view = QuickBillingView::Receipts;
+    if let Some(id) = state.receipts.first().map(|receipt| receipt.id) {
+        state.open_receipt(id);
+    }
+    report.case(
+        "quick billing receipt detail",
+        texts.get("quick_billing_title"),
+        |ctx| {
+            crate::quick_billing::quick_billing(ctx, theme, texts, focus, &mut state, store, now);
+        },
+    );
+    state.receipt_open = None;
 }
 
 fn sweep_documentation(

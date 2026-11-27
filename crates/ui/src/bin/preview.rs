@@ -82,6 +82,9 @@ enum Scene {
     PurchasesError,
     PurchasesDelete,
     Pos,
+    QuickBilling,
+    QuickBillingReceipts,
+    QuickBillingStats,
     Calendar,
     CalendarWeek,
     CalendarForm,
@@ -174,6 +177,9 @@ impl Scene {
             Scene::CalendarWeek => "calendar-week".to_string(),
             Scene::CalendarForm => "calendar-form".to_string(),
             Scene::Pos => "pos".to_string(),
+            Scene::QuickBilling => "quick-billing".to_string(),
+            Scene::QuickBillingReceipts => "quick-billing-receipts".to_string(),
+            Scene::QuickBillingStats => "quick-billing-stats".to_string(),
             Scene::Calendar => "calendar".to_string(),
             Scene::Users => "users".to_string(),
             Scene::UserDetail => "users-detail".to_string(),
@@ -260,6 +266,9 @@ impl Scene {
             Scene::CalendarWeek => "Calendar · Week".to_string(),
             Scene::CalendarForm => "Calendar · Appointment form".to_string(),
             Scene::Pos => "POS / cash register".to_string(),
+            Scene::QuickBilling => "Quick billing · Checkout".to_string(),
+            Scene::QuickBillingReceipts => "Quick billing · Receipt journal".to_string(),
+            Scene::QuickBillingStats => "Quick billing · Daily figures".to_string(),
             Scene::Calendar => "Calendar".to_string(),
             Scene::Users => "User management".to_string(),
             Scene::UserDetail => "User management · Account".to_string(),
@@ -798,6 +807,90 @@ impl Scene {
                 state.appointments.start_new();
             }
             Scene::Pos => state.pos_open = true,
+            Scene::QuickBilling => {
+                let _ = state.quick_billing.reset_for_open(&state.store);
+                if let Some(id) = state
+                    .quick_billing
+                    .dishes
+                    .iter()
+                    .find(|dish| !dish.options.is_empty())
+                    .map(|dish| dish.id)
+                {
+                    state.quick_billing.tap_dish(id);
+                    state.quick_billing.confirm_options();
+                }
+                if let Some(id) = state
+                    .quick_billing
+                    .dishes
+                    .iter()
+                    .find(|dish| dish.options.is_empty())
+                    .map(|dish| dish.id)
+                {
+                    state.quick_billing.tap_dish(id);
+                }
+                state.quick_billing_open = true;
+            }
+            Scene::QuickBillingReceipts | Scene::QuickBillingStats => {
+                let now = socdof_core::now_millis();
+                let _ = state.quick_billing.reset_for_open(&state.store);
+                if state.quick_billing.receipts.is_empty() {
+                    let dishes: Vec<_> = state
+                        .quick_billing
+                        .dishes
+                        .iter()
+                        .filter(|dish| dish.enabled)
+                        .cloned()
+                        .collect();
+                    if let Some(dish) = dishes.first() {
+                        state
+                            .quick_billing
+                            .add_line(dish, dish.default_options(), "");
+                        state.quick_billing.change_quantity(0, 1);
+                        state.quick_billing.open_payment();
+                        state.quick_billing.payment =
+                            socdof_core::domain::quick_billing::PaymentMethod::Cash;
+                        state.quick_billing.tendered = "50,00".to_string();
+                        let _ = state
+                            .quick_billing
+                            .complete_sale(&state.store, now - 3_600_000);
+                    }
+                    if let Some(dish) = dishes.get(1).or_else(|| dishes.first()) {
+                        state.quick_billing.add_line(dish, Vec::new(), "");
+                        state.quick_billing.open_payment();
+                        state.quick_billing.payment =
+                            socdof_core::domain::quick_billing::PaymentMethod::Card;
+                        let _ = state
+                            .quick_billing
+                            .complete_sale(&state.store, now - 1_800_000);
+                    }
+                    if let Some(dish) = dishes.last() {
+                        state.quick_billing.add_line(dish, Vec::new(), "");
+                        state.quick_billing.open_payment();
+                        state.quick_billing.payment =
+                            socdof_core::domain::quick_billing::PaymentMethod::Nfc;
+                        let _ = state
+                            .quick_billing
+                            .complete_sale(&state.store, now - 600_000);
+                    }
+                    if let Some(first) = state
+                        .quick_billing
+                        .receipts
+                        .last()
+                        .map(|receipt| receipt.id)
+                    {
+                        state.quick_billing.receipt_open = Some(first);
+                        let _ = state
+                            .quick_billing
+                            .cancel_receipt(&state.store, now - 300_000);
+                    }
+                }
+                state.quick_billing.view = if matches!(self, Scene::QuickBillingStats) {
+                    socdof_ui::quick_billing::QuickBillingView::Stats
+                } else {
+                    socdof_ui::quick_billing::QuickBillingView::Receipts
+                };
+                state.quick_billing_open = true;
+            }
             Scene::Calendar => {
                 state.appointments_open = true;
                 state.appointments.screen = socdof_ui::appointments::AppointmentsDetail::Calendar;
@@ -1140,6 +1233,9 @@ fn scenes() -> Vec<Scene> {
         Scene::PurchasesError,
         Scene::PurchasesDelete,
         Scene::Pos,
+        Scene::QuickBilling,
+        Scene::QuickBillingReceipts,
+        Scene::QuickBillingStats,
         Scene::Calendar,
         Scene::CalendarWeek,
         Scene::CalendarForm,

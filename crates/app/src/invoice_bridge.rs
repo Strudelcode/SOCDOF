@@ -985,7 +985,8 @@ mod tests {
 
     #[test]
     fn dunning_view_applies_custom_interest_and_computes_overdue_days() {
-        let (invoice, contact) = sample_preview_invoice(&CompanyProfile::default(), 14, 1_760_000_000_000);
+        let (invoice, contact) =
+            sample_preview_invoice(&CompanyProfile::default(), 14, 1_760_000_000_000);
         let now = invoice.due_at + 5 * DAY_MS;
         let view = dunning_view(
             &invoice,

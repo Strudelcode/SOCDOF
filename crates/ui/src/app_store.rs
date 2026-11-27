@@ -387,11 +387,11 @@ mod tests {
         let store = Store::open_in_memory().expect("store");
         let mut state = AppStoreState::new();
         state.refresh(&store).expect("catalogue");
-        assert_eq!(state.modules.len(), 18);
+        assert_eq!(state.modules.len(), 19);
         // The reference start set leaves out four modules until they are enabled in the store.
         assert_eq!(
             state.active_count(),
-            18 - socdof_core::app_store::REFERENCE_STARTUP_DISABLED.len()
+            19 - socdof_core::app_store::REFERENCE_STARTUP_DISABLED.len()
         );
         let mut texts = texts();
         state.query = "therapie".to_string();

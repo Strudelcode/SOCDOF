@@ -1680,6 +1680,7 @@ fn module_label_key(module: AppModule) -> &'static str {
         AppModule::Projects => "settings_module_projects",
         AppModule::Fleet => "settings_module_fleet",
         AppModule::Restaurant => "settings_module_restaurant",
+        AppModule::QuickBilling => "settings_module_quick_billing",
     }
 }
 
@@ -6191,9 +6192,9 @@ mod tests {
                 h.state
                     .dispatch(SettingsIntent::EditRole(role.id), &h.store);
 
-                // Invoices (module 3) starts at None; pick Edit. The editor paints 18 module
-                // dropdowns, then delete, save and back, so module 3 is the 18th from the end.
-                h.choose_option(18, 2);
+                // Invoices (module 3) starts at None; pick Edit. The editor paints 19 module
+                // dropdowns, then delete, save and back, so module 3 is the 19th from the end.
+                h.choose_option(19, 2);
                 h.click_from_end(2);
 
                 let mut expected = role.clone();
@@ -6280,8 +6281,8 @@ mod tests {
                 h.state
                     .dispatch(SettingsIntent::EditRole(created.id), &h.store);
                 // The reopened editor paints delete before save and back, so the description is the
-                // 22nd control from the end; typing appends to what the reload loaded.
-                h.type_from_end(22, " Zweite Beschreibung");
+                // 23rd control from the end; typing appends to what the reload loaded.
+                h.type_from_end(23, " Zweite Beschreibung");
                 h.click_from_end(2);
 
                 let roles = h.store.list_roles().expect("roles after second save");

@@ -68,7 +68,7 @@ pub fn tint_stops(app: AppChrome) -> Vec<egui::Color32> {
 }
 
 /// Every application of the suite, in the order of the legacy app launcher.
-pub const APPS: [AppChrome; 21] = [
+pub const APPS: [AppChrome; 22] = [
     AppChrome {
         slug: "dashboard",
         title_key: "app_dashboard",
@@ -148,6 +148,14 @@ pub const APPS: [AppChrome; 21] = [
         tint: 0xf97316,
         tint_mid: Some(0xf59e0b),
         tint_to: 0xf43f5e,
+    },
+    AppChrome {
+        slug: "ios_billing",
+        title_key: "app_quick_billing",
+        icon: Icon::Bag,
+        tint: 0xf59e0b,
+        tint_mid: None,
+        tint_to: 0xea580c,
     },
     AppChrome {
         slug: "therapy",

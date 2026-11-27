@@ -18,6 +18,7 @@ use crate::domain::pos::PosOrder;
 use crate::domain::product::Product;
 use crate::domain::project::{Project, ProjectTask};
 use crate::domain::purchase::PurchaseOrder;
+use crate::domain::quick_billing::{QuickDish, QuickReceipt};
 use crate::domain::restaurant::{MenuItem, TableOrder};
 use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
@@ -42,6 +43,7 @@ pub mod pos_orders;
 pub mod products;
 pub mod projects;
 pub mod purchase_orders;
+pub mod quick_billing;
 pub mod reports;
 pub mod restaurant;
 pub mod search;
@@ -54,7 +56,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 20;
+pub const SCHEMA_VERSION: i64 = 21;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -766,6 +768,11 @@ impl Store {
             version = 20;
         }
 
+        if version < 21 {
+            self.conn.execute_batch(SCHEMA_V21)?;
+            version = 21;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -1002,6 +1009,79 @@ impl Store {
         receipt: &PosOrder,
     ) -> CoreResult<()> {
         restaurant::checkout(&self.conn, order, invoice, receipt)
+    }
+
+    /// All quick billing dishes, grouped by category.
+    pub fn list_quick_dishes(&self) -> CoreResult<Vec<QuickDish>> {
+        quick_billing::list_dishes(&self.conn)
+    }
+
+    /// Loads one quick billing dish.
+    pub fn find_quick_dish(&self, id: uuid::Uuid) -> CoreResult<Option<QuickDish>> {
+        quick_billing::find_dish(&self.conn, id)
+    }
+
+    /// Inserts a quick billing dish after validating it.
+    pub fn insert_quick_dish(&self, dish: &QuickDish) -> CoreResult<()> {
+        quick_billing::insert_dish(&self.conn, dish)
+    }
+
+    /// Replaces a quick billing dish.
+    pub fn update_quick_dish(&self, dish: &QuickDish) -> CoreResult<()> {
+        quick_billing::update_dish(&self.conn, dish)
+    }
+
+    /// Deletes a quick billing dish; stored receipts keep their lines.
+    pub fn delete_quick_dish(&self, id: uuid::Uuid) -> CoreResult<()> {
+        quick_billing::delete_dish(&self.conn, id)
+    }
+
+    /// Number of quick billing dishes.
+    pub fn quick_dish_count(&self) -> CoreResult<i64> {
+        quick_billing::dish_count(&self.conn)
+    }
+
+    /// All quick billing receipts, newest first.
+    pub fn list_quick_receipts(&self) -> CoreResult<Vec<QuickReceipt>> {
+        quick_billing::list_receipts(&self.conn)
+    }
+
+    /// Loads one quick billing receipt.
+    pub fn find_quick_receipt(&self, id: uuid::Uuid) -> CoreResult<Option<QuickReceipt>> {
+        quick_billing::find_receipt(&self.conn, id)
+    }
+
+    /// Number of stored quick billing receipts.
+    pub fn quick_receipt_count(&self) -> CoreResult<i64> {
+        quick_billing::receipt_count(&self.conn)
+    }
+
+    /// Stores a quick billing receipt and its stock effect in one transaction.
+    pub fn insert_quick_receipt(&self, receipt: &QuickReceipt) -> CoreResult<()> {
+        quick_billing::insert_receipt(&self.conn, receipt)
+    }
+
+    /// Cancels a quick billing receipt and returns the linked storno booking.
+    pub fn cancel_quick_receipt(&self, id: uuid::Uuid, now: i64) -> CoreResult<QuickReceipt> {
+        quick_billing::cancel_receipt(&self.conn, id, now)
+    }
+
+    /// Next free quick billing receipt number of the current year.
+    pub fn next_quick_receipt_number(&self, now: i64) -> CoreResult<String> {
+        quick_billing::next_receipt_number(&self.conn, now)
+    }
+
+    /// Register name and receipt footer of the quick billing screen.
+    pub fn quick_billing_settings(&self) -> CoreResult<quick_billing::QuickBillingSettings> {
+        quick_billing::load_settings(&self.conn)
+    }
+
+    /// Stores the quick billing register settings.
+    pub fn save_quick_billing_settings(
+        &self,
+        settings: &quick_billing::QuickBillingSettings,
+    ) -> CoreResult<()> {
+        quick_billing::save_settings(&self.conn, settings)
     }
 
     /// Next hospitality receipt number for a year.
@@ -2213,6 +2293,43 @@ ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 "#;
 
 /// Schema v19: persist double-entry stock movements and backfill existing movement history.
+/// Schema v21: quick billing register of the TypeScript `IOSBillingModule`.
+const SCHEMA_V21: &str = r#"
+CREATE TABLE IF NOT EXISTS quick_dishes (
+    id            TEXT PRIMARY KEY,
+    name          TEXT NOT NULL,
+    category      TEXT NOT NULL DEFAULT '',
+    price_cents   INTEGER NOT NULL DEFAULT 0,
+    tax_rate_bp   INTEGER NOT NULL DEFAULT 700,
+    description   TEXT NOT NULL DEFAULT '',
+    emoji         TEXT NOT NULL DEFAULT '',
+    sku           TEXT NOT NULL DEFAULT '',
+    stock         INTEGER NOT NULL DEFAULT 0,
+    enabled       INTEGER NOT NULL DEFAULT 1,
+    options       TEXT NOT NULL DEFAULT '[]',
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS quick_receipts (
+    id              TEXT PRIMARY KEY,
+    number          TEXT NOT NULL UNIQUE,
+    status          TEXT NOT NULL,
+    created_at      INTEGER NOT NULL,
+    cancelled_at    INTEGER,
+    storno_of       TEXT,
+    payment         TEXT NOT NULL,
+    tendered_cents  INTEGER NOT NULL DEFAULT 0,
+    change_cents    INTEGER NOT NULL DEFAULT 0,
+    tse_signature   TEXT NOT NULL DEFAULT '',
+    lines           TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE INDEX IF NOT EXISTS idx_quick_receipts_created ON quick_receipts(created_at);
+CREATE INDEX IF NOT EXISTS idx_quick_receipts_status ON quick_receipts(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_quick_dishes_category ON quick_dishes(category, name);
+"#;
+
 const SCHEMA_V20: &str = r#"
 -- Passwordless accounts of the reference app: regular users may sign in without a password.
 ALTER TABLE users ADD COLUMN passwordless INTEGER NOT NULL DEFAULT 0;

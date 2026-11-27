@@ -313,7 +313,9 @@ impl WebApp {
                     &self.shell.wallpaper.to_preference(),
                 );
             } else if let Ok(pref) = settings_service::user_wallpaper(&self.store, user_id) {
-                self.shell.wallpaper.apply_preference(&pref, now.max(1) as u64);
+                self.shell
+                    .wallpaper
+                    .apply_preference(&pref, now.max(1) as u64);
             }
             if let Ok(preferences) = settings_service::preferences(&self.store, user_id) {
                 self.set_language(preferences.language);

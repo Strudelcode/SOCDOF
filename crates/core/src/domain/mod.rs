@@ -22,6 +22,7 @@ pub mod pos;
 pub mod product;
 pub mod project;
 pub mod purchase;
+pub mod quick_billing;
 pub mod reorder;
 pub mod restaurant;
 pub mod session;

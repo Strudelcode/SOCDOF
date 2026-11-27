@@ -612,7 +612,9 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
     assert_eq!(preview_real.invoice.number, invoice.number);
 
     book.active_id = book.templates[2].id.clone();
-    state.save_invoice_template_book(&book).expect("save customized book");
+    state
+        .save_invoice_template_book(&book)
+        .expect("save customized book");
     let reset = state.reset_invoice_templates().expect("reset book");
     assert_eq!(reset.templates.len(), 6);
     assert_eq!(reset.active_id, "din_5008_classic");

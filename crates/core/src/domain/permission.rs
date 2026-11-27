@@ -47,10 +47,12 @@ pub enum AppModule {
     Fleet,
     /// Restaurant floor plan, kitchen and hospitality checkout.
     Restaurant,
+    /// Quick billing register with dish tiles, receipts and daily figures.
+    QuickBilling,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 18] = [
+pub const ALL_MODULES: [AppModule; 19] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -69,6 +71,7 @@ pub const ALL_MODULES: [AppModule; 18] = [
     AppModule::Projects,
     AppModule::Fleet,
     AppModule::Restaurant,
+    AppModule::QuickBilling,
 ];
 
 impl AppModule {
@@ -93,6 +96,7 @@ impl AppModule {
             AppModule::Projects => "projects",
             AppModule::Fleet => "fleet",
             AppModule::Restaurant => "restaurant",
+            AppModule::QuickBilling => "ios_billing",
         }
     }
 
@@ -235,6 +239,7 @@ impl Role {
             (AppModule::Projects, PermissionLevel::Edit),
             (AppModule::Fleet, PermissionLevel::Edit),
             (AppModule::Restaurant, PermissionLevel::Edit),
+            (AppModule::QuickBilling, PermissionLevel::Edit),
         ];
 
         Role {

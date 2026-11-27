@@ -158,8 +158,8 @@ fn primitives_match_the_golden_files() {
                 // here instead of freezing eight large snapshots for every catalogue revision.
                 if variant == SnapshotVariant::AppStore {
                     assert!(
-                        painted.contains("/ 18"),
-                        "App Store snapshot must render all 18 registered modules ({language:?}, {appearance:?})"
+                        painted.contains("/ 19"),
+                        "App Store snapshot must render all 19 registered modules ({language:?}, {appearance:?})"
                     );
                     continue;
                 }

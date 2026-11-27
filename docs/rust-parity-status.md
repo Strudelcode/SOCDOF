@@ -32,7 +32,7 @@ Sie ergänzt die Detaildokumente:
 | Sperrbildschirm (Uhr, Datum, Avatar, Passwortfeld, Wiederherstellungs-Hinweis, Kontowechsel-Kacheln) | `rust-02` |
 | Ersteinrichtung: fünf Schritte (Willkommen, Konto, Erscheinungsbild, Apps, Abschluss), Sprachwahl, Kontotyp, Vorlagen, Passwortstärke, Swatches, Wallpaper-Upload | `rust-09` |
 | Command Palette, Toasts, gebündelte Source-Sans-3-Schriften, F11 / `Ctrl+K` / `Ctrl+L` / `Escape` | `docs/parity` (Command Palette light/dark ≥98 %) |
-| Fensterverwaltung mit gespeicherter Geometrie je Benutzer, 18 Launcher-Einträge als eigene Fenster | Tests in `crates/ui/src/desktop.rs` |
+| Fensterverwaltung mit gespeicherter Geometrie je Benutzer, 19 Launcher-Einträge als eigene Fenster | Tests in `crates/ui/src/desktop.rs` |
 
 ### Einstellungen (14 Sektionen)
 
@@ -69,6 +69,11 @@ vCard, iCal, PDF/DOCX-Erzeugung, FatturaPA, Z-Bericht, Mahnwesen.
 - **Einkauf mit Produktbezug**: Jede Bestellposition kann ein Katalogprodukt wählen; Beschreibung,
   Einkaufspreis und Steuersatz werden vorbelegt, der Wareneingang bucht den Bestand. Vorher blieb
   `product_id` immer leer, sodass der Wareneingang keinen Bestand verändern konnte — Beleg `rust-44`.
+- **Schnellkasse `ios_billing`** (neu): fünf Tabs mit Speisen-CRUD (Kategorie, MwSt., Bestand,
+  Beilagen mit Aufpreis/Vorauswahl), Warenkorb mit halb-auf gerundeten Netto-/Steuer-Summen, die
+  drei Zahlarten der Vorlage (Bar mit Rückgeld, Karte, Apple Pay/NFC), Bon-Journal mit Detail und
+  **Storno als Gegenbuchung** samt Bestandsrückbuchung, Tages-/Gesamtstatistik aus den gespeicherten
+  Belegen, Kassen- und Fußzeilen-Einstellungen. Persistenz in SQLite-Schema v21 — Belege `rust-45`…`rust-47`.
 
 ## 2. Funktional fertig, optisch noch nicht abschließend verglichen
 
@@ -111,11 +116,11 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Flotte: Formular-Sonderfälle, Rechnungsübergabe, CSV-Dateinamen
 - [ ] Restaurant: kompletter Bestell-/Küchenablauf, Bon-Druck
 - [ ] POS: Bon-Druck, Z-Bericht-Darstellung
+- [ ] Schnellkasse: Bondruck/E-Mail-Versand, Beweisfotos (kein Bild-Backend), echte TSE-Hardware
 - [ ] Projekte: Filter, Aufgaben-Übergänge, CSV-Formatierung, Rechnungsnummern
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
 - [ ] Rechnungen: Status-Filterchips, Rechnung duplizieren
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
-- [ ] **Schnellkasse `ios_billing` fehlt als ganzes Modul** (`IOSBillingModule.tsx`, ≈2.400 Zeilen)
 - [ ] **Tabellenkalkulation `table` fehlt als ganzes Modul** (`TableModule.tsx`)
 
 ### Übergreifend
@@ -157,11 +162,12 @@ der Filter ist ein Substring der Szenen-ID.
 
 ## 6. Zahlen
 
-- 14 Einstellungs-Sektionen, 18 Launcher-Module (Schnellkasse und Tabellen fehlen)
-- 2.473 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
-- `cargo test -p socdof-core`: 408 Lib-Tests + Integrationstests, 0 Fehler
-- `cargo test -p socdof-ui`: 449 Lib-Tests + Integrationstests, 0 Fehler
-- Telefon-Sweep: 1.312 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
+- 14 Einstellungs-Sektionen, 19 Launcher-Module (nur die Tabellenkalkulation `table` fehlt)
+- 2.607 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- `cargo test -p socdof-core --lib`: 420 Tests, 0 Fehler
+- `cargo test -p socdof-ui --lib`: 455 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
+- Telefon-Sweep: 1.312 bisherige Fälle + 9 neue Schnellkassen-Fälle je Breite/Theme (1.384 Fälle,
+  360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-44`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-47`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
