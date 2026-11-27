@@ -22,8 +22,9 @@ mod storage;
 
 use eframe::egui::{self, Align2, Context, Id, RichText};
 use socdof_core::app_store;
-use socdof_core::domain::permission::{AppModule, ALL_MODULES};
-use socdof_core::domain::settings::Language;
+use socdof_core::domain::permission::{AppModule, PermissionLevel, ALL_MODULES};
+use socdof_core::domain::settings::{Language, ThemeMode};
+use socdof_core::settings_service::{self, Preferences};
 use socdof_core::store::Store;
 use socdof_core::{now_millis, CoreResult};
 use socdof_ui::accounting::{accounting, AccountingState};
@@ -31,19 +32,22 @@ use socdof_ui::app_store::{app_store, AppStoreState};
 use socdof_ui::appointments::{
     appointments, AppointmentsDetail, AppointmentsState, AppointmentsView,
 };
-use socdof_ui::auth::{auth, AuthState, AuthView};
-use socdof_ui::chrome::{app_chrome, app_window};
+use socdof_ui::auth::{auth, AuthState, AuthView, SetupTemplate};
+use socdof_ui::auth_screens::{module_visible_for, template_apps_for};
+use socdof_ui::calculator::{calculator_window, CalculatorWindow};
+use socdof_ui::chrome::{app_chrome, app_title, app_window};
 use socdof_ui::components::{button, ButtonVariant};
 use socdof_ui::contacts::{contacts, ContactsState};
 use socdof_ui::dashboard::{dashboard, DashboardAction, DashboardData, DashboardState};
 use socdof_ui::desktop::{
-    desktop, AppId, DesktopFrame, DesktopIcon, IconGrid, WindowManager, TASKBAR_HEIGHT,
+    desktop, AppId, ClockSettings, DesktopFrame, DesktopIcon, IconGrid, WindowManager,
+    TASKBAR_HEIGHT,
 };
 use socdof_ui::documentation::{documentation, DocumentationState};
 use socdof_ui::editor::{editor, EditorState};
 use socdof_ui::fleet::{fleet, FleetState};
 use socdof_ui::focus::FocusState;
-use socdof_ui::i18n::UiTexts;
+use socdof_ui::i18n::{load_texts, UiTexts};
 use socdof_ui::invoices::{invoices, InvoicesState};
 use socdof_ui::pos::{pos, PosState};
 use socdof_ui::products::{products, ProductsState};
@@ -58,6 +62,7 @@ use socdof_ui::theme::{Appearance, Theme};
 use socdof_ui::therapie::{therapie, TherapieState};
 use socdof_ui::tokens::FONT_SMALL;
 use socdof_ui::users::{users, UsersState};
+use socdof_ui::widgets::widgets_app;
 use wasm_bindgen::JsCast;
 
 /// Accent of the first start; the appearance settings change it later.
@@ -123,6 +128,8 @@ struct WebApp {
     restaurant: RestaurantState,
     /// Documentation module.
     documentation: DocumentationState,
+    /// Desktop calculator utility.
+    calculator: CalculatorWindow,
     /// Catalogue key of a startup failure.
     error: Option<&'static str>,
     /// IndexedDB handle that keeps the database image of this browser.
@@ -184,6 +191,7 @@ impl WebApp {
             fleet: FleetState::new(),
             restaurant: RestaurantState::new(),
             documentation: DocumentationState::default(),
+            calculator: CalculatorWindow::new(),
             error: None,
             storage: storage::Storage::start(),
             loaded: false,
@@ -228,10 +236,106 @@ impl WebApp {
         if let Ok(auth) = AuthState::new(&self.store, now) {
             self.auth = auth;
         }
-        let active =
-            app_store::active_modules(&self.store).unwrap_or_else(|_| ALL_MODULES.to_vec());
-        self.icons = desktop_icons(&self.texts, &active);
+        if let Ok(profile) = self.store.company_profile() {
+            let clock = ClockSettings::from_profile(&profile);
+            self.auth.clock = clock.clone();
+            self.shell.clock = clock;
+        }
+        if let Ok(pref) = settings_service::desktop_wallpaper(&self.store) {
+            self.shell.wallpaper.apply_preference(&pref, 1);
+        }
+        if self.signed_in() {
+            self.apply_user_session(now, false, None, false);
+        } else {
+            self.sync_module_navigation();
+        }
         true
+    }
+
+    /// Switches the browser interface language while relabeling desktop icons and windows.
+    fn set_language(&mut self, language: Language) {
+        if let Ok(texts) = load_texts(language, &self.store) {
+            self.icons
+                .relabel(|app| app_title(&texts, app_chrome(app.as_str())));
+            self.windows
+                .relabel_titles(|app| app_title(&texts, app_chrome(app.as_str())));
+            self.texts = texts;
+        }
+    }
+
+    /// Rebuilds the active module list filtered by user permissions and reloads desktop icons.
+    fn sync_module_navigation(&mut self) {
+        let mut active = self.active_modules();
+        if let Some(user) = self.auth.user.as_ref() {
+            active.retain(|module| {
+                self.store
+                    .user_allows(user, *module, PermissionLevel::View)
+                    .unwrap_or(false)
+            });
+        }
+        self.icons = desktop_icons(&self.texts, &active);
+    }
+
+    /// Loads or saves per-user preferences, wallpaper and desktop layout after authentication.
+    fn apply_user_session(
+        &mut self,
+        now: i64,
+        wizard_completed: bool,
+        wizard_theme: Option<ThemeMode>,
+        wallpaper_changed: bool,
+    ) {
+        let Some(user_id) = self.auth.user.as_ref().map(|user| user.id) else {
+            return;
+        };
+        let mut startup_module = None;
+        if wizard_completed {
+            let preferences = Preferences {
+                language: self.texts.language(),
+                theme_mode: wizard_theme.unwrap_or(if self.appearance.is_dark() {
+                    ThemeMode::Dark
+                } else {
+                    ThemeMode::Light
+                }),
+                accent_color: self.accent_id.clone(),
+                ..Preferences::default()
+            };
+            let _ = settings_service::save_preferences(&self.store, user_id, &preferences);
+            let _ = settings_service::save_wallpaper(
+                &self.store,
+                Some(user_id),
+                &self.shell.wallpaper.to_preference(),
+            );
+        } else {
+            if wallpaper_changed {
+                let _ = settings_service::save_wallpaper(
+                    &self.store,
+                    Some(user_id),
+                    &self.shell.wallpaper.to_preference(),
+                );
+            } else if let Ok(pref) = settings_service::user_wallpaper(&self.store, user_id) {
+                self.shell.wallpaper.apply_preference(&pref, now.max(1) as u64);
+            }
+            if let Ok(preferences) = settings_service::preferences(&self.store, user_id) {
+                self.set_language(preferences.language);
+                self.appearance = match preferences.theme_mode {
+                    ThemeMode::Dark => Appearance::Dark,
+                    ThemeMode::Light => Appearance::Light,
+                    ThemeMode::System => self.appearance,
+                };
+                self.accent_id = preferences.accent_color;
+                if !preferences.startup_module.is_empty() {
+                    startup_module = Some(preferences.startup_module);
+                }
+            }
+        }
+        self.sync_module_navigation();
+        if let Some(slug) = startup_module {
+            if let Some(app) = startup_app_id(&slug) {
+                if self.icons.index_of(app).is_some() {
+                    let _ = self.open_screen(app, now);
+                }
+            }
+        }
     }
 
     /// Draws the hint that is shown while the stored database is read.
@@ -299,6 +403,8 @@ impl WebApp {
             }
             "settings" => {
                 self.settings.reset_for_open();
+                self.settings
+                    .set_active_user(self.auth.user.as_ref().map(|user| user.id));
                 self.settings.refresh(&self.store)?;
             }
             "users" => self.users.refresh(&self.store)?,
@@ -311,6 +417,7 @@ impl WebApp {
             "fleet" => self.fleet.reset_for_open(&self.store)?,
             "restaurant" => self.restaurant.reset_for_open(&self.store)?,
             "documentation" => self.documentation.back = false,
+            "calculator" | "widgets" => {}
             _ => return Ok(()),
         }
         self.open = Some(app);
@@ -330,7 +437,7 @@ impl WebApp {
             // start-up, so it has to be rebuilt here — otherwise a freshly activated module keeps
             // its missing tile until the host restarts.
             if app.as_str() == "app-store" {
-                self.icons = desktop_icons(&self.texts, &self.active_modules());
+                self.sync_module_navigation();
             }
         }
     }
@@ -582,6 +689,18 @@ impl WebApp {
                         )
                     },
                 );
+                if let Some(preferences) = self.settings.take_saved_preferences() {
+                    self.set_language(preferences.language);
+                    self.appearance = match preferences.theme_mode {
+                        ThemeMode::Dark => Appearance::Dark,
+                        ThemeMode::Light => Appearance::Light,
+                        ThemeMode::System => self.appearance,
+                    };
+                    self.accent_id = preferences.accent_color;
+                }
+                if self.settings.take_language_pack_changed() {
+                    self.set_language(self.texts.language());
+                }
                 let back = std::mem::take(&mut self.settings.back);
                 if action.close || action.minimize || back {
                     self.leave_screen(now);
@@ -777,12 +896,63 @@ impl WebApp {
                     self.leave_screen(now);
                 }
             }
+            "calculator" => {
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("calculator"),
+                    |focus| {
+                        egui::CentralPanel::default()
+                            .frame(egui::Frame::none().fill(theme.palette.background))
+                            .show(ctx, |ui| {
+                                calculator_window(
+                                    ctx,
+                                    true,
+                                    ui,
+                                    theme,
+                                    texts,
+                                    focus,
+                                    &mut self.calculator,
+                                );
+                            });
+                    },
+                );
+                if action.close || action.minimize {
+                    self.leave_screen(now);
+                }
+            }
+            "widgets" => {
+                let mut widget_layer = self.shell.widgets.clone();
+                let action = app_window(
+                    ctx,
+                    theme,
+                    texts,
+                    &mut self.focus,
+                    app_chrome("widgets"),
+                    |focus| {
+                        egui::CentralPanel::default()
+                            .frame(egui::Frame::none().fill(theme.palette.background))
+                            .show(ctx, |ui| {
+                                widgets_app(ui, theme, texts, focus, &mut widget_layer, now);
+                            });
+                    },
+                );
+                self.shell.widgets = widget_layer;
+                if action.close || action.minimize {
+                    self.leave_screen(now);
+                }
+            }
             _ => self.leave_screen(now),
         }
     }
 
     /// Draws the desktop and handles the app that was launched from it.
     fn render_desktop(&mut self, ctx: &Context, theme: &Theme, texts: &UiTexts, now: i64) {
+        if let Ok(profile) = self.store.company_profile() {
+            self.shell.clock = ClockSettings::from_profile(&profile);
+        }
         let outcome = desktop(
             ctx,
             DesktopFrame {
@@ -812,6 +982,16 @@ impl WebApp {
             } else {
                 Appearance::Dark
             };
+            if let Some(user_id) = self.auth.user.as_ref().map(|user| user.id) {
+                if let Ok(mut preferences) = settings_service::preferences(&self.store, user_id) {
+                    preferences.theme_mode = if self.appearance.is_dark() {
+                        ThemeMode::Dark
+                    } else {
+                        ThemeMode::Light
+                    };
+                    let _ = settings_service::save_preferences(&self.store, user_id, &preferences);
+                }
+            }
         }
         if let Some(app) = outcome.open_app {
             if self.open_screen(app, now).is_err() {
@@ -912,6 +1092,9 @@ impl eframe::App for WebApp {
         }
 
         if !self.signed_in() {
+            if let Ok(profile) = self.store.company_profile() {
+                self.auth.clock = ClockSettings::from_profile(&profile);
+            }
             auth(
                 ctx,
                 &theme,
@@ -921,15 +1104,51 @@ impl eframe::App for WebApp {
                 &self.store,
                 now,
             );
-            // The language card of the wizard switches the whole interface, so the host reloads
-            // the catalogue as soon as the choice changes; the desktop gallery applies it the
-            // same way. The choice itself stays in the state, which stores it with the account.
-            if let Some(language) = self.auth.language_choice {
+            if let Some(language) = self.auth.language_choice.take() {
                 if language != self.texts.language() {
-                    if let Ok(texts) = UiTexts::embedded(language) {
-                        self.texts = texts;
-                    }
+                    self.set_language(language);
                 }
+            }
+            if let Some(appearance) = self.auth.appearance_choice.take() {
+                self.appearance = appearance;
+            }
+            let wizard_theme = self.auth.theme_mode_choice;
+            if let Some(mode) = wizard_theme {
+                self.appearance = match mode {
+                    ThemeMode::Light => Appearance::Light,
+                    ThemeMode::Dark => Appearance::Dark,
+                    ThemeMode::System => self.appearance,
+                };
+            }
+            if let Some(accent) = self.auth.accent_choice.take() {
+                self.accent_id = accent;
+            }
+            let mut wallpaper_changed = false;
+            if let Some(wallpaper) = self.auth.wallpaper_choice.take() {
+                self.shell.wallpaper.wallpaper = wallpaper;
+                self.shell.wallpaper.custom = None;
+                wallpaper_changed = true;
+            }
+            if let Some(mut custom) = self.auth.wallpaper_custom.take() {
+                custom.revision = now.max(1) as u64;
+                self.shell.wallpaper.custom = Some(custom);
+                wallpaper_changed = true;
+            }
+            let wizard_completed = self.auth.take_wizard_completed();
+            if wizard_completed {
+                let selected = resolve_web_setup_apps(&self.auth);
+                if !selected.is_empty() {
+                    let _ = app_store::apply_selection(&self.store, &selected);
+                }
+            }
+            if self.signed_in() {
+                self.apply_user_session(now, wizard_completed, wizard_theme, wallpaper_changed);
+            } else if wallpaper_changed {
+                let _ = settings_service::save_wallpaper(
+                    &self.store,
+                    None,
+                    &self.shell.wallpaper.to_preference(),
+                );
             }
             if let Some(key) = self.error {
                 egui::TopBottomPanel::bottom("socdof-web-error").show(ctx, |ui| {
@@ -961,6 +1180,63 @@ impl eframe::App for WebApp {
     }
 }
 
+/// Resolves setup wizard modules with required modules intact.
+fn resolve_web_setup_apps(auth: &AuthState) -> Vec<String> {
+    let mut apps: Vec<String> = if auth.setup_apps.is_empty() {
+        template_apps_for(auth.template_choice, auth.account_type)
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    } else {
+        auth.setup_apps
+            .iter()
+            .filter(|slug| module_visible_for(auth.account_type, slug))
+            .cloned()
+            .collect()
+    };
+    if apps.is_empty() && auth.template_choice != SetupTemplate::All {
+        return Vec::new();
+    }
+    if auth.template_choice == SetupTemplate::All && apps.is_empty() {
+        apps = ALL_MODULES
+            .iter()
+            .map(|module| module.as_str().to_owned())
+            .filter(|slug| module_visible_for(auth.account_type, slug))
+            .collect();
+    }
+    for required in ["dashboard", "settings", "users"] {
+        if !apps.iter().any(|slug| slug == required) {
+            apps.push(required.to_owned());
+        }
+    }
+    apps
+}
+
+/// Resolves a stored startup module slug into an `AppId`.
+fn startup_app_id(slug: &str) -> Option<AppId> {
+    Some(match slug {
+        "dashboard" => AppId::new("dashboard"),
+        "contacts" => AppId::new("contacts"),
+        "products" => AppId::new("products"),
+        "projects" => AppId::new("projects"),
+        "fleet" => AppId::new("fleet"),
+        "restaurant" => AppId::new("restaurant"),
+        "invoices" => AppId::new("invoices"),
+        "accounting" => AppId::new("accounting"),
+        "purchases" => AppId::new("purchases"),
+        "pos" => AppId::new("pos"),
+        "calendar" => AppId::new("calendar"),
+        "support" => AppId::new("support"),
+        "reports" => AppId::new("reports"),
+        "therapy" => AppId::new("therapy"),
+        "users" => AppId::new("users"),
+        "settings" => AppId::new("settings"),
+        "editor" => AppId::new("editor"),
+        "documentation" => AppId::new("documentation"),
+        _ => return None,
+    })
+}
+
 /// Desktop and start-menu icons of the modules that are currently enabled.
 fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
     let mut icons = Vec::new();
@@ -987,6 +1263,14 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         if !active.contains(&module) {
             continue;
         }
+        let app = app_chrome(slug);
+        icons.push(DesktopIcon::new(
+            AppId::new(app.slug),
+            texts.get(app.title_key),
+            app.icon,
+        ));
+    }
+    for slug in ["app-store", "calculator", "widgets"] {
         let app = app_chrome(slug);
         icons.push(DesktopIcon::new(
             AppId::new(app.slug),

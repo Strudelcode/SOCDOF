@@ -331,22 +331,46 @@ fn restore_native_windows(
     }
 }
 
+/// Resolves the ordered module slugs selected by the first-run setup wizard.
+fn resolve_setup_apps(auth: &AuthState) -> Vec<String> {
+    let mut apps: Vec<String> = if auth.setup_apps.is_empty() {
+        crate::auth_screens::template_apps_for(auth.template_choice, auth.account_type)
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
+    } else {
+        auth.setup_apps
+            .iter()
+            .filter(|slug| crate::auth_screens::module_visible_for(auth.account_type, slug))
+            .cloned()
+            .collect()
+    };
+    if apps.is_empty() && auth.template_choice != crate::auth::SetupTemplate::All {
+        return Vec::new();
+    }
+    if auth.template_choice == crate::auth::SetupTemplate::All && apps.is_empty() {
+        apps = socdof_core::domain::permission::ALL_MODULES
+            .iter()
+            .map(|module| module.as_str().to_owned())
+            .filter(|slug| crate::auth_screens::module_visible_for(auth.account_type, slug))
+            .collect();
+    }
+    for required in ["dashboard", "settings", "users"] {
+        if !apps.iter().any(|slug| slug == required) {
+            apps.push(required.to_owned());
+        }
+    }
+    apps
+}
+
 /// Trims the desktop to the template and the apps chosen in the wizard.
 fn apply_setup_template(state: &mut GalleryState) {
-    let mut apps: Vec<&str> = if state.auth.setup_apps.is_empty() {
-        crate::auth_screens::template_apps(state.auth.template_choice)
-    } else {
-        state.auth.setup_apps.iter().map(String::as_str).collect()
-    };
+    let apps = resolve_setup_apps(&state.auth);
     if apps.is_empty() {
         return;
     }
-    for required in ["dashboard", "settings"] {
-        if !apps.contains(&required) {
-            apps.push(required);
-        }
-    }
-    state.desktop_icons.retain_apps(&apps);
+    let refs: Vec<&str> = apps.iter().map(String::as_str).collect();
+    state.desktop_icons.retain_apps(&refs);
     state.desktop_pinned = state.desktop_icons.pinned(&PINNED_DESKTOP);
 }
 
@@ -700,6 +724,9 @@ impl GalleryState {
                 let mut shell = ShellState::new();
                 shell.clock =
                     crate::desktop::ClockSettings::from_profile(&store.company_profile()?);
+                if let Ok(pref) = settings_service::desktop_wallpaper(&store) {
+                    shell.wallpaper.apply_preference(&pref, 1);
+                }
                 shell
             },
             dashboard,
@@ -1101,15 +1128,25 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if let Some(accent) = state.auth.accent_choice.take() {
             state.accent_id = accent;
         }
+        let mut wallpaper_changed = false;
         if let Some(wallpaper) = state.auth.wallpaper_choice.take() {
             state.shell.wallpaper.wallpaper = wallpaper;
+            state.shell.wallpaper.custom = None;
+            wallpaper_changed = true;
         }
         if let Some(mut custom) = state.auth.wallpaper_custom.take() {
             custom.revision = now as u64;
             state.shell.wallpaper.custom = Some(custom);
+            wallpaper_changed = true;
         }
         let wizard_completed = state.auth.take_wizard_completed();
         if wizard_completed {
+            let selected = resolve_setup_apps(&state.auth);
+            if !selected.is_empty() {
+                if let Err(error) = app_store::apply_selection(&state.store, &selected) {
+                    eprintln!("SOCDOF could not persist setup module selection: {error}");
+                }
+            }
             apply_setup_template(state);
         }
         let mut startup_module = None;
@@ -1135,6 +1172,13 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     {
                         eprintln!("SOCDOF could not save first-run preferences: {error}");
                     }
+                    if let Err(error) = settings_service::save_wallpaper(
+                        &state.store,
+                        Some(user_id),
+                        &state.shell.wallpaper.to_preference(),
+                    ) {
+                        eprintln!("SOCDOF could not save first-run wallpaper: {error}");
+                    }
                 } else {
                     let _ = state.set_language(preferences.language);
                     state.appearance = match preferences.theme_mode {
@@ -1144,8 +1188,20 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     };
                     state.accent_id = preferences.accent_color;
                     startup_module = startup_app(&preferences.startup_module);
+                    if !wallpaper_changed {
+                        if let Ok(pref) = settings_service::user_wallpaper(&state.store, user_id) {
+                            state.shell.wallpaper.apply_preference(&pref, now.max(1) as u64);
+                        }
+                    }
                 }
             }
+        } else if wallpaper_changed {
+            let user_id = state.auth.user.as_ref().map(|user| user.id);
+            let _ = settings_service::save_wallpaper(
+                &state.store,
+                user_id,
+                &state.shell.wallpaper.to_preference(),
+            );
         }
         if state.auth.view == crate::auth::AuthView::Unlocked && state.auth.user.is_some() {
             state.auth_open = false;

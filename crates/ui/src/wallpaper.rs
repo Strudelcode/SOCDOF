@@ -127,6 +127,65 @@ impl WallpaperState {
             WallpaperFit::Tile => WallpaperFit::Cover,
         };
     }
+
+    /// Serializes this wallpaper selection for persistent settings storage.
+    pub fn to_preference(&self) -> socdof_core::settings_service::WallpaperPreference {
+        let fit = match self.fit {
+            WallpaperFit::Cover => "cover",
+            WallpaperFit::Tile => "tile",
+        }
+        .to_string();
+        if let Some(custom) = self.custom.as_ref() {
+            if let Ok(data_url) = socdof_core::settings_service::encode_png_data_url(
+                custom.width as u32,
+                custom.height as u32,
+                custom.pixels.as_slice(),
+            ) {
+                return socdof_core::settings_service::WallpaperPreference {
+                    kind: "custom".to_string(),
+                    fit,
+                    custom_image: Some(data_url),
+                };
+            }
+        }
+        socdof_core::settings_service::WallpaperPreference {
+            kind: self.wallpaper.id().to_string(),
+            fit,
+            custom_image: None,
+        }
+    }
+
+    /// Restores wallpaper and custom image from a persisted preference.
+    pub fn apply_preference(
+        &mut self,
+        preference: &socdof_core::settings_service::WallpaperPreference,
+        revision: u64,
+    ) {
+        self.fit = if preference.fit == "tile" {
+            WallpaperFit::Tile
+        } else {
+            WallpaperFit::Cover
+        };
+        self.wallpaper = match preference.kind.as_str() {
+            "aurora" => Wallpaper::Aurora,
+            "dusk" => Wallpaper::Dusk,
+            _ => Wallpaper::Plain,
+        };
+        self.custom = if preference.kind == "custom" {
+            preference
+                .custom_image
+                .as_deref()
+                .and_then(socdof_core::settings_service::decode_data_url_rgba)
+                .map(|(width, height, pixels)| CustomWallpaper {
+                    width,
+                    height,
+                    pixels: std::sync::Arc::new(pixels),
+                    revision: revision.max(1),
+                })
+        } else {
+            None
+        };
+    }
 }
 
 /// Decoded size and RGBA pixels of a bundled wallpaper.
@@ -531,5 +590,40 @@ mod tests {
         assert_eq!(state.fit, WallpaperFit::Tile);
         state.toggle_fit();
         assert_eq!(state.fit, WallpaperFit::Cover);
+    }
+
+    #[test]
+    fn preference_round_trips_presets_and_custom_images() {
+        let mut state = WallpaperState {
+            wallpaper: Wallpaper::Aurora,
+            fit: WallpaperFit::Tile,
+            custom: None,
+        };
+        let pref = state.to_preference();
+        assert_eq!(pref.kind, "aurora");
+        assert_eq!(pref.fit, "tile");
+        assert!(pref.custom_image.is_none());
+
+        let mut restored = WallpaperState::default();
+        restored.apply_preference(&pref, 7);
+        assert_eq!(restored.wallpaper, Wallpaper::Aurora);
+        assert_eq!(restored.fit, WallpaperFit::Tile);
+        assert!(restored.custom.is_none());
+
+        let (width, height, rgba) = pixels(Wallpaper::Dusk);
+        state.custom = Some(CustomWallpaper {
+            width,
+            height,
+            pixels: std::sync::Arc::new(rgba),
+            revision: 42,
+        });
+        let custom_pref = state.to_preference();
+        assert_eq!(custom_pref.kind, "custom");
+        assert!(custom_pref.custom_image.is_some());
+
+        restored.apply_preference(&custom_pref, 99);
+        let custom = restored.custom.expect("decoded custom wallpaper");
+        assert_eq!((custom.width, custom.height), (width, height));
+        assert_eq!(custom.revision, 99);
     }
 }
