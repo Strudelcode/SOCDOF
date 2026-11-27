@@ -2972,3 +2972,59 @@ filled header row, the evaluated column `=B*C` (14.4 / 9.6 / 7.2 / 7.5), `=SUMME
 
 **Still open:** the reference's template storage (unused there), a print/PDF export (the reference has
 none) and the visual pixel comparison — this block targets functional parity only.
+
+## 16.28 Calendar & appointments parity (2026-11-27)
+
+`CalendarModule.tsx` renders a merged event list: local events from `localStorage`, invoice due
+dates built by `buildUnifiedCalendarEvents` and Google events from `lib/googleCalendar.ts`. This
+block ports the local half and keeps the Google half out of scope: OAuth, the Google Calendar API
+and the invoice push need credentials and a network backend that the Rust build deliberately does
+not have.
+
+**Domain** `crates/core/src/domain/appointment.rs`:
+- `AppointmentCategory` with the six reference categories (invoice, customer, meeting, deadline,
+  personal, general), stable storage strings and catalogue keys.
+- `Appointment::all_day`; all-day entries are stored as half-open day ranges
+  (`starts_at` = first day, `ends_at` = start of the day after the last one) so views, conflict
+  checks and the exporter share one representation. `day_count()` reports the covered days.
+- `export_appointments_ics` writes `DTSTART;VALUE=DATE` / `DTEND;VALUE=DATE` for all-day entries and
+  `CATEGORIES:<KIND>` for every event, matching the reference exporter's date values and exclusive
+  end date.
+- `InvoiceEvent` and `invoice_events(invoices, contacts, now)` turn due, non-cancelled invoices into
+  read-only entries; paid and overdue are derived from status and due date.
+
+**Store** `crates/core/src/store/appointments.rs`, schema **v23**:
+`category TEXT NOT NULL DEFAULT 'general'` and `all_day INTEGER NOT NULL DEFAULT 0`; insert, update
+and row mapping carry both fields.
+
+**UI** `crates/ui/src/appointments.rs`:
+- fourth view **Work week** (Monday–Friday); week and work week render five or seven equal columns;
+  all-day entries get a banner above the columns.
+- merged `CalendarEntry` list (appointments plus invoice events) with per-category accent dots,
+  category chips, an invoices-only filter and search over titles, notes and invoice numbers.
+- form: start/end date and time instead of a duration, all-day switch, quick durations
+  (15 m/30 m/45 m/1 h/2 h/all day), category select; all-day entries skip the slot conflict check
+  because the reference allows overlapping all-day entries.
+- detail: category and invoice status badges, duration in minutes or days, duplicate (also from an
+  invoice entry, which becomes a local all-day appointment), status actions for local entries only.
+- `.ics` export writes the filtered list, now including invoice entries and all-day date values.
+- The agenda is a list (title line plus date/time/category/status line) rather than a grid, so long
+  invoice or customer titles keep the panel width; titles that still do not fit are shortened with
+  an ellipsis.
+
+**Wiring:** no new module (the calendar already held slot 8). New preview scene `calendar-workweek`,
+a calendar fixture with categories and an all-day `Inventur` entry, the app demo seed with the same
+categories and one all-day entry, and 23 i18n keys in de/en/fr/es (catalogue 2,701).
+
+**Verification:** `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, core 437, UI 467,
+visual 2 (goldens regenerated for the new work-week tab and five fixtures), backoffice 4 and the
+phone sweep with 1,432 cases at 360/390/412/432 px in both appearances. The sweep caught two real
+overflows (search field wider than the phone row, long invoice titles in the agenda); both are fixed.
+
+**Evidence:** `docs/artifacts/gui-parity/rust-49-calendar-{light,dark}.png`,
+`rust-49-calendar-workweek-{light,dark}.png`, `rust-49-calendar-form-{light,dark}.png`.
+
+**Still open:** Google Calendar sync (OAuth/API/invoice push), `window.print()` (no desktop
+equivalent; the ICS export covers exchange), the reference's mobile bottom sheets (the Rust form
+stacks on phone widths) and the pixel comparison. Recurrence and ICS import do not exist in the
+reference, so they are not gaps.

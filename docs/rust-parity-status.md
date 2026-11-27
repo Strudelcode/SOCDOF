@@ -121,6 +121,7 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
 - [ ] Rechnungen: Status-Filterchips, Rechnung duplizieren
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
+- [x] **Kalender & Termine** sind portiert (`crates/ui/src/appointments.rs`, Schema v23, Beleg `rust-49`); offen bleiben Google-Sync, Browser-Druck und die mobilen Sheets
 - [x] **Tabellenkalkulation `table`** ist portiert (`crates/ui/src/table.rs`, Schema v22, Beleg `rust-48`); offen bleibt nur der in der Vorlage ungenutzte Vorlagen-Speicher
 
 ### Übergreifend
@@ -197,3 +198,39 @@ Tabellenkalkulation (kein Tischplan); Tisch-Lebenszyklus, Reservierung und Storn
 - **Verifikation**: `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, Core 434, UI 464,
   Visual 2, Backoffice 4, Telefon-Sweep 1.424 Fälle grün; Beleg
   `docs/artifacts/gui-parity/rust-48-spreadsheet-{light,dark}.png`.
+
+## Kalender & Termine (2026-11-27)
+
+Die Vorlage verteilt den Kalender auf `CalendarModule.tsx` (Ansichten, Filter, Formulare) und
+`lib/googleCalendar.ts` (vereinigte Ereignisliste und `.ics`-Export). Portiert ist alles, was ohne
+Google-Konto und ohne Netzwerk läuft.
+
+- **Domäne** `crates/core/src/domain/appointment.rs`: `AppointmentCategory` (Rechnung, Kunde,
+  Meeting, Frist, Privat, Allgemein), `Appointment::all_day`, `day_count`, iCalendar-Export mit
+  `DTSTART;VALUE=DATE`/`DTEND;VALUE=DATE` und `CATEGORIES` für Ganztagstermine, `InvoiceEvent` +
+  `invoice_events` für fällige, nicht stornierte Rechnungen (Bezahlt/Überfällig wird aus Status und
+  Fälligkeit abgeleitet).
+- **Store** `crates/core/src/store/appointments.rs` + Schema **v23**: `category` und `all_day` mit
+  Defaults, Kategorie/Flag in Insert, Update und Mapping.
+- **UI** `crates/ui/src/appointments.rs`: vierte Ansicht **Arbeitswoche** (Mo–Fr), mehrtägige und
+  Ganztagstermine (eigene Leiste über den Spalten, „Ganztägig“ in Liste und Detail), Kategorie-
+  Farbpunkte, Filterchips je Kategorie und „Nur Rechnungen“, Rechnungstermine als schreibgeschützte
+  Einträge mit Rechnungsnummer und Status, Duplizieren (auch von Rechnungsterminen), Schnelldauern
+  15 m/30 m/45 m/1 h/2 h/Ganztägig, Enddatum und Endzeit statt Dauer, Suche über Titel, Notizen und
+  Rechnungsnummern. Der ICS-Export schreibt die gefilterte Liste inklusive Rechnungsterminen.
+- **Verdrahtung**: keine neues Modul nötig (Kalender war bereits als 8. Modul verdrahtet);
+  Vorschau-Szene `calendar-workweek`, Kalender-Fixtures mit Kategorien und einem Ganztagstermin,
+  App-Demo-Seed ebenso. 23 neue i18n-Keys in de/en/fr/es (Katalog **2.701**).
+- **Bewusste Abweichungen**: Google-Kalender-Sync (OAuth, Google-API, Push der Rechnungen) fehlt –
+  der Rust-Kalender arbeitet ausschließlich auf der lokalen Datenbank; `window.print()` der Vorlage
+  hat kein Desktop-Pendant, der `.ics`-Export deckt den Austausch ab; die mobilen Bottom-Sheets
+  ersetzen die gestapelten Formulare der Telefonbreite. Wiederholungen und `.ics`-Import gibt es in
+  der Vorlage nicht und daher auch nicht in Rust.
+- **Verifikation**: `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, Core **437**, UI
+  **467**, Visual 2, Backoffice 4, Telefon-Sweep **1.432** Fälle grün. Der Sweep fand zwei echte
+  Überläufe: ein zu breites Suchfeld in der Werkzeugleiste (jetzt eigene Zeile) und lange
+  Rechnungstitel in der Agenda (jetzt mit Ellipse gekürzt); beide sind behoben.
+- **Belege**: `docs/artifacts/gui-parity/rust-49-calendar-{light,dark}.png`,
+  `rust-49-calendar-workweek-{light,dark}.png`, `rust-49-calendar-form-{light,dark}.png`.
+
+**Offen:** Google-Sync, Drucken, mobile Sheets; Pixelvergleich (dieser Block prüft Funktion).

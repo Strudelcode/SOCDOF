@@ -14,7 +14,7 @@ use socdof_core::backup;
 use socdof_core::domain::accounting::{
     self, BookingChannel, JournalEntry, JournalKind, JournalSummary,
 };
-use socdof_core::domain::appointment::{Appointment, AppointmentStatus};
+use socdof_core::domain::appointment::{Appointment, AppointmentCategory, AppointmentStatus};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactPerson, ContactType};
 use socdof_core::domain::document::Document;
 use socdof_core::domain::dunning::DunningLevel;
@@ -365,6 +365,12 @@ pub struct AppointmentInput {
     pub notes: String,
     /// Storage status name.
     pub status: String,
+    /// Storage category name; unknown values fall back to `general`.
+    #[serde(default)]
+    pub category: Option<String>,
+    /// Whether the entry fills whole days.
+    #[serde(default)]
+    pub all_day: bool,
     /// Start in milliseconds since the Unix epoch.
     pub starts_at: i64,
     /// End in milliseconds since the Unix epoch.
@@ -947,6 +953,12 @@ impl DesktopState {
                 title: String::new(),
                 location: None,
                 notes: None,
+                category: input
+                    .category
+                    .as_deref()
+                    .and_then(AppointmentCategory::from_storage)
+                    .unwrap_or_default(),
+                all_day: input.all_day,
                 status,
                 starts_at: 0,
                 ends_at: 0,
@@ -960,6 +972,12 @@ impl DesktopState {
             Some(input.location.clone()).filter(|value| !value.trim().is_empty());
         appointment.notes = Some(input.notes.clone()).filter(|value| !value.trim().is_empty());
         appointment.status = status;
+        appointment.category = input
+            .category
+            .as_deref()
+            .and_then(AppointmentCategory::from_storage)
+            .unwrap_or(appointment.category);
+        appointment.all_day = input.all_day;
         appointment.starts_at = input.starts_at;
         appointment.ends_at = input.ends_at;
         appointment.updated_at = now;

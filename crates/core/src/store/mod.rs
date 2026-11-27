@@ -58,7 +58,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 22;
+pub const SCHEMA_VERSION: i64 = 23;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -778,6 +778,11 @@ impl Store {
         if version < 22 {
             self.conn.execute_batch(SCHEMA_V22)?;
             version = 22;
+        }
+
+        if version < 23 {
+            self.conn.execute_batch(SCHEMA_V23)?;
+            version = 23;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -2329,6 +2334,12 @@ const SCHEMA_V17: &str = r#"
 ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 "#;
 
+/// Schema v23: colour categories and all-day ranges for calendar appointments.
+const SCHEMA_V23: &str = r#"
+ALTER TABLE appointments ADD COLUMN category TEXT NOT NULL DEFAULT 'general';
+ALTER TABLE appointments ADD COLUMN all_day INTEGER NOT NULL DEFAULT 0;
+"#;
+
 /// Schema v19: persist double-entry stock movements and backfill existing movement history.
 /// Schema v21: quick billing register of the TypeScript `IOSBillingModule`.
 const SCHEMA_V22: &str = r#"
@@ -2435,7 +2446,7 @@ CREATE INDEX IF NOT EXISTS therapy_trips_client
 mod tests {
     use super::*;
     use crate::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
-    use crate::domain::appointment::{Appointment, AppointmentStatus};
+    use crate::domain::appointment::{Appointment, AppointmentCategory, AppointmentStatus};
     use crate::domain::contact::ContactKind;
     use crate::domain::invoice::{InvoiceLine, InvoiceStatus};
     use crate::domain::permission::{AppModule, PermissionLevel, ADMIN_ROLE_ID, USER_ROLE_ID};
@@ -2810,6 +2821,8 @@ mod tests {
             title: "Kickoff".to_string(),
             location: Some("Raum 1".to_string()),
             notes: None,
+            category: AppointmentCategory::General,
+            all_day: false,
             status: AppointmentStatus::Confirmed,
             starts_at: 1_000,
             ends_at: 2_000,
@@ -2833,6 +2846,13 @@ mod tests {
             ends_at: 2_500,
             ..first.clone()
         };
+        first.category = AppointmentCategory::Meeting;
+        first.all_day = true;
+        store.update_appointment(&first).expect("update category");
+        let reloaded = store.find_appointment(first.id).expect("find").unwrap();
+        assert_eq!(reloaded.category, AppointmentCategory::Meeting);
+        assert!(reloaded.all_day);
+        first.all_day = false;
         assert!(first.has_conflict(&[second.clone()]));
         store.insert_appointment(&second).expect("insert");
         assert_eq!(

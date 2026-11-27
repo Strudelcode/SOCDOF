@@ -423,6 +423,7 @@ fn support_case(state: &mut SupportState, view: SupportView) {
 fn appointments_case(state: &mut AppointmentsState, view: AppointmentsView) {
     match view {
         AppointmentsView::Month => state.view = AppointmentsView::Month,
+        AppointmentsView::WorkWeek => state.view = AppointmentsView::WorkWeek,
         AppointmentsView::Week => state.view = AppointmentsView::Week,
         AppointmentsView::Day => state.view = AppointmentsView::Day,
     }
@@ -939,6 +940,7 @@ fn sweep_appointments(
     state.refresh(store).expect("refresh");
     for view in [
         AppointmentsView::Month,
+        AppointmentsView::WorkWeek,
         AppointmentsView::Week,
         AppointmentsView::Day,
     ] {

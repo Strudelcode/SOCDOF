@@ -1,7 +1,7 @@
 //! Integration tests for the complete data layer: every aggregate, the transactional writes,
 //! the permission matrix, the session path and the FTS5 search.
 
-use socdof_core::domain::appointment::{Appointment, AppointmentStatus};
+use socdof_core::domain::appointment::{Appointment, AppointmentCategory, AppointmentStatus};
 use socdof_core::domain::billing::{BillingItem, BillingKind};
 use socdof_core::domain::contact::{Contact, ContactKind};
 use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
@@ -324,6 +324,8 @@ fn appointments_are_listed_by_range() {
         title: "Früh".to_string(),
         location: None,
         notes: None,
+        category: AppointmentCategory::General,
+        all_day: false,
         status: AppointmentStatus::Scheduled,
         starts_at: NOW,
         ends_at: NOW + 30 * 60_000,

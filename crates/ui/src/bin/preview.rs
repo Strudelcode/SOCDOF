@@ -88,6 +88,7 @@ enum Scene {
     Table,
     Calendar,
     CalendarWeek,
+    CalendarWorkWeek,
     CalendarForm,
     Users,
     UserDetail,
@@ -176,6 +177,7 @@ impl Scene {
             Scene::InvoicesFattura => "invoices-fattura".to_string(),
             Scene::ProductsJournal => "products-journal".to_string(),
             Scene::CalendarWeek => "calendar-week".to_string(),
+            Scene::CalendarWorkWeek => "calendar-workweek".to_string(),
             Scene::CalendarForm => "calendar-form".to_string(),
             Scene::Pos => "pos".to_string(),
             Scene::QuickBilling => "quick-billing".to_string(),
@@ -266,6 +268,7 @@ impl Scene {
             Scene::InvoicesFattura => "Invoices · FatturaPA inspector".to_string(),
             Scene::ProductsJournal => "Products · Movement journal".to_string(),
             Scene::CalendarWeek => "Calendar · Week".to_string(),
+            Scene::CalendarWorkWeek => "Calendar · Work week".to_string(),
             Scene::CalendarForm => "Calendar · Appointment form".to_string(),
             Scene::Pos => "POS / cash register".to_string(),
             Scene::QuickBilling => "Quick billing · Checkout".to_string(),
@@ -802,6 +805,18 @@ impl Scene {
                 state
                     .appointments
                     .set_view(socdof_ui::appointments::AppointmentsView::Week);
+                let _ = state.appointments.refresh(&state.store);
+            }
+            Scene::CalendarWorkWeek => {
+                state.appointments_open = true;
+                state.appointments.screen = socdof_ui::appointments::AppointmentsDetail::Calendar;
+                let _ = state.appointments.refresh(&state.store);
+                state
+                    .appointments
+                    .set_view(socdof_ui::appointments::AppointmentsView::WorkWeek);
+                // 9 November 2026 is the Monday whose work week holds the demo appointments.
+                state.appointments.calendar.day = 9;
+                let _ = state.appointments.refresh(&state.store);
             }
             Scene::CalendarForm => {
                 state.appointments_open = true;
@@ -1256,6 +1271,7 @@ fn scenes() -> Vec<Scene> {
         Scene::Table,
         Scene::Calendar,
         Scene::CalendarWeek,
+        Scene::CalendarWorkWeek,
         Scene::CalendarForm,
         Scene::Users,
         Scene::UserDetail,

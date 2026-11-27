@@ -13,7 +13,10 @@
 
 use egui::{Context, RichText};
 use socdof_core::date;
-use socdof_core::domain::appointment::{Appointment, AppointmentStatus};
+use socdof_core::domain::appointment::{
+    export_appointments_ics, invoice_events, Appointment, AppointmentCategory, AppointmentStatus,
+    InvoiceEvent,
+};
 use socdof_core::domain::contact::Contact;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -22,7 +25,7 @@ use crate::calendar::{days_in_month, month_grid, CalendarState};
 use crate::components::{
     badge, button, card, empty_state, modal, search_field_reserved, ButtonVariant, Tone,
 };
-use crate::controls::{select, text_field, PopupState};
+use crate::controls::{select, switch, text_field, PopupState};
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -52,6 +55,8 @@ pub enum AppointmentsView {
     /// Month grid with the agenda of the month.
     #[default]
     Month,
+    /// Five weekday columns from Monday to Friday.
+    WorkWeek,
     /// Seven day columns with the agenda of the week.
     Week,
     /// One day with its agenda.
@@ -63,8 +68,19 @@ impl AppointmentsView {
     pub fn label_key(self) -> &'static str {
         match self {
             AppointmentsView::Month => "appointments_view_month",
+            AppointmentsView::WorkWeek => "appointments_view_workweek",
             AppointmentsView::Week => "appointments_view_week",
             AppointmentsView::Day => "appointments_view_day",
+        }
+    }
+
+    /// Number of day columns of the view; the month grid draws its own.
+    pub fn days(self) -> i64 {
+        match self {
+            AppointmentsView::Month => 0,
+            AppointmentsView::WorkWeek => 5,
+            AppointmentsView::Week => 7,
+            AppointmentsView::Day => 1,
         }
     }
 }
@@ -81,17 +97,120 @@ pub enum AppointmentsDetail {
     Form,
 }
 
+/// Identity of a calendar entry: a stored appointment or a read-only invoice due date.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EntryId {
+    /// Stored appointment.
+    Appointment(Uuid),
+    /// Due date of an invoice.
+    Invoice(Uuid),
+}
+
+/// One row of the merged calendar: a stored appointment or an invoice due date.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CalendarEntry {
+    /// Identity used for selection and widget ids.
+    pub id: EntryId,
+    /// Title shown in the calendar.
+    pub title: String,
+    /// Room, address or link.
+    pub location: Option<String>,
+    /// Free text notes.
+    pub notes: Option<String>,
+    /// Colour-coded kind.
+    pub category: AppointmentCategory,
+    /// Whether the entry fills whole days.
+    pub all_day: bool,
+    /// Start in milliseconds since the Unix epoch.
+    pub starts_at: i64,
+    /// End in milliseconds since the Unix epoch, exclusive for all-day entries.
+    pub ends_at: i64,
+    /// Lifecycle state of a stored appointment.
+    pub status: AppointmentStatus,
+    /// Linked contact of a stored appointment.
+    pub contact_id: Option<Uuid>,
+    /// Invoice number of a read-only invoice entry.
+    pub invoice_number: Option<String>,
+    /// Whether an invoice entry is paid.
+    pub invoice_paid: bool,
+    /// Whether an invoice entry is past its due date.
+    pub invoice_overdue: bool,
+}
+
+impl CalendarEntry {
+    /// Builds the entry of a stored appointment.
+    pub fn from_appointment(appointment: &Appointment) -> Self {
+        Self {
+            id: EntryId::Appointment(appointment.id),
+            title: appointment.title.clone(),
+            location: appointment.location.clone(),
+            notes: appointment.notes.clone(),
+            category: appointment.category,
+            all_day: appointment.all_day,
+            starts_at: appointment.starts_at,
+            ends_at: appointment.ends_at,
+            status: appointment.status,
+            contact_id: appointment.contact_id,
+            invoice_number: None,
+            invoice_paid: false,
+            invoice_overdue: false,
+        }
+    }
+
+    /// Builds the entry of an invoice due date.
+    pub fn from_invoice(event: &InvoiceEvent) -> Self {
+        Self {
+            id: EntryId::Invoice(event.invoice_id),
+            title: event.title.clone(),
+            location: None,
+            notes: Some(event.notes.clone()),
+            category: AppointmentCategory::Invoice,
+            all_day: true,
+            starts_at: event.starts_at,
+            ends_at: event.ends_at,
+            status: if event.paid {
+                AppointmentStatus::Completed
+            } else {
+                AppointmentStatus::Confirmed
+            },
+            contact_id: None,
+            invoice_number: Some(event.number.clone()),
+            invoice_paid: event.paid,
+            invoice_overdue: event.overdue,
+        }
+    }
+
+    /// Whether the entry comes from an invoice.
+    pub fn is_invoice(&self) -> bool {
+        matches!(self.id, EntryId::Invoice(_))
+    }
+
+    /// Number of calendar days the entry touches.
+    pub fn day_count(&self) -> i64 {
+        ((self.ends_at - 1 - self.starts_at).max(0) / DAY_MS) + 1
+    }
+
+    /// Whether the entry overlaps the given half-open range.
+    pub fn overlaps(&self, from: i64, to: i64) -> bool {
+        self.starts_at < to && from < self.ends_at
+    }
+}
+
 /// Editable values of one appointment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppointmentDraft {
     /// Short title shown in the calendar.
     pub title: String,
-    /// Date as `DD.MM.YYYY`.
+    /// Start date as `DD.MM.YYYY`.
     pub date: String,
     /// Start time as `HH:MM`.
     pub start: String,
-    /// Duration in minutes.
-    pub duration: String,
+    /// End date as `DD.MM.YYYY`; empty reuses the start date.
+    pub end_date: String,
+    /// End time as `HH:MM`.
+    pub end: String,
+    /// Whether the entry fills whole days; times are then ignored.
+    pub all_day: bool,
     /// Room, address or link.
     pub location: String,
     /// Free text notes.
@@ -100,6 +219,8 @@ pub struct AppointmentDraft {
     pub contact: usize,
     /// Index into [`STATUSES`].
     pub status: usize,
+    /// Index into [`AppointmentCategory::ALL`].
+    pub category: usize,
 }
 
 impl Default for AppointmentDraft {
@@ -108,11 +229,14 @@ impl Default for AppointmentDraft {
             title: String::new(),
             date: String::new(),
             start: "09:00".to_string(),
-            duration: "60".to_string(),
+            end_date: String::new(),
+            end: "10:00".to_string(),
+            all_day: false,
             location: String::new(),
             notes: String::new(),
             contact: 0,
             status: 0,
+            category: AppointmentCategory::ALL.len() - 1,
         }
     }
 }
@@ -120,11 +244,18 @@ impl Default for AppointmentDraft {
 impl AppointmentDraft {
     /// Fills the draft from a stored appointment.
     pub fn from_appointment(appointment: &Appointment, contacts: &[Contact]) -> Self {
+        let last_day = if appointment.all_day {
+            appointment.ends_at - DAY_MS
+        } else {
+            appointment.ends_at
+        };
         Self {
             title: appointment.title.clone(),
             date: format_date(appointment.starts_at),
             start: format_time(appointment.starts_at),
-            duration: appointment.duration_minutes().to_string(),
+            end_date: format_date(last_day),
+            end: format_time(appointment.ends_at),
+            all_day: appointment.all_day,
             location: appointment.location.clone().unwrap_or_default(),
             notes: appointment.notes.clone().unwrap_or_default(),
             contact: appointment
@@ -136,6 +267,10 @@ impl AppointmentDraft {
                 .iter()
                 .position(|status| *status == appointment.status)
                 .unwrap_or(0),
+            category: AppointmentCategory::ALL
+                .iter()
+                .position(|category| *category == appointment.category)
+                .unwrap_or(AppointmentCategory::ALL.len() - 1),
         }
     }
 
@@ -150,20 +285,31 @@ impl AppointmentDraft {
             return Err("appointments_error_title");
         }
         let day = parse_date(&self.date).ok_or("appointments_error_date")?;
-        let time = parse_time(&self.start).ok_or("appointments_error_time")?;
-        let duration: i64 = self
-            .duration
-            .trim()
-            .parse()
-            .map_err(|_| "appointments_error_duration")?;
-        if !(1..=1_440).contains(&duration) {
-            return Err("appointments_error_duration");
+        let end_day = if self.end_date.trim().is_empty() {
+            day
+        } else {
+            parse_date(&self.end_date).ok_or("appointments_error_date")?
+        };
+
+        let (starts_at, ends_at) = if self.all_day {
+            // All-day entries are stored as half-open day ranges so every view and the iCalendar
+            // export work on plain timestamps.
+            (day, end_day + DAY_MS)
+        } else {
+            let time = parse_time(&self.start).ok_or("appointments_error_time")?;
+            let end = parse_time(&self.end).ok_or("appointments_error_time")?;
+            (day + time, end_day + end)
+        };
+        if ends_at <= starts_at {
+            return Err("appointments_error_end");
         }
-        let starts_at = day + time;
-        let ends_at = starts_at + duration * MINUTE_MS;
+
         let status = *STATUSES
             .get(self.status)
             .ok_or("appointments_error_status")?;
+        let category = *AppointmentCategory::ALL
+            .get(self.category)
+            .ok_or("appointments_error_category")?;
         let contact_id = self
             .contact
             .checked_sub(1)
@@ -178,6 +324,8 @@ impl AppointmentDraft {
                 title: String::new(),
                 location: None,
                 notes: None,
+                category,
+                all_day: self.all_day,
                 status,
                 starts_at,
                 ends_at,
@@ -190,12 +338,26 @@ impl AppointmentDraft {
         appointment.title = self.title.trim().to_string();
         appointment.location = non_empty(&self.location);
         appointment.notes = non_empty(&self.notes);
+        appointment.category = category;
+        appointment.all_day = self.all_day;
         appointment.status = status;
         appointment.starts_at = starts_at;
         appointment.ends_at = ends_at;
         appointment.updated_at = now;
 
         Ok(appointment)
+    }
+
+    /// Applies one of the quick duration buttons; `0` switches to an all-day entry.
+    pub fn quick_duration(&mut self, minutes: i64) {
+        if minutes <= 0 {
+            self.all_day = true;
+            return;
+        }
+        self.all_day = false;
+        self.end_date = self.date.clone();
+        let start = parse_time(&self.start).unwrap_or(9 * 60 * MINUTE_MS);
+        self.end = format_time(start + minutes * MINUTE_MS);
     }
 }
 
@@ -244,12 +406,8 @@ fn format_time(ms: i64) -> String {
     format!("{:02}:{:02}", minutes / 60, minutes % 60)
 }
 
-fn format_range(appointment: &Appointment) -> String {
-    format!(
-        "{} – {}",
-        format_time(appointment.starts_at),
-        format_time(appointment.ends_at)
-    )
+fn format_range_ms(starts_at: i64, ends_at: i64) -> String {
+    format!("{} – {}", format_time(starts_at), format_time(ends_at))
 }
 
 fn contact_label(contact: &Contact) -> String {
@@ -292,6 +450,26 @@ fn status_tone(status: AppointmentStatus) -> Tone {
     }
 }
 
+/// Accent colour of a category; invoices follow their paid and overdue state.
+fn category_color(theme: &Theme, entry: &CalendarEntry) -> egui::Color32 {
+    if entry.is_invoice() {
+        if entry.invoice_overdue {
+            return theme.palette.danger;
+        }
+        if !entry.invoice_paid {
+            return egui::Color32::from_rgb(0x4f, 0x46, 0xe5);
+        }
+    }
+    match entry.category {
+        AppointmentCategory::Invoice => egui::Color32::from_rgb(0x4f, 0x46, 0xe5),
+        AppointmentCategory::Customer => egui::Color32::from_rgb(0x10, 0xb9, 0x81),
+        AppointmentCategory::Meeting => egui::Color32::from_rgb(0xf5, 0x9e, 0x0b),
+        AppointmentCategory::Deadline => theme.palette.danger,
+        AppointmentCategory::Personal => egui::Color32::from_rgb(0x93, 0x33, 0xea),
+        AppointmentCategory::General => theme.palette.text_muted,
+    }
+}
+
 fn month_bounds(calendar: CalendarState) -> (i64, i64) {
     let start = date::start_of_month_ms(calendar.year as i64, calendar.month);
     let next = if calendar.month == 12 {
@@ -316,6 +494,10 @@ fn week_bounds(calendar: CalendarState) -> (i64, i64) {
 fn view_bounds(calendar: CalendarState, view: AppointmentsView) -> (i64, i64) {
     match view {
         AppointmentsView::Month => month_bounds(calendar),
+        AppointmentsView::WorkWeek => {
+            let (monday, _) = week_bounds(calendar);
+            (monday, monday + 5 * DAY_MS)
+        }
         AppointmentsView::Week => week_bounds(calendar),
         AppointmentsView::Day => {
             let start = day_start(calendar);
@@ -327,10 +509,12 @@ fn view_bounds(calendar: CalendarState, view: AppointmentsView) -> (i64, i64) {
 /// State of the calendar screen.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppointmentsState {
-    /// Search text over title, location and notes.
+    /// Search text over title, location, notes and invoice numbers.
     pub query: String,
     /// Appointments in the loaded range.
     pub appointments: Vec<Appointment>,
+    /// Read-only invoice due dates in the loaded range.
+    pub invoice_events: Vec<InvoiceEvent>,
     /// Contacts selectable in the form.
     pub contacts: Vec<Contact>,
     /// Current view.
@@ -341,16 +525,24 @@ pub struct AppointmentsState {
     pub status_filter: Option<AppointmentStatus>,
     /// Index into the filter list, `0` meaning every status.
     pub status_choice: usize,
+    /// Enabled categories in [`AppointmentCategory::ALL`] order.
+    pub categories: [bool; 6],
+    /// Whether only invoice due dates are shown.
+    pub invoices_only: bool,
     /// Current calendar, detail or form view.
     pub screen: AppointmentsDetail,
     /// Selected appointment, shown by the detail view.
     pub selected: Option<Uuid>,
+    /// Selected invoice due date, shown by the detail view.
+    pub selected_invoice: Option<Uuid>,
     /// Editable values of the form.
     pub draft: AppointmentDraft,
     /// Dropdown state of the contact select.
     pub contact_popup: PopupState,
     /// Dropdown state of the status select.
     pub status_popup: PopupState,
+    /// Dropdown state of the category select.
+    pub category_popup: PopupState,
     /// Dropdown state of the status filter.
     pub filter_popup: PopupState,
     /// Whether the delete confirmation is open.
@@ -372,16 +564,21 @@ impl Default for AppointmentsState {
         Self {
             query: String::new(),
             appointments: Vec::new(),
+            invoice_events: Vec::new(),
             contacts: Vec::new(),
             view: AppointmentsView::Month,
             calendar: CalendarState::from_millis(SAMPLE_NOW_MS),
             status_filter: None,
             status_choice: 0,
+            categories: [true; 6],
+            invoices_only: false,
             screen: AppointmentsDetail::Calendar,
             selected: None,
+            selected_invoice: None,
             draft: AppointmentDraft::default(),
             contact_popup: PopupState::default(),
             status_popup: PopupState::default(),
+            category_popup: PopupState::default(),
             filter_popup: PopupState::default(),
             confirm_delete: false,
             error: None,
@@ -401,7 +598,7 @@ impl AppointmentsState {
         Self::default()
     }
 
-    /// Reloads the appointments when the range or the search changed.
+    /// Reloads appointments, contacts and invoice due dates when the range or search changed.
     pub fn refresh(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
         let day = day_start(self.calendar);
         if !self.reload
@@ -419,6 +616,11 @@ impl AppointmentsState {
             store.search_appointments_between(&self.query, from, to)?
         };
         self.contacts = store.list_contacts()?;
+        let invoices = store.list_invoices()?;
+        self.invoice_events = invoice_events(&invoices, &self.contacts, socdof_core::now_millis())
+            .into_iter()
+            .filter(|event| event.starts_at < to && from < event.ends_at)
+            .collect();
         self.loaded_day = day;
         self.loaded_view = self.view;
         self.loaded_query = self.query.clone();
@@ -426,16 +628,71 @@ impl AppointmentsState {
         Ok(())
     }
 
-    /// Appointments matching the status filter, ordered by start.
-    pub fn visible(&self) -> Vec<&Appointment> {
-        self.appointments
+    /// Whether a category passes the filter.
+    pub fn category_enabled(&self, category: AppointmentCategory) -> bool {
+        AppointmentCategory::ALL
             .iter()
-            .filter(|appointment| {
-                self.status_filter
-                    .map(|status| appointment.status == status)
-                    .unwrap_or(true)
-            })
-            .collect()
+            .position(|candidate| *candidate == category)
+            .map(|index| self.categories[index])
+            .unwrap_or(true)
+    }
+
+    /// Switches one category on or off.
+    pub fn toggle_category(&mut self, category: AppointmentCategory) {
+        if let Some(index) = AppointmentCategory::ALL
+            .iter()
+            .position(|candidate| *candidate == category)
+        {
+            self.categories[index] = !self.categories[index];
+        }
+    }
+
+    /// Shows either every entry or only invoice due dates.
+    pub fn set_invoices_only(&mut self, only: bool) {
+        self.invoices_only = only;
+    }
+
+    /// Merged entries of the loaded range after search, status and category filters.
+    pub fn entries(&self) -> Vec<CalendarEntry> {
+        let query = self.query.trim().to_lowercase();
+        let mut entries = Vec::new();
+        if !self.invoices_only {
+            for appointment in &self.appointments {
+                if self
+                    .status_filter
+                    .is_some_and(|status| appointment.status != status)
+                {
+                    continue;
+                }
+                if !self.category_enabled(appointment.category) {
+                    continue;
+                }
+                entries.push(CalendarEntry::from_appointment(appointment));
+            }
+        }
+        if self.category_enabled(AppointmentCategory::Invoice) {
+            for event in &self.invoice_events {
+                let entry = CalendarEntry::from_invoice(event);
+                if !query.is_empty() {
+                    let haystack = format!(
+                        "{} {} {}",
+                        entry.title.to_lowercase(),
+                        entry.notes.clone().unwrap_or_default().to_lowercase(),
+                        event.number.to_lowercase()
+                    );
+                    if !haystack.contains(&query) {
+                        continue;
+                    }
+                }
+                entries.push(entry);
+            }
+        }
+        entries.sort_by(|left, right| {
+            left.starts_at
+                .cmp(&right.starts_at)
+                .then_with(|| left.title.cmp(&right.title))
+        });
+        entries
     }
 
     /// Selected appointment, if it is still part of the loaded range.
@@ -444,28 +701,40 @@ impl AppointmentsState {
             .and_then(|id| self.appointments.iter().find(|item| item.id == id))
     }
 
-    /// Exports the currently visible local appointments as an iCalendar file.
+    /// Selected invoice due date, if it is still part of the loaded range.
+    pub fn current_invoice(&self) -> Option<&InvoiceEvent> {
+        self.selected_invoice.and_then(|id| {
+            self.invoice_events
+                .iter()
+                .find(|item| item.invoice_id == id)
+        })
+    }
+
+    /// Selected entry of either source.
+    pub fn current_entry(&self) -> Option<CalendarEntry> {
+        if let Some(appointment) = self.current() {
+            return Some(CalendarEntry::from_appointment(appointment));
+        }
+        self.current_invoice().map(CalendarEntry::from_invoice)
+    }
+
+    /// Exports the currently filtered entries as an iCalendar file.
     pub fn export_ics(
         &self,
         path: &std::path::Path,
         generated_at_ms: i64,
     ) -> socdof_core::CoreResult<u64> {
-        let appointments = self.visible().into_iter().cloned().collect::<Vec<_>>();
-        let content = socdof_core::domain::appointment::export_appointments_ics(
-            &appointments,
-            generated_at_ms,
-        );
+        let appointments = self
+            .entries()
+            .into_iter()
+            .map(|entry| appointment_from_entry(&entry))
+            .collect::<Vec<_>>();
+        let content = export_appointments_ics(&appointments, generated_at_ms);
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(path, content.as_bytes())?;
         Ok(content.len() as u64)
-    }
-
-    /// Opens the detail view of an appointment.
-    pub fn select(&mut self, id: Uuid) {
-        self.selected = Some(id);
-        self.screen = AppointmentsDetail::Detail;
     }
 
     /// Switches the view and reloads its range.
@@ -484,7 +753,7 @@ impl AppointmentsState {
                     self.calendar.previous_month();
                 }
             }
-            AppointmentsView::Week => {
+            AppointmentsView::WorkWeek | AppointmentsView::Week => {
                 let delta = if forward { 7 } else { -7 };
                 self.calendar =
                     CalendarState::from_millis(day_start(self.calendar) + delta * DAY_MS);
@@ -520,18 +789,44 @@ impl AppointmentsState {
             .unwrap_or(0);
     }
 
+    /// Opens the detail view of an appointment.
+    pub fn select(&mut self, id: Uuid) {
+        self.selected = Some(id);
+        self.selected_invoice = None;
+        self.screen = AppointmentsDetail::Detail;
+    }
+
+    /// Opens the detail view of an invoice due date.
+    pub fn select_invoice(&mut self, id: Uuid) {
+        self.selected = None;
+        self.selected_invoice = Some(id);
+        self.screen = AppointmentsDetail::Detail;
+    }
+
+    /// Opens the detail view of either entry source.
+    pub fn select_entry(&mut self, id: EntryId) {
+        match id {
+            EntryId::Appointment(id) => self.select(id),
+            EntryId::Invoice(id) => self.select_invoice(id),
+        }
+    }
+
     /// Opens an empty form on the selected day.
     pub fn start_new(&mut self) {
         self.selected = None;
+        self.selected_invoice = None;
         self.draft = AppointmentDraft {
             title: String::new(),
             date: self.calendar.formatted(),
             start: "09:00".to_string(),
-            duration: "60".to_string(),
+            end_date: self.calendar.formatted(),
+            end: "10:00".to_string(),
+            all_day: false,
             location: String::new(),
             notes: String::new(),
             contact: 0,
             status: 0,
+            category: AppointmentCategory::ALL.len() - 1,
         };
         self.error = None;
         self.status = None;
@@ -583,7 +878,11 @@ impl AppointmentsState {
             return Ok(());
         }
 
-        if appointment.status.is_open() && !store.appointment_conflicts(&appointment)?.is_empty() {
+        // All-day entries intentionally overlap; only timed slots are checked, as in the template.
+        if appointment.status.is_open()
+            && !appointment.all_day
+            && !store.appointment_conflicts(&appointment)?.is_empty()
+        {
             self.error = Some("appointments_error_conflict");
             self.status = None;
             return Ok(());
@@ -596,10 +895,43 @@ impl AppointmentsState {
         }
 
         self.selected = Some(appointment.id);
+        self.selected_invoice = None;
         self.calendar = CalendarState::from_millis(appointment.starts_at);
         self.screen = AppointmentsDetail::Detail;
         self.error = None;
         self.status = Some("appointments_saved");
+        self.reload = true;
+        self.refresh(store)?;
+        Ok(())
+    }
+
+    /// Copies the selected entry into a new local appointment.
+    pub fn duplicate_selected(
+        &mut self,
+        store: &Store,
+        now: i64,
+        suffix: &str,
+    ) -> socdof_core::CoreResult<()> {
+        let Some(entry) = self.current_entry() else {
+            return Ok(());
+        };
+        let mut copy = if let Some(appointment) = self.current() {
+            appointment.clone()
+        } else {
+            appointment_from_entry(&entry)
+        };
+        copy.id = Uuid::new_v4();
+        copy.title = format!("{} {}", copy.title, suffix);
+        copy.contact_id = entry.contact_id;
+        copy.created_at = now;
+        copy.updated_at = now;
+        store.insert_appointment(&copy)?;
+
+        self.selected = Some(copy.id);
+        self.selected_invoice = None;
+        self.screen = AppointmentsDetail::Detail;
+        self.error = None;
+        self.status = Some("appointments_duplicated");
         self.reload = true;
         self.refresh(store)?;
         Ok(())
@@ -613,6 +945,7 @@ impl AppointmentsState {
 
         store.delete_appointment(id)?;
         self.selected = None;
+        self.selected_invoice = None;
         self.screen = AppointmentsDetail::Calendar;
         self.confirm_delete = false;
         self.error = None;
@@ -635,7 +968,10 @@ impl AppointmentsState {
         appointment.status = status;
         appointment.updated_at = now;
 
-        if status.is_open() && !store.appointment_conflicts(&appointment)?.is_empty() {
+        if status.is_open()
+            && !appointment.all_day
+            && !store.appointment_conflicts(&appointment)?.is_empty()
+        {
             self.error = Some("appointments_error_conflict");
             return Ok(());
         }
@@ -646,6 +982,25 @@ impl AppointmentsState {
         self.reload = true;
         self.refresh(store)?;
         Ok(())
+    }
+}
+
+fn appointment_from_entry(entry: &CalendarEntry) -> Appointment {
+    Appointment {
+        id: match entry.id {
+            EntryId::Appointment(id) | EntryId::Invoice(id) => id,
+        },
+        contact_id: entry.contact_id,
+        title: entry.title.clone(),
+        location: entry.location.clone(),
+        notes: entry.notes.clone(),
+        category: entry.category,
+        all_day: entry.all_day,
+        status: entry.status,
+        starts_at: entry.starts_at,
+        ends_at: entry.ends_at,
+        created_at: entry.starts_at,
+        updated_at: entry.starts_at,
     }
 }
 
@@ -684,6 +1039,8 @@ pub fn seed_appointments(store: &Store, texts: &UiTexts) -> socdof_core::CoreRes
             0,
             60,
             AppointmentStatus::Confirmed,
+            AppointmentCategory::Customer,
+            false,
         ),
         (
             texts.get("appointments_sample_consulting"),
@@ -692,6 +1049,8 @@ pub fn seed_appointments(store: &Store, texts: &UiTexts) -> socdof_core::CoreRes
             0,
             90,
             AppointmentStatus::Scheduled,
+            AppointmentCategory::Meeting,
+            false,
         ),
         (
             texts.get("appointments_sample_workshop"),
@@ -700,6 +1059,8 @@ pub fn seed_appointments(store: &Store, texts: &UiTexts) -> socdof_core::CoreRes
             0,
             120,
             AppointmentStatus::Confirmed,
+            AppointmentCategory::Customer,
+            false,
         ),
         (
             texts.get("appointments_sample_followup"),
@@ -708,10 +1069,22 @@ pub fn seed_appointments(store: &Store, texts: &UiTexts) -> socdof_core::CoreRes
             0,
             30,
             AppointmentStatus::Scheduled,
+            AppointmentCategory::General,
+            false,
+        ),
+        (
+            texts.get("appointments_sample_inventory"),
+            26,
+            0,
+            0,
+            0,
+            AppointmentStatus::Confirmed,
+            AppointmentCategory::Deadline,
+            true,
         ),
     ];
 
-    for (title, day, hour, minute, duration, status) in samples {
+    for (title, day, hour, minute, duration, status, category, all_day) in samples {
         let starts_at = sample_at(calendar, day, hour, minute);
         store.insert_appointment(&Appointment {
             id: Uuid::new_v4(),
@@ -719,9 +1092,15 @@ pub fn seed_appointments(store: &Store, texts: &UiTexts) -> socdof_core::CoreRes
             title: title.to_string(),
             location: Some(location.clone()),
             notes: Some(note.clone()),
+            category,
+            all_day,
             status,
             starts_at,
-            ends_at: starts_at + duration * MINUTE_MS,
+            ends_at: if all_day {
+                starts_at + DAY_MS
+            } else {
+                starts_at + duration * MINUTE_MS
+            },
             created_at: starts_at,
             updated_at: starts_at,
         })?;
@@ -876,7 +1255,7 @@ fn calendar_view(
     store: &Store,
     now: i64,
 ) {
-    let count = state.appointments.len();
+    let count = state.entries().len();
     let subtitle = format!(
         "{} · {}",
         texts.count("count_appointments", count),
@@ -901,6 +1280,7 @@ fn calendar_view(
     ui.horizontal_wrapped(|ui| {
         for view in [
             AppointmentsView::Month,
+            AppointmentsView::WorkWeek,
             AppointmentsView::Week,
             AppointmentsView::Day,
         ] {
@@ -913,14 +1293,18 @@ fn calendar_view(
                 state.set_view(view);
             }
         }
-        ui.add_space(10.0);
+    });
+    ui.add_space(4.0);
+    // The search field grows with the row, so it gets a row of its own; beside it the status
+    // filter and the two actions still fit on the desktop and wrap on the phone.
+    ui.horizontal_wrapped(|ui| {
         search_field_reserved(
             ui,
             theme,
             focus,
             &mut state.query,
             texts.get("appointments_search"),
-            150.0,
+            210.0,
         );
         let mut names: Vec<String> = vec![texts.get("appointments_all_statuses").to_string()];
         names.extend(
@@ -971,6 +1355,40 @@ fn calendar_view(
             create = true;
         }
     });
+
+    // Category chips and the invoice-only switch mirror the category list of the template.
+    ui.add_space(4.0);
+    ui.horizontal_wrapped(|ui| {
+        for category in AppointmentCategory::ALL {
+            let enabled = state.category_enabled(category);
+            let variant = if enabled {
+                ButtonVariant::Secondary
+            } else {
+                ButtonVariant::Ghost
+            };
+            if button(ui, theme, focus, texts.get(category.label_key()), variant).activated {
+                state.toggle_category(category);
+            }
+        }
+        ui.add_space(8.0);
+        let variant = if state.invoices_only {
+            ButtonVariant::Secondary
+        } else {
+            ButtonVariant::Ghost
+        };
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("appointments_invoices_only"),
+            variant,
+        )
+        .activated
+        {
+            state.set_invoices_only(!state.invoices_only);
+        }
+    });
+
     if create {
         state.start_new();
         return;
@@ -992,8 +1410,8 @@ fn calendar_view(
     }
 
     ui.add_space(8.0);
-    // On the phone the range label had only ~200 px left after the three buttons and was cut off
-    // at the panel edge; there it gets its own line under the navigation buttons.
+    // On the phone the range label had only ~200 px left after the navigation buttons and was
+    // cut off at the panel edge; there it gets its own line under them.
     let narrow = ui.available_width() < crate::components::FORM_STACK_WIDTH;
     ui.horizontal(|ui| {
         if button(
@@ -1041,7 +1459,8 @@ fn calendar_view(
     ui.add_space(8.0);
     match state.view {
         AppointmentsView::Month => month_view(ui, theme, texts, focus, state, store),
-        AppointmentsView::Week => week_view(ui, theme, focus, state),
+        AppointmentsView::WorkWeek => week_view(ui, theme, texts, focus, state, 5),
+        AppointmentsView::Week => week_view(ui, theme, texts, focus, state, 7),
         AppointmentsView::Day => day_view(ui, theme, texts, focus, state),
     }
 
@@ -1058,12 +1477,91 @@ fn range_label(state: &AppointmentsState, texts: &UiTexts) -> String {
             ][(state.calendar.month - 1) as usize];
             format!("{} {}", texts.get(month_key), state.calendar.year)
         }
-        AppointmentsView::Week => {
+        AppointmentsView::WorkWeek | AppointmentsView::Week => {
             let (from, _) = week_bounds(state.calendar);
-            format!("{} – {}", format_date(from), format_date(from + 6 * DAY_MS))
+            format!(
+                "{} – {}",
+                format_date(from),
+                format_date(from + (state.view.days() - 1) * DAY_MS)
+            )
         }
         AppointmentsView::Day => state.calendar.formatted(),
     }
+}
+
+fn entry_time(entry: &CalendarEntry, texts: &UiTexts) -> String {
+    if entry.all_day {
+        texts.get("appointments_all_day").to_string()
+    } else {
+        format_range_ms(entry.starts_at, entry.ends_at)
+    }
+}
+
+fn entry_date(entry: &CalendarEntry) -> String {
+    if entry.day_count() > 1 {
+        format!(
+            "{} – {}",
+            format_date(entry.starts_at),
+            format_date(entry.ends_at - 1)
+        )
+    } else {
+        format_date(entry.starts_at)
+    }
+}
+
+fn entry_duration(entry: &CalendarEntry, texts: &UiTexts) -> String {
+    if entry.all_day {
+        format!("{} {}", entry.day_count(), texts.get("appointments_days"))
+    } else {
+        let minutes = (entry.ends_at - entry.starts_at) / MINUTE_MS;
+        format!("{minutes} {}", texts.get("appointments_minutes"))
+    }
+}
+
+/// Shortens a label to a character budget so a wide invoice title cannot widen a grid column.
+fn truncate_label(text: &str, limit: usize) -> String {
+    if text.chars().count() <= limit {
+        return text.to_string();
+    }
+    let mut shortened = text.chars().take(limit).collect::<String>();
+    shortened.push('…');
+    shortened
+}
+
+fn category_dot(ui: &mut egui::Ui, color: egui::Color32) {
+    let (rect, _) = ui.allocate_exact_size(egui::Vec2::new(10.0, 10.0), egui::Sense::hover());
+    ui.painter().circle_filled(rect.center(), 4.0, color);
+}
+
+/// Ghost button of an entry title that shortens long invoice or customer names with an ellipsis
+/// instead of growing past the panel.
+fn text_button(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    label: &str,
+    variant: ButtonVariant,
+) -> crate::components::Activated {
+    let max_width = (ui.available_width() - 8.0).max(80.0);
+    let font = egui::FontId::proportional(FONT_BODY);
+    let measure = |text: &str| {
+        ui.painter()
+            .layout_no_wrap(text.to_owned(), font.clone(), theme.palette.text)
+            .size()
+            .x
+    };
+    if measure(label) + 28.0 <= max_width {
+        return button(ui, theme, focus, label, variant);
+    }
+    let mut characters: Vec<char> = label.chars().collect();
+    while !characters.is_empty() {
+        characters.pop();
+        let candidate = format!("{}…", characters.iter().collect::<String>());
+        if measure(&candidate) + 28.0 <= max_width {
+            return button(ui, theme, focus, &candidate, variant);
+        }
+    }
+    button(ui, theme, focus, "…", variant)
 }
 
 fn month_view(
@@ -1076,6 +1574,7 @@ fn month_view(
 ) {
     let cells = month_grid(state.calendar.year, state.calendar.month);
     let calendar = state.calendar;
+    let entries = state.entries();
     let mut clicked = None;
     card(ui, theme, |ui| {
         if ui.available_width() < crate::components::FORM_STACK_WIDTH {
@@ -1134,10 +1633,9 @@ fn month_view(
                         },
                     );
                     let start = sample_at(calendar, day, 0, 0);
-                    let count = state
-                        .appointments
+                    let count = entries
                         .iter()
-                        .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+                        .filter(|entry| entry.overlaps(start, start + DAY_MS))
                         .count();
                     if count > 0 {
                         painter.text(
@@ -1158,8 +1656,10 @@ fn month_view(
                 ));
             }
         } else {
+            let column = ((ui.available_width() - 36.0) / 7.0).max(80.0);
             egui::Grid::new("socdof-calendar-month")
                 .num_columns(7)
+                .min_col_width(column)
                 .spacing(egui::vec2(6.0, 6.0))
                 .show(ui, |ui| {
                     for index in 1..=7 {
@@ -1177,13 +1677,10 @@ fn month_view(
                             ui.vertical(|ui| {
                                 if let Some(day) = day {
                                     let start = sample_at(calendar, day, 0, 0);
-                                    let count = state
-                                        .appointments
+                                    let day_entries: Vec<&CalendarEntry> = entries
                                         .iter()
-                                        .filter(|appointment| {
-                                            appointment.overlaps(start, start + DAY_MS)
-                                        })
-                                        .count();
+                                        .filter(|entry| entry.overlaps(start, start + DAY_MS))
+                                        .collect();
                                     let selected = calendar.day == day;
                                     let variant = if selected {
                                         ButtonVariant::Primary
@@ -1194,9 +1691,19 @@ fn month_view(
                                     {
                                         clicked = Some(day);
                                     }
-                                    if count > 0 {
+                                    for entry in day_entries.iter().take(2) {
+                                        ui.horizontal(|ui| {
+                                            category_dot(ui, category_color(theme, entry));
+                                            ui.label(
+                                                RichText::new(truncate_label(&entry.title, 18))
+                                                    .size(FONT_SMALL)
+                                                    .color(theme.palette.text_muted),
+                                            );
+                                        });
+                                    }
+                                    if day_entries.len() > 2 {
                                         ui.label(
-                                            RichText::new(format!("{count}"))
+                                            RichText::new(format!("+{}", day_entries.len() - 2))
                                                 .size(FONT_SMALL)
                                                 .color(theme.accent.base),
                                         );
@@ -1222,17 +1729,44 @@ fn month_view(
 fn week_view(
     ui: &mut egui::Ui,
     theme: &Theme,
+    texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut AppointmentsState,
+    days: i64,
 ) {
     let (monday, _) = week_bounds(state.calendar);
+    let entries = state.entries();
     let mut chosen = None;
     card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
+        // All-day entries get their own banner above the columns, like the reference layout.
+        let all_day: Vec<&CalendarEntry> = entries
+            .iter()
+            .filter(|entry| entry.all_day && entry.overlaps(monday, monday + days * DAY_MS))
+            .collect();
+        if !all_day.is_empty() {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(texts.get("appointments_all_day"))
+                        .size(FONT_SMALL)
+                        .strong()
+                        .color(theme.palette.text_muted),
+                );
+                for entry in all_day {
+                    category_dot(ui, category_color(theme, entry));
+                    if text_button(ui, theme, focus, &entry.title, ButtonVariant::Ghost).activated {
+                        chosen = Some(entry.id);
+                    }
+                }
+            });
+            ui.add_space(6.0);
+        }
+
         if ui.available_width() < crate::components::FORM_STACK_WIDTH {
             // Seven day columns side by side reached 561 px; on the phone each day gets a block
             // that spans the card so appointment titles keep the full panel width.
             ui.set_min_width(ui.available_width());
-            for offset in 0..7 {
+            for offset in 0..days {
                 let start = monday + offset * DAY_MS;
                 ui.label(
                     RichText::new(format_date(start))
@@ -1240,10 +1774,9 @@ fn week_view(
                         .strong()
                         .color(theme.palette.text_muted),
                 );
-                let items: Vec<&Appointment> = state
-                    .visible()
-                    .into_iter()
-                    .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+                let items: Vec<&CalendarEntry> = entries
+                    .iter()
+                    .filter(|entry| !entry.all_day && entry.overlaps(start, start + DAY_MS))
                     .collect();
                 if items.is_empty() {
                     ui.label(
@@ -1252,38 +1785,40 @@ fn week_view(
                             .color(theme.palette.text_muted),
                     );
                 }
-                for appointment in items {
-                    if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated
-                    {
-                        chosen = Some(appointment.id);
-                    }
+                for entry in items {
+                    ui.horizontal(|ui| {
+                        category_dot(ui, category_color(theme, entry));
+                        let title = ui.add(
+                            egui::Label::new(truncate_label(&entry.title, 38))
+                                .sense(egui::Sense::click()),
+                        );
+                        if title.clicked() || focus.activate(title.id) {
+                            chosen = Some(entry.id);
+                        }
+                    });
                     ui.label(
-                        RichText::new(format_time(appointment.starts_at))
+                        RichText::new(format_range_ms(entry.starts_at, entry.ends_at))
                             .size(FONT_SMALL)
                             .color(theme.palette.text_muted),
                     );
                 }
                 ui.add_space(4.0);
             }
-            if let Some(id) = chosen {
-                state.select(id);
-            }
             return;
         }
-        ui.horizontal_wrapped(|ui| {
-            for offset in 0..7 {
-                let start = monday + offset * DAY_MS;
-                ui.vertical(|ui| {
+        ui.columns(days as usize, |columns| {
+            for (offset, ui) in columns.iter_mut().enumerate() {
+                let start = monday + offset as i64 * DAY_MS;
+                {
                     ui.label(
                         RichText::new(format_date(start))
                             .size(FONT_SMALL)
                             .strong()
                             .color(theme.palette.text_muted),
                     );
-                    let items: Vec<&Appointment> = state
-                        .visible()
-                        .into_iter()
-                        .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+                    let items: Vec<&CalendarEntry> = entries
+                        .iter()
+                        .filter(|entry| !entry.all_day && entry.overlaps(start, start + DAY_MS))
                         .collect();
                     if items.is_empty() {
                         ui.label(
@@ -1292,24 +1827,27 @@ fn week_view(
                                 .color(theme.palette.text_muted),
                         );
                     }
-                    for appointment in items {
-                        if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost)
-                            .activated
-                        {
-                            chosen = Some(appointment.id);
-                        }
+                    for entry in items {
+                        ui.horizontal(|ui| {
+                            category_dot(ui, category_color(theme, entry));
+                            if text_button(ui, theme, focus, &entry.title, ButtonVariant::Ghost)
+                                .activated
+                            {
+                                chosen = Some(entry.id);
+                            }
+                        });
                         ui.label(
-                            RichText::new(format_time(appointment.starts_at))
+                            RichText::new(format_range_ms(entry.starts_at, entry.ends_at))
                                 .size(FONT_SMALL)
                                 .color(theme.palette.text_muted),
                         );
                     }
-                });
+                }
             }
         });
     });
     if let Some(id) = chosen {
-        state.select(id);
+        state.select_entry(id);
     }
 }
 
@@ -1321,8 +1859,10 @@ fn day_view(
     state: &mut AppointmentsState,
 ) {
     let start = day_start(state.calendar);
+    let entries = state.entries();
     let mut chosen = None;
     card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
         ui.label(
             RichText::new(state.calendar.formatted())
                 .size(FONT_SMALL)
@@ -1330,10 +1870,9 @@ fn day_view(
                 .color(theme.palette.text_muted),
         );
         ui.add_space(6.0);
-        let items: Vec<&Appointment> = state
-            .visible()
-            .into_iter()
-            .filter(|appointment| appointment.overlaps(start, start + DAY_MS))
+        let items: Vec<&CalendarEntry> = entries
+            .iter()
+            .filter(|entry| entry.overlaps(start, start + DAY_MS))
             .collect();
         if items.is_empty() {
             empty_state(
@@ -1343,28 +1882,33 @@ fn day_view(
                 texts.get("appointments_empty_hint"),
             );
         }
-        for appointment in items {
+        for entry in items {
             ui.horizontal(|ui| {
+                category_dot(ui, category_color(theme, entry));
                 ui.label(
-                    RichText::new(format_range(appointment))
+                    RichText::new(entry_time(entry, texts))
                         .size(FONT_SMALL)
                         .strong()
                         .color(theme.palette.text_muted),
                 );
-                if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated {
-                    chosen = Some(appointment.id);
+                if text_button(ui, theme, focus, &entry.title, ButtonVariant::Ghost).activated {
+                    chosen = Some(entry.id);
                 }
                 badge(
                     ui,
                     theme,
-                    texts.get(status_key(appointment.status)),
-                    status_tone(appointment.status),
+                    texts.get(entry.category.label_key()),
+                    if entry.is_invoice() {
+                        Tone::Accent
+                    } else {
+                        status_tone(entry.status)
+                    },
                 );
             });
         }
     });
     if let Some(id) = chosen {
-        state.select(id);
+        state.select_entry(id);
     }
 }
 
@@ -1376,11 +1920,15 @@ fn agenda(
     state: &mut AppointmentsState,
 ) {
     card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
         ui.label(RichText::new(texts.get("appointments_agenda")).strong());
         ui.add_space(6.0);
-        let items = state.visible();
+        let items = state.entries();
         if items.is_empty() {
-            let searching = !state.query.trim().is_empty() || state.status_filter.is_some();
+            let searching = !state.query.trim().is_empty()
+                || state.status_filter.is_some()
+                || state.invoices_only
+                || state.categories.iter().any(|enabled| !enabled);
             if searching {
                 empty_state(
                     ui,
@@ -1400,74 +1948,41 @@ fn agenda(
         }
 
         let mut chosen = None;
-        // Five columns of date, time, title, contact and status do not fit the phone panel, so
-        // below the stacking width the title leads and the remaining values follow underneath.
-        if ui.available_width() < crate::components::FORM_STACK_WIDTH {
-            for appointment in items {
-                if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated {
-                    chosen = Some(appointment.id);
+        // The agenda is a list, not a table: the title keeps the full panel width and the
+        // remaining values follow on a second line, which also holds on the phone.
+        for entry in &items {
+            ui.horizontal(|ui| {
+                category_dot(ui, category_color(theme, entry));
+                if text_button(ui, theme, focus, &entry.title, ButtonVariant::Ghost).activated {
+                    chosen = Some(entry.id);
                 }
+            });
+            ui.horizontal_wrapped(|ui| {
+                ui.add_space(18.0);
                 ui.label(
                     RichText::new(format!(
                         "{} · {} · {}",
-                        format_date(appointment.starts_at),
-                        format_range(appointment),
-                        contact_name(&state.contacts, appointment.contact_id)
+                        entry_date(entry),
+                        entry_time(entry, texts),
+                        texts.get(entry.category.label_key())
                     ))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
                 );
-                badge(
-                    ui,
-                    theme,
-                    texts.get(status_key(appointment.status)),
-                    status_tone(appointment.status),
-                );
-                ui.add_space(6.0);
-            }
-            if let Some(id) = chosen {
-                state.select(id);
-            }
-            return;
-        }
-        egui::Grid::new("socdof-calendar-agenda")
-            .num_columns(5)
-            .spacing(egui::vec2(16.0, 8.0))
-            .show(ui, |ui| {
-                for key in [
-                    "appointments_col_date",
-                    "appointments_col_time",
-                    "appointments_col_title",
-                    "appointments_col_contact",
-                    "appointments_col_status",
-                ] {
-                    ui.label(
-                        RichText::new(texts.get(key))
-                            .size(FONT_SMALL)
-                            .strong()
-                            .color(theme.palette.text_muted),
-                    );
-                }
-                ui.end_row();
-                for appointment in items {
-                    ui.label(format_date(appointment.starts_at));
-                    ui.label(format_range(appointment));
-                    if button(ui, theme, focus, &appointment.title, ButtonVariant::Ghost).activated
-                    {
-                        chosen = Some(appointment.id);
-                    }
-                    ui.label(contact_name(&state.contacts, appointment.contact_id));
-                    badge(
-                        ui,
-                        theme,
-                        texts.get(status_key(appointment.status)),
-                        status_tone(appointment.status),
-                    );
-                    ui.end_row();
-                }
+                let (label, tone) = if entry.is_invoice() {
+                    (texts.get("appointments_category_invoice"), Tone::Accent)
+                } else {
+                    (
+                        texts.get(status_key(entry.status)),
+                        status_tone(entry.status),
+                    )
+                };
+                badge(ui, theme, label, tone);
             });
+            ui.add_space(6.0);
+        }
         if let Some(id) = chosen {
-            state.select(id);
+            state.select_entry(id);
         }
     });
 }
@@ -1481,7 +1996,7 @@ fn detail_view(
     store: &Store,
     now: i64,
 ) {
-    let Some(appointment) = state.current().cloned() else {
+    let Some(entry) = state.current_entry() else {
         state.screen = AppointmentsDetail::Calendar;
         return;
     };
@@ -1493,39 +2008,57 @@ fn detail_view(
         focus,
         state,
         texts.get("appointments_detail_title"),
-        &appointment.title,
+        &entry.title,
     );
     ui.add_space(8.0);
     messages(ui, theme, texts, state);
     ui.add_space(6.0);
 
     card(ui, theme, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(RichText::new(&appointment.title).size(FONT_TITLE).strong());
+        ui.horizontal_wrapped(|ui| {
+            category_dot(ui, category_color(theme, &entry));
+            ui.label(RichText::new(&entry.title).size(FONT_TITLE).strong());
             badge(
                 ui,
                 theme,
-                texts.get(status_key(appointment.status)),
-                status_tone(appointment.status),
+                texts.get(entry.category.label_key()),
+                if entry.is_invoice() {
+                    Tone::Accent
+                } else {
+                    status_tone(entry.status)
+                },
             );
+            if entry.is_invoice() {
+                let (label, tone) = if entry.invoice_overdue {
+                    ("appointments_invoice_overdue", Tone::Danger)
+                } else if entry.invoice_paid {
+                    ("appointments_invoice_paid", Tone::Success)
+                } else {
+                    ("appointments_invoice_open", Tone::Warning)
+                };
+                badge(ui, theme, texts.get(label), tone);
+            }
         });
         ui.add_space(8.0);
-        for (label, value) in [
-            ("appointments_date", format_date(appointment.starts_at)),
-            ("appointments_start", format_range(&appointment)),
+        let mut rows = vec![
+            ("appointments_date", entry_date(&entry)),
+            ("appointments_start", entry_time(&entry, texts)),
+            ("appointments_duration", entry_duration(&entry, texts)),
             (
-                "appointments_duration",
-                format!(
-                    "{} {}",
-                    appointment.duration_minutes(),
-                    texts.get("appointments_minutes")
-                ),
+                "appointments_category",
+                texts.get(entry.category.label_key()).to_string(),
             ),
-            (
+        ];
+        if !entry.is_invoice() {
+            rows.push((
                 "appointments_contact",
-                contact_name(&state.contacts, appointment.contact_id),
-            ),
-        ] {
+                contact_name(&state.contacts, entry.contact_id),
+            ));
+        }
+        if let Some(number) = &entry.invoice_number {
+            rows.push(("appointments_invoice_number", format!("#{number}")));
+        }
+        for (label, value) in rows {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(texts.get(label))
@@ -1535,7 +2068,7 @@ fn detail_view(
                 ui.label(value);
             });
         }
-        if let Some(location) = &appointment.location {
+        if let Some(location) = &entry.location {
             ui.horizontal(|ui| {
                 ui.label(
                     RichText::new(texts.get("appointments_location"))
@@ -1545,7 +2078,7 @@ fn detail_view(
                 ui.label(location);
             });
         }
-        if let Some(notes) = &appointment.notes {
+        if let Some(notes) = &entry.notes {
             ui.add_space(6.0);
             ui.label(RichText::new(notes).size(FONT_SMALL));
         }
@@ -1554,76 +2087,90 @@ fn detail_view(
     ui.add_space(12.0);
     let mut next_status = None;
     let mut edit = false;
+    let mut duplicate = false;
     let mut delete = false;
     ui.horizontal_wrapped(|ui| {
-        if appointment.status != AppointmentStatus::Confirmed
-            && button(
+        if !entry.is_invoice() {
+            if entry.status != AppointmentStatus::Confirmed
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("appointments_mark_confirmed"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+            {
+                next_status = Some(AppointmentStatus::Confirmed);
+            }
+            if entry.status != AppointmentStatus::Completed
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("appointments_mark_completed"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+            {
+                next_status = Some(AppointmentStatus::Completed);
+            }
+            if entry.status != AppointmentStatus::Cancelled {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("appointments_mark_cancelled"),
+                    ButtonVariant::Danger,
+                )
+                .activated
+                {
+                    next_status = Some(AppointmentStatus::Cancelled);
+                }
+            } else if button(
                 ui,
                 theme,
                 focus,
-                texts.get("appointments_mark_confirmed"),
+                texts.get("appointments_reopen"),
                 ButtonVariant::Secondary,
             )
             .activated
-        {
-            next_status = Some(AppointmentStatus::Confirmed);
-        }
-        if appointment.status != AppointmentStatus::Completed
-            && button(
-                ui,
-                theme,
-                focus,
-                texts.get("appointments_mark_completed"),
-                ButtonVariant::Primary,
-            )
-            .activated
-        {
-            next_status = Some(AppointmentStatus::Completed);
-        }
-        if appointment.status != AppointmentStatus::Cancelled {
+            {
+                next_status = Some(AppointmentStatus::Scheduled);
+            }
             if button(
                 ui,
                 theme,
                 focus,
-                texts.get("appointments_mark_cancelled"),
-                ButtonVariant::Danger,
+                texts.get("appointments_edit"),
+                ButtonVariant::Secondary,
             )
             .activated
             {
-                next_status = Some(AppointmentStatus::Cancelled);
+                edit = true;
             }
-        } else if button(
-            ui,
-            theme,
-            focus,
-            texts.get("appointments_reopen"),
-            ButtonVariant::Secondary,
-        )
-        .activated
-        {
-            next_status = Some(AppointmentStatus::Scheduled);
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("appointments_delete"),
+                ButtonVariant::Ghost,
+            )
+            .activated
+            {
+                delete = true;
+            }
         }
         if button(
             ui,
             theme,
             focus,
-            texts.get("appointments_edit"),
+            texts.get("appointments_duplicate"),
             ButtonVariant::Secondary,
         )
         .activated
         {
-            edit = true;
-        }
-        if button(
-            ui,
-            theme,
-            focus,
-            texts.get("appointments_delete"),
-            ButtonVariant::Ghost,
-        )
-        .activated
-        {
-            delete = true;
+            duplicate = true;
         }
         if button(
             ui,
@@ -1638,6 +2185,13 @@ fn detail_view(
         }
     });
 
+    if duplicate
+        && state
+            .duplicate_selected(store, now, texts.get("appointments_copy_suffix"))
+            .is_err()
+    {
+        state.error = Some("appointments_error_save");
+    }
     if let Some(status) = next_status {
         if state.set_status(store, status, now).is_err() {
             state.error = Some("appointments_error_status");
@@ -1674,6 +2228,7 @@ fn form_view(
 
     let mut save = false;
     let mut cancel = false;
+    let mut quick: Option<i64> = None;
     card(ui, theme, |ui| {
         text_field(
             ui,
@@ -1685,8 +2240,8 @@ fn form_view(
             None,
         );
         ui.add_space(6.0);
-        let date_width = ui.available_width();
-        if date_width < crate::components::FORM_STACK_WIDTH {
+        let stack = ui.available_width() < crate::components::FORM_STACK_WIDTH;
+        if stack {
             for (value, label, hint) in [
                 (
                     &mut state.draft.date,
@@ -1694,21 +2249,16 @@ fn form_view(
                     texts.get("appointments_date_hint"),
                 ),
                 (
-                    &mut state.draft.start,
-                    texts.get("appointments_start"),
-                    texts.get("appointments_start_hint"),
-                ),
-                (
-                    &mut state.draft.duration,
-                    texts.get("appointments_duration"),
-                    texts.get("appointments_duration_hint"),
+                    &mut state.draft.end_date,
+                    texts.get("appointments_end_date"),
+                    texts.get("appointments_date_hint"),
                 ),
             ] {
                 text_field(ui, theme, focus, value, label, hint, None);
                 ui.add_space(4.0);
             }
         } else {
-            ui.columns(3, |columns| {
+            ui.columns(2, |columns| {
                 text_field(
                     &mut columns[0],
                     theme,
@@ -1722,20 +2272,89 @@ fn form_view(
                     &mut columns[1],
                     theme,
                     focus,
-                    &mut state.draft.start,
-                    texts.get("appointments_start"),
-                    texts.get("appointments_start_hint"),
+                    &mut state.draft.end_date,
+                    texts.get("appointments_end_date"),
+                    texts.get("appointments_date_hint"),
                     None,
                 );
-                text_field(
-                    &mut columns[2],
+            });
+        }
+        let mut all_day = state.draft.all_day;
+        if switch(
+            ui,
+            theme,
+            focus,
+            &mut all_day,
+            texts.get("appointments_all_day"),
+        )
+        .activated
+        {
+            state.draft.all_day = all_day;
+        }
+        if !state.draft.all_day {
+            ui.add_space(4.0);
+            if stack {
+                for (value, label, hint) in [
+                    (
+                        &mut state.draft.start,
+                        texts.get("appointments_start"),
+                        texts.get("appointments_start_hint"),
+                    ),
+                    (
+                        &mut state.draft.end,
+                        texts.get("appointments_end_time"),
+                        texts.get("appointments_start_hint"),
+                    ),
+                ] {
+                    text_field(ui, theme, focus, value, label, hint, None);
+                    ui.add_space(4.0);
+                }
+            } else {
+                ui.columns(2, |columns| {
+                    text_field(
+                        &mut columns[0],
+                        theme,
+                        focus,
+                        &mut state.draft.start,
+                        texts.get("appointments_start"),
+                        texts.get("appointments_start_hint"),
+                        None,
+                    );
+                    text_field(
+                        &mut columns[1],
+                        theme,
+                        focus,
+                        &mut state.draft.end,
+                        texts.get("appointments_end_time"),
+                        texts.get("appointments_start_hint"),
+                        None,
+                    );
+                });
+            }
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                for (label, minutes) in [
+                    ("15m", 15_i64),
+                    ("30m", 30),
+                    ("45m", 45),
+                    ("1h", 60),
+                    ("2h", 120),
+                ] {
+                    if button(ui, theme, focus, label, ButtonVariant::Ghost).activated {
+                        quick = Some(minutes);
+                    }
+                }
+                if button(
+                    ui,
                     theme,
                     focus,
-                    &mut state.draft.duration,
-                    texts.get("appointments_duration"),
-                    texts.get("appointments_duration_hint"),
-                    None,
-                );
+                    texts.get("appointments_all_day"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+                {
+                    quick = Some(0);
+                }
             });
         }
         ui.add_space(6.0);
@@ -1761,15 +2380,28 @@ fn form_view(
         ui.add_space(6.0);
         let select_width = ui.available_width();
         let stack_selects = select_width < crate::components::FORM_STACK_WIDTH;
-        if stack_selects {
+        let mut contact_names: Vec<String> = vec![texts.get("appointments_no_contact").to_string()];
+        contact_names.extend(state.contacts.iter().map(contact_label));
+        let contact_labels: Vec<&str> = contact_names.iter().map(String::as_str).collect();
+        let status_names: Vec<String> = STATUSES
+            .iter()
+            .map(|status| texts.get(status_key(*status)).to_string())
+            .collect();
+        let status_labels: Vec<&str> = status_names.iter().map(String::as_str).collect();
+        let category_names: Vec<String> = AppointmentCategory::ALL
+            .iter()
+            .map(|category| texts.get(category.label_key()).to_string())
+            .collect();
+        let category_labels: Vec<&str> = category_names.iter().map(String::as_str).collect();
+        let row = |ui: &mut egui::Ui,
+                   theme: &Theme,
+                   focus: &mut FocusState,
+                   state: &mut AppointmentsState| {
             ui.label(
                 RichText::new(texts.get("appointments_contact"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
-            let mut names: Vec<String> = vec![texts.get("appointments_no_contact").to_string()];
-            names.extend(state.contacts.iter().map(contact_label));
-            let labels: Vec<&str> = names.iter().map(String::as_str).collect();
             select(
                 ui,
                 theme,
@@ -1777,19 +2409,14 @@ fn form_view(
                 &mut state.contact_popup,
                 "appointment-contact",
                 &mut state.draft.contact,
-                &labels,
+                &contact_labels,
             );
-            ui.add_space(4.0);
+            ui.add_space(12.0);
             ui.label(
                 RichText::new(texts.get("appointments_status"))
                     .size(FONT_SMALL)
                     .color(theme.palette.text_muted),
             );
-            let status_names: Vec<String> = STATUSES
-                .iter()
-                .map(|status| texts.get(status_key(*status)).to_string())
-                .collect();
-            let status_labels: Vec<&str> = status_names.iter().map(String::as_str).collect();
             select(
                 ui,
                 theme,
@@ -1799,48 +2426,32 @@ fn form_view(
                 &mut state.draft.status,
                 &status_labels,
             );
+            ui.add_space(12.0);
+            ui.label(
+                RichText::new(texts.get("appointments_category"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            select(
+                ui,
+                theme,
+                focus,
+                &mut state.category_popup,
+                "appointment-category",
+                &mut state.draft.category,
+                &category_labels,
+            );
+        };
+        if stack_selects {
+            row(ui, theme, focus, state);
         } else {
-            ui.horizontal(|ui| {
-                ui.label(
-                    RichText::new(texts.get("appointments_contact"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                let mut names: Vec<String> = vec![texts.get("appointments_no_contact").to_string()];
-                names.extend(state.contacts.iter().map(contact_label));
-                let labels: Vec<&str> = names.iter().map(String::as_str).collect();
-                select(
-                    ui,
-                    theme,
-                    focus,
-                    &mut state.contact_popup,
-                    "appointment-contact",
-                    &mut state.draft.contact,
-                    &labels,
-                );
-                ui.add_space(12.0);
-                ui.label(
-                    RichText::new(texts.get("appointments_status"))
-                        .size(FONT_SMALL)
-                        .color(theme.palette.text_muted),
-                );
-                let status_names: Vec<String> = STATUSES
-                    .iter()
-                    .map(|status| texts.get(status_key(*status)).to_string())
-                    .collect();
-                let status_labels: Vec<&str> = status_names.iter().map(String::as_str).collect();
-                select(
-                    ui,
-                    theme,
-                    focus,
-                    &mut state.status_popup,
-                    "appointment-status",
-                    &mut state.draft.status,
-                    &status_labels,
-                );
-            });
+            ui.horizontal(|ui| row(ui, theme, focus, state));
         }
     });
+
+    if let Some(minutes) = quick {
+        state.draft.quick_duration(minutes);
+    }
 
     ui.add_space(12.0);
     card(ui, theme, |ui| {
@@ -1882,7 +2493,10 @@ fn form_view(
 mod tests {
     use super::*;
     use crate::theme::Appearance;
+    use socdof_core::domain::contact::ContactKind;
+    use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
     use socdof_core::domain::settings::Language;
+    use socdof_core::money::Money;
 
     fn seeded() -> (Store, AppointmentsState, UiTexts) {
         let store = Store::open_in_memory().expect("store");
@@ -1914,6 +2528,31 @@ mod tests {
         crate::snapshot::signature(&output.expect("appointment frame")).join("\n")
     }
 
+    fn insert_open_invoice(store: &Store, texts: &UiTexts) -> Invoice {
+        let mut contact = Contact::new(ContactKind::Company, SAMPLE_NOW_MS);
+        contact.name = Some(texts.get("appointments_sample_contact").to_string());
+        store.insert_contact(&contact).expect("contact");
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-0100".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: SAMPLE_NOW_MS,
+            due_at: SAMPLE_NOW_MS + 2 * DAY_MS,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("invoice");
+        invoice
+    }
+
     #[test]
     fn creates_edits_and_deletes_an_appointment() {
         let store = Store::open_in_memory().expect("store");
@@ -1922,15 +2561,18 @@ mod tests {
         state.start_new();
         state.draft.title = "Erstgespräch".to_string();
         state.draft.date = "07.11.2026".to_string();
+        state.draft.end_date = "07.11.2026".to_string();
         state.draft.start = "09:30".to_string();
-        state.draft.duration = "45".to_string();
+        state.draft.end = "10:15".to_string();
+        state.draft.category = 1;
         state.save(&store, SAMPLE_NOW_MS).expect("insert");
         assert!(state.error.is_none());
         let stored = store.list_appointments().expect("list")[0].clone();
         assert_eq!(stored.duration_minutes(), 45);
+        assert_eq!(stored.category, AppointmentCategory::Customer);
 
         state.start_edit();
-        state.draft.duration = "60".to_string();
+        state.draft.end = "10:30".to_string();
         state.save(&store, SAMPLE_NOW_MS + 1).expect("update");
         assert_eq!(
             store
@@ -1946,38 +2588,69 @@ mod tests {
     }
 
     #[test]
+    fn stores_all_day_ranges_and_duplicates_them() {
+        let (store, mut state, _texts) = seeded();
+        state.start_new();
+        state.draft.title = "Messe".to_string();
+        state.draft.date = format_date(day_start(state.calendar));
+        state.draft.end_date = format_date(day_start(state.calendar) + 2 * DAY_MS);
+        state.draft.quick_duration(0);
+        assert!(state.draft.all_day);
+        state.save(&store, SAMPLE_NOW_MS).expect("insert");
+        assert!(state.error.is_none());
+        let stored = state.current().expect("saved").clone();
+        assert!(stored.all_day);
+        assert_eq!(stored.day_count(), 3);
+        assert_eq!(stored.starts_at, day_start(state.calendar));
+        assert_eq!(stored.ends_at, day_start(state.calendar) + 3 * DAY_MS);
+
+        state
+            .duplicate_selected(&store, SAMPLE_NOW_MS, "(Kopie)")
+            .expect("duplicate");
+        assert!(state.current().expect("copy").title.ends_with("(Kopie)"));
+        assert_eq!(store.list_appointments().expect("list").len(), 7);
+    }
+
+    #[test]
     fn rejects_invalid_input_and_overlapping_slots() {
         let (store, mut state, _texts) = seeded();
         state.start_new();
         state.draft.title = "Konflikt".to_string();
         state.draft.date = format_date(SAMPLE_NOW_MS);
+        state.draft.end_date = format_date(SAMPLE_NOW_MS);
         state.draft.start = "09:30".to_string();
-        state.draft.duration = "30".to_string();
+        state.draft.end = "09:50".to_string();
         state.save(&store, SAMPLE_NOW_MS).expect("conflict check");
         assert_eq!(state.error, Some("appointments_error_conflict"));
 
         state.draft.start = "11:00".to_string();
-        state.draft.duration = "0".to_string();
-        state.save(&store, SAMPLE_NOW_MS).expect("duration check");
-        assert_eq!(state.error, Some("appointments_error_duration"));
+        state.draft.end = "10:00".to_string();
+        state.save(&store, SAMPLE_NOW_MS).expect("end check");
+        assert_eq!(state.error, Some("appointments_error_end"));
 
-        state.draft.duration = "30".to_string();
+        state.draft.end = "12:00".to_string();
         state.draft.date = "32.11.2026".to_string();
         state.save(&store, SAMPLE_NOW_MS).expect("date check");
         assert_eq!(state.error, Some("appointments_error_date"));
     }
 
     #[test]
-    fn navigates_month_week_and_day_ranges() {
+    fn navigates_month_workweek_week_and_day_ranges() {
         let (store, mut state, _texts) = seeded();
-        assert_eq!(state.appointments.len(), 4);
+        assert_eq!(state.appointments.len(), 5);
         let month = state.calendar.month;
+
+        state.set_view(AppointmentsView::WorkWeek);
+        state.refresh(&store).expect("work week");
+        assert!(state.appointments.len() <= 5);
 
         state.set_view(AppointmentsView::Week);
         state.refresh(&store).expect("week");
-        assert!(state.appointments.len() <= 4);
+        assert!(state.appointments.len() <= 5);
 
         state.set_view(AppointmentsView::Day);
+        state.calendar.day = 12;
+        state.reload = true;
         state.refresh(&store).expect("day");
         assert_eq!(state.appointments.len(), 1);
 
@@ -1990,20 +2663,58 @@ mod tests {
     }
 
     #[test]
-    fn searches_and_filters_appointments() {
-        let (store, mut state, _texts) = seeded();
+    fn searches_and_filters_categories_and_invoice_entries() {
+        let (store, mut state, texts) = seeded();
         state.query = "workshop".to_string();
         state.refresh(&store).expect("search");
         assert_eq!(state.appointments.len(), 1);
         assert!(state.appointments[0].title.contains("Workshop"));
+        assert_eq!(state.entries().len(), 1);
 
         state.query.clear();
         state.reload = true;
         state.refresh(&store).expect("reload");
         state.filter_status(Some(AppointmentStatus::Scheduled));
-        assert_eq!(state.visible().len(), 2);
+        assert_eq!(state.entries().len(), 2);
         state.filter_status(None);
-        assert_eq!(state.visible().len(), 4);
+        assert_eq!(state.entries().len(), 5);
+
+        state.toggle_category(AppointmentCategory::Customer);
+        assert_eq!(state.entries().len(), 3);
+        state.toggle_category(AppointmentCategory::Customer);
+        assert_eq!(state.entries().len(), 5);
+
+        insert_open_invoice(&store, &texts);
+        state.reload = true;
+        state.refresh(&store).expect("invoices");
+        assert_eq!(state.entries().len(), 6);
+        state.set_invoices_only(true);
+        let entries = state.entries();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].is_invoice());
+        assert_eq!(entries[0].category, AppointmentCategory::Invoice);
+        assert!(entries[0].title.contains("2026-0100"));
+    }
+
+    #[test]
+    fn duplicates_invoice_entries_as_local_appointments() {
+        let (store, mut state, texts) = seeded();
+        let invoice = insert_open_invoice(&store, &texts);
+        state.reload = true;
+        state.refresh(&store).expect("invoices");
+        state.select_invoice(invoice.id);
+        assert!(state.screen == AppointmentsDetail::Detail);
+        state.start_edit();
+        assert!(state.current().is_none());
+
+        state
+            .duplicate_selected(&store, SAMPLE_NOW_MS, "(Kopie)")
+            .expect("duplicate");
+        let copy = state.current().expect("copy");
+        assert!(copy.all_day);
+        assert_eq!(copy.category, AppointmentCategory::Invoice);
+        assert!(copy.title.ends_with("(Kopie)"));
+        assert_eq!(store.list_appointments().expect("list").len(), 6);
     }
 
     #[test]
@@ -2020,43 +2731,77 @@ mod tests {
         assert!(content.starts_with("BEGIN:VCALENDAR\r\n"));
         assert!(content.contains("BEGIN:VEVENT"));
         assert_eq!(content.matches("BEGIN:VEVENT").count(), 2);
+        assert!(content.contains("CATEGORIES:"));
         std::fs::remove_file(export_path).expect("cleanup");
     }
 
     #[test]
-    fn renders_month_week_day_detail_and_form() {
+    fn exports_all_day_entries_with_date_values() {
+        let (_store, mut state, _texts) = seeded();
+        state.filter_status(Some(AppointmentStatus::Confirmed));
+        let export_path =
+            std::env::temp_dir().join(format!("socdof-calendar-{}.ics", Uuid::new_v4()));
+        state
+            .export_ics(&export_path, SAMPLE_NOW_MS)
+            .expect("export");
+        let content = std::fs::read_to_string(&export_path).expect("read export");
+        assert!(content.contains("DTSTART;VALUE=DATE:"));
+        assert!(content.contains("CATEGORIES:DEADLINE"));
+        std::fs::remove_file(export_path).expect("cleanup");
+    }
+
+    #[test]
+    fn renders_month_workweek_week_day_detail_and_form() {
         let (store, mut state, texts) = seeded();
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("appointments_title")));
         assert!(painted.contains(texts.get("appointments_view_month")));
         assert!(painted.contains("Kickoff"));
+        assert!(painted.contains(texts.get("appointments_category_customer")));
+
+        state.set_view(AppointmentsView::WorkWeek);
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("appointments_view_workweek")));
+        assert!(painted.contains(texts.get("appointments_agenda")));
 
         state.set_view(AppointmentsView::Week);
         let painted = render(&mut state, &store);
-        assert!(painted.contains(texts.get("appointments_agenda")));
+        assert!(painted.contains(texts.get("appointments_view_week")));
 
+        state.calendar.day = 26;
         state.set_view(AppointmentsView::Day);
+        state.reload = true;
+        state.refresh(&store).expect("all-day day");
         let painted = render(&mut state, &store);
-        assert!(painted.contains("Kickoff"));
+        assert!(painted.contains(texts.get("appointments_all_day")));
+        assert!(painted.contains(texts.get("appointments_sample_inventory")));
+
+        state.calendar.day = 12;
+        state.reload = true;
+        state.refresh(&store).expect("workshop day");
+        let painted = render(&mut state, &store);
+        assert!(painted.contains("Kickoff") || painted.contains("Workshop"));
 
         let id = state.appointments[0].id;
         state.select(id);
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("appointments_detail_title")));
         assert!(painted.contains(texts.get("appointments_edit")));
+        assert!(painted.contains(texts.get("appointments_duplicate")));
         assert!(painted.contains(texts.get("appointments_mark_completed")));
 
         state.start_edit();
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("appointments_save")));
-        assert!(painted.contains(texts.get("appointments_duration")));
+        assert!(painted.contains(texts.get("appointments_end_date")));
+        assert!(painted.contains(texts.get("appointments_category")));
     }
 
     #[test]
     fn seeding_is_idempotent_and_uses_the_store() {
         let (store, _state, texts) = seeded();
         seed_appointments(&store, &texts).expect("second seed");
-        assert_eq!(store.list_appointments().expect("list").len(), 4);
+        assert_eq!(store.list_appointments().expect("list").len(), 5);
         let statuses: Vec<AppointmentStatus> = store
             .list_appointments()
             .expect("list")
@@ -2065,5 +2810,10 @@ mod tests {
             .collect();
         assert!(statuses.contains(&AppointmentStatus::Confirmed));
         assert!(statuses.contains(&AppointmentStatus::Scheduled));
+        assert!(store
+            .list_appointments()
+            .expect("list")
+            .iter()
+            .any(|appointment| appointment.all_day));
     }
 }

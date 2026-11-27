@@ -3,26 +3,28 @@
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use uuid::Uuid;
 
-use crate::domain::appointment::{Appointment, AppointmentStatus};
+use crate::domain::appointment::{Appointment, AppointmentCategory, AppointmentStatus};
 use crate::error::{CoreError, CoreResult};
 
-const COLUMNS: &str = "id, contact_id, title, location, notes, status, starts_at, ends_at, \
-                       created_at, updated_at";
+const COLUMNS: &str = "id, contact_id, title, location, notes, category, all_day, status, \
+                       starts_at, ends_at, created_at, updated_at";
 
 /// Inserts an appointment.
 pub fn insert(conn: &Connection, appointment: &Appointment) -> CoreResult<()> {
     appointment.validate().map_err(CoreError::Validation)?;
 
     conn.execute(
-        "INSERT INTO appointments (id, contact_id, title, location, notes, status, starts_at,
-            ends_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO appointments (id, contact_id, title, location, notes, category, all_day,
+            status, starts_at, ends_at, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             appointment.id.to_string(),
             appointment.contact_id.map(|id| id.to_string()),
             appointment.title,
             appointment.location,
             appointment.notes,
+            appointment.category.as_str(),
+            appointment.all_day,
             appointment.status.as_str(),
             appointment.starts_at,
             appointment.ends_at,
@@ -40,7 +42,8 @@ pub fn update(conn: &Connection, appointment: &Appointment) -> CoreResult<()> {
 
     let changed = conn.execute(
         "UPDATE appointments SET contact_id = ?2, title = ?3, location = ?4, notes = ?5,
-            status = ?6, starts_at = ?7, ends_at = ?8, updated_at = ?9
+            category = ?6, all_day = ?7, status = ?8, starts_at = ?9, ends_at = ?10,
+            updated_at = ?11
          WHERE id = ?1",
         params![
             appointment.id.to_string(),
@@ -48,6 +51,8 @@ pub fn update(conn: &Connection, appointment: &Appointment) -> CoreResult<()> {
             appointment.title,
             appointment.location,
             appointment.notes,
+            appointment.category.as_str(),
+            appointment.all_day,
             appointment.status.as_str(),
             appointment.starts_at,
             appointment.ends_at,
@@ -155,6 +160,7 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Appointment> {
     let id_text: String = row.get("id")?;
     let contact_text: Option<String> = row.get("contact_id")?;
     let status_text: String = row.get("status")?;
+    let category_text: String = row.get("category")?;
 
     Ok(Appointment {
         id: Uuid::parse_str(&id_text).map_err(|_| rusqlite::Error::InvalidQuery)?,
@@ -164,6 +170,9 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<Appointment> {
         title: row.get("title")?,
         location: row.get("location")?,
         notes: row.get("notes")?,
+        category: AppointmentCategory::from_storage(&category_text)
+            .unwrap_or(AppointmentCategory::General),
+        all_day: row.get("all_day")?,
         status: AppointmentStatus::from_storage(&status_text)
             .unwrap_or(AppointmentStatus::Scheduled),
         starts_at: row.get("starts_at")?,

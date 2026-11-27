@@ -3,6 +3,9 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::domain::contact::Contact;
+use crate::domain::invoice::{Invoice, InvoiceStatus};
+
 /// Lifecycle state of an appointment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -52,6 +55,74 @@ impl AppointmentStatus {
     }
 }
 
+/// Colour-coded kind of a calendar entry.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AppointmentCategory {
+    /// Due date of an invoice.
+    Invoice,
+    /// Visit or call at a customer.
+    Customer,
+    /// Internal meeting.
+    Meeting,
+    /// Deadline or submission.
+    Deadline,
+    /// Private entry.
+    Personal,
+    /// Everything else.
+    #[default]
+    General,
+}
+
+impl AppointmentCategory {
+    /// Categories in display order.
+    pub const ALL: [AppointmentCategory; 6] = [
+        AppointmentCategory::Invoice,
+        AppointmentCategory::Customer,
+        AppointmentCategory::Meeting,
+        AppointmentCategory::Deadline,
+        AppointmentCategory::Personal,
+        AppointmentCategory::General,
+    ];
+
+    /// Stable storage representation.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AppointmentCategory::Invoice => "invoice",
+            AppointmentCategory::Customer => "customer",
+            AppointmentCategory::Meeting => "meeting",
+            AppointmentCategory::Deadline => "deadline",
+            AppointmentCategory::Personal => "personal",
+            AppointmentCategory::General => "general",
+        }
+    }
+
+    /// Parses the storage representation.
+    pub fn from_storage(value: &str) -> Option<Self> {
+        match value {
+            "invoice" => Some(AppointmentCategory::Invoice),
+            "customer" => Some(AppointmentCategory::Customer),
+            "meeting" => Some(AppointmentCategory::Meeting),
+            "deadline" => Some(AppointmentCategory::Deadline),
+            "personal" => Some(AppointmentCategory::Personal),
+            "general" => Some(AppointmentCategory::General),
+            _ => None,
+        }
+    }
+
+    /// Catalogue key of the category label.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            AppointmentCategory::Invoice => "appointments_category_invoice",
+            AppointmentCategory::Customer => "appointments_category_customer",
+            AppointmentCategory::Meeting => "appointments_category_meeting",
+            AppointmentCategory::Deadline => "appointments_category_deadline",
+            AppointmentCategory::Personal => "appointments_category_personal",
+            AppointmentCategory::General => "appointments_category_general",
+        }
+    }
+}
+
 /// A calendar entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Appointment {
@@ -65,6 +136,12 @@ pub struct Appointment {
     pub location: Option<String>,
     /// Free text notes.
     pub notes: Option<String>,
+    /// Colour-coded kind shown as accent and filter.
+    #[serde(default)]
+    pub category: AppointmentCategory,
+    /// Whether the entry fills whole days; its times are then the day boundaries.
+    #[serde(default)]
+    pub all_day: bool,
     /// Current lifecycle state.
     pub status: AppointmentStatus,
     /// Start in milliseconds since the Unix epoch.
@@ -81,6 +158,11 @@ impl Appointment {
     /// Length of the appointment in minutes, rounded down.
     pub fn duration_minutes(&self) -> i64 {
         (self.ends_at - self.starts_at) / 60_000
+    }
+
+    /// Number of calendar days the appointment touches.
+    pub fn day_count(&self) -> i64 {
+        ((self.ends_at - 1 - self.starts_at).max(0) / 86_400_000) + 1
     }
 
     /// Whether the appointment overlaps the given half-open range.
@@ -135,14 +217,32 @@ pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i6
             &mut output,
             &format!("DTSTAMP:{}", ical_datetime(generated_at_ms)),
         );
-        push_ical_line(
-            &mut output,
-            &format!("DTSTART:{}", ical_datetime(appointment.starts_at)),
-        );
-        push_ical_line(
-            &mut output,
-            &format!("DTEND:{}", ical_datetime(appointment.ends_at)),
-        );
+        if appointment.all_day {
+            // All-day events use DATE values; DTEND is exclusive, so the stored range already
+            // points at the first millisecond of the day that follows the last covered day.
+            let ends_at = if appointment.ends_at > appointment.starts_at {
+                appointment.ends_at
+            } else {
+                appointment.starts_at + 86_400_000
+            };
+            push_ical_line(
+                &mut output,
+                &format!("DTSTART;VALUE=DATE:{}", ical_date(appointment.starts_at)),
+            );
+            push_ical_line(
+                &mut output,
+                &format!("DTEND;VALUE=DATE:{}", ical_date(ends_at)),
+            );
+        } else {
+            push_ical_line(
+                &mut output,
+                &format!("DTSTART:{}", ical_datetime(appointment.starts_at)),
+            );
+            push_ical_line(
+                &mut output,
+                &format!("DTEND:{}", ical_datetime(appointment.ends_at)),
+            );
+        }
         push_ical_line(
             &mut output,
             &format!("CREATED:{}", ical_datetime(appointment.created_at)),
@@ -178,6 +278,13 @@ pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i6
                 &format!("DESCRIPTION:{}", escape_ical_text(notes)),
             );
         }
+        push_ical_line(
+            &mut output,
+            &format!(
+                "CATEGORIES:{}",
+                appointment.category.as_str().to_uppercase()
+            ),
+        );
         let status = match appointment.status {
             AppointmentStatus::Scheduled => "TENTATIVE",
             AppointmentStatus::Confirmed
@@ -191,6 +298,11 @@ pub fn export_appointments_ics(appointments: &[Appointment], generated_at_ms: i6
 
     output.push_str("END:VCALENDAR\r\n");
     output
+}
+
+fn ical_date(timestamp_ms: i64) -> String {
+    let (year, month, day) = crate::date::civil_from_millis(timestamp_ms);
+    format!("{year:04}{month:02}{day:02}")
 }
 
 fn ical_datetime(timestamp_ms: i64) -> String {
@@ -235,9 +347,84 @@ fn push_ical_line(output: &mut String, line: &str) {
     output.push_str("\r\n");
 }
 
+/// Due date of an invoice as a read-only calendar entry.
+///
+/// The screen merges these entries with the stored appointments the same way the TypeScript
+/// template merges invoice due dates, local events and Google events into one list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InvoiceEvent {
+    /// Invoice the entry belongs to.
+    pub invoice_id: Uuid,
+    /// Human readable invoice number.
+    pub number: String,
+    /// Title shown in the calendar.
+    pub title: String,
+    /// Amount, status and customer shown in the detail view.
+    pub notes: String,
+    /// Due date at midnight.
+    pub starts_at: i64,
+    /// Start of the day after the due date.
+    pub ends_at: i64,
+    /// Whether the invoice is paid.
+    pub paid: bool,
+    /// Whether the due date passed without payment.
+    pub overdue: bool,
+}
+
+/// Builds the read-only calendar entries of all due invoices except cancelled ones.
+pub fn invoice_events(invoices: &[Invoice], contacts: &[Contact], now: i64) -> Vec<InvoiceEvent> {
+    let mut events = invoices
+        .iter()
+        .filter(|invoice| invoice.status != InvoiceStatus::Cancelled && invoice.due_at > 0)
+        .map(|invoice| {
+            let paid = invoice.status == InvoiceStatus::Paid;
+            let overdue =
+                !paid && (invoice.status == InvoiceStatus::Overdue || invoice.due_at < now);
+            let contact = contacts
+                .iter()
+                .find(|contact| contact.id == invoice.contact_id)
+                .map(contact_label)
+                .unwrap_or_default();
+            let total = invoice.total_gross().cents();
+            InvoiceEvent {
+                invoice_id: invoice.id,
+                number: invoice.number.clone(),
+                title: format!("Rechnung #{}", invoice.number),
+                notes: format!(
+                    "Fällige Rechnung über {}.{:02} {} (Status: {})\n{}",
+                    total / 100,
+                    total.rem_euclid(100),
+                    invoice.currency_symbol,
+                    invoice.status.as_str().to_uppercase(),
+                    contact
+                ),
+                starts_at: invoice.due_at.div_euclid(86_400_000) * 86_400_000,
+                ends_at: (invoice.due_at.div_euclid(86_400_000) + 1) * 86_400_000,
+                paid,
+                overdue,
+            }
+        })
+        .collect::<Vec<_>>();
+    events.sort_by_key(|event| (event.starts_at, event.number.clone()));
+    events
+}
+
+fn contact_label(contact: &Contact) -> String {
+    contact
+        .name
+        .clone()
+        .or_else(|| contact.company_name.clone())
+        .or_else(|| contact.email.clone())
+        .or_else(|| contact.phone.clone())
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::contact::ContactKind;
+    use crate::domain::invoice::InvoiceLine;
+    use crate::money::Money;
 
     fn sample() -> Appointment {
         Appointment {
@@ -246,12 +433,97 @@ mod tests {
             title: "Kickoff".to_string(),
             location: None,
             notes: None,
+            category: AppointmentCategory::General,
+            all_day: false,
             status: AppointmentStatus::Scheduled,
             starts_at: 1_700_000_000_000,
             ends_at: 1_700_000_000_000 + 45 * 60_000,
             created_at: 0,
             updated_at: 0,
         }
+    }
+
+    fn sample_invoice(contact_id: Uuid, due_at: i64) -> Invoice {
+        Invoice {
+            id: Uuid::new_v4(),
+            number: "2026-0042".to_string(),
+            contact_id,
+            status: InvoiceStatus::Sent,
+            issued_at: due_at - 14 * 86_400_000,
+            due_at,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Beratung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(12_500),
+                tax_rate_bp: 1900,
+            }],
+        }
+    }
+
+    #[test]
+    fn roundtrips_categories_and_counts_days() {
+        for category in AppointmentCategory::ALL {
+            assert_eq!(
+                AppointmentCategory::from_storage(category.as_str()),
+                Some(category)
+            );
+            assert!(category.label_key().starts_with("appointments_category_"));
+        }
+        let mut appointment = sample();
+        appointment.all_day = true;
+        appointment.starts_at = 1_700_000_000_000 / 86_400_000 * 86_400_000;
+        appointment.ends_at = appointment.starts_at + 3 * 86_400_000;
+        assert_eq!(appointment.day_count(), 3);
+        appointment.ends_at = appointment.starts_at + 86_400_000;
+        assert_eq!(appointment.day_count(), 1);
+    }
+
+    #[test]
+    fn exports_all_day_entries_with_date_values_and_categories() {
+        let mut appointment = sample();
+        appointment.all_day = true;
+        appointment.category = AppointmentCategory::Deadline;
+        appointment.starts_at = 1_700_000_000_000 / 86_400_000 * 86_400_000;
+        appointment.ends_at = appointment.starts_at + 2 * 86_400_000;
+        let ics = export_appointments_ics(&[appointment], 1_700_000_000_000);
+        assert!(ics.contains("DTSTART;VALUE=DATE:20231114"));
+        assert!(ics.contains("DTEND;VALUE=DATE:20231116"));
+        assert!(ics.contains("CATEGORIES:DEADLINE"));
+        assert!(!ics.contains("DTSTART:2023"));
+    }
+
+    #[test]
+    fn builds_invoice_due_events_and_skips_cancelled_ones() {
+        let now = 1_700_000_000_000;
+        let mut contact = Contact::new(ContactKind::Company, 0);
+        contact.name = Some("Müller GmbH".to_string());
+        let due_at = now + 2 * 86_400_000;
+        let invoice = sample_invoice(contact.id, due_at);
+        let mut cancelled = invoice.clone();
+        cancelled.id = Uuid::new_v4();
+        cancelled.number = "2026-0043".to_string();
+        cancelled.status = InvoiceStatus::Cancelled;
+
+        let events = invoice_events(&[invoice.clone(), cancelled], &[contact], now);
+        assert_eq!(events.len(), 1);
+        let event = &events[0];
+        assert_eq!(event.title, "Rechnung #2026-0042");
+        assert!(event.notes.contains("Müller GmbH"));
+        assert!(event.notes.contains("148.75 €"));
+        assert!(event.notes.contains("SENT"));
+        assert!(!event.paid);
+        assert!(!event.overdue);
+        assert_eq!(
+            event.starts_at.div_euclid(86_400_000),
+            due_at.div_euclid(86_400_000)
+        );
+        assert_eq!(event.ends_at - event.starts_at, 86_400_000);
+
+        let overdue = invoice_events(&[invoice], &[], now + 3 * 86_400_000);
+        assert!(overdue[0].overdue);
     }
 
     #[test]

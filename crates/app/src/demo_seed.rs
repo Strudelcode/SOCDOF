@@ -10,7 +10,7 @@
 use std::path::Path;
 
 use socdof_core::domain::accounting::{BookingChannel, JournalEntry, JournalKind};
-use socdof_core::domain::appointment::{Appointment, AppointmentStatus};
+use socdof_core::domain::appointment::{Appointment, AppointmentCategory, AppointmentStatus};
 use socdof_core::domain::contact::{Contact, ContactKind, ContactType};
 use socdof_core::domain::product::Product;
 use socdof_core::domain::purchase::{PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus};
@@ -172,14 +172,44 @@ fn seed_appointments(store: &Store) -> CoreResult<()> {
     let day = 86_400_000_i64;
     let first = 1_793_491_200_000_i64; // 2026-11-01T00:00:00Z
     let rows = [
-        ("Wartung AlpenTech", 2, 9),
-        ("Fällige Rechnung prüfen", 5, 11),
-        ("Meeting mit Global Hardware", 12, 14),
-        ("Sensorik-Abnahme", 18, 10),
-        ("Monatsabschluss", 20, 16),
-        ("Liefertermin Gehäuse", 24, 8),
+        (
+            "Wartung AlpenTech",
+            2,
+            9,
+            AppointmentCategory::Customer,
+            false,
+        ),
+        (
+            "Fällige Rechnung prüfen",
+            5,
+            11,
+            AppointmentCategory::Deadline,
+            false,
+        ),
+        (
+            "Meeting mit Global Hardware",
+            12,
+            14,
+            AppointmentCategory::Meeting,
+            false,
+        ),
+        (
+            "Sensorik-Abnahme",
+            18,
+            10,
+            AppointmentCategory::Customer,
+            false,
+        ),
+        ("Monatsabschluss", 20, 0, AppointmentCategory::General, true),
+        (
+            "Liefertermin Gehäuse",
+            24,
+            8,
+            AppointmentCategory::Deadline,
+            false,
+        ),
     ];
-    for (title, offset, hour) in rows {
+    for (title, offset, hour, category, all_day) in rows {
         let start = first + offset * day + hour * 3_600_000;
         let mut appointment = Appointment {
             id: uuid::Uuid::new_v4(),
@@ -187,9 +217,11 @@ fn seed_appointments(store: &Store) -> CoreResult<()> {
             title: title.to_string(),
             location: None,
             notes: None,
+            category,
+            all_day,
             status: AppointmentStatus::Confirmed,
             starts_at: start,
-            ends_at: start + 3_600_000,
+            ends_at: start + if all_day { day } else { 3_600_000 },
             created_at: NOW,
             updated_at: NOW,
         };
