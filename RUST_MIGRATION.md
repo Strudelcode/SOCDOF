@@ -1060,6 +1060,20 @@ Every parity change has to satisfy these points — they are the review rule, no
       `theme::install_fonts`, egui defaults kept as glyph fallback
 - [x] semibold form labels through the `FontFamily::Name("Semibold")` family (`theme::semibold`), used
       by the field labels in `controls.rs`; egui has no synthetic bold, hence a second face
+- [x] desktop folders (`FolderSet` in `desktop.rs`, `DesktopLayout.folders`): folder tiles with the
+      reference mini preview (1, 2, 3–4 apps and the `+n` counter), the folder modal with launch,
+      remove, rename and dissolve, the desktop and folder context menus, drag onto a folder and
+      icon-on-icon merge; evidence `rust-31`…`rust-33`
+- [x] folder modal file/storage tab and the full desktop background menu (widgets, sticky note, task
+      view, upload, arrange, snap, app store, settings, fullscreen), with `DesktopLayout.storage_location`
+      and `DesktopLayout.assets`; evidence `rust-34`, `rust-35`
+- [x] sound section (`SettingsTab::Audio`, `Preferences.sound_enabled`/`sound_volume_percent`):
+      mute toggle, master volume slider with percent pill, 0/100 % ends, quick presets and the
+      immediate-save behaviour of the reference; evidence `rust-41`
+- [x] virtual desktops and the full task view (`TaskView` in `shell.rs`, `Window::desktop`,
+      `WindowManager::windows_on`/`focus_on`/`move_to_desktop`, `DesktopLayout.virtual_desktops` and
+      `active_desktop_id`, `DesktopWindowLayout.desktop_id`, `Ctrl+Alt+←/→`, `Ctrl+Shift+D`);
+      evidence `rust-37`…`rust-40`
 - **Not possible in egui 0.27 (limitation, recorded):** backdrop blur of the taskbar glass — a panel paints straight into the
       window framebuffer and epaint has no render-to-texture or post-process pass, so nothing can blur
       what is behind the bar. The honest alternative is the current 84 % translucent surface; a real
@@ -2533,3 +2547,239 @@ scores are in `docs/parity/`; §15.7 is the authoritative status.
   `rust-30-auth-parity-quick-switch-{light,dark}-{900,360}.png` in `docs/artifacts/gui-parity/`
   show the selected `MM/DD/YYYY` / New York clock with seconds, the stored profile pictures and the
   quick-switch continue button.
+
+## 2026-11-26 — Desktop folders (native Rust shell)
+
+- Ported the reference desktop folders (`DesktopWindowWorkspace.tsx` folder model and drag and drop,
+  `DesktopFolderModal.tsx`) instead of leaving the desktop as a flat icon grid.
+- **Model:** `desktop::DesktopFolder` and `desktop::FolderSet` keep the folders, the open folder, the
+  rename buffer and the two context menus as plain data, so every operation is tested without a
+  display. `create`, `rename`, `add_app`, `remove_app`, `dissolve`, `free_cell`, `positions` and
+  `restore` mirror the reference handlers: an app belongs to one folder, an emptied folder dissolves,
+  and a dissolved folder returns its apps to the desktop. Folder names are trimmed and bounded, the
+  identifier follows the reference `folder-<n>` scheme, and `known_app` drops slugs the catalogue no
+  longer knows instead of substituting another app.
+- **Persistence:** the folders live in the account's `DesktopLayout` (`folders`), next to the
+  icon cells and the window geometry, so they travel with the backup. `save_desktop_layout`
+  normalizes them (unique ids, valid names, deduplicated app slugs, 32 folders, cells inside the
+  saved grid) and loads older layouts without the field as an empty set.
+- **Desktop:** apps inside a folder lose their own tile, folder tiles sit on free grid cells
+  (`free_cell` skips the cells of the folders still on the desktop), and the tile shows the reference
+  preview: folder glyph when empty, one icon, two icons side by side, a 2 × 2 grid for three or four,
+  and three icons plus a `+n` counter. Dropping an icon onto a folder files it there; dropping it onto
+  another icon merges both into a new folder named like `desktop_folder_default_name`; right-click on
+  the wallpaper opens the desktop menu with `+ Neuer Ordner`, right-click on a tile opens the folder
+  menu (open, rename, dissolve), and Escape or a click next to a menu closes it.
+- **Folder modal:** dimmed backdrop, folder heading with inline rename (field, save and cancel), the
+  app grid with a launch on click and a remove control on the icon corner, the app count, an empty
+  state, and the footer with "Ordner auflösen" and "Schließen". The reference file/storage tab has no
+  native counterpart yet and stays open work, as do the widget, task view, upload and arrange entries
+  of the background menu.
+- Twelve new catalogue keys in de/en/fr/es (`desktop_new_folder`, `desktop_folder_*`),
+  `catalogue-keys.json` regenerated (2,312 keys).
+- **Verification:** `cargo test -p socdof-core --lib settings_service` (11 tests incl. the new folder
+  round trip and normalization), `cargo test -p socdof-ui` (lib, forms, keyboard, phone, visual,
+  wizard and auth parity suites green) and the five new `desktop::tests` cases for grouping,
+  renaming, dissolving, persisted slugs and free cells.
+- **Evidence:** `rust-31-desktop-folders-{light,dark}.png`, `rust-32-desktop-folder-open-{light,dark}.png`
+  and `rust-33-desktop-folders-compact-{light,dark}.png` in `docs/artifacts/gui-parity/`, rendered
+  from the real screens by `socdof-ui-preview desktop-folder` (scenes `desktop-folders`,
+  `desktop-folder-open`, `desktop-folders-compact`).
+
+## 2026-11-27 — Desktop files tab and the full background menu (native Rust shell)
+
+- Ported the two parts the folder section left open: the file/storage tab of the folder modal
+  (`DesktopFolderModal.tsx`, `StorageAssetPreviewModal.tsx`, `storageAssets.ts`) and every entry of
+  the desktop background menu (`DesktopWindowWorkspace.tsx`).
+- **Files tab:** `desktop::DesktopStorage` holds the filed assets, the upload location and the file
+  shown in the details pane; `desktop::StorageAsset` and `desktop::AssetCategory` follow
+  `determineAssetCategory` and `formatFileSize` from the reference. The modal has the reference tab
+  row (two equal pills with count badges, hard-drive glyph on the file tab), the dashed upload card,
+  the storage location with the platform folder picker, the file list with category glyph, name and
+  `size • date`, the row actions details, download and delete in reference order, the empty state and
+  the `{count} Datei(en) im Ordner` footer. Selecting a row opens the details with the name, size and
+  category, the storage location and origin, the date, the folder link selector
+  (`Mit Desktop-Ordner verknüpfen`, every folder with its app count) and download, delete and close.
+- **Background menu:** every entry of the reference menu in its order and with its separators —
+  widgets, new sticky note, task view, new folder, upload, arrange icons left, snap to grid, app
+  store, settings and fullscreen with the `F11` badge. Widgets opens the widgets window, the sticky
+  note pins a note on the desktop (`WidgetLayer::pin_sticky_note`), task view opens the task view,
+  upload asks the host for the platform file picker, arrange re-fills the left columns and moves the
+  folder tiles behind them, snap returns freely placed icons and tiles to their nearest cell, and
+  fullscreen toggles the window mode.
+- **Persistence:** `DesktopLayout` gains `storage_location` and `assets`, normalized by
+  `save_desktop_layout` (200 assets, bounded names and locations, known category slugs, unique ids)
+  and read by older layouts as an empty storage. The gallery restores the storage on unlock and
+  saves it after every change, next to the folders and the icon cells.
+- **Deliberate differences (recorded):** the reference stores a `dataUrl` copy of every upload in the
+  browser storage; the native shell keeps the source path instead, because a base64 copy of up to
+  15 MB per file would bloat the account settings. The file details sit in a pane of the folder modal
+  instead of the second `StorageAssetPreviewModal`, because egui would stack two modals on a phone
+  viewport. The upload runs through the platform dialog behind the `dialogs` feature and is a no-op
+  in builds without it, like the other native pickers. The category glyphs use the icons the egui set
+  has, so image, code and archive files share the palette, pen and database glyphs of the palette.
+- 39 new catalogue keys in de/en/fr/es (`desktop_menu_*`, `folder_tab_*`, `folder_files_*`,
+  `storage_category_*`), `catalogue-keys.json` regenerated (2,351 keys).
+- **Verification:** `cargo fmt --check`, `cargo clippy --all-targets -D warnings` and `cargo test` for
+  `socdof-core` and `socdof-ui`, including the new core tests for the storage round trip and the
+  legacy layouts plus eight new `desktop::tests` cases (categories, slugs, sizes, storage, persisted
+  assets, arrange and snap).
+- **Evidence:** `rust-34-desktop-folder-files-{light,dark}.png`,
+  `rust-35-desktop-menu-{light,dark}.png` and
+  `rust-36-desktop-folder-files-compact-{light,dark}.png`, rendered with
+  `socdof-ui-preview desktop-folder` and `desktop-menu` (scenes `desktop-folder-files`,
+  `desktop-folder-files-compact`, `desktop-menu`) and checked in both appearances: the modal is
+  centred and fully visible, the file rows truncate long names instead of running into the size
+  line, and the upload hint wraps inside its dashed card on the phone viewport.
+
+## 2026-11-27 — Virtual desktops and the full task view
+
+Reference: `SOCDOF - TS/src/components/support/TaskViewModal.tsx` and the virtual desktop state,
+handlers and shortcuts in `SOCDOF - TS/src/components/shell/DesktopWindowWorkspace.tsx`
+(`virtualDesktops`, `activeDesktopId`, `handleSelectDesktop`, `handleAddDesktop`,
+`handleRemoveDesktop`, `handleRenameDesktop`, `handleMoveWindowToDesktop`, the global key handler).
+The shell only had an open flag and a small "open windows" list, so the menu entry from the previous
+step opened nothing that resembled the reference.
+
+**Model (`crates/ui/src/shell.rs`)**
+
+- `shell::VirtualDesktop` mirrors the reference type: `id` (`desktop-<n>`) and the strip name, plus
+  `short_name()` for the `D1`/`D2` move buttons.
+- `shell::TaskView` now owns the whole state: `desktops`, the active desktop id, the inline rename
+  (`begin_rename`, `rename_buffer_mut`, `commit_rename`, `cancel_rename`, `take_rename_focus`) and
+  the open flag. `TaskView::new()` seeds `Desktop 1`/`Desktop 2` with `desktop-1` active, exactly
+  like the reference defaults, and `restore()` adopts a saved strip and repairs a stale active id.
+- `add()` appends `Desktop <count + 1>` (the reference numbers by the current count, not by the
+  highest id), makes it active and closes the overview; a blank or missing name never overwrites an
+  existing one; `remove()` keeps at least one card and falls back to the first remaining desktop.
+- `step(forward)` implements the wrap-around of `Ctrl+Alt+Arrow`.
+
+**Windows on desktops (`crates/ui/src/desktop.rs`)**
+
+- `Window::desktop` (`on_desktop`, `set_desktop`, `is_on`): a window without a filing, or filed on
+  `all`, appears on every desktop, like the reference `!w.desktopId || w.desktopId === 'all'`.
+- `WindowManager` keeps the current desktop, stamps new windows with it (`open`) and gains
+  `windows_on(desktop)` (z-order, minimized included), `focus_on(desktop)` (topmost unminimized
+  window of that desktop, `None` clears the focus) and `move_to_desktop(app, desktop)`.
+- The desktop paints only windows of the active desktop. Opening an app that lives on another
+  desktop brings the window over instead of focusing something invisible (see deviations).
+
+**Task view overlay**
+
+The panel follows the reference structure: full-screen `slate-950` veil, a top bar
+(`bg-slate-900/60`, bottom hairline) with the layers glyph, the uppercase `Virtuelle Desktops`
+label and the close button (`Task-Ansicht schließen (Esc)`), a horizontally scrollable strip of
+170 px desktop cards, the dashed 150×135 add card, and the window grid in 4/3/2/1 columns.
+
+- Desktop card: 80 px mini preview with the monitor glyph, the `N Fenster` count, the emerald
+  active dot with its dark ring, the 2 px indigo border and 30 % indigo fill when active, the
+  hover-only rose delete button (only while more than one desktop exists) and the hover pencil with
+  the inline editor (centered semibold input, `Enter` commits, `Escape` cancels, focus loss
+  commits like the reference `onBlur`).
+- Window card: initial badge, truncated title that turns indigo on hover, the close cross, the
+  skeleton thumbnail with the module name and the amber `Minimiert` badge, and the
+  `Verschieben nach:` row with the `D1`/`D2`/… buttons, the current filing highlighted.
+- Empty state: the 48 px monitor glyph and `Keine geöffneten Fenster auf diesem Desktop.`
+- Behaviour: clicking a card closes the overview and focuses the window, clicking a desktop card
+  switches and closes, `Escape` and the close button leave the overview, `Escape` inside the rename
+  editor only drops the rename (`ShellState::dismiss_top_overlay`).
+
+**Persistence (`crates/core/src/settings_service.rs`, `crates/ui/src/gallery.rs`)**
+
+- `DesktopLayout.virtual_desktops` (`VirtualDesktopLayout { id, name }`) and `.active_desktop_id`,
+  `DesktopWindowLayout.desktop_id`. `save_desktop_layout` drops blank and duplicate ids, bounds the
+  names to 40 characters, caps the strip at 12 desktops, fills a blank name with `Desktop <n>`,
+  repairs an unknown active id to the first card, seeds the two reference desktops for an empty
+  list and clears a window filing whose desktop no longer exists (shared instead of invisible).
+- The gallery restores the strip and the active desktop on unlock, refiles restored windows and
+  saves strip, active id and window filings whenever `DesktopOutcome::task_view_changed` is set.
+
+**Shortcuts:** `Ctrl+Alt+←/→` switch desktops (wrapping) and focus the new desktop's top window,
+`Ctrl+Shift+D` adds a desktop, both also while the overview is closed, like the reference global
+handler.
+
+**Deliberate differences (recorded)**
+
+- egui cannot blur what is behind an area (`backdrop-blur-md`), so the veil is 92 % opaque instead
+  of 85 %: with no blur, the reference's 85 % let the desktop shine through far too strongly.
+- The hover `scale-[1.02]` of a window card would move every neighbour in a manual grid; a soft
+  indigo halo marks the hovered card instead.
+- Clicking an app that is open on another desktop moves the window to the current desktop instead of
+  opening a second instance. The native shell keeps one window per app, and focusing an invisible
+  window would look like nothing happened.
+- The desktop names are not translated (`Desktop 1`, …), matching the reference, which also
+  hard-codes them; `N Fenster` uses the catalogue key `taskview_windows`.
+- The header uses the four-square grid glyph for the reference `Layers` icon, which the bundled
+  icon set does not have.
+
+**i18n:** 14 new keys in de/en/fr/es (`taskview_*`), `catalogue-keys.json` regenerated (2,365 keys).
+
+**Verification:** `cargo fmt -p socdof-ui -p socdof-core -- --check`, `cargo clippy -p socdof-ui
+-p socdof-core --all-targets -- -D warnings` and `cargo test` for both crates, including the new
+core tests for the desktop round trip and the legacy layout, four new `shell` tests (defaults,
+add/remove/select, rename/step, restore and the `Escape` of the inline editor) and two new
+`desktop::tests` cases (desktop filing and focus, refiling after a removal).
+
+**Evidence:** `rust-37-task-view-{light,dark}.png`, `rust-38-task-view-empty-{light,dark}.png`,
+`rust-39-task-view-compact-{light,dark}.png` and `rust-40-task-view-rename-{light,dark}.png`,
+rendered with `socdof-ui-preview desktop-task-view` (scenes `desktop-task-view`,
+`desktop-task-view-empty`, `desktop-task-view-compact`, `desktop-task-view-rename`) and checked in
+both appearances: the strip and the grid stay inside the 1,280 px column, the compact viewport
+scrolls the strip and falls back to one window column without clipping a card, the empty state is
+centred, and the rename editor stays inside its desktop card.
+
+## 2026-11-27 — Settings: Sound & Lautstärke
+
+Reference: the `audio` section of `SOCDOF - TS/src/components/apps/SettingsModule.tsx` together with
+`SOCDOF - TS/src/lib/sound.ts` (`muted`, `volume`, `setVolume`, `toggleMute`). The native settings had
+no audio section at all; the inventory listed audio preferences as still open.
+
+**Model (`crates/core/src/settings_service.rs`)**
+
+- `Preferences.sound_enabled` and `Preferences.sound_volume_percent`; a fresh account follows the
+  reference sound engine: muted, 80 % volume (`DEFAULT_SOUND_VOLUME_PERCENT`). `save_preferences`
+  clamps the percent to `0..=100`, and a record written before these fields existed loads the same
+  defaults.
+- The settings draft (`AppearanceDraft`) carries both fields, so the section persists through the
+  existing per-user `Preferences` write.
+
+**Section (`crates/ui/src/settings.rs`)**
+
+- New tab `SettingsTab::Audio` right after Personalization, with the `Speaker` icon, the
+  `Sound & Lautstärke` label and the shared index (the numbered badge now counts
+  `SettingsTab::ALL.len()` instead of a hard-coded eleven).
+- Header: accent icon tile, `System-Audio & Soundeffekte` with the reference description and the
+  reference mute button on the right (`Aktiviert` in the primary style, `Stummgeschaltet` in the
+  secondary one); the button stacks below the text on the phone width.
+- Volume card on the muted surface: accent icon that switches to `SpeakerOff` while muted or at 0 %,
+  the `Gesamtlautstärke (Master Volume)` label with the percent pill (shows `0%` while muted, like
+  the reference), the description and the disabled `Probehören` button.
+- Slider row in reference order: `0%` button, themed slider (handle at zero while muted), `100%`
+  button; the quick presets row (`Schnellwahl:`) with 15/35/60/85/100 %, the active preset within
+  eight points highlighted, mirrored left-to-right on wide screens.
+- Every change saves immediately (`save_appearance`), matching the reference, which writes the sound
+  engine's storage on each interaction; there is no Save button in this section.
+
+**Deliberate differences (recorded)**
+
+- The workspace has no audio dependency and the native shell ships without an audio backend, so no
+  tone can be synthesised: `Probehören` is rendered disabled with the hint
+  `Der native Build hat kein Audio-Backend …` instead of pretending to play, and the reference sound
+  catalogue (dozens of synthetic effects with their own preview buttons) is not reproduced — there is
+  nothing to preview. The preference values and the UI behaviour are persisted either way.
+- The reference gradient card becomes the muted surface with the accent icon tile, because the native
+  settings cards keep one surface per theme.
+
+**i18n:** 13 new keys in de/en/fr/es (`settings_tab_audio`, `settings_audio_*`),
+`catalogue-keys.json` regenerated (2,377 keys; the unused `settings_audio_enable` key was dropped
+again when the switch was removed).
+
+**Verification:** `cargo fmt --check`, `cargo clippy -p socdof-ui -p socdof-core --all-targets
+-- -D warnings` and `cargo test` for both crates, including the new core test for the sound
+preferences (round trip, clamping, legacy record) and two new settings tests (draft round trip and
+the tab index/label invariant for all fourteen tabs).
+
+**Evidence:** `rust-41-settings-audio-{light,dark}.png`, rendered with
+`socdof-ui-preview settings-audio` (scene `settings-audio`) and checked in both appearances: the
+slider rail is visible against both surfaces, the handle sits at zero while muted, the percent pill
+stays readable, and the section fits the 1,180 px settings column without clipping.

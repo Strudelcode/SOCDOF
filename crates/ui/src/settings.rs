@@ -1,5 +1,5 @@
-//! Settings screen with thirteen sections, including display discovery, company, payments, appearance, security,
-//! backup, users, roles, updates, portable mode and keyboard shortcuts.
+//! Settings screen with fourteen sections, including display discovery, company, payments, appearance,
+//! sound and volume, security, backup, users, roles, updates, portable mode and keyboard shortcuts.
 //!
 //! The screen is a thin presentation layer over the core services. The company profile is read and
 //! written through [`socdof_core::settings_service`], appearance through the per-user
@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Context, FontId, RichText, Sense, Stroke, Vec2};
+use egui::{Align2, Context, FontId, Rect, RichText, Rounding, Sense, Stroke, Vec2};
 use socdof_core::backup::{self, BackupFile, BackupInfo, BackupMetadata};
 use socdof_core::date;
 use socdof_core::domain::permission::{
@@ -38,7 +38,7 @@ use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
 use crate::theme::Theme;
-use crate::tokens::{preset_ids, AccentPreset, FONT_SMALL};
+use crate::tokens::{preset_ids, with_alpha, AccentPreset, FONT_BODY, FONT_SMALL};
 
 /// Fixed timestamp used by the deterministic gallery data.
 pub const SAMPLE_NOW_MS: i64 = crate::dashboard::SAMPLE_NOW_MS;
@@ -59,6 +59,8 @@ pub enum SettingsTab {
     Language,
     /// Theme, accent and start module.
     Appearance,
+    /// Sound effects and the master volume.
+    Audio,
     /// Passwords and sessions.
     Security,
     /// Backup policy, archives and restore.
@@ -77,13 +79,14 @@ pub enum SettingsTab {
 
 impl SettingsTab {
     /// Every tab in display order.
-    pub const ALL: [SettingsTab; 13] = [
+    pub const ALL: [SettingsTab; 14] = [
         SettingsTab::Display,
         SettingsTab::General,
         SettingsTab::Payments,
         SettingsTab::Letterhead,
         SettingsTab::Language,
         SettingsTab::Appearance,
+        SettingsTab::Audio,
         SettingsTab::Security,
         SettingsTab::Backup,
         SettingsTab::Users,
@@ -102,13 +105,14 @@ impl SettingsTab {
             SettingsTab::Letterhead => 3,
             SettingsTab::Language => 4,
             SettingsTab::Appearance => 5,
-            SettingsTab::Security => 6,
-            SettingsTab::Backup => 7,
-            SettingsTab::Users => 8,
-            SettingsTab::Roles => 9,
-            SettingsTab::Updates => 10,
-            SettingsTab::Portable => 11,
-            SettingsTab::Shortcuts => 12,
+            SettingsTab::Audio => 6,
+            SettingsTab::Security => 7,
+            SettingsTab::Backup => 8,
+            SettingsTab::Users => 9,
+            SettingsTab::Roles => 10,
+            SettingsTab::Updates => 11,
+            SettingsTab::Portable => 12,
+            SettingsTab::Shortcuts => 13,
         }
     }
 
@@ -126,6 +130,7 @@ impl SettingsTab {
             SettingsTab::Letterhead => "settings_tab_letterhead",
             SettingsTab::Language => "settings_tab_language",
             SettingsTab::Appearance => "settings_tab_personalization",
+            SettingsTab::Audio => "settings_tab_audio",
             SettingsTab::Security => "settings_tab_security",
             SettingsTab::Backup => "settings_tab_backup",
             SettingsTab::Users => "settings_tab_users",
@@ -259,6 +264,10 @@ struct AppearanceDraft {
     accent: String,
     sidebar_collapsed: bool,
     startup_module: usize,
+    /// Whether interface sounds play (reference `Sound & Lautstärke`).
+    sound_enabled: bool,
+    /// Master volume of the interface sounds in percent.
+    sound_volume_percent: u8,
 }
 
 impl Default for AppearanceDraft {
@@ -275,6 +284,8 @@ impl AppearanceDraft {
             accent: preferences.accent_color.clone(),
             sidebar_collapsed: preferences.sidebar_collapsed,
             startup_module: startup_index(&preferences.startup_module),
+            sound_enabled: preferences.sound_enabled,
+            sound_volume_percent: preferences.sound_volume_percent,
         }
     }
 
@@ -285,6 +296,8 @@ impl AppearanceDraft {
             accent_color: self.accent.clone(),
             sidebar_collapsed: self.sidebar_collapsed,
             startup_module: startup_module_at(self.startup_module).to_string(),
+            sound_enabled: self.sound_enabled,
+            sound_volume_percent: self.sound_volume_percent,
         }
     }
 }
@@ -1779,6 +1792,7 @@ fn tab_icon(tab: SettingsTab) -> Icon {
         SettingsTab::Letterhead => Icon::FileText,
         SettingsTab::Language => Icon::Languages,
         SettingsTab::Appearance => Icon::Palette,
+        SettingsTab::Audio => Icon::Speaker,
         SettingsTab::Security => Icon::Key,
         SettingsTab::Backup => Icon::Database,
         SettingsTab::Users => Icon::Users,
@@ -1792,7 +1806,7 @@ fn tab_icon(tab: SettingsTab) -> Icon {
 /// Gives every settings section a consistent visual anchor and clear hierarchy.
 fn settings_section_heading(ui: &mut egui::Ui, theme: &Theme, texts: &UiTexts, tab: SettingsTab) {
     card(ui, theme, |ui| {
-        let badge_text = format!("{:02} / 11", tab.index() + 1);
+        let badge_text = format!("{:02} / {}", tab.index() + 1, SettingsTab::ALL.len());
         // The badge width is reserved up front, so the wrapping subtitle can never run
         // underneath it on narrow windows (same metrics `badge` uses to size itself).
         let badge_width = ui
@@ -1988,6 +2002,7 @@ fn settings_active_content(
         SettingsTab::Letterhead => letterhead_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Language => language_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Appearance => appearance_tab(ui, theme, texts, focus, state, store),
+        SettingsTab::Audio => audio_tab(ui, theme, texts, focus, state, store),
         SettingsTab::Security => security_tab(ui, theme, texts, focus, state, store, now),
         SettingsTab::Backup => backup_tab(ui, theme, texts, focus, state, store, now),
         SettingsTab::Users => users_tab(ui, theme, texts, focus, state, store, now),
@@ -2887,6 +2902,239 @@ fn theme_choice(
     response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::SelectableLabel, label));
     if activated {
         *selected = index;
+    }
+}
+
+/// Reference `Sound & Lautstärke`: mute toggle, master volume and the quick presets.
+///
+/// The reference applies every change immediately (it writes the sound engine's localStorage), so
+/// this section saves the preferences as soon as a control changes instead of offering a Save
+/// button.
+fn audio_tab(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut SettingsState,
+    store: &Store,
+) {
+    let mut changed = false;
+    card(ui, theme, |ui| {
+        if state.active_user.is_none() {
+            empty_state(
+                ui,
+                theme,
+                texts.get("settings_error_no_user"),
+                texts.get("settings_users_empty_hint"),
+            );
+            return;
+        }
+        // The settings column can report an unbounded width inside the phone panel; clamping it to
+        // the frame keeps the long German descriptions wrapping instead of painting past the edge.
+        let width = ui.available_width().min(ui.max_rect().width());
+        ui.set_max_width(width);
+        let enabled = state.appearance.sound_enabled;
+        let percent = state.appearance.sound_volume_percent.min(100);
+        let narrow = width < crate::components::FORM_STACK_WIDTH;
+
+        // Narrow panels stack: a description inside a horizontal row would never wrap and would
+        // paint past the panel edge.
+        ui.horizontal(|ui| {
+            let (tile, _) = ui.allocate_exact_size(egui::Vec2::splat(36.0), Sense::hover());
+            ui.painter()
+                .rect_filled(tile, Rounding::same(10.0), theme.accent.base);
+            Icon::Speaker.draw(
+                ui.painter(),
+                Rect::from_center_size(tile.center(), egui::Vec2::splat(20.0)),
+                theme.palette.accent_on,
+                1.5,
+            );
+            ui.add_space(10.0);
+            ui.label(RichText::new(texts.get("settings_audio_title")).strong());
+            if !narrow {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let label = if enabled {
+                        texts.get("settings_audio_active")
+                    } else {
+                        texts.get("settings_audio_muted")
+                    };
+                    let variant = if enabled {
+                        ButtonVariant::Primary
+                    } else {
+                        ButtonVariant::Secondary
+                    };
+                    if button(ui, theme, focus, label, variant).activated {
+                        state.appearance.sound_enabled = !enabled;
+                        changed = true;
+                    }
+                });
+            }
+        });
+        ui.add(
+            egui::Label::new(
+                RichText::new(texts.get("settings_audio_desc"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            )
+            .wrap(true),
+        );
+        if narrow {
+            ui.add_space(8.0);
+            let label = if enabled {
+                texts.get("settings_audio_active")
+            } else {
+                texts.get("settings_audio_muted")
+            };
+            if button(ui, theme, focus, label, ButtonVariant::Secondary).activated {
+                state.appearance.sound_enabled = !enabled;
+                changed = true;
+            }
+        }
+
+        ui.add_space(12.0);
+        egui::Frame::none()
+            .fill(theme.palette.surface_muted)
+            .stroke(Stroke::new(1.0_f32, theme.palette.border))
+            .rounding(Rounding::same(16.0))
+            .inner_margin(egui::Margin::same(14.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let (tile, _) = ui.allocate_exact_size(egui::Vec2::splat(40.0), Sense::hover());
+                    ui.painter()
+                        .rect_filled(tile, Rounding::same(12.0), theme.accent.base);
+                    let glyph = if !enabled || percent == 0 {
+                        Icon::SpeakerOff
+                    } else {
+                        Icon::Speaker
+                    };
+                    glyph.draw(
+                        ui.painter(),
+                        Rect::from_center_size(tile.center(), egui::Vec2::splat(20.0)),
+                        theme.palette.accent_on,
+                        1.5,
+                    );
+                    ui.add_space(10.0);
+                    let volume_label = RichText::new(texts.get("settings_audio_volume"))
+                        .size(FONT_BODY)
+                        .strong();
+                    if narrow {
+                        // In a row the label cannot wrap on its own; an explicit width keeps it
+                        // inside a phone panel instead of pushing the pill out of the card.
+                        let label_width = (width - 132.0).max(80.0);
+                        ui.add_sized(
+                            [label_width, 18.0],
+                            egui::Label::new(volume_label).wrap(true),
+                        );
+                    } else {
+                        ui.label(volume_label);
+                    }
+                    let value = if enabled { percent } else { 0 };
+                    let (pill, _) =
+                        ui.allocate_exact_size(egui::Vec2::new(42.0, 18.0), Sense::hover());
+                    ui.painter().rect_filled(
+                        pill,
+                        Rounding::same(9.0),
+                        with_alpha(theme.accent.base, 72),
+                    );
+                    ui.painter().text(
+                        pill.center(),
+                        Align2::CENTER_CENTER,
+                        format!("{value}%"),
+                        FontId::new(10.0, crate::theme::semibold()),
+                        theme.palette.text,
+                    );
+                    if !narrow {
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_enabled(
+                                false,
+                                egui::Button::new(texts.get("settings_audio_test")),
+                            )
+                            .on_disabled_hover_text(texts.get("settings_audio_no_backend"));
+                        });
+                    }
+                });
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(texts.get("settings_audio_volume_desc"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    )
+                    .wrap(true),
+                );
+                ui.add_space(10.0);
+                ui.horizontal(|ui| {
+                    if ui
+                        .small_button(RichText::new("0%").size(FONT_SMALL))
+                        .on_hover_text(texts.get("settings_audio_mute_hint"))
+                        .clicked()
+                    {
+                        state.appearance.sound_volume_percent = 0;
+                        changed = true;
+                    }
+                    // The reference shows the handle at 0 while muted (`isMuted ? 0 : volume`).
+                    let mut value = if enabled { percent as u32 } else { 0 };
+                    ui.visuals_mut().widgets.inactive.bg_fill = theme.palette.border;
+                    ui.visuals_mut().widgets.hovered.bg_fill = theme.palette.border;
+                    ui.visuals_mut().widgets.active.bg_fill = theme.accent.base;
+                    ui.visuals_mut().selection.bg_fill = theme.accent.base;
+                    // Leave room for the `100 %` button, the handle and the spacing, and keep a
+                    // floor that still fits a 360 px panel.
+                    ui.spacing_mut().slider_width = (ui.available_width() - 120.0).max(80.0);
+                    let slider = egui::Slider::new(&mut value, 0..=100).show_value(false);
+                    if ui.add(slider).changed() {
+                        state.appearance.sound_volume_percent = value as u8;
+                        // Dragging the slider unmutes, like the reference `handleVolumeChange`.
+                        state.appearance.sound_enabled = value > 0;
+                        changed = true;
+                    }
+                    if ui
+                        .small_button(RichText::new("100%").size(FONT_SMALL))
+                        .on_hover_text(texts.get("settings_audio_max_hint"))
+                        .clicked()
+                    {
+                        state.appearance.sound_volume_percent = 100;
+                        state.appearance.sound_enabled = true;
+                        changed = true;
+                    }
+                });
+
+                ui.add_space(8.0);
+                ui.label(
+                    RichText::new(texts.get("settings_audio_presets"))
+                        .size(11.0)
+                        .family(crate::theme::semibold())
+                        .color(theme.palette.text_muted),
+                );
+                ui.horizontal_wrapped(|ui| {
+                    for preset in [15_u8, 35, 60, 85, 100] {
+                        let selected = enabled && percent.abs_diff(preset) < 8;
+                        let variant = if selected {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Ghost
+                        };
+                        let label = format!("{preset}%");
+                        if button(ui, theme, focus, &label, variant).activated {
+                            state.appearance.sound_volume_percent = preset;
+                            state.appearance.sound_enabled = true;
+                            changed = true;
+                        }
+                    }
+                });
+            });
+
+        ui.add_space(8.0);
+        ui.add(
+            egui::Label::new(
+                RichText::new(texts.get("settings_audio_no_backend"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            )
+            .wrap(true),
+        );
+    });
+    if changed {
+        state.save_appearance(store);
     }
 }
 
@@ -4957,6 +5205,36 @@ mod tests {
         state.dispatch(SettingsIntent::DeleteUser(created.id), &store);
         assert!(state.delete_confirmed(&store));
         assert!(store.find_user_by_username("neu").expect("find").is_none());
+    }
+
+    #[test]
+    fn appearance_draft_keeps_the_sound_preferences() {
+        let preferences = Preferences {
+            sound_enabled: true,
+            sound_volume_percent: 35,
+            ..Preferences::default()
+        };
+        let mut draft = AppearanceDraft::from_preferences(&preferences);
+        assert!(draft.sound_enabled);
+        assert_eq!(draft.sound_volume_percent, 35);
+        draft.sound_volume_percent = 100;
+        assert_eq!(draft.to_preferences().sound_volume_percent, 100);
+        assert!(draft.to_preferences().sound_enabled);
+
+        // A fresh draft follows the reference defaults: muted at 80 %.
+        let defaults = AppearanceDraft::default().to_preferences();
+        assert!(!defaults.sound_enabled);
+        assert_eq!(defaults.sound_volume_percent, 80);
+    }
+
+    #[test]
+    fn every_settings_tab_has_an_index_and_a_label() {
+        for (index, tab) in SettingsTab::ALL.iter().copied().enumerate() {
+            assert_eq!(tab.index(), index);
+            assert_eq!(SettingsTab::from_index(index), tab);
+            assert!(!tab.label_key().is_empty());
+        }
+        assert_eq!(SettingsTab::ALL.len(), 14);
     }
 
     #[test]

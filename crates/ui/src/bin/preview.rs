@@ -40,6 +40,19 @@ enum Scene {
     Desktop,
     DesktopOverflow,
     DesktopFree,
+    DesktopFolders,
+    DesktopFolderOpen,
+    DesktopFoldersCompact,
+    /// Folder modal with the files tab and a filed document.
+    DesktopFolderFiles,
+    /// Desktop background context menu.
+    DesktopMenu,
+    DesktopTaskView,
+    DesktopTaskViewEmpty,
+    DesktopTaskViewCompact,
+    DesktopTaskViewRename,
+    /// Folder modal with the files tab on a phone viewport.
+    DesktopFolderFilesCompact,
     StartMenu,
     StartMenuPower,
     Palette,
@@ -117,6 +130,16 @@ impl Scene {
             Scene::Desktop => "desktop".to_string(),
             Scene::DesktopOverflow => "desktop-overflow".to_string(),
             Scene::DesktopFree => "desktop-free".to_string(),
+            Scene::DesktopFolders => "desktop-folders".to_string(),
+            Scene::DesktopFolderOpen => "desktop-folder-open".to_string(),
+            Scene::DesktopFoldersCompact => "desktop-folders-compact".to_string(),
+            Scene::DesktopFolderFiles => "desktop-folder-files".to_string(),
+            Scene::DesktopMenu => "desktop-menu".to_string(),
+            Scene::DesktopTaskView => "desktop-task-view".to_string(),
+            Scene::DesktopTaskViewEmpty => "desktop-task-view-empty".to_string(),
+            Scene::DesktopTaskViewCompact => "desktop-task-view-compact".to_string(),
+            Scene::DesktopTaskViewRename => "desktop-task-view-rename".to_string(),
+            Scene::DesktopFolderFilesCompact => "desktop-folder-files-compact".to_string(),
             Scene::DesktopCalculator => "desktop-calculator".to_string(),
             Scene::DesktopWidgets => "desktop-widgets".to_string(),
             Scene::DesktopEditor => "desktop-editor".to_string(),
@@ -194,6 +217,16 @@ impl Scene {
             Scene::Desktop => "Desktop shell".to_string(),
             Scene::DesktopOverflow => "Desktop · Overflow menu".to_string(),
             Scene::DesktopFree => "Desktop · Free icon placement".to_string(),
+            Scene::DesktopFolders => "Desktop · Folders".to_string(),
+            Scene::DesktopFolderOpen => "Desktop · Open folder".to_string(),
+            Scene::DesktopFoldersCompact => "Desktop · Folders (compact)".to_string(),
+            Scene::DesktopFolderFiles => "Desktop · Folder files".to_string(),
+            Scene::DesktopMenu => "Desktop · Context menu".to_string(),
+            Scene::DesktopTaskView => "Desktop · Task view".to_string(),
+            Scene::DesktopTaskViewEmpty => "Desktop · Task view (empty)".to_string(),
+            Scene::DesktopTaskViewCompact => "Desktop · Task view (compact)".to_string(),
+            Scene::DesktopTaskViewRename => "Desktop · Task view (rename)".to_string(),
+            Scene::DesktopFolderFilesCompact => "Desktop · Folder files (compact)".to_string(),
             Scene::StartMenu => "Start menu".to_string(),
             Scene::StartMenuPower => "Start menu with power flyout".to_string(),
             Scene::Palette => "Command palette".to_string(),
@@ -270,6 +303,13 @@ impl Scene {
             Scene::Desktop
             | Scene::DesktopOverflow
             | Scene::DesktopFree
+            | Scene::DesktopFolders
+            | Scene::DesktopFolderOpen
+            | Scene::DesktopFolderFiles
+            | Scene::DesktopMenu
+            | Scene::DesktopTaskView
+            | Scene::DesktopTaskViewEmpty
+            | Scene::DesktopTaskViewRename
             | Scene::StartMenu
             | Scene::Palette
             | Scene::Tray
@@ -306,6 +346,9 @@ impl Scene {
             Scene::DesktopCalculator | Scene::DesktopWidgets | Scene::DesktopEditor => {
                 (COMPACT_WIDTH, COMPACT_HEIGHT)
             }
+            Scene::DesktopFoldersCompact
+            | Scene::DesktopFolderFilesCompact
+            | Scene::DesktopTaskViewCompact => (COMPACT_WIDTH, COMPACT_HEIGHT),
             _ => (1180.0, 1500.0),
         }
     }
@@ -353,6 +396,7 @@ impl Scene {
         state.drawer_open = false;
         state.modal_open = false;
         state.shell.close_overlays();
+        state.shell.folders = socdof_ui::desktop::FolderSet::new();
         state.shell.onboarding = Onboarding::restore(true);
         state.shell.wallpaper.wallpaper = Wallpaper::Plain;
         state.shell.wallpaper.fit = WallpaperFit::Cover;
@@ -399,6 +443,195 @@ impl Scene {
                 state.desktop_icons.place_at(
                     socdof_ui::desktop::AppId::new("products"),
                     egui::Pos2::new(460.0, 400.0),
+                );
+            }
+            Scene::DesktopFolders | Scene::DesktopFolderOpen | Scene::DesktopFolderFiles => {
+                state.desktop_open = true;
+                // The icons fill the first three columns; the folders take the free cells next to
+                // them, like a folder created from the desktop menu.
+                let three = state.shell.folders.create(
+                    state.texts.get("desktop_folder_default_name"),
+                    vec![
+                        socdof_ui::desktop::AppId::new("contacts"),
+                        socdof_ui::desktop::AppId::new("invoices"),
+                        socdof_ui::desktop::AppId::new("calendar"),
+                    ],
+                    (3, 0),
+                );
+                // Five apps exercise the counter badge of the reference folder tile.
+                state.shell.folders.create(
+                    "Büro",
+                    vec![
+                        socdof_ui::desktop::AppId::new("products"),
+                        socdof_ui::desktop::AppId::new("purchases"),
+                        socdof_ui::desktop::AppId::new("pos"),
+                        socdof_ui::desktop::AppId::new("accounting"),
+                        socdof_ui::desktop::AppId::new("reports"),
+                    ],
+                    (3, 1),
+                );
+                if matches!(self, Scene::DesktopFolderOpen | Scene::DesktopFolderFiles) {
+                    state.shell.folders.open(&three);
+                }
+                if matches!(self, Scene::DesktopFolderFiles) {
+                    // The files tab with two filed documents and the details of the first one,
+                    // like the reference storage list.
+                    state
+                        .shell
+                        .folders
+                        .set_tab(socdof_ui::desktop::FolderTab::Files);
+                    state.shell.storage.set_location("/home/belege");
+                    state
+                        .shell
+                        .storage
+                        .add(socdof_ui::desktop::StorageAsset::new(
+                            "asset-quote",
+                            "Angebot 2026-11.pdf",
+                            2_411_724,
+                            "/home/belege",
+                            Some(three.clone()),
+                            1_764_201_600_000,
+                        ));
+                    state
+                        .shell
+                        .storage
+                        .add(socdof_ui::desktop::StorageAsset::new(
+                            "asset-receipt",
+                            "Beleg_Kasse_0421.pdf",
+                            184_320,
+                            "/home/belege",
+                            Some(three.clone()),
+                            1_764_115_200_000,
+                        ));
+                    state
+                        .shell
+                        .storage
+                        .add(socdof_ui::desktop::StorageAsset::new(
+                            "asset-photo",
+                            "Werkstatt_Foto.jpg",
+                            1_048_576,
+                            "/home/belege",
+                            None,
+                            1_763_942_400_000,
+                        ));
+                    state.shell.storage.select("asset-quote");
+                }
+            }
+            Scene::DesktopMenu => {
+                state.desktop_open = true;
+                state.shell.folders.open_menu(egui::Pos2::new(420.0, 240.0));
+            }
+            Scene::DesktopTaskView
+            | Scene::DesktopTaskViewCompact
+            | Scene::DesktopTaskViewRename => {
+                state.desktop_open = true;
+                close_all_windows(state);
+                // A fixed strip keeps the scene identical across languages and appearances.
+                state.shell.task_view.restore(
+                    [
+                        ("desktop-1", "Desktop 1"),
+                        ("desktop-2", "Desktop 2"),
+                        ("desktop-3", "Desktop 3"),
+                    ]
+                    .map(|(id, name)| (id.to_string(), name.to_string())),
+                    "desktop-1",
+                );
+                state.shell.task_view.open();
+                let entries: [(&str, &str, &str, bool); 5] = [
+                    ("dashboard", "app_dashboard", "desktop-1", false),
+                    ("contacts", "app_contacts", "desktop-1", false),
+                    ("invoices", "app_invoices", "desktop-1", true),
+                    ("products", "app_products", "desktop-2", false),
+                    ("calendar", "app_calendar", "desktop-2", false),
+                ];
+                for (index, (app, key, desktop, minimized)) in entries.iter().enumerate() {
+                    let rect = egui::Rect::from_min_size(
+                        egui::Pos2::new(64.0 + index as f32 * 32.0, 64.0 + index as f32 * 26.0),
+                        egui::Vec2::new(880.0, 600.0),
+                    );
+                    let window = socdof_ui::desktop::Window::new(
+                        socdof_ui::desktop::AppId::new(app),
+                        state.texts.get(key),
+                        rect,
+                    )
+                    .on_desktop(Some((*desktop).to_string()));
+                    let _ = state.desktop_windows.open(window, 0);
+                    if *minimized {
+                        state
+                            .desktop_windows
+                            .minimize(socdof_ui::desktop::AppId::new(app));
+                    }
+                }
+                state.shell.task_view.open();
+                if matches!(self, Scene::DesktopTaskViewRename) {
+                    state.shell.task_view.open();
+                    state.shell.task_view.begin_rename("desktop-2");
+                }
+            }
+            Scene::DesktopTaskViewEmpty => {
+                state.desktop_open = true;
+                close_all_windows(state);
+                state.shell.task_view.restore(
+                    [("desktop-1", "Desktop 1"), ("desktop-2", "Desktop 2")]
+                        .map(|(id, name)| (id.to_string(), name.to_string())),
+                    "desktop-1",
+                );
+                state.shell.task_view.open();
+            }
+            Scene::DesktopFolderFilesCompact => {
+                state.desktop_open = true;
+                let slot = state.desktop_icons.icons().len() as u32;
+                let folder = state.shell.folders.create(
+                    state.texts.get("desktop_folder_default_name"),
+                    vec![
+                        socdof_ui::desktop::AppId::new("contacts"),
+                        socdof_ui::desktop::AppId::new("invoices"),
+                        socdof_ui::desktop::AppId::new("calendar"),
+                    ],
+                    socdof_ui::desktop::FolderSet::slot_cell(slot),
+                );
+                state.shell.folders.open(&folder);
+                state
+                    .shell
+                    .folders
+                    .set_tab(socdof_ui::desktop::FolderTab::Files);
+                state.shell.storage.set_location("/home/belege");
+                state
+                    .shell
+                    .storage
+                    .add(socdof_ui::desktop::StorageAsset::new(
+                        "asset-quote",
+                        "Angebot 2026-11.pdf",
+                        2_411_724,
+                        "/home/belege",
+                        Some(folder.clone()),
+                        1_764_201_600_000,
+                    ));
+                state
+                    .shell
+                    .storage
+                    .add(socdof_ui::desktop::StorageAsset::new(
+                        "asset-photo",
+                        "Werkstatt_Foto_Radkappe_verpackt.jpg",
+                        1_048_576,
+                        "/home/belege",
+                        Some(folder),
+                        1_763_942_400_000,
+                    ));
+            }
+            Scene::DesktopFoldersCompact => {
+                state.desktop_open = true;
+                // The compact grid holds three columns of six icons, so one folder follows the
+                // icons in the last free cell.
+                let slot = state.desktop_icons.icons().len() as u32;
+                state.shell.folders.create(
+                    state.texts.get("desktop_folder_default_name"),
+                    vec![
+                        socdof_ui::desktop::AppId::new("contacts"),
+                        socdof_ui::desktop::AppId::new("invoices"),
+                        socdof_ui::desktop::AppId::new("calendar"),
+                    ],
+                    socdof_ui::desktop::FolderSet::slot_cell(slot),
                 );
             }
             Scene::StartMenu => {
@@ -811,6 +1044,7 @@ fn settings_id(tab: SettingsTab) -> &'static str {
         SettingsTab::Roles => "roles",
         SettingsTab::Updates => "updates",
         SettingsTab::Portable => "portable",
+        SettingsTab::Audio => "audio",
         SettingsTab::Shortcuts => "shortcuts",
     }
 }
@@ -829,8 +1063,19 @@ fn settings_title(tab: SettingsTab) -> &'static str {
         SettingsTab::Roles => "Roles",
         SettingsTab::Updates => "Updates",
         SettingsTab::Portable => "Portable",
+        SettingsTab::Audio => "Sound & volume",
         SettingsTab::Shortcuts => "Shortcuts",
     }
+}
+
+/// Starts a scene from an empty desktop.
+///
+/// A fresh manager is used instead of closing window by window: closing is deferred to the next
+/// frame in the running shell, which would leak the previous scene's windows into this one.
+fn close_all_windows(state: &mut GalleryState) {
+    let mut windows = socdof_ui::desktop::WindowManager::new();
+    windows.set_current_desktop("desktop-1");
+    state.desktop_windows = windows;
 }
 
 fn scenes() -> Vec<Scene> {
@@ -839,6 +1084,16 @@ fn scenes() -> Vec<Scene> {
         Scene::Desktop,
         Scene::DesktopOverflow,
         Scene::DesktopFree,
+        Scene::DesktopFolders,
+        Scene::DesktopFolderOpen,
+        Scene::DesktopFoldersCompact,
+        Scene::DesktopFolderFiles,
+        Scene::DesktopMenu,
+        Scene::DesktopTaskView,
+        Scene::DesktopTaskViewEmpty,
+        Scene::DesktopTaskViewCompact,
+        Scene::DesktopTaskViewRename,
+        Scene::DesktopFolderFilesCompact,
         Scene::DesktopCalculator,
         Scene::DesktopWidgets,
         Scene::DesktopEditor,

@@ -97,6 +97,11 @@ impl PortableSettings {
     }
 }
 
+/// Master volume of the interface sounds of a fresh account.
+///
+/// The reference sound engine ships with `volume = 0.8` and `muted = true`.
+pub const DEFAULT_SOUND_VOLUME_PERCENT: u8 = 80;
+
 /// Personal appearance and start-up preferences of one user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
@@ -111,6 +116,10 @@ pub struct Preferences {
     pub sidebar_collapsed: bool,
     /// Module shown after sign-in, empty for the dashboard.
     pub startup_module: String,
+    /// Whether interface sounds play; the reference starts muted.
+    pub sound_enabled: bool,
+    /// Master volume of the interface sounds in percent (`0`–`100`).
+    pub sound_volume_percent: u8,
 }
 
 impl Default for Preferences {
@@ -121,6 +130,8 @@ impl Default for Preferences {
             accent_color: "indigo".to_string(),
             sidebar_collapsed: false,
             startup_module: String::new(),
+            sound_enabled: false,
+            sound_volume_percent: DEFAULT_SOUND_VOLUME_PERCENT,
         }
     }
 }
@@ -177,10 +188,124 @@ pub struct DesktopLayout {
     pub icon_positions: BTreeMap<String, (u32, u32)>,
     /// Last normal window rectangle and maximize state, keyed by app slug.
     pub window_states: BTreeMap<String, DesktopWindowLayout>,
+    /// Folders that group desktop apps, in creation order.
+    pub folders: Vec<DesktopFolderLayout>,
+    /// Directory the desktop storage uploads from, as chosen by the account.
+    pub storage_location: String,
+    /// Files filed on the desktop and in its folders.
+    pub assets: Vec<StorageAssetLayout>,
+    /// Virtual desktops of the task view, in strip order.
+    pub virtual_desktops: Vec<VirtualDesktopLayout>,
+    /// Identifier of the virtual desktop the user was on.
+    pub active_desktop_id: String,
+}
+
+/// One virtual desktop of the task view.
+///
+/// The reference keeps the list in the browser storage (`socdof_virtual_desktops`); the native shell
+/// keeps it in the account layout so it survives a restart and travels with the backup.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct VirtualDesktopLayout {
+    /// Stable identifier, `desktop-<n>` like the reference.
+    pub id: String,
+    /// Name shown on the strip card.
+    pub name: String,
+}
+
+/// Most virtual desktops the task view keeps per account.
+pub const DESKTOP_MAX_VIRTUAL_DESKTOPS: usize = 12;
+
+/// Longest virtual desktop name kept.
+pub const VIRTUAL_DESKTOP_NAME_MAX: usize = 40;
+
+/// Desktop id that shows a window on every virtual desktop.
+pub const DESKTOP_ALL_ID: &str = "all";
+
+/// Default number of virtual desktops of a fresh account, like the reference.
+pub const DESKTOP_DEFAULT_VIRTUAL_DESKTOPS: usize = 2;
+
+/// Default virtual desktops of an account without a saved list.
+pub fn default_virtual_desktops() -> Vec<VirtualDesktopLayout> {
+    (1..=DESKTOP_DEFAULT_VIRTUAL_DESKTOPS)
+        .map(|index| VirtualDesktopLayout {
+            id: format!("desktop-{index}"),
+            name: format!("Desktop {index}"),
+        })
+        .collect()
+}
+
+/// Most files the desktop storage keeps per account.
+pub const DESKTOP_MAX_ASSETS: usize = 200;
+
+/// Longest file name the desktop storage keeps.
+pub const DESKTOP_ASSET_NAME_MAX: usize = 120;
+
+/// Longest storage location path the desktop keeps.
+pub const DESKTOP_LOCATION_MAX: usize = 400;
+
+/// File categories the reference storage assigns from the file extension.
+pub const STORAGE_CATEGORIES: [&str; 9] = [
+    "document",
+    "image",
+    "spreadsheet",
+    "pdf",
+    "archive",
+    "audio",
+    "video",
+    "code",
+    "other",
+];
+
+/// One file filed on the desktop or in a desktop folder.
+///
+/// The reference keeps `StorageAsset` records in the browser storage and copies up to 15 MB of the
+/// file as a data URL for offline previews. The native shell keeps the record and the source path
+/// instead of duplicating the bytes into the account settings.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StorageAssetLayout {
+    /// Identifier the asset is stored and looked up by.
+    pub id: String,
+    /// File name without a directory.
+    pub name: String,
+    /// Size in bytes.
+    pub size: u64,
+    /// Category slug, one of [`STORAGE_CATEGORIES`].
+    pub category: String,
+    /// Directory or file path the asset was imported from.
+    pub location: String,
+    /// Folder the asset is filed in; `None` files it on the desktop.
+    pub folder_id: Option<String>,
+    /// Creation time in milliseconds since the Unix epoch.
+    pub created_at: i64,
+}
+
+/// Most desktop folders one account may keep.
+pub const DESKTOP_MAX_FOLDERS: usize = 32;
+
+/// Longest folder name the desktop stores.
+pub const DESKTOP_FOLDER_NAME_MAX: usize = 64;
+
+/// One persisted desktop folder and the apps it holds.
+///
+/// The reference desktop keeps folders in `socdof_desktop_folders` per account; the native shell
+/// stores the same data in the account's desktop layout so it travels with the backups.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DesktopFolderLayout {
+    /// Identifier the folder is persisted and looked up by.
+    pub id: String,
+    /// Displayed name of the folder.
+    pub name: String,
+    /// App slugs inside the folder, in the order they were added.
+    pub modules: Vec<String>,
+    /// Grid cell of the folder tile, column then row.
+    pub cell: (u32, u32),
 }
 
 /// Geometry restored when an application window is opened again.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DesktopWindowLayout {
     /// Horizontal position in desktop points.
@@ -203,6 +328,10 @@ pub struct DesktopWindowLayout {
     ///
     /// Missing values in older layout records default to zero.
     pub z_order: u32,
+    /// Virtual desktop the window was shown on; `None` (or `all`) shows it everywhere.
+    ///
+    /// Missing values in older layout records default to `None`.
+    pub desktop_id: Option<String>,
 }
 
 fn desktop_layout_key(user_id: Uuid) -> String {
@@ -241,6 +370,7 @@ fn migrate_icon_positions(layout: &mut DesktopLayout) {
 
 /// Saves a normalized desktop layout, ignoring malformed app slugs and excessive grid rows.
 pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout) -> CoreResult<()> {
+    let desktops = normalize_virtual_desktops(&layout.virtual_desktops, &layout.active_desktop_id);
     let normalized = DesktopLayout {
         grid_version: DESKTOP_GRID_VERSION,
         icon_positions: layout
@@ -265,13 +395,179 @@ pub fn save_desktop_layout(store: &Store, user_id: Uuid, layout: &DesktopLayout)
                     && (320..=16_384).contains(&window.width)
                     && (220..=16_384).contains(&window.height)
             })
-            .map(|(slug, window)| (slug.clone(), *window))
+            .map(|(slug, window)| (slug.clone(), window.clone()))
             .collect(),
+        folders: normalize_folders(&layout.folders),
+        storage_location: layout
+            .storage_location
+            .trim()
+            .chars()
+            .take(DESKTOP_LOCATION_MAX)
+            .collect(),
+        assets: normalize_assets(&layout.assets),
+        virtual_desktops: desktops.0.clone(),
+        active_desktop_id: desktops.1,
+    };
+    let normalized = DesktopLayout {
+        window_states: normalized
+            .window_states
+            .into_iter()
+            .map(|(slug, mut window)| {
+                window.desktop_id = normalize_window_desktop(
+                    window.desktop_id,
+                    &normalized_desktop_ids(&desktops.0),
+                );
+                (slug, window)
+            })
+            .collect(),
+        ..normalized
     };
     store.put_setting(
         &desktop_layout_key(user_id),
         &serde_json::to_value(normalized)?,
     )
+}
+
+/// Ids of the desktops a window may be filed on, plus the shared `all` id.
+fn normalized_desktop_ids(desktops: &[VirtualDesktopLayout]) -> Vec<String> {
+    let mut ids: Vec<String> = desktops.iter().map(|desktop| desktop.id.clone()).collect();
+    ids.push(DESKTOP_ALL_ID.to_string());
+    ids
+}
+
+/// Keeps a window's desktop id only when the desktop still exists.
+fn normalize_window_desktop(value: Option<String>, known: &[String]) -> Option<String> {
+    let id = value?;
+    let id = id.trim();
+    if id.is_empty() || !known.iter().any(|known| known == id) {
+        return None;
+    }
+    Some(id.to_owned())
+}
+
+/// Drops blank or duplicate desktops, bounds the names and repairs the active id.
+fn normalize_virtual_desktops(
+    desktops: &[VirtualDesktopLayout],
+    active: &str,
+) -> (Vec<VirtualDesktopLayout>, String) {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut normalized: Vec<VirtualDesktopLayout> = Vec::new();
+    for desktop in desktops {
+        let id = desktop.id.trim();
+        let name = desktop.name.trim();
+        if id.is_empty() || id.len() > 64 || !seen.insert(id.to_owned()) {
+            continue;
+        }
+        if normalized.len() >= DESKTOP_MAX_VIRTUAL_DESKTOPS {
+            break;
+        }
+        let index = normalized.len() + 1;
+        normalized.push(VirtualDesktopLayout {
+            id: id.to_owned(),
+            name: if name.is_empty() {
+                format!("Desktop {index}")
+            } else {
+                name.chars().take(VIRTUAL_DESKTOP_NAME_MAX).collect()
+            },
+        });
+    }
+    if normalized.is_empty() {
+        normalized = default_virtual_desktops();
+    }
+    let active = active.trim();
+    let active = if normalized.iter().any(|desktop| desktop.id == active) {
+        active.to_owned()
+    } else {
+        normalized[0].id.clone()
+    };
+    (normalized, active)
+}
+
+/// Normalizes persisted desktop folders: valid identifiers and names, unique app slugs, and grid
+/// cells inside the saved grid. Malformed folders are dropped instead of being rewritten.
+fn normalize_folders(folders: &[DesktopFolderLayout]) -> Vec<DesktopFolderLayout> {
+    let mut seen = std::collections::BTreeSet::new();
+    folders
+        .iter()
+        .filter(|folder| {
+            !folder.id.trim().is_empty()
+                && folder.id.len() <= 64
+                && !folder.name.trim().is_empty()
+                && seen.insert(folder.id.clone())
+        })
+        .take(DESKTOP_MAX_FOLDERS)
+        .map(|folder| {
+            let mut modules: Vec<String> = Vec::new();
+            for module in &folder.modules {
+                let slug = module.trim();
+                if slug.is_empty() || slug.len() > 64 || modules.iter().any(|known| known == slug) {
+                    continue;
+                }
+                modules.push(slug.to_owned());
+            }
+            DesktopFolderLayout {
+                id: folder.id.trim().to_owned(),
+                name: folder
+                    .name
+                    .trim()
+                    .chars()
+                    .take(DESKTOP_FOLDER_NAME_MAX)
+                    .collect(),
+                modules,
+                cell: (
+                    folder.cell.0.min(DESKTOP_GRID_MAX_COLUMNS - 1),
+                    folder.cell.1.min(DESKTOP_GRID_ROWS - 1),
+                ),
+            }
+        })
+        .collect()
+}
+
+/// Normalizes persisted storage assets: unique identifiers, bounded names and paths, a known
+/// category slug and a folder reference of a saved folder or `None`.
+fn normalize_assets(assets: &[StorageAssetLayout]) -> Vec<StorageAssetLayout> {
+    let mut seen = std::collections::BTreeSet::new();
+    assets
+        .iter()
+        .filter(|asset| {
+            !asset.id.trim().is_empty() && asset.id.len() <= 64 && seen.insert(asset.id.clone())
+        })
+        .take(DESKTOP_MAX_ASSETS)
+        .map(|asset| {
+            let name: String = asset
+                .name
+                .trim()
+                .chars()
+                .take(DESKTOP_ASSET_NAME_MAX)
+                .collect();
+            StorageAssetLayout {
+                id: asset.id.trim().to_owned(),
+                name: if name.is_empty() {
+                    "Datei".to_owned()
+                } else {
+                    name
+                },
+                size: asset.size.min(64 * 1024 * 1024 * 1024),
+                category: if STORAGE_CATEGORIES.contains(&asset.category.as_str()) {
+                    asset.category.clone()
+                } else {
+                    "other".to_owned()
+                },
+                location: asset
+                    .location
+                    .trim()
+                    .chars()
+                    .take(DESKTOP_LOCATION_MAX)
+                    .collect(),
+                folder_id: asset
+                    .folder_id
+                    .as_ref()
+                    .map(|id| id.trim().to_owned())
+                    .filter(|id| !id.is_empty() && id.len() <= 64),
+                created_at: asset.created_at,
+            }
+        })
+        .collect()
 }
 
 /// Removes a user's desktop layout when their account is deleted.
@@ -335,9 +631,13 @@ pub fn preferences(store: &Store, user_id: Uuid) -> CoreResult<Preferences> {
 /// Validates and stores the preferences of a user.
 pub fn save_preferences(store: &Store, user_id: Uuid, preferences: &Preferences) -> CoreResult<()> {
     preferences.validate().map_err(CoreError::Validation)?;
+    // The volume slider of the reference is a `0..1` input with 1 % steps; the stored percent is
+    // clamped here so a hand-edited settings record cannot leave the range.
+    let mut normalized = preferences.clone();
+    normalized.sound_volume_percent = preferences.sound_volume_percent.min(100);
     store.put_setting(
         &preferences_key(user_id),
-        &serde_json::to_value(preferences)?,
+        &serde_json::to_value(normalized)?,
     )
 }
 
@@ -602,6 +902,7 @@ mod tests {
             accent_color: "rose".to_string(),
             sidebar_collapsed: true,
             startup_module: "invoices".to_string(),
+            ..Preferences::default()
         };
         save_preferences(&store, first, &custom).expect("saved");
 
@@ -652,6 +953,7 @@ mod tests {
                     open: true,
                     minimized: false,
                     z_order: 1,
+                    desktop_id: None,
                 },
             )]
             .into_iter()
@@ -666,6 +968,53 @@ mod tests {
                 .get("contacts"),
             layout.window_states.get("contacts")
         );
+    }
+
+    #[test]
+    fn sound_preferences_round_trip_and_are_clamped() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let defaults = preferences(&store, user).expect("defaults");
+        // The reference sound engine starts muted at 80 %.
+        assert!(!defaults.sound_enabled);
+        assert_eq!(defaults.sound_volume_percent, DEFAULT_SOUND_VOLUME_PERCENT);
+
+        let custom = Preferences {
+            sound_enabled: true,
+            sound_volume_percent: 35,
+            ..Preferences::default()
+        };
+        save_preferences(&store, user, &custom).expect("saved");
+        let loaded = preferences(&store, user).expect("loaded");
+        assert!(loaded.sound_enabled);
+        assert_eq!(loaded.sound_volume_percent, 35);
+
+        let out_of_range = Preferences {
+            sound_volume_percent: 250,
+            ..Preferences::default()
+        };
+        save_preferences(&store, user, &out_of_range).expect("saved");
+        assert_eq!(
+            preferences(&store, user)
+                .expect("loaded")
+                .sound_volume_percent,
+            100
+        );
+
+        // A record written before the sound fields existed keeps the reference defaults.
+        let legacy = serde_json::json!({
+            "language": "Deutsch",
+            "theme_mode": "System",
+            "accent_color": "indigo",
+            "sidebar_collapsed": false,
+            "startup_module": "",
+        });
+        store
+            .put_setting(&preferences_key(user), &legacy)
+            .expect("legacy record");
+        let loaded = preferences(&store, user).expect("legacy loaded");
+        assert!(!loaded.sound_enabled);
+        assert_eq!(loaded.sound_volume_percent, DEFAULT_SOUND_VOLUME_PERCENT);
     }
 
     #[test]
@@ -709,6 +1058,267 @@ mod tests {
             .expect("defaults")
             .icon_positions
             .is_empty());
+    }
+
+    #[test]
+    fn virtual_desktops_round_trip_and_are_normalized() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let mut window_states = std::collections::BTreeMap::new();
+        window_states.insert(
+            "contacts".to_string(),
+            DesktopWindowLayout {
+                x: 24,
+                y: 36,
+                width: 900,
+                height: 640,
+                maximized: false,
+                open: true,
+                minimized: false,
+                z_order: 1,
+                desktop_id: Some("desktop-2".to_string()),
+            },
+        );
+        window_states.insert(
+            "invoices".to_string(),
+            DesktopWindowLayout {
+                x: 40,
+                y: 60,
+                width: 820,
+                height: 560,
+                maximized: true,
+                open: true,
+                minimized: false,
+                z_order: 2,
+                desktop_id: Some("deleted-desktop".to_string()),
+            },
+        );
+        let layout = DesktopLayout {
+            virtual_desktops: vec![
+                VirtualDesktopLayout {
+                    id: "desktop-1".to_string(),
+                    name: "  Büro  ".to_string(),
+                },
+                // Duplicate ids collapse to the first card.
+                VirtualDesktopLayout {
+                    id: "desktop-1".to_string(),
+                    name: "Doppelt".to_string(),
+                },
+                // A blank name falls back to the numbered reference name.
+                VirtualDesktopLayout {
+                    id: "desktop-2".to_string(),
+                    name: "   ".to_string(),
+                },
+                VirtualDesktopLayout {
+                    id: "  ".to_string(),
+                    name: "Ohne Id".to_string(),
+                },
+                VirtualDesktopLayout {
+                    id: "desktop-3".to_string(),
+                    name: "x".repeat(VIRTUAL_DESKTOP_NAME_MAX + 20),
+                },
+            ],
+            active_desktop_id: "desktop-2".to_string(),
+            window_states,
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, user, &layout).expect("saved");
+        let loaded = desktop_layout(&store, user).expect("loaded");
+        assert_eq!(loaded.virtual_desktops.len(), 3);
+        assert_eq!(loaded.virtual_desktops[0].name, "Büro");
+        assert_eq!(loaded.virtual_desktops[1].id, "desktop-2");
+        assert_eq!(loaded.virtual_desktops[1].name, "Desktop 2");
+        assert_eq!(
+            loaded.virtual_desktops[2].name.chars().count(),
+            VIRTUAL_DESKTOP_NAME_MAX
+        );
+        assert_eq!(loaded.active_desktop_id, "desktop-2");
+        assert_eq!(
+            loaded
+                .window_states
+                .get("contacts")
+                .and_then(|window| window.desktop_id.as_deref()),
+            Some("desktop-2")
+        );
+        // A window filed on a desktop that no longer exists is shared, not hidden.
+        assert_eq!(
+            loaded
+                .window_states
+                .get("invoices")
+                .and_then(|window| window.desktop_id.as_deref()),
+            None
+        );
+    }
+
+    #[test]
+    fn layouts_without_desktops_get_the_reference_defaults() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let mut window_states = std::collections::BTreeMap::new();
+        window_states.insert(
+            "calendar".to_string(),
+            DesktopWindowLayout {
+                x: 0,
+                y: 0,
+                width: 900,
+                height: 640,
+                maximized: false,
+                open: true,
+                minimized: false,
+                z_order: 0,
+                desktop_id: Some(DESKTOP_ALL_ID.to_string()),
+            },
+        );
+        let layout = DesktopLayout {
+            window_states,
+            ..DesktopLayout::default()
+        };
+        save_desktop_layout(&store, user, &layout).expect("saved");
+        let loaded = desktop_layout(&store, user).expect("loaded");
+        assert_eq!(loaded.virtual_desktops, default_virtual_desktops());
+        assert_eq!(loaded.virtual_desktops[0].name, "Desktop 1");
+        assert_eq!(loaded.active_desktop_id, "desktop-1");
+        assert_eq!(
+            loaded
+                .window_states
+                .get("calendar")
+                .and_then(|window| window.desktop_id.as_deref()),
+            Some(DESKTOP_ALL_ID)
+        );
+
+        // An unknown active desktop falls back to the first card.
+        let layout = DesktopLayout {
+            active_desktop_id: "ghost".to_string(),
+            ..DesktopLayout::default()
+        };
+        save_desktop_layout(&store, user, &layout).expect("saved");
+        assert_eq!(
+            desktop_layout(&store, user)
+                .expect("loaded")
+                .active_desktop_id,
+            "desktop-1"
+        );
+    }
+
+    #[test]
+    fn desktop_folders_round_trip_and_are_normalized() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let layout = DesktopLayout {
+            folders: vec![
+                DesktopFolderLayout {
+                    id: "folder-1".to_string(),
+                    name: "  Arbeit  ".to_string(),
+                    modules: vec![
+                        "contacts".to_string(),
+                        "contacts".to_string(),
+                        " ".to_string(),
+                        "invoices".to_string(),
+                    ],
+                    cell: (1, 2),
+                },
+                DesktopFolderLayout {
+                    id: "folder-1".to_string(),
+                    name: "Duplicate".to_string(),
+                    modules: Vec::new(),
+                    cell: (0, 0),
+                },
+                DesktopFolderLayout {
+                    id: "folder-2".to_string(),
+                    name: "Out of grid".to_string(),
+                    modules: vec!["pos".to_string()],
+                    cell: (DESKTOP_GRID_MAX_COLUMNS + 3, DESKTOP_GRID_ROWS + 3),
+                },
+            ],
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, user, &layout).expect("saved");
+        let loaded = desktop_layout(&store, user).expect("loaded");
+        assert_eq!(loaded.folders.len(), 2);
+        let first = &loaded.folders[0];
+        assert_eq!(first.id, "folder-1");
+        assert_eq!(first.name, "Arbeit");
+        assert_eq!(
+            first.modules,
+            vec!["contacts".to_string(), "invoices".to_string()]
+        );
+        assert_eq!(first.cell, (1, 2));
+        // A cell outside the grid is clamped instead of dropping the folder.
+        assert_eq!(
+            loaded.folders[1].cell,
+            (DESKTOP_GRID_MAX_COLUMNS - 1, DESKTOP_GRID_ROWS - 1)
+        );
+    }
+
+    #[test]
+    fn desktop_storage_round_trips_and_is_normalized() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let layout = DesktopLayout {
+            folders: vec![DesktopFolderLayout {
+                id: "folder-1".to_string(),
+                name: "Arbeit".to_string(),
+                modules: vec!["contacts".to_string()],
+                cell: (0, 0),
+            }],
+            storage_location: "  /home/anna/Belege  ".to_string(),
+            assets: vec![
+                StorageAssetLayout {
+                    id: "asset-1".to_string(),
+                    name: "  Rechnung.pdf  ".to_string(),
+                    size: 2048,
+                    category: "pdf".to_string(),
+                    location: "/home/anna/Belege/Rechnung.pdf".to_string(),
+                    folder_id: Some("folder-1".to_string()),
+                    created_at: 1_700_000_000_000,
+                },
+                StorageAssetLayout {
+                    id: "asset-1".to_string(),
+                    name: "Duplicate".to_string(),
+                    ..StorageAssetLayout::default()
+                },
+                StorageAssetLayout {
+                    id: "asset-2".to_string(),
+                    name: "   ".to_string(),
+                    size: u64::MAX,
+                    category: "nonsense".to_string(),
+                    location: "".to_string(),
+                    folder_id: Some("   ".to_string()),
+                    created_at: 0,
+                },
+            ],
+            ..DesktopLayout::default()
+        };
+
+        save_desktop_layout(&store, user, &layout).expect("saved");
+        let loaded = desktop_layout(&store, user).expect("loaded");
+        assert_eq!(loaded.storage_location, "/home/anna/Belege");
+        assert_eq!(loaded.assets.len(), 2);
+        assert_eq!(loaded.assets[0].name, "Rechnung.pdf");
+        assert_eq!(loaded.assets[0].folder_id.as_deref(), Some("folder-1"));
+        assert_eq!(loaded.assets[1].name, "Datei");
+        assert_eq!(loaded.assets[1].category, "other");
+        assert_eq!(loaded.assets[1].size, 64 * 1024 * 1024 * 1024);
+        assert_eq!(loaded.assets[1].folder_id, None);
+    }
+
+    #[test]
+    fn layouts_without_storage_load_with_empty_defaults() {
+        let store = Store::open_in_memory().expect("store");
+        let user = Uuid::new_v4();
+        let legacy = serde_json::json!({
+            "grid_version": 2,
+            "icon_positions": { "contacts": [0, 0] }
+        });
+        store
+            .put_setting(&desktop_layout_key(user), &legacy)
+            .expect("legacy layout stored");
+        let loaded = desktop_layout(&store, user).expect("loaded");
+        assert_eq!(loaded.storage_location, "");
+        assert!(loaded.assets.is_empty());
+        assert!(loaded.folders.is_empty());
     }
 
     #[test]
@@ -769,6 +1379,7 @@ mod tests {
                         open: true,
                         minimized: false,
                         z_order: 1,
+                        desktop_id: None,
                     },
                 ),
                 (

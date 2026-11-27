@@ -260,6 +260,7 @@ fn capture_native_windows(layout: &mut settings_service::DesktopLayout, windows:
                 open: true,
                 minimized: window.is_minimized(),
                 z_order: z_order as u32,
+                desktop_id: window.desktop().map(str::to_owned),
             },
         );
     }
@@ -317,9 +318,19 @@ fn restore_native_windows(
         let y = (saved.y as f32).clamp(area.top(), (area.bottom() - height).max(area.top()));
         let rect = Rect::from_min_size(Pos2::new(x, y), Vec2::new(width, height));
 
+        // A desktop that no longer exists falls back to the shared `all` filing.
+        let desktop = saved.desktop_id.as_ref().and_then(|id| {
+            let known = layout
+                .virtual_desktops
+                .iter()
+                .any(|desktop| desktop.id == *id)
+                || id == settings_service::DESKTOP_ALL_ID;
+            known.then(|| id.clone())
+        });
         state
             .desktop_windows
             .open(Window::new(app, title, rect), now);
+        state.desktop_windows.move_to_desktop(app, desktop);
         if saved.maximized {
             state.desktop_windows.toggle_maximize(app, area);
         }
@@ -1145,7 +1156,45 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         })
                         .collect::<Vec<_>>();
                     state.desktop_icons.restore_positions(&positions);
+                    let folders = layout
+                        .folders
+                        .iter()
+                        .map(|folder| {
+                            crate::desktop::DesktopFolder::from_persisted(
+                                &folder.id,
+                                &folder.name,
+                                &folder.modules,
+                                folder.cell,
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    state.shell.folders.restore(folders);
+                    let assets = layout.assets.iter().map(|asset| {
+                        crate::desktop::StorageAsset::from_persisted(
+                            &asset.id,
+                            &asset.name,
+                            asset.size,
+                            &asset.category,
+                            &asset.location,
+                            asset.folder_id.clone(),
+                            asset.created_at,
+                        )
+                    });
+                    state
+                        .shell
+                        .storage
+                        .restore(assets, &layout.storage_location);
+                    state.shell.task_view.restore(
+                        layout
+                            .virtual_desktops
+                            .iter()
+                            .map(|desktop| (desktop.id.clone(), desktop.name.clone())),
+                        &layout.active_desktop_id,
+                    );
                     restore_native_windows(state, &layout, ctx.screen_rect(), now);
+                    state
+                        .desktop_windows
+                        .set_current_desktop(state.shell.task_view.active_id());
                 }
             }
             if let Some(app) =
@@ -1507,7 +1556,20 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
             },
         );
         state.shell.widgets = widget_layer;
-        if outcome.icon_positions_changed || outcome.window_layout_changed {
+        // The desktop only asks for an import; the host runs the platform picker so the UI layer
+        // stays free of blocking dialogs and the WASM build keeps compiling.
+        let mut storage_changed = outcome.storage_changed;
+        if let Some(target) = outcome.upload_assets.clone() {
+            if crate::desktop::import_from_location(&mut state.shell.storage, &target, now) > 0 {
+                storage_changed = true;
+            }
+        }
+        if outcome.icon_positions_changed
+            || outcome.window_layout_changed
+            || outcome.folders_changed
+            || outcome.task_view_changed
+            || storage_changed
+        {
             if let Some(user_id) = state.auth.user.as_ref().map(|user| user.id) {
                 match settings_service::desktop_layout(&state.store, user_id) {
                     Ok(mut layout) => {
@@ -1521,6 +1583,58 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                         }
                         if outcome.window_layout_changed {
                             capture_native_windows(&mut layout, &state.desktop_windows);
+                        }
+                        if outcome.task_view_changed {
+                            layout.virtual_desktops = state
+                                .shell
+                                .task_view
+                                .desktops()
+                                .iter()
+                                .map(|desktop| settings_service::VirtualDesktopLayout {
+                                    id: desktop.id().to_owned(),
+                                    name: desktop.name().to_owned(),
+                                })
+                                .collect();
+                            layout.active_desktop_id = state.shell.task_view.active_id().to_owned();
+                            // Switching or removing a desktop moves windows too, so the filing of
+                            // every window is captured with the strip.
+                            capture_native_windows(&mut layout, &state.desktop_windows);
+                        }
+                        if outcome.folders_changed {
+                            layout.folders = state
+                                .shell
+                                .folders
+                                .folders()
+                                .iter()
+                                .map(|folder| settings_service::DesktopFolderLayout {
+                                    id: folder.id().to_owned(),
+                                    name: folder.name().to_owned(),
+                                    modules: folder
+                                        .apps()
+                                        .iter()
+                                        .map(|app| app.as_str().to_owned())
+                                        .collect(),
+                                    cell: folder.cell(),
+                                })
+                                .collect();
+                        }
+                        if storage_changed {
+                            layout.storage_location = state.shell.storage.location().to_owned();
+                            layout.assets = state
+                                .shell
+                                .storage
+                                .assets()
+                                .iter()
+                                .map(|asset| settings_service::StorageAssetLayout {
+                                    id: asset.id().to_owned(),
+                                    name: asset.name().to_owned(),
+                                    size: asset.size(),
+                                    category: asset.category().slug().to_owned(),
+                                    location: asset.location().to_owned(),
+                                    folder_id: asset.folder_id().map(str::to_owned),
+                                    created_at: asset.created_at(),
+                                })
+                                .collect();
                         }
                         if let Err(error) =
                             settings_service::save_desktop_layout(&state.store, user_id, &layout)
@@ -4215,6 +4329,7 @@ mod tests {
                     open: true,
                     minimized: true,
                     z_order: 99,
+                    desktop_id: None,
                 },
             );
         }
@@ -4278,6 +4393,7 @@ mod tests {
                 open: true,
                 minimized: false,
                 z_order: 2,
+                desktop_id: None,
             },
         );
         layout.window_states.insert(
@@ -4291,6 +4407,7 @@ mod tests {
                 open: true,
                 minimized: true,
                 z_order: 1,
+                desktop_id: None,
             },
         );
         for (slug, z_order) in [
@@ -4322,6 +4439,7 @@ mod tests {
                     open: true,
                     minimized: false,
                     z_order,
+                    desktop_id: None,
                 },
             );
         }

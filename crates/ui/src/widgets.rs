@@ -688,6 +688,14 @@ impl WidgetLayer {
         }
     }
 
+    /// Pins a fresh sticky note to the desktop, like the desktop context menu entry.
+    pub fn pin_sticky_note(&mut self) {
+        self.notes = true;
+        if !self.pinned.contains(&WidgetKind::Notes) {
+            self.pinned.push(WidgetKind::Notes);
+        }
+    }
+
     /// Configuration of a widget, or the defaults.
     pub fn options(&self, kind: WidgetKind) -> WidgetOptions {
         self.options

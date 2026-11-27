@@ -164,6 +164,7 @@ pub struct Window {
     rect: Rect,
     restore_rect: Option<Rect>,
     minimized: bool,
+    desktop: Option<String>,
 }
 
 impl Window {
@@ -175,6 +176,36 @@ impl Window {
             rect,
             restore_rect: None,
             minimized: false,
+            desktop: None,
+        }
+    }
+
+    /// Files the window on a virtual desktop; `None` shows it on every desktop.
+    pub fn on_desktop(mut self, desktop: Option<String>) -> Self {
+        self.desktop = desktop;
+        self
+    }
+
+    /// Virtual desktop the window was filed on.
+    pub fn desktop(&self) -> Option<&str> {
+        self.desktop.as_deref()
+    }
+
+    /// Files the window on another virtual desktop.
+    pub fn set_desktop(&mut self, desktop: Option<String>) {
+        self.desktop = desktop;
+    }
+
+    /// Whether the window is visible on a desktop.
+    ///
+    /// A window without a desktop, or one filed on `all`, is shown on every desktop, like the
+    /// reference workspace.
+    pub fn is_on(&self, desktop: &str) -> bool {
+        match self.desktop() {
+            None => true,
+            Some(filed) => {
+                filed == socdof_core::settings_service::DESKTOP_ALL_ID || filed == desktop
+            }
         }
     }
 
@@ -210,13 +241,27 @@ impl Window {
 }
 
 /// Z-order, focus and window state of the desktop.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct WindowManager {
     windows: Vec<Window>,
     active: Option<AppId>,
     pending_close: Option<AppId>,
     pending_open: Option<Window>,
     last_closed: Option<(AppId, i64)>,
+    current_desktop: String,
+}
+
+impl Default for WindowManager {
+    fn default() -> Self {
+        Self {
+            windows: Vec::new(),
+            active: None,
+            pending_close: None,
+            pending_open: None,
+            last_closed: None,
+            current_desktop: "desktop-1".to_string(),
+        }
+    }
 }
 
 impl WindowManager {
@@ -228,6 +273,50 @@ impl WindowManager {
     /// Windows from back to front; the last one is drawn on top.
     pub fn windows(&self) -> &[Window] {
         &self.windows
+    }
+
+    /// Virtual desktop new windows are filed on.
+    pub fn current_desktop(&self) -> &str {
+        &self.current_desktop
+    }
+
+    /// Points new windows at the active virtual desktop.
+    pub fn set_current_desktop(&mut self, desktop: &str) {
+        if self.current_desktop != desktop {
+            self.current_desktop = desktop.to_owned();
+        }
+    }
+
+    /// Windows shown on a desktop, back to front, minimized ones included.
+    pub fn windows_on(&self, desktop: &str) -> Vec<AppId> {
+        self.windows
+            .iter()
+            .filter(|window| window.is_on(desktop))
+            .map(|window| window.app)
+            .collect()
+    }
+
+    /// Focuses the topmost unminimized window of a desktop, clearing the focus when it is empty.
+    ///
+    /// Mirrors the reference `handleSelectDesktop`.
+    pub fn focus_on(&mut self, desktop: &str) -> Option<AppId> {
+        let found = self
+            .windows
+            .iter()
+            .rev()
+            .find(|window| window.is_on(desktop) && !window.is_minimized())
+            .map(|window| window.app);
+        self.active = found;
+        found
+    }
+
+    /// Moves a window to another virtual desktop; `None` shares it with every desktop.
+    pub fn move_to_desktop(&mut self, app: AppId, desktop: Option<String>) -> bool {
+        let Some(window) = self.windows.iter_mut().find(|window| window.app == app) else {
+            return false;
+        };
+        window.set_desktop(desktop);
+        true
     }
 
     /// The window of an app, if it is open.
@@ -277,6 +366,10 @@ impl WindowManager {
 
     /// Opens a window, raises an existing one, or asks before reopening a just closed app.
     pub fn open(&mut self, window: Window, now: i64) -> OpenOutcome {
+        let mut window = window;
+        if window.desktop.is_none() {
+            window.desktop = Some(self.current_desktop.clone());
+        }
         let app = window.app;
         if let Some(index) = self.windows.iter().position(|open| open.app == app) {
             let mut raised = self.windows.remove(index);
@@ -783,6 +876,50 @@ impl IconGrid {
         )
     }
 
+    /// Lays every icon out again in reading order, dropping free positions.
+    ///
+    /// The reference `autoArrange` names every desktop item in one reading order, so the caller
+    /// lays the folders out right after the icons with the cell count this returns.
+    pub fn arrange(&mut self) -> u32 {
+        let mut taken = std::collections::BTreeSet::new();
+        for icon in &mut self.icons {
+            let mut cell = (0, 0);
+            while taken.contains(&cell) {
+                cell = Self::next_cell(cell);
+            }
+            taken.insert(cell);
+            icon.cell = cell;
+            icon.pos = None;
+        }
+        self.icons.len() as u32
+    }
+
+    /// Snaps every freely placed icon back to the nearest grid cell.
+    ///
+    /// Returns whether a position changed. Taken cells keep their icon; the moved icon continues to
+    /// the next free cell like [`IconGrid::move_to`].
+    pub fn snap_to_grid(&mut self, desktop: Rect) -> bool {
+        let mut changed = false;
+        let placed: Vec<(usize, Pos2)> = self
+            .icons
+            .iter()
+            .enumerate()
+            .filter_map(|(index, icon)| icon.pos.map(|pos| (index, pos)))
+            .collect();
+        let free: Vec<(usize, (u32, u32))> = placed
+            .into_iter()
+            .map(|(index, pos)| (index, self.cell_at(desktop, pos)))
+            .collect();
+        for (index, cell) in free {
+            let app = self.icons[index].app;
+            if self.move_to(app, cell).is_some() {
+                self.icons[index].pos = None;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// Moves an icon to a cell; a taken cell moves it to the next free one.
     pub fn move_to(&mut self, app: AppId, cell: (u32, u32)) -> Option<(u32, u32)> {
         let index = self.index_of(app)?;
@@ -850,6 +987,797 @@ impl IconGrid {
     }
 }
 
+/// One folder on the desktop that groups app icons, like the reference `DesktopFolder`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DesktopFolder {
+    id: String,
+    name: String,
+    apps: Vec<AppId>,
+    cell: (u32, u32),
+}
+
+/// Resolves a persisted app slug to a registered desktop app.
+///
+/// Persisted layouts only hold slugs; unknown slugs (an app removed from the catalogue) are dropped
+/// instead of being replaced with a fallback app.
+pub fn known_app(slug: &str) -> Option<AppId> {
+    crate::chrome::APPS
+        .iter()
+        .find(|app| app.slug == slug)
+        .map(|app| AppId::new(app.slug))
+}
+
+impl DesktopFolder {
+    /// Builds a folder from persisted data, skipping unknown app slugs.
+    pub fn from_persisted(id: &str, name: &str, apps: &[String], cell: (u32, u32)) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: sanitized_name(name),
+            apps: apps.iter().filter_map(|slug| known_app(slug)).collect(),
+            cell: (cell.0.min(12), cell.1.min(ICON_ROWS - 1)),
+        }
+    }
+
+    /// Identifier the folder is stored and looked up by.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Displayed folder name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Apps inside the folder, in the order they were added.
+    pub fn apps(&self) -> &[AppId] {
+        &self.apps
+    }
+
+    /// Grid cell of the folder tile.
+    pub fn cell(&self) -> (u32, u32) {
+        self.cell
+    }
+}
+
+/// Longest folder name the desktop accepts.
+pub const FOLDER_NAME_MAX: usize = 64;
+
+/// Desktop folders and their transient interface state.
+///
+/// The reference desktop keeps folders in `socdof_desktop_folders` and opens one folder at a time in
+/// a modal, with right-click menus on the folder tile and on the desktop background. The model is
+/// plain data so every operation is tested without a display.
+#[derive(Debug, Clone, Default)]
+pub struct FolderSet {
+    folders: Vec<DesktopFolder>,
+    open: Option<String>,
+    context: Option<(String, Pos2)>,
+    menu: Option<Pos2>,
+    rename: Option<String>,
+    rename_buffer: String,
+    tab: FolderTab,
+}
+
+impl FolderSet {
+    /// Empty folder set with every overlay closed.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Folders in creation order.
+    pub fn folders(&self) -> &[DesktopFolder] {
+        &self.folders
+    }
+
+    /// Number of folders.
+    pub fn len(&self) -> usize {
+        self.folders.len()
+    }
+
+    /// Whether the desktop holds no folder.
+    pub fn is_empty(&self) -> bool {
+        self.folders.is_empty()
+    }
+
+    /// Folder with the given identifier.
+    pub fn get(&self, id: &str) -> Option<&DesktopFolder> {
+        self.folders.iter().find(|folder| folder.id == id)
+    }
+
+    /// Whether an app is held by any folder; such an app has no tile of its own.
+    pub fn contains(&self, app: AppId) -> bool {
+        self.folders.iter().any(|folder| folder.apps.contains(&app))
+    }
+
+    /// Cell of the grid slot that follows the given number of desktop items.
+    pub fn slot_cell(slot: u32) -> (u32, u32) {
+        let mut cell = (0, 0);
+        for _ in 0..slot {
+            cell = IconGrid::next_cell(cell);
+        }
+        cell
+    }
+
+    /// First grid cell from `first` on that no folder occupies.
+    ///
+    /// A dissolved folder frees its cell, so the next folder must skip the cells of the folders
+    /// that are still on the desktop instead of reusing a slot by count.
+    pub fn free_cell(&self, first: u32) -> (u32, u32) {
+        let mut slot = first;
+        loop {
+            let cell = Self::slot_cell(slot);
+            if !self.folders.iter().any(|folder| folder.cell == cell) {
+                return cell;
+            }
+            slot += 1;
+        }
+    }
+
+    /// Creates a folder with the given apps and returns its identifier.
+    ///
+    /// The identifier follows the reference `folder_<n>` scheme and never repeats an existing one.
+    pub fn create(&mut self, name: &str, apps: Vec<AppId>, cell: (u32, u32)) -> String {
+        let mut index = self.folders.len() + 1;
+        let mut id = format!("folder-{index}");
+        while self.get(&id).is_some() {
+            index += 1;
+            id = format!("folder-{index}");
+        }
+        let mut folder = DesktopFolder {
+            id: id.clone(),
+            name: sanitized_name(name),
+            apps: Vec::new(),
+            cell: (cell.0.min(12), cell.1.min(ICON_ROWS - 1)),
+        };
+        for app in apps {
+            if !folder.apps.contains(&app) {
+                folder.apps.push(app);
+            }
+        }
+        self.folders.push(folder);
+        id
+    }
+
+    /// Renames a folder; blank names are rejected.
+    pub fn rename(&mut self, id: &str, name: &str) -> bool {
+        let trimmed = name.trim();
+        let Some(folder) = self.folders.iter_mut().find(|folder| folder.id == id) else {
+            return false;
+        };
+        if trimmed.is_empty() {
+            return false;
+        }
+        folder.name = sanitized_name(trimmed);
+        true
+    }
+
+    /// Adds an app to a folder; an app already in another folder is moved there.
+    pub fn add_app(&mut self, id: &str, app: AppId) -> bool {
+        if self.get(id).is_none() {
+            return false;
+        }
+        for folder in &mut self.folders {
+            folder.apps.retain(|known| *known != app);
+        }
+        if let Some(folder) = self.folders.iter_mut().find(|folder| folder.id == id) {
+            folder.apps.push(app);
+            return true;
+        }
+        false
+    }
+
+    /// Removes an app from a folder. A folder without apps dissolves, like the reference.
+    pub fn remove_app(&mut self, id: &str, app: AppId) -> bool {
+        let Some(folder) = self.folders.iter_mut().find(|folder| folder.id == id) else {
+            return false;
+        };
+        let before = folder.apps.len();
+        folder.apps.retain(|known| *known != app);
+        if folder.apps.len() == before {
+            return false;
+        }
+        if folder.apps.is_empty() {
+            self.dissolve(id);
+        }
+        true
+    }
+
+    /// Removes a folder and puts its apps back on the desktop.
+    pub fn dissolve(&mut self, id: &str) -> bool {
+        let before = self.folders.len();
+        self.folders.retain(|folder| folder.id != id);
+        if self.open.as_deref() == Some(id) {
+            self.open = None;
+        }
+        if self.rename.as_deref() == Some(id) {
+            self.cancel_rename();
+        }
+        if self.context.as_ref().map(|(folder, _)| folder.as_str()) == Some(id) {
+            self.context = None;
+        }
+        self.folders.len() != before
+    }
+
+    /// Moves a folder tile to a grid cell.
+    pub fn move_to(&mut self, id: &str, cell: (u32, u32)) -> bool {
+        let Some(folder) = self.folders.iter_mut().find(|folder| folder.id == id) else {
+            return false;
+        };
+        folder.cell = (cell.0.min(12), cell.1.min(ICON_ROWS - 1));
+        true
+    }
+
+    /// Folder opened in the modal, if any.
+    pub fn open_id(&self) -> Option<&str> {
+        self.open.as_deref()
+    }
+
+    /// Opens one folder in the modal.
+    pub fn open(&mut self, id: &str) {
+        if self.get(id).is_some() {
+            self.open = Some(id.to_owned());
+            self.cancel_rename();
+            self.context = None;
+            self.menu = None;
+        }
+    }
+
+    /// Closes the folder modal.
+    pub fn close(&mut self) {
+        self.open = None;
+        self.cancel_rename();
+    }
+
+    /// Position of the open folder context menu and the folder it belongs to.
+    pub fn context(&self) -> Option<(&str, Pos2)> {
+        self.context.as_ref().map(|(id, pos)| (id.as_str(), *pos))
+    }
+
+    /// Opens the context menu of a folder tile at a screen position.
+    pub fn open_context(&mut self, id: &str, pos: Pos2) {
+        if self.get(id).is_some() {
+            self.context = Some((id.to_owned(), pos));
+            self.menu = None;
+        }
+    }
+
+    /// Closes the folder context menu.
+    pub fn close_context(&mut self) {
+        self.context = None;
+    }
+
+    /// Position of the desktop background menu, if open.
+    pub fn menu(&self) -> Option<Pos2> {
+        self.menu
+    }
+
+    /// Opens the desktop background menu at a screen position.
+    pub fn open_menu(&mut self, pos: Pos2) {
+        self.menu = Some(pos);
+        self.context = None;
+    }
+
+    /// Closes the desktop background menu.
+    pub fn close_menu(&mut self) {
+        self.menu = None;
+    }
+
+    /// Whether the folder modal is on screen. The context menus do not block the desktop: a click
+    /// next to them closes them, like the reference menus.
+    pub fn overlay_open(&self) -> bool {
+        self.open.is_some()
+    }
+
+    /// List the folder modal shows.
+    pub fn tab(&self) -> FolderTab {
+        self.tab
+    }
+
+    /// Switches the folder modal between the app list and the file list.
+    pub fn set_tab(&mut self, tab: FolderTab) {
+        self.tab = tab;
+    }
+
+    /// Folder whose name is being edited inline.
+    pub fn rename_target(&self) -> Option<&str> {
+        self.rename.as_deref()
+    }
+
+    /// Starts editing the name of a folder.
+    pub fn begin_rename(&mut self, id: &str) {
+        let Some(folder) = self.get(id) else {
+            return;
+        };
+        self.rename_buffer = folder.name.clone();
+        self.rename = Some(id.to_owned());
+        self.context = None;
+    }
+
+    /// Editable name buffer of the rename field.
+    pub fn rename_buffer_mut(&mut self) -> &mut String {
+        &mut self.rename_buffer
+    }
+
+    /// Stops editing without applying the buffer.
+    pub fn cancel_rename(&mut self) {
+        self.rename = None;
+        self.rename_buffer.clear();
+    }
+
+    /// Applies the rename buffer; returns whether a name was stored.
+    pub fn commit_rename(&mut self) -> bool {
+        let Some(id) = self.rename.clone() else {
+            return false;
+        };
+        let name = self.rename_buffer.clone();
+        let renamed = self.rename(&id, &name);
+        self.cancel_rename();
+        renamed
+    }
+
+    /// Folder cells in creation order, ready to be persisted.
+    pub fn positions(&self) -> Vec<(String, (u32, u32))> {
+        self.folders
+            .iter()
+            .map(|folder| (folder.id.clone(), folder.cell))
+            .collect()
+    }
+
+    /// Replaces the folder set from a persisted layout.
+    pub fn restore(&mut self, folders: impl IntoIterator<Item = DesktopFolder>) {
+        self.folders = folders.into_iter().collect();
+        self.open = None;
+        self.context = None;
+        self.menu = None;
+        self.cancel_rename();
+    }
+}
+
+/// Which list the folder modal shows.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FolderTab {
+    /// Apps and modules filed in the folder.
+    #[default]
+    Apps,
+    /// Files and storage locations filed in the folder.
+    Files,
+}
+
+/// Category the reference storage assigns from a file extension.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum AssetCategory {
+    /// Documents such as text files and office documents.
+    Document,
+    /// Pictures.
+    Image,
+    /// Spreadsheets and CSV files.
+    Spreadsheet,
+    /// PDF files.
+    Pdf,
+    /// Archives.
+    Archive,
+    /// Audio files.
+    Audio,
+    /// Video files.
+    Video,
+    /// Source code and markup.
+    Code,
+    /// Anything else.
+    #[default]
+    Other,
+}
+
+impl AssetCategory {
+    /// Category of a file name, following `determineAssetCategory`.
+    pub fn from_name(name: &str) -> Self {
+        let extension = name
+            .rsplit_once('.')
+            .map(|(_, extension)| extension.to_ascii_lowercase())
+            .unwrap_or_default();
+        match extension.as_str() {
+            "jpg" | "jpeg" | "png" | "gif" | "webp" | "svg" | "bmp" | "ico" => Self::Image,
+            "pdf" => Self::Pdf,
+            "xlsx" | "xls" | "csv" | "ods" => Self::Spreadsheet,
+            "doc" | "docx" | "txt" | "rtf" | "odt" | "md" => Self::Document,
+            "zip" | "rar" | "7z" | "tar" | "gz" => Self::Archive,
+            "mp3" | "wav" | "ogg" | "m4a" | "flac" => Self::Audio,
+            "mp4" | "webm" | "mkv" | "mov" | "avi" => Self::Video,
+            "js" | "ts" | "jsx" | "tsx" | "html" | "css" | "json" | "py" | "sh" | "bat" | "xml"
+            | "sql" => Self::Code,
+            _ => Self::Other,
+        }
+    }
+
+    /// Persisted slug of the category.
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Document => "document",
+            Self::Image => "image",
+            Self::Spreadsheet => "spreadsheet",
+            Self::Pdf => "pdf",
+            Self::Archive => "archive",
+            Self::Audio => "audio",
+            Self::Video => "video",
+            Self::Code => "code",
+            Self::Other => "other",
+        }
+    }
+
+    /// Reads a persisted slug, falling back to [`AssetCategory::Other`].
+    pub fn from_slug(slug: &str) -> Self {
+        match slug {
+            "document" => Self::Document,
+            "image" => Self::Image,
+            "spreadsheet" => Self::Spreadsheet,
+            "pdf" => Self::Pdf,
+            "archive" => Self::Archive,
+            "audio" => Self::Audio,
+            "video" => Self::Video,
+            "code" => Self::Code,
+            _ => Self::Other,
+        }
+    }
+
+    /// Accent color of the category glyph, like the per-category Tailwind colors of the
+    /// reference.
+    pub fn tint(self) -> Color32 {
+        match self {
+            Self::Image => Color32::from_rgb(168, 85, 247),
+            Self::Pdf => Color32::from_rgb(244, 63, 94),
+            Self::Spreadsheet => Color32::from_rgb(16, 185, 129),
+            Self::Archive => Color32::from_rgb(245, 158, 11),
+            Self::Code => Color32::from_rgb(59, 130, 246),
+            Self::Audio | Self::Video => Color32::from_rgb(14, 165, 233),
+            Self::Document | Self::Other => Color32::from_rgb(99, 102, 241),
+        }
+    }
+
+    /// Glyph shown for the category in the file list.
+    pub fn icon(self) -> Icon {
+        match self {
+            Self::Image => Icon::Palette,
+            Self::Pdf | Self::Document => Icon::FileText,
+            Self::Spreadsheet => Icon::Grid,
+            Self::Archive => Icon::Database,
+            Self::Code => Icon::PenLine,
+            Self::Audio | Self::Video => Icon::Speaker,
+            Self::Other => Icon::FileText,
+        }
+    }
+
+    /// Catalogue key of the category name.
+    pub fn title_key(self) -> &'static str {
+        match self {
+            Self::Document => "storage_category_document",
+            Self::Image => "storage_category_image",
+            Self::Spreadsheet => "storage_category_spreadsheet",
+            Self::Pdf => "storage_category_pdf",
+            Self::Archive => "storage_category_archive",
+            Self::Audio => "storage_category_audio",
+            Self::Video => "storage_category_video",
+            Self::Code => "storage_category_code",
+            Self::Other => "storage_category_other",
+        }
+    }
+}
+
+/// One file filed on the desktop or in a desktop folder.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StorageAsset {
+    id: String,
+    name: String,
+    size: u64,
+    category: AssetCategory,
+    location: String,
+    folder_id: Option<String>,
+    created_at: i64,
+}
+
+impl StorageAsset {
+    /// Builds an asset from a file name, its size and the path it came from.
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        size: u64,
+        location: impl Into<String>,
+        folder_id: Option<String>,
+        created_at: i64,
+    ) -> Self {
+        let name = name.into();
+        let category = AssetCategory::from_name(&name);
+        Self {
+            id: id.into(),
+            name,
+            size,
+            category,
+            location: location.into(),
+            folder_id,
+            created_at,
+        }
+    }
+
+    /// Builds an asset from persisted data, keeping the stored category slug.
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_persisted(
+        id: &str,
+        name: &str,
+        size: u64,
+        category: &str,
+        location: &str,
+        folder_id: Option<String>,
+        created_at: i64,
+    ) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            size,
+            category: AssetCategory::from_slug(category),
+            location: location.to_owned(),
+            folder_id,
+            created_at,
+        }
+    }
+
+    /// Identifier of the asset.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// File name.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Size in bytes.
+    pub fn size(&self) -> u64 {
+        self.size
+    }
+
+    /// Category derived from the file name.
+    pub fn category(&self) -> AssetCategory {
+        self.category
+    }
+
+    /// Path the asset was imported from.
+    pub fn location(&self) -> &str {
+        &self.location
+    }
+
+    /// Folder the asset is filed in.
+    pub fn folder_id(&self) -> Option<&str> {
+        self.folder_id.as_deref()
+    }
+
+    /// Creation time in milliseconds since the Unix epoch.
+    pub fn created_at(&self) -> i64 {
+        self.created_at
+    }
+
+    /// Human readable size, like the reference `formatFileSize`.
+    pub fn size_label(&self) -> String {
+        format_size(self.size)
+    }
+}
+
+/// Human readable file size with one decimal above one kilobyte.
+pub fn format_size(bytes: u64) -> String {
+    if bytes == 0 {
+        return "0 B".to_owned();
+    }
+    let units = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut index = 0;
+    while value >= 1024.0 && index + 1 < units.len() {
+        value /= 1024.0;
+        index += 1;
+    }
+    if index == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", units[index])
+    }
+}
+
+/// Files filed on the desktop, the upload location and the selected file.
+#[derive(Debug, Clone, Default)]
+pub struct DesktopStorage {
+    assets: Vec<StorageAsset>,
+    location: String,
+    selected: Option<String>,
+    popup: crate::controls::PopupState,
+}
+
+impl DesktopStorage {
+    /// Empty storage without a chosen upload location.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Every file, newest first.
+    pub fn assets(&self) -> &[StorageAsset] {
+        &self.assets
+    }
+
+    /// Files filed in a folder, or on the desktop when `folder` is `None`.
+    pub fn assets_in(&self, folder: Option<&str>) -> Vec<&StorageAsset> {
+        self.assets
+            .iter()
+            .filter(|asset| asset.folder_id() == folder)
+            .collect()
+    }
+
+    /// Number of files filed in a folder.
+    pub fn count_in(&self, folder: &str) -> usize {
+        self.assets
+            .iter()
+            .filter(|asset| asset.folder_id() == Some(folder))
+            .count()
+    }
+
+    /// Adds a file at the front of the list, like the reference upload.
+    pub fn add(&mut self, asset: StorageAsset) {
+        self.assets.retain(|known| known.id != asset.id);
+        self.assets.insert(0, asset);
+    }
+
+    /// Removes a file; the details pane closes when it showed that file.
+    pub fn remove(&mut self, id: &str) -> bool {
+        let before = self.assets.len();
+        self.assets.retain(|asset| asset.id != id);
+        if self.selected.as_deref() == Some(id) {
+            self.selected = None;
+        }
+        self.assets.len() != before
+    }
+
+    /// Files a file into a folder, or back onto the desktop with `None`.
+    pub fn link(&mut self, id: &str, folder: Option<&str>) -> bool {
+        let Some(asset) = self.assets.iter_mut().find(|asset| asset.id == id) else {
+            return false;
+        };
+        asset.folder_id = folder.map(str::to_owned);
+        true
+    }
+
+    /// Chosen upload location.
+    pub fn location(&self) -> &str {
+        &self.location
+    }
+
+    /// Replaces the upload location.
+    pub fn set_location(&mut self, location: impl Into<String>) {
+        self.location = location.into();
+    }
+
+    /// Editable upload location.
+    pub fn location_mut(&mut self) -> &mut String {
+        &mut self.location
+    }
+
+    /// Popup state of the folder selector in the details pane.
+    pub fn popup_mut(&mut self) -> &mut crate::controls::PopupState {
+        &mut self.popup
+    }
+
+    /// File shown in the details pane.
+    pub fn selected(&self) -> Option<&StorageAsset> {
+        let id = self.selected.as_deref()?;
+        self.assets.iter().find(|asset| asset.id() == id)
+    }
+
+    /// Shows one file in the details pane.
+    pub fn select(&mut self, id: &str) {
+        if self.assets.iter().any(|asset| asset.id() == id) {
+            self.selected = Some(id.to_owned());
+        }
+    }
+
+    /// Closes the details pane.
+    pub fn clear_selection(&mut self) {
+        self.selected = None;
+    }
+
+    /// Replaces the files and the location from a persisted layout.
+    pub fn restore(&mut self, assets: impl IntoIterator<Item = StorageAsset>, location: &str) {
+        self.assets = assets.into_iter().collect();
+        self.location = location.to_owned();
+        self.selected = None;
+    }
+}
+
+/// Imports the files the user picked from the chosen storage location.
+///
+/// The reference opens the browser picker and copies up to 15 MB per file into the browser storage.
+/// The native shell opens the platform dialog in the chosen location and keeps the file in place,
+/// so the account settings hold the metadata and the source path instead of the bytes.
+/// Returns the number of files that were added.
+pub fn import_from_location(
+    storage: &mut DesktopStorage,
+    target: &UploadTarget,
+    now: i64,
+) -> usize {
+    #[cfg(feature = "dialogs")]
+    {
+        let mut dialog = rfd::FileDialog::new();
+        let location = storage.location().trim().to_owned();
+        if !location.is_empty() && std::path::Path::new(&location).is_dir() {
+            dialog = dialog.set_directory(&location);
+        }
+        let Some(paths) = dialog.pick_files() else {
+            return 0;
+        };
+        let folder_id = match target {
+            UploadTarget::Desktop => None,
+            UploadTarget::Folder(id) => Some(id.clone()),
+        };
+        let mut added = 0;
+        for (index, path) in paths.iter().enumerate() {
+            let Some(name) = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+            else {
+                continue;
+            };
+            let size = std::fs::metadata(path).map(|meta| meta.len()).unwrap_or(0);
+            let directory = path
+                .parent()
+                .map(|parent| parent.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let id = format!("asset-{now}-{index}");
+            storage.add(StorageAsset::new(
+                id,
+                name,
+                size,
+                directory,
+                folder_id.clone(),
+                now,
+            ));
+            added += 1;
+        }
+        return added;
+    }
+    #[cfg(not(feature = "dialogs"))]
+    {
+        let _ = (storage, target, now);
+        0
+    }
+}
+
+/// Saves a copy of a filed asset to a location the user picks.
+///
+/// Returns whether a copy was written. Files whose storage location is unknown cannot be copied;
+/// the reference falls back to a text placeholder in that case.
+pub fn save_asset_copy(asset: &StorageAsset) -> bool {
+    #[cfg(feature = "dialogs")]
+    {
+        let source = std::path::Path::new(asset.location()).join(asset.name());
+        if !source.is_file() {
+            return false;
+        }
+        let Some(target) = rfd::FileDialog::new()
+            .set_file_name(asset.name())
+            .save_file()
+        else {
+            return false;
+        };
+        return std::fs::copy(source, target).is_ok();
+    }
+    #[cfg(not(feature = "dialogs"))]
+    {
+        let _ = asset;
+        false
+    }
+}
+
+/// Trims a folder name and bounds its length.
+fn sanitized_name(name: &str) -> String {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return "Ordner".to_owned();
+    }
+    trimmed.chars().take(FOLDER_NAME_MAX).collect()
+}
+
 /// Borrowed inputs of one desktop frame.
 pub struct DesktopFrame<'a> {
     /// Resolved theme of the frame.
@@ -862,6 +1790,15 @@ pub struct DesktopFrame<'a> {
     pub store: &'a SocdofStore,
     /// Signed-in account, marked in the start menu's user switcher.
     pub current_user: Option<uuid::Uuid>,
+}
+
+/// Where imported files should be filed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum UploadTarget {
+    /// The desktop itself.
+    Desktop,
+    /// A desktop folder.
+    Folder(String),
 }
 
 /// What the desktop asks the host to do after a frame.
@@ -885,8 +1822,16 @@ pub struct DesktopOutcome {
     pub switch_account: Option<String>,
     /// Whether a desktop icon was moved and its layout should be persisted.
     pub icon_positions_changed: bool,
+    /// Whether a desktop folder was created, renamed, dissolved or filled and should be persisted.
+    pub folders_changed: bool,
+    /// Whether a desktop file was added, removed or refiled and should be persisted.
+    pub storage_changed: bool,
+    /// Files the user asked to import from a storage location.
+    pub upload_assets: Option<UploadTarget>,
     /// Whether window geometry changed and should be persisted.
     pub window_layout_changed: bool,
+    /// Whether the virtual desktops, their order or a window's desktop changed.
+    pub task_view_changed: bool,
 }
 
 /// Desktop rectangle without the taskbar.
@@ -1558,9 +2503,52 @@ fn desktop_impl(
                 }
             }
 
-            let entries: Vec<(usize, DesktopIcon)> =
-                icons.icons().iter().cloned().enumerate().collect();
+            // The wallpaper is one click target behind the icons: a click dismisses the desktop
+            // menus and a right click opens the desktop menu (`DesktopWindowWorkspace.tsx:4816`).
+            let background =
+                ui.interact(area, Id::new("socdof-desktop-background"), Sense::click());
+            if !blocked && background.clicked() {
+                shell.folders.close_menu();
+                shell.folders.close_context();
+            }
+            if !blocked && background.secondary_clicked() {
+                if let Some(pos) = background.interact_pointer_pos() {
+                    shell.folders.open_menu(pos);
+                }
+            }
+
+            // Apps inside a folder have no tile of their own; the folder tile stands for them.
+            let folder_rects: Vec<(String, Rect)> = shell
+                .folders
+                .folders()
+                .iter()
+                .map(|folder| {
+                    (
+                        folder.id().to_owned(),
+                        IconGrid::cell_rect(area, folder.cell()),
+                    )
+                })
+                .collect();
+            let entries: Vec<(usize, DesktopIcon)> = icons
+                .icons()
+                .iter()
+                .cloned()
+                .enumerate()
+                .filter(|(_, icon)| !shell.folders.contains(icon.app()))
+                .collect();
+            let icon_rects: Vec<(AppId, Rect, (u32, u32))> = entries
+                .iter()
+                .map(|(_, icon)| {
+                    let rect = match icon.pos() {
+                        Some(pos) => Rect::from_min_size(pos, ICON_CELL),
+                        None => IconGrid::cell_rect(area, icon.cell()),
+                    };
+                    (icon.app(), rect, icon.cell())
+                })
+                .collect();
             for (index, icon) in entries {
+                // Hidden icons keep their grid slot, so selection follows the grid, not the entry.
+                let grid_index = icons.index_of(icon.app()).unwrap_or(index);
                 let rect = match icon.pos() {
                     Some(pos) => Rect::from_min_size(pos, ICON_CELL),
                     None => IconGrid::cell_rect(area, icon.cell()),
@@ -1569,23 +2557,47 @@ fn desktop_impl(
                 let focused = focus.register(id);
                 let response = ui.interact(rect, id, Sense::click_and_drag());
                 if !blocked && response.clicked() {
-                    icons.select(index);
+                    icons.select(grid_index);
                     focus.set_focus(Some(id));
+                    shell.folders.close_menu();
+                    shell.folders.close_context();
                 }
                 // The reference desktop opens an app on a double click; a single click only selects
                 // the icon (the keyboard opens it with Enter/Space).
                 let double_clicked = !blocked && response.double_clicked();
                 if !blocked && response.drag_stopped() {
                     if let Some(pos) = response.interact_pointer_pos() {
-                        let cell = icons.cell_at(area, pos);
-                        if icons.move_to(icon.app(), cell).is_some() {
-                            outcome.icon_positions_changed = true;
+                        // Dropping on a folder files the app there, dropping on another icon merges
+                        // both into a new folder, like the reference drag and drop.
+                        if let Some((folder, _)) =
+                            folder_rects.iter().find(|(_, rect)| rect.contains(pos))
+                        {
+                            if shell.folders.add_app(folder, icon.app()) {
+                                outcome.folders_changed = true;
+                            }
+                        } else if let Some((_, _, cell)) = icon_rects
+                            .iter()
+                            .find(|(app, rect, _)| *app != icon.app() && rect.contains(pos))
+                        {
+                            let name = texts.get("desktop_folder_default_name").to_owned();
+                            let target = icon_rects
+                                .iter()
+                                .find(|(_, rect, _)| rect.contains(pos))
+                                .map(|(app, _, _)| *app)
+                                .unwrap_or(icon.app());
+                            shell.folders.create(&name, vec![target, icon.app()], *cell);
+                            outcome.folders_changed = true;
+                        } else {
+                            let cell = icons.cell_at(area, pos);
+                            if icons.move_to(icon.app(), cell).is_some() {
+                                outcome.icon_positions_changed = true;
+                            }
                         }
                     }
                 }
                 // The legacy grid only highlights the focused icon; a fresh desktop shows the
                 // plain tiles (`DesktopWindowWorkspace.tsx:2886`).
-                let selected = icons.selected() == index && focused;
+                let selected = icons.selected() == grid_index && focused;
                 let hovered = response.hovered() || focused;
                 let open = windows.is_open(icon.app());
                 let painter = ui.painter().clone();
@@ -1675,18 +2687,164 @@ fn desktop_impl(
                 }
             }
 
+            for (folder_id, rect) in &folder_rects {
+                let Some(folder) = shell.folders.get(folder_id).cloned() else {
+                    continue;
+                };
+                let folder_ui_id = Id::new(("socdof-desktop-folder", folder_id.as_str()));
+                let focused = focus.register(folder_ui_id);
+                let response = ui.interact(*rect, folder_ui_id, Sense::click_and_drag());
+                let hovered = response.hovered() || focused;
+                if !blocked && response.clicked() {
+                    shell.folders.open(folder_id);
+                    focus.set_focus(Some(folder_ui_id));
+                }
+                if !blocked && response.secondary_clicked() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        shell.folders.open_context(folder_id, pos);
+                    }
+                }
+                if !blocked && response.drag_stopped() {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        let cell = icons.cell_at(area, pos);
+                        if shell.folders.move_to(folder_id, cell) {
+                            outcome.folders_changed = true;
+                        }
+                    }
+                }
+                let painter = ui.painter().clone();
+                if hovered {
+                    painter.rect(
+                        *rect,
+                        Rounding::same(RADIUS_CONTROL),
+                        with_alpha(theme.palette.text_muted, 8),
+                        Stroke::NONE,
+                    );
+                }
+                paint_folder_tile(ctx, &painter, theme, *rect, &folder);
+                if focused {
+                    focus_ring(ui, theme, *rect);
+                }
+            }
+
             // The legacy desktop has no widget layer at all, so the icon grid keeps the whole area
             // and the window controls stay the only element in the top right corner.
         });
+
+    if !shell.folders.overlay_open() {
+        let fullscreen = ctx.input(|input| input.viewport().fullscreen.unwrap_or(false));
+        if let Some(action) =
+            desktop_menus(ctx, theme, texts, focus, &mut shell.folders, fullscreen)
+        {
+            match action {
+                MenuAction::Widgets => {
+                    activate_app(icons, windows, AppId::new("widgets"), area, now);
+                    outcome.open_app = Some(AppId::new("widgets"));
+                }
+                MenuAction::StickyNote => shell.widgets.pin_sticky_note(),
+                MenuAction::TaskView => shell.task_view.open(),
+                MenuAction::Create => {
+                    let name = texts.get("desktop_new_folder").to_owned();
+                    let cell = shell.folders.free_cell(icons.icons().len() as u32);
+                    let id = shell.folders.create(&name, Vec::new(), cell);
+                    // The reference opens a freshly created folder right away.
+                    shell.folders.open(&id);
+                    outcome.folders_changed = true;
+                }
+                MenuAction::Upload(target) => outcome.upload_assets = Some(target),
+                MenuAction::ArrangeIcons => {
+                    let occupied = icons.arrange();
+                    let folder_ids: Vec<String> = shell
+                        .folders
+                        .folders()
+                        .iter()
+                        .map(|folder| folder.id().to_owned())
+                        .collect();
+                    for (index, id) in folder_ids.into_iter().enumerate() {
+                        shell
+                            .folders
+                            .move_to(&id, FolderSet::slot_cell(occupied + index as u32));
+                    }
+                    outcome.icon_positions_changed = true;
+                    outcome.folders_changed = true;
+                }
+                MenuAction::SnapGrid => {
+                    if icons.snap_to_grid(area) {
+                        outcome.icon_positions_changed = true;
+                    }
+                    let cells: Vec<(String, (u32, u32))> = shell
+                        .folders
+                        .folders()
+                        .iter()
+                        .map(|folder| {
+                            let rect = IconGrid::cell_rect(area, folder.cell());
+                            (folder.id().to_owned(), icons.cell_at(area, rect.min))
+                        })
+                        .collect();
+                    for (id, cell) in cells {
+                        shell.folders.move_to(&id, cell);
+                    }
+                    outcome.folders_changed = true;
+                }
+                MenuAction::OpenApp(app) => {
+                    activate_app(icons, windows, app, area, now);
+                    outcome.open_app = Some(app);
+                }
+                MenuAction::Fullscreen => crate::desktop::toggle_fullscreen(ctx),
+                MenuAction::Open(id) => shell.folders.open(&id),
+                MenuAction::Rename(id) => shell.folders.begin_rename(&id),
+                MenuAction::Dissolve(id) => {
+                    if shell.folders.dissolve(&id) {
+                        outcome.folders_changed = true;
+                    }
+                }
+            }
+        }
+    }
+    if shell.folders.overlay_open() {
+        if let Some(app) = folder_modal(
+            ctx,
+            theme,
+            texts,
+            focus,
+            &mut shell.folders,
+            &mut shell.storage,
+            &mut outcome,
+        ) {
+            activate_app(icons, windows, app, area, now);
+            outcome.open_app = Some(app);
+        }
+    }
 
     if ctx.input(|input| input.modifiers.command && input.key_pressed(Key::K)) {
         shell.open_palette();
     }
 
+    // Reference workspace shortcuts: `Ctrl+Alt+Arrow` switches desktops, `Ctrl+Shift+D` adds one.
+    if ctx.input(|input| input.modifiers.ctrl && input.modifiers.alt) {
+        let forward = ctx.input(|input| input.key_pressed(Key::ArrowRight));
+        let backward = ctx.input(|input| input.key_pressed(Key::ArrowLeft));
+        if forward || backward {
+            if let Some(id) = shell.task_view.step(forward) {
+                windows.focus_on(&id);
+                outcome.task_view_changed = true;
+            }
+        }
+    }
+    if ctx.input(|input| {
+        input.modifiers.command && input.modifiers.shift && input.key_pressed(Key::D)
+    }) && shell.task_view.add().is_some()
+    {
+        outcome.task_view_changed = true;
+    }
+
+    windows.set_current_desktop(shell.task_view.active_id());
+    let active_desktop = shell.task_view.active_id().to_owned();
+
     let visible: Vec<(AppId, Rect, String, bool, bool)> = windows
         .windows()
         .iter()
-        .filter(|window| !window.is_minimized())
+        .filter(|window| !window.is_minimized() && window.is_on(&active_desktop))
         .map(|window| {
             (
                 window.app(),
@@ -2416,69 +3574,21 @@ fn desktop_impl(
     }
 
     if shell.task_view.is_open() {
-        if ctx.input(|input| input.key_pressed(Key::Escape)) {
+        let result = task_view_overlay(ctx, texts, &mut shell.task_view, windows, screen);
+        if result.changed {
+            outcome.task_view_changed = true;
+        }
+        if let Some(app) = result.focus {
+            windows.focus(app);
+            outcome.window_layout_changed = true;
             shell.task_view.close();
         }
-        let mut focus_app: Option<AppId> = None;
-        let mut close = false;
-        egui::Area::new(Id::new("socdof-task-view"))
-            .order(egui::Order::Foreground)
-            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
-            .show(ctx, |ui| {
-                egui::Frame::none()
-                    .fill(with_alpha(theme.palette.surface, 96))
-                    .stroke(Stroke::new(1.0_f32, theme.palette.border))
-                    .rounding(Rounding::same(RADIUS_DIALOG))
-                    .inner_margin(egui::Margin::same(16.0))
-                    .show(ui, |ui| {
-                        ui.set_width(320.0);
-                        ui.label(
-                            RichText::new(texts.get("task_view_title"))
-                                .size(16.0)
-                                .strong(),
-                        );
-                        ui.add_space(8.0);
-                        let open: Vec<(AppId, String)> = windows
-                            .windows()
-                            .iter()
-                            .filter(|window| !window.is_minimized())
-                            .map(|window| (window.app(), window.title().to_owned()))
-                            .collect();
-                        if open.is_empty() {
-                            ui.label(
-                                RichText::new(texts.get("task_view_empty"))
-                                    .size(FONT_SMALL)
-                                    .color(theme.palette.text_muted),
-                            );
-                        }
-                        for (app, title) in open {
-                            if button(ui, theme, focus, &title, ButtonVariant::Secondary).activated
-                            {
-                                focus_app = Some(app);
-                            }
-                        }
-                        ui.add_space(8.0);
-                        if button(
-                            ui,
-                            theme,
-                            focus,
-                            texts.get("window_close_cancel"),
-                            ButtonVariant::Ghost,
-                        )
-                        .activated
-                        {
-                            close = true;
-                        }
-                    });
-            });
-        if close {
-            shell.task_view.close();
-        }
-        if let Some(app) = focus_app {
-            if windows.focus(app) {
-                // The task view can reorder windows without opening a new app.
+        if let Some(app) = result.close_window {
+            if windows.close(app, now) {
                 outcome.window_layout_changed = true;
             }
+        }
+        if result.close {
             shell.task_view.close();
         }
     }
@@ -2718,6 +3828,952 @@ fn apply_action(
 }
 
 /// Opens the window of an app or raises it; the grid label becomes the title.
+/// Result of one task-view frame.
+#[derive(Default)]
+struct TaskViewResult {
+    /// The overview should close.
+    close: bool,
+    /// Window the user picked.
+    focus: Option<AppId>,
+    /// Window the user closed from the overview.
+    close_window: Option<AppId>,
+    /// Desktops, the active desktop or a window filing changed.
+    changed: bool,
+}
+
+/// Action a desktop card reported.
+enum TaskViewCardAction {
+    /// Nothing happened.
+    None,
+    /// Make the desktop active.
+    Select(String),
+    /// Remove the desktop.
+    Delete(String),
+    /// Start the inline rename.
+    Rename(String),
+    /// Apply the inline rename.
+    CommitRename,
+    /// Drop the inline rename.
+    CancelRename,
+}
+
+/// Action a window card reported.
+#[derive(Default)]
+struct TaskViewWindowAction {
+    /// Focus the window and leave the overview.
+    open: bool,
+    /// Close the window.
+    close: bool,
+    /// File the window on this desktop.
+    move_to: Option<String>,
+}
+
+/// Slate and indigo colours of the reference overview.
+///
+/// The reference draws the task view on `slate-950/85` in both appearances, so the colours stay dark
+/// instead of following the light or dark palette.
+#[derive(Clone, Copy)]
+struct TaskViewColors {
+    backdrop: Color32,
+    bar: Color32,
+    bar_line: Color32,
+    text: Color32,
+    text_soft: Color32,
+    muted: Color32,
+    dim: Color32,
+    line: Color32,
+    line_soft: Color32,
+    panel: Color32,
+    panel_hover: Color32,
+    inset: Color32,
+    accent: Color32,
+    accent_soft: Color32,
+    accent_light: Color32,
+    emerald: Color32,
+    danger: Color32,
+}
+
+impl TaskViewColors {
+    fn reference() -> Self {
+        Self {
+            backdrop: Color32::from_rgba_unmultiplied(2, 6, 23, 235),
+            bar: Color32::from_rgba_unmultiplied(15, 23, 42, 190),
+            bar_line: Color32::from_rgba_unmultiplied(30, 41, 59, 204),
+            text: Color32::from_rgb(0xe2, 0xe8, 0xf0),
+            text_soft: Color32::from_rgb(0xcb, 0xd5, 0xe1),
+            muted: Color32::from_rgb(0x94, 0xa3, 0xb8),
+            dim: Color32::from_rgb(0x64, 0x74, 0x8b),
+            line: Color32::from_rgb(0x33, 0x41, 0x55),
+            line_soft: Color32::from_rgb(0x1e, 0x29, 0x3b),
+            panel: Color32::from_rgb(0x1e, 0x29, 0x3b),
+            panel_hover: Color32::from_rgb(0x1e, 0x29, 0x3b),
+            inset: Color32::from_rgb(0x0f, 0x17, 0x2a),
+            accent: Color32::from_rgb(0x4f, 0x46, 0xe5),
+            accent_soft: Color32::from_rgb(0x81, 0x8c, 0xf8),
+            accent_light: Color32::from_rgb(0x63, 0x66, 0xf1),
+            emerald: Color32::from_rgb(0x34, 0xd3, 0x99),
+            danger: Color32::from_rgb(0xf4, 0x3f, 0x5e),
+        }
+    }
+}
+
+/// Shortens a label with an ellipsis until it fits a width.
+fn taskview_fit(painter: &egui::Painter, text: &str, font: &FontId, max_width: f32) -> String {
+    let measure = |candidate: &str| {
+        painter
+            .layout_no_wrap(candidate.to_owned(), font.clone(), Color32::WHITE)
+            .size()
+            .x
+    };
+    if measure(text) <= max_width {
+        return text.to_owned();
+    }
+    let mut chars: Vec<char> = text.chars().collect();
+    while !chars.is_empty() {
+        chars.pop();
+        let candidate: String = chars.iter().collect::<String>() + "…";
+        if measure(&candidate) <= max_width {
+            return candidate;
+        }
+    }
+    String::new()
+}
+
+/// Capitalised module name of a window, like the reference `win.module`.
+fn taskview_module(app: AppId) -> String {
+    let slug = app.as_str().replace('_', " ");
+    let mut chars = slug.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => slug,
+    }
+}
+
+/// Draws the reference task view: the virtual desktop strip and the window overview.
+fn task_view_overlay(
+    ctx: &Context,
+    texts: &UiTexts,
+    task_view: &mut crate::shell::TaskView,
+    windows: &mut WindowManager,
+    screen: Rect,
+) -> TaskViewResult {
+    let mut result = TaskViewResult::default();
+    let colors = TaskViewColors::reference();
+    let compact = screen.width() < 720.0;
+    let pad = if compact { 16.0 } else { 48.0 };
+    let content_w = (screen.width() - pad * 2.0).clamp(280.0, 1280.0);
+    let x0 = screen.center().x - content_w * 0.5;
+    let bar_h = 223.0;
+    let body_top = screen.top() + bar_h;
+    let active_id = task_view.active_id().to_owned();
+    let can_delete = task_view.desktops().len() > 1;
+    let request_rename_focus = task_view.take_rename_focus();
+
+    egui::Area::new(Id::new("socdof-task-view"))
+        .order(egui::Order::Tooltip)
+        .fixed_pos(screen.min)
+        .show(ctx, |ui| {
+            ui.set_min_size(screen.size());
+            let painter = ui.painter().clone();
+            painter.rect_filled(screen, 0.0, colors.backdrop);
+            painter.rect_filled(
+                Rect::from_min_size(screen.min, Vec2::new(screen.width(), bar_h)),
+                0.0,
+                colors.bar,
+            );
+            painter.line_segment(
+                [
+                    Pos2::new(screen.left(), body_top),
+                    Pos2::new(screen.right(), body_top),
+                ],
+                Stroke::new(1.0_f32, colors.bar_line),
+            );
+
+            // Header: the reference layers glyph, the uppercase title and the close button.
+            let header_y = screen.top() + 24.0;
+            Icon::Grid.draw(
+                &painter,
+                Rect::from_min_size(Pos2::new(x0, header_y + 2.0), Vec2::splat(16.0)),
+                colors.accent_soft,
+                1.5,
+            );
+            painter.text(
+                Pos2::new(x0 + 24.0, header_y + 10.0),
+                Align2::LEFT_CENTER,
+                texts.get("taskview_desktops_title").to_uppercase(),
+                FontId::new(12.0, crate::theme::semibold()),
+                colors.muted,
+            );
+            let close_rect = Rect::from_min_size(
+                Pos2::new(x0 + content_w - 28.0, header_y - 2.0),
+                Vec2::splat(28.0),
+            );
+            let close = ui
+                .interact(close_rect, Id::new("socdof-taskview-close"), Sense::click())
+                .on_hover_text(texts.get("taskview_close"));
+            painter.rect_filled(
+                close_rect,
+                Rounding::same(10.0),
+                if close.hovered() {
+                    Color32::from_rgb(0x33, 0x41, 0x55)
+                } else {
+                    colors.panel
+                },
+            );
+            Icon::Close.draw(
+                &painter,
+                Rect::from_center_size(close_rect.center(), Vec2::splat(16.0)),
+                if close.hovered() {
+                    Color32::WHITE
+                } else {
+                    colors.text_soft
+                },
+                1.5,
+            );
+            if close.clicked() {
+                result.close = true;
+            }
+
+            if ctx.input(|input| input.key_pressed(Key::Escape))
+                && task_view.rename_target().is_none()
+            {
+                result.close = true;
+            }
+
+            // Desktop strip, horizontally scrollable like the reference `overflow-x-auto`.
+            let strip_rect =
+                Rect::from_min_size(Pos2::new(x0, header_y + 36.0), Vec2::new(content_w, 143.0));
+            let mut strip = ui.child_ui(strip_rect, egui::Layout::left_to_right(egui::Align::Min));
+            egui::ScrollArea::horizontal()
+                .id_source("socdof-taskview-strip")
+                .auto_shrink([false, true])
+                .show(&mut strip, |ui| {
+                    ui.spacing_mut().item_spacing.x = 16.0;
+                    let desktops = task_view.desktops().to_vec();
+                    for desktop in &desktops {
+                        let id = desktop.id().to_owned();
+                        let editing = task_view.rename_target() == Some(id.as_str());
+                        let count = windows.windows_on(&id).len();
+                        let mut buffer = if editing {
+                            task_view.rename_buffer_mut().clone()
+                        } else {
+                            String::new()
+                        };
+                        let action = desktop_card(
+                            ui,
+                            &colors,
+                            texts,
+                            desktop,
+                            task_view.is_active(&id),
+                            count,
+                            can_delete,
+                            editing,
+                            &mut buffer,
+                            request_rename_focus,
+                        );
+                        if editing {
+                            *task_view.rename_buffer_mut() = buffer;
+                        }
+                        match action {
+                            TaskViewCardAction::None => {}
+                            TaskViewCardAction::Select(target) => {
+                                task_view.select(&target);
+                                windows.focus_on(&target);
+                                result.changed = true;
+                            }
+                            TaskViewCardAction::Delete(target) => {
+                                if delete_virtual_desktop(task_view, windows, &target) {
+                                    result.changed = true;
+                                }
+                            }
+                            TaskViewCardAction::Rename(target) => {
+                                task_view.begin_rename(&target);
+                            }
+                            TaskViewCardAction::CommitRename => {
+                                if task_view.commit_rename() {
+                                    result.changed = true;
+                                }
+                            }
+                            TaskViewCardAction::CancelRename => task_view.cancel_rename(),
+                        }
+                    }
+                    if add_desktop_card(ui, &colors, texts) {
+                        if let Some(id) = task_view.add() {
+                            windows.focus_on(&id);
+                            result.changed = true;
+                        }
+                    }
+                });
+
+            // Window overview.
+            let body_rect = Rect::from_min_max(
+                Pos2::new(x0, body_top),
+                Pos2::new(x0 + content_w, screen.bottom()),
+            );
+            let mut body = ui.child_ui(body_rect, egui::Layout::top_down(egui::Align::Min));
+            let cards: Vec<(AppId, String, bool, Option<String>)> = windows
+                .windows()
+                .iter()
+                .filter(|window| window.is_on(&active_id))
+                .map(|window| {
+                    (
+                        window.app(),
+                        window.title().to_owned(),
+                        window.is_minimized(),
+                        window.desktop().map(|desktop| desktop.to_owned()),
+                    )
+                })
+                .collect();
+            let desktops = task_view.desktops().to_vec();
+            egui::ScrollArea::vertical()
+                .id_source("socdof-taskview-grid")
+                .auto_shrink([false, false])
+                .show(&mut body, |ui| {
+                    ui.add_space(if compact { 20.0 } else { 36.0 });
+                    ui.set_width(content_w);
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 8.0;
+                        ui.label(
+                            RichText::new(texts.get("taskview_open_windows"))
+                                .size(14.0)
+                                .family(crate::theme::semibold())
+                                .color(colors.text_soft),
+                        );
+                        let (pill, _) =
+                            ui.allocate_exact_size(Vec2::new(26.0, 18.0), Sense::hover());
+                        ui.painter()
+                            .rect_filled(pill, Rounding::same(9.0), colors.panel);
+                        ui.painter().text(
+                            pill.center(),
+                            Align2::CENTER_CENTER,
+                            cards.len().to_string(),
+                            FontId::new(11.0, crate::theme::semibold()),
+                            colors.muted,
+                        );
+                        if !compact {
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    ui.label(
+                                        RichText::new(texts.get("taskview_hint_switch"))
+                                            .size(12.0)
+                                            .color(colors.dim),
+                                    );
+                                },
+                            );
+                        }
+                    });
+                    ui.add_space(16.0);
+
+                    if cards.is_empty() {
+                        let (empty, _) =
+                            ui.allocate_exact_size(Vec2::new(content_w, 180.0), Sense::hover());
+                        Icon::Monitor.draw(
+                            ui.painter(),
+                            Rect::from_center_size(
+                                empty.center() - Vec2::new(0.0, 20.0),
+                                Vec2::splat(48.0),
+                            ),
+                            colors.line,
+                            1.2,
+                        );
+                        ui.painter().text(
+                            empty.center() + Vec2::new(0.0, 26.0),
+                            Align2::CENTER_CENTER,
+                            texts.get("taskview_no_windows"),
+                            FontId::proportional(14.0),
+                            colors.dim,
+                        );
+                        return;
+                    }
+
+                    let gap = 16.0;
+                    let columns = if content_w >= 1024.0 {
+                        4
+                    } else if content_w >= 768.0 {
+                        3
+                    } else if content_w >= 600.0 {
+                        2
+                    } else {
+                        1
+                    };
+                    let card_width = (content_w - gap * (columns as f32 - 1.0)) / columns as f32;
+                    let card_height = if desktops.len() > 1 { 222.0 } else { 198.0 };
+                    for row in cards.chunks(columns) {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = gap;
+                            for (app, title, minimized, desktop) in row {
+                                let action = window_card(
+                                    ui,
+                                    &colors,
+                                    texts,
+                                    *app,
+                                    title,
+                                    *minimized,
+                                    desktop.as_deref(),
+                                    &desktops,
+                                    card_width,
+                                    card_height,
+                                );
+                                if action.open {
+                                    result.focus = Some(*app);
+                                }
+                                if action.close {
+                                    result.close_window = Some(*app);
+                                }
+                                if let Some(target) = action.move_to {
+                                    if windows.move_to_desktop(*app, Some(target)) {
+                                        result.changed = true;
+                                    }
+                                }
+                            }
+                        });
+                        ui.add_space(gap);
+                    }
+                    ui.add_space(12.0);
+                });
+        });
+
+    result
+}
+
+/// Removes a desktop and refiles its windows on the first remaining one.
+///
+/// Mirrors the reference `removeVirtualDesktop`: the last card never goes away and the windows of
+/// the removed desktop move to the first remaining one.
+fn delete_virtual_desktop(
+    task_view: &mut crate::shell::TaskView,
+    windows: &mut WindowManager,
+    id: &str,
+) -> bool {
+    let Some(fallback) = task_view.remove(id) else {
+        return false;
+    };
+    let apps = windows.windows_on(id);
+    for app in apps {
+        let filed = windows
+            .windows()
+            .iter()
+            .find(|window| window.app() == app)
+            .and_then(|window| window.desktop())
+            .map(|desktop| desktop.to_owned());
+        if filed.as_deref() == Some(id) {
+            windows.move_to_desktop(app, Some(fallback.clone()));
+        }
+    }
+    if task_view.is_active(&fallback) {
+        windows.focus_on(&fallback);
+    }
+    true
+}
+
+/// One desktop card of the strip.
+#[allow(clippy::too_many_arguments)]
+fn desktop_card(
+    ui: &mut Ui,
+    colors: &TaskViewColors,
+    texts: &UiTexts,
+    desktop: &crate::shell::VirtualDesktop,
+    active: bool,
+    count: usize,
+    can_delete: bool,
+    editing: bool,
+    buffer: &mut String,
+    request_focus: bool,
+) -> TaskViewCardAction {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(170.0, 135.0), Sense::click());
+    let hovered = response.hovered();
+    let painter = ui.painter().clone();
+    let rounding = Rounding::same(16.0);
+    let (fill, width, stroke) = if active {
+        (with_alpha(colors.accent, 77), 2.0, colors.accent_light)
+    } else if hovered {
+        (colors.panel_hover, 1.0_f32, colors.line)
+    } else {
+        (
+            with_alpha(colors.panel, 153),
+            1.0_f32,
+            with_alpha(colors.line_soft, 153),
+        )
+    };
+    painter.rect_filled(rect, rounding, fill);
+    painter.rect_stroke(rect, rounding, Stroke::new(width, stroke));
+
+    // Mini desktop preview with the reference indigo glow.
+    let preview = Rect::from_min_size(rect.min + Vec2::splat(12.0), Vec2::new(146.0, 80.0));
+    painter.rect_filled(preview, Rounding::same(12.0), colors.inset);
+    // `from-slate-950 via-slate-900 to-indigo-950/70`: an indigo-950 glow towards the bottom right.
+    for step in 0..7 {
+        let inset = step as f32 * 6.0;
+        let glow = Rect::from_min_max(
+            preview.min + Vec2::new(inset * 0.5, inset * 0.9),
+            preview.max - Vec2::new(inset * 0.1, inset * 0.6),
+        );
+        painter.rect_filled(
+            glow,
+            Rounding::same(10.0),
+            Color32::from_rgba_unmultiplied(0x1e, 0x1b, 0x4b, 26 - step * 3),
+        );
+    }
+    painter.rect_stroke(
+        preview,
+        Rounding::same(12.0),
+        Stroke::new(1.0_f32, with_alpha(colors.line, 128)),
+    );
+    Icon::Monitor.draw(
+        &painter,
+        Rect::from_center_size(preview.center() - Vec2::new(0.0, 9.0), Vec2::splat(24.0)),
+        if active {
+            colors.accent_soft
+        } else {
+            colors.dim
+        },
+        1.4,
+    );
+    painter.text(
+        preview.center() + Vec2::new(0.0, 15.0),
+        Align2::CENTER_CENTER,
+        format!("{count} {}", texts.get("taskview_windows")),
+        FontId::proportional(10.0),
+        colors.muted,
+    );
+    if active {
+        let dot = preview.right_top() + Vec2::new(-8.0, 8.0);
+        painter.circle_filled(dot, 6.0, Color32::from_rgb(0x02, 0x2c, 0x22));
+        painter.circle_filled(dot, 4.0, colors.emerald);
+    }
+
+    if can_delete {
+        let delete = Rect::from_min_size(preview.min + Vec2::splat(4.0), Vec2::splat(20.0));
+        let response = ui
+            .interact(
+                delete,
+                Id::new(("socdof-taskview-delete", desktop.id())),
+                Sense::click(),
+            )
+            .on_hover_text(texts.get("taskview_delete"));
+        if hovered || response.hovered() {
+            painter.rect_filled(
+                delete,
+                Rounding::same(6.0),
+                if response.hovered() {
+                    Color32::from_rgb(0xe1, 0x1d, 0x48)
+                } else {
+                    with_alpha(colors.danger, 204)
+                },
+            );
+            Icon::Trash.draw(
+                &painter,
+                Rect::from_center_size(delete.center(), Vec2::splat(12.0)),
+                Color32::WHITE,
+                1.3,
+            );
+        }
+        if response.clicked() {
+            return TaskViewCardAction::Delete(desktop.id().to_owned());
+        }
+    }
+
+    let name_rect = Rect::from_min_size(
+        Pos2::new(rect.left() + 12.0, rect.bottom() - 27.0),
+        Vec2::new(146.0, 20.0),
+    );
+    if editing {
+        let action = ui
+            .scope(|ui| {
+                ui.visuals_mut().extreme_bg_color = Color32::from_rgb(2, 6, 23);
+                ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(1.0_f32, colors.accent);
+                ui.visuals_mut().selection.bg_fill = colors.accent;
+                let edit = egui::TextEdit::singleline(buffer)
+                    .id(Id::new(("socdof-taskview-rename", desktop.id())))
+                    .font(FontId::new(12.0, crate::theme::semibold()))
+                    .horizontal_align(egui::Align::Center)
+                    .text_color(Color32::WHITE)
+                    .desired_width(140.0);
+                let response = ui.put(name_rect, edit);
+                if request_focus {
+                    response.request_focus();
+                }
+                if ui.input(|input| input.key_pressed(Key::Escape)) {
+                    return Some(TaskViewCardAction::CancelRename);
+                }
+                if ui.input(|input| input.key_pressed(Key::Enter)) || response.lost_focus() {
+                    return Some(TaskViewCardAction::CommitRename);
+                }
+                None
+            })
+            .inner;
+        return action.unwrap_or(TaskViewCardAction::None);
+    }
+
+    let font = FontId::new(12.0, crate::theme::semibold());
+    let label = taskview_fit(&painter, desktop.name(), &font, 118.0);
+    painter.text(
+        name_rect.center() - Vec2::new(5.0, 0.0),
+        Align2::CENTER_CENTER,
+        label,
+        font,
+        colors.text,
+    );
+    let pencil = ui
+        .interact(
+            Rect::from_center_size(
+                Pos2::new(name_rect.right() - 8.0, name_rect.center().y),
+                Vec2::splat(16.0),
+            ),
+            Id::new(("socdof-taskview-rename-btn", desktop.id())),
+            Sense::click(),
+        )
+        .on_hover_text(texts.get("taskview_rename"));
+    if hovered || pencil.hovered() {
+        Icon::Edit.draw(
+            &painter,
+            Rect::from_center_size(pencil.rect.center(), Vec2::splat(11.0)),
+            if pencil.hovered() {
+                Color32::WHITE
+            } else {
+                colors.muted
+            },
+            1.3,
+        );
+    }
+    if pencil.clicked() {
+        return TaskViewCardAction::Rename(desktop.id().to_owned());
+    }
+    if response.clicked() {
+        return TaskViewCardAction::Select(desktop.id().to_owned());
+    }
+    TaskViewCardAction::None
+}
+
+/// The dashed add card at the end of the strip.
+fn add_desktop_card(ui: &mut Ui, colors: &TaskViewColors, texts: &UiTexts) -> bool {
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(150.0, 135.0), Sense::click());
+    let text = if response.hovered() {
+        Color32::WHITE
+    } else {
+        colors.muted
+    };
+    let painter = ui.painter().clone();
+    painter.rect_filled(
+        rect,
+        Rounding::same(16.0),
+        with_alpha(colors.panel, if response.hovered() { 204 } else { 102 }),
+    );
+    let line = if response.hovered() {
+        colors.accent_soft
+    } else {
+        colors.line
+    };
+    let stroke = Stroke::new(1.0_f32, line);
+    let corners = [
+        rect.left_top(),
+        rect.right_top(),
+        rect.right_bottom(),
+        rect.left_bottom(),
+        rect.left_top(),
+    ];
+    for pair in corners.windows(2) {
+        painter.extend(egui::Shape::dashed_line(pair, stroke, 4.0, 4.0));
+    }
+    let square = Rect::from_center_size(rect.center() - Vec2::new(0.0, 18.0), Vec2::splat(36.0));
+    painter.rect_filled(square, Rounding::same(12.0), with_alpha(colors.line, 153));
+    Icon::Plus.draw(
+        &painter,
+        Rect::from_center_size(square.center(), Vec2::splat(20.0)),
+        colors.accent_soft,
+        1.6,
+    );
+    painter.text(
+        rect.center() + Vec2::new(0.0, 26.0),
+        Align2::CENTER_CENTER,
+        taskview_fit(
+            &painter,
+            texts.get("taskview_new_desktop"),
+            &FontId::proportional(12.0),
+            130.0,
+        ),
+        FontId::proportional(12.0),
+        text,
+    );
+    response
+        .on_hover_text(texts.get("taskview_new_desktop_hint"))
+        .clicked()
+}
+
+/// One window card of the overview.
+#[allow(clippy::too_many_arguments)]
+fn window_card(
+    ui: &mut Ui,
+    colors: &TaskViewColors,
+    texts: &UiTexts,
+    app: AppId,
+    title: &str,
+    minimized: bool,
+    filed_on: Option<&str>,
+    desktops: &[crate::shell::VirtualDesktop],
+    width: f32,
+    height: f32,
+) -> TaskViewWindowAction {
+    let mut action = TaskViewWindowAction::default();
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, height), Sense::click());
+    let hovered = response.hovered();
+    let painter = ui.painter().clone();
+    painter.rect_filled(
+        rect,
+        Rounding::same(16.0),
+        if hovered {
+            colors.panel
+        } else {
+            with_alpha(colors.inset, 230)
+        },
+    );
+    painter.rect_stroke(
+        rect,
+        Rounding::same(16.0),
+        Stroke::new(
+            1.0_f32,
+            if hovered {
+                with_alpha(colors.accent_light, 204)
+            } else {
+                with_alpha(colors.line, 179)
+            },
+        ),
+    );
+    if hovered {
+        // The reference scales the card by 1.02; a soft indigo halo takes its place because egui
+        // cannot scale an allocated card without moving its neighbours.
+        painter.rect_stroke(
+            rect.expand(1.5),
+            Rounding::same(17.0),
+            Stroke::new(1.0_f32, with_alpha(colors.accent, 60)),
+        );
+    }
+
+    // Title bar: initial badge, title and the close cross.
+    let badge = Rect::from_min_size(rect.min + Vec2::splat(12.0), Vec2::splat(20.0));
+    painter.rect_filled(badge, Rounding::same(8.0), with_alpha(colors.accent, 153));
+    painter.text(
+        badge.center(),
+        Align2::CENTER_CENTER,
+        title
+            .chars()
+            .next()
+            .map(|first| first.to_uppercase().to_string())
+            .unwrap_or_default(),
+        FontId::new(10.0, crate::theme::semibold()),
+        Color32::WHITE,
+    );
+    let title_font = FontId::new(12.0, crate::theme::semibold());
+    let title_text = taskview_fit(
+        &painter,
+        title,
+        &title_font,
+        width - 12.0 - 20.0 - 8.0 - 32.0,
+    );
+    painter.text(
+        Pos2::new(badge.right() + 8.0, badge.center().y),
+        Align2::LEFT_CENTER,
+        title_text,
+        title_font,
+        if hovered {
+            Color32::from_rgb(0xa5, 0xb4, 0xfc)
+        } else {
+            colors.text
+        },
+    );
+    let close_rect = Rect::from_center_size(
+        Pos2::new(rect.right() - 22.0, badge.center().y),
+        Vec2::splat(20.0),
+    );
+    let close = ui
+        .interact(
+            close_rect,
+            Id::new(("socdof-taskview-window-close", app.as_str())),
+            Sense::click(),
+        )
+        .on_hover_text(texts.get("taskview_close_window"));
+    if close.hovered() {
+        painter.rect_filled(
+            close_rect,
+            Rounding::same(6.0),
+            with_alpha(Color32::from_rgb(0xe1, 0x1d, 0x48), 204),
+        );
+    }
+    Icon::Close.draw(
+        &painter,
+        Rect::from_center_size(close_rect.center(), Vec2::splat(14.0)),
+        if close.hovered() {
+            Color32::WHITE
+        } else {
+            colors.muted
+        },
+        1.3,
+    );
+    if close.clicked() {
+        action.close = true;
+        return action;
+    }
+
+    // Thumbnail simulation with the reference skeleton lines.
+    let thumb = Rect::from_min_size(
+        Pos2::new(rect.left() + 12.0, badge.bottom() + 10.0),
+        Vec2::new(width - 24.0, 144.0),
+    );
+    painter.rect_filled(
+        thumb,
+        Rounding::same(12.0),
+        Color32::from_rgba_unmultiplied(2, 6, 23, 204),
+    );
+    painter.rect_stroke(
+        thumb,
+        Rounding::same(12.0),
+        Stroke::new(
+            1.0_f32,
+            if hovered {
+                colors.line
+            } else {
+                colors.line_soft
+            },
+        ),
+    );
+    let inner = thumb.shrink(12.0);
+    painter.rect_filled(
+        Rect::from_min_size(inner.min, Vec2::new(inner.width() / 3.0, 8.0)),
+        Rounding::same(4.0),
+        colors.line,
+    );
+    for (index, fraction) in [1.0_f32, 0.8, 0.66].into_iter().enumerate() {
+        painter.rect_filled(
+            Rect::from_min_size(
+                Pos2::new(inner.left(), inner.top() + 18.0 + index as f32 * 8.0),
+                Vec2::new(inner.width() * fraction, 6.0),
+            ),
+            Rounding::same(3.0),
+            colors.line_soft,
+        );
+    }
+    let footer = Pos2::new(inner.left(), thumb.bottom() - 20.0);
+    painter.line_segment(
+        [
+            Pos2::new(inner.left(), footer.y - 6.0),
+            Pos2::new(inner.right(), footer.y - 6.0),
+        ],
+        Stroke::new(1.0_f32, Color32::from_rgb(0x0b, 0x12, 0x20)),
+    );
+    painter.text(
+        footer + Vec2::new(0.0, 4.0),
+        Align2::LEFT_CENTER,
+        taskview_fit(
+            &painter,
+            &taskview_module(app),
+            &FontId::proportional(10.0),
+            inner.width() * 0.5,
+        ),
+        FontId::proportional(10.0),
+        colors.muted,
+    );
+    if minimized {
+        let badge_rect = Rect::from_min_size(
+            Pos2::new(inner.right() - 58.0, footer.y - 6.0),
+            Vec2::new(58.0, 16.0),
+        );
+        painter.rect_filled(
+            badge_rect,
+            Rounding::same(4.0),
+            Color32::from_rgba_unmultiplied(69, 26, 3, 153),
+        );
+        painter.rect_stroke(
+            badge_rect,
+            Rounding::same(4.0),
+            Stroke::new(1.0_f32, Color32::from_rgba_unmultiplied(146, 64, 14, 102)),
+        );
+        painter.text(
+            badge_rect.center(),
+            Align2::CENTER_CENTER,
+            texts.get("taskview_minimized"),
+            FontId::proportional(9.0),
+            Color32::from_rgb(0xfb, 0xbf, 0x24),
+        );
+    }
+
+    if desktops.len() > 1 {
+        let row_y = rect.bottom() - 32.0;
+        painter.line_segment(
+            [
+                Pos2::new(rect.left() + 12.0, row_y - 6.0),
+                Pos2::new(rect.right() - 12.0, row_y - 6.0),
+            ],
+            Stroke::new(1.0_f32, colors.line_soft),
+        );
+        painter.text(
+            Pos2::new(rect.left() + 12.0, row_y + 6.0),
+            Align2::LEFT_CENTER,
+            texts.get("taskview_move_to"),
+            FontId::proportional(11.0),
+            colors.muted,
+        );
+        let mut right = rect.right() - 12.0;
+        for desktop in desktops.iter().rev() {
+            let label = desktop.short_name();
+            let font = FontId::new(10.0, crate::theme::semibold());
+            let text_width = painter
+                .layout_no_wrap(label.clone(), font.clone(), Color32::WHITE)
+                .size()
+                .x;
+            let button = Rect::from_min_size(
+                Pos2::new(right - text_width - 16.0, row_y - 3.0),
+                Vec2::new(text_width + 16.0, 18.0),
+            );
+            let selected = filed_on == Some(desktop.id())
+                || (filed_on.is_none() && desktop.id() == "desktop-1");
+            let response = ui
+                .interact(
+                    button,
+                    Id::new(("socdof-taskview-move", app.as_str(), desktop.id())),
+                    Sense::click(),
+                )
+                .on_hover_text(
+                    texts
+                        .get("taskview_move_to_desktop")
+                        .replace("{name}", desktop.name()),
+                );
+            painter.rect_filled(
+                button,
+                Rounding::same(4.0),
+                if selected {
+                    colors.accent
+                } else if response.hovered() {
+                    Color32::from_rgb(0x33, 0x41, 0x55)
+                } else {
+                    colors.panel
+                },
+            );
+            painter.text(
+                button.center(),
+                Align2::CENTER_CENTER,
+                label,
+                font,
+                if selected {
+                    Color32::WHITE
+                } else {
+                    colors.text_soft
+                },
+            );
+            if response.clicked() {
+                action.move_to = Some(desktop.id().to_owned());
+                return action;
+            }
+            right = button.left() - 4.0;
+        }
+    }
+
+    if response.clicked() {
+        action.open = true;
+    }
+    action
+}
+
 fn activate_app(
     icons: &IconGrid,
     windows: &mut WindowManager,
@@ -2726,6 +4782,17 @@ fn activate_app(
     now: i64,
 ) {
     if windows.is_open(app) {
+        // A window filed on another virtual desktop comes along instead of being focused while
+        // invisible, which is the closest native equivalent of the reference opening the app on the
+        // desktop the user is looking at.
+        let current = windows.current_desktop().to_owned();
+        let elsewhere = windows
+            .windows()
+            .iter()
+            .any(|window| window.app() == app && !window.is_on(&current));
+        if elsewhere {
+            windows.move_to_desktop(app, Some(current));
+        }
         windows.focus(app);
         return;
     }
@@ -2919,8 +4986,1718 @@ fn clamp_rect(rect: Rect, area: Rect) -> Rect {
     Rect::from_min_size(Pos2::new(x, y), size)
 }
 
+/// Action a desktop context menu asked for.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum MenuAction {
+    /// Open the widgets app.
+    Widgets,
+    /// Pin a fresh sticky note to the desktop.
+    StickyNote,
+    /// Open the task view with the virtual desktops.
+    TaskView,
+    /// Create an empty folder and open it.
+    Create,
+    /// Import files from the chosen storage location.
+    Upload(UploadTarget),
+    /// Lay the desktop items out in reading order.
+    ArrangeIcons,
+    /// Snap freely placed items back to the grid.
+    SnapGrid,
+    /// Launch an app window.
+    OpenApp(AppId),
+    /// Enter or leave fullscreen.
+    Fullscreen,
+    /// Open a folder in the modal.
+    Open(String),
+    /// Start editing a folder name.
+    Rename(String),
+    /// Dissolve a folder and put its apps back on the desktop.
+    Dissolve(String),
+}
+
+/// Draws one folder tile: the translucent squircle with a preview of the contained apps.
+///
+/// The reference shows a folder glyph for an empty folder, one large icon for a single app, two
+/// icons side by side, a 2 × 2 grid for three or four, and three icons with a `+n` counter beyond
+/// that (`DesktopWindowWorkspace.tsx:3060`).
+fn paint_folder_tile(
+    ctx: &Context,
+    painter: &egui::Painter,
+    theme: &Theme,
+    rect: Rect,
+    folder: &DesktopFolder,
+) {
+    let tile = Rect::from_center_size(
+        Pos2::new(rect.center().x, rect.top() + 8.0 + ICON_TILE / 2.0),
+        Vec2::splat(ICON_TILE),
+    );
+    let rounding = 16.0;
+    tile_shadow(ctx, painter, tile, rounding);
+    painter.rect(
+        tile,
+        Rounding::same(rounding),
+        with_alpha(
+            theme.palette.surface,
+            if theme.appearance.is_dark() { 214 } else { 235 },
+        ),
+        Stroke::new(1.0_f32, with_alpha(theme.palette.border, 220)),
+    );
+
+    let inner = tile.shrink(9.0);
+    let apps = folder.apps();
+    match apps.len() {
+        0 => Icon::Folder.draw(painter, inner, theme.accent.base, 2.0),
+        1 => paint_app_chip(
+            painter,
+            theme,
+            Rect::from_center_size(inner.center(), Vec2::splat(inner.height())),
+            apps[0],
+        ),
+        2 => {
+            let size = Vec2::new(inner.width() / 2.0 - 3.0, inner.height() - 6.0);
+            for (index, app) in apps.iter().enumerate() {
+                let chip = Rect::from_min_size(
+                    Pos2::new(
+                        inner.left() + index as f32 * (size.x + 6.0),
+                        inner.top() + 3.0,
+                    ),
+                    size,
+                );
+                paint_app_chip(painter, theme, chip, *app);
+            }
+        }
+        count => {
+            let cell = Vec2::new(inner.width() / 2.0 - 2.0, inner.height() / 2.0 - 2.0);
+            for (index, app) in apps.iter().enumerate().take(4) {
+                let column = index % 2;
+                let row = index / 2;
+                let chip = Rect::from_min_size(
+                    Pos2::new(
+                        inner.left() + column as f32 * (cell.x + 4.0),
+                        inner.top() + row as f32 * (cell.y + 4.0),
+                    ),
+                    cell,
+                );
+                // Beyond four apps the fourth slot counts the rest.
+                if count > 4 && index == 3 {
+                    painter.rect(chip, Rounding::same(5.0), theme.accent.base, Stroke::NONE);
+                    painter.text(
+                        chip.center(),
+                        Align2::CENTER_CENTER,
+                        format!("+{}", count - 3),
+                        FontId::new(9.0, crate::theme::semibold()),
+                        theme.palette.accent_on,
+                    );
+                } else {
+                    paint_app_chip(painter, theme, chip, *app);
+                }
+            }
+        }
+    }
+
+    let caption = if theme.appearance.is_dark() {
+        Color32::WHITE
+    } else {
+        Color32::from_rgb(0x1e, 0x29, 0x3b)
+    };
+    let galley = painter.layout(
+        folder.name().to_owned(),
+        FontId::new(12.0, crate::theme::semibold()),
+        caption,
+        ICON_LABEL_WIDTH,
+    );
+    painter.galley(
+        Pos2::new(rect.center().x - galley.size().x / 2.0, tile.bottom() + 8.0),
+        galley,
+        caption,
+    );
+}
+
+/// Draws one small app square inside a folder tile or the folder modal.
+fn paint_app_chip(painter: &egui::Painter, _theme: &Theme, rect: Rect, app: AppId) {
+    let chrome = crate::chrome::app_chrome(app.as_str());
+    crate::tokens::gradient_round_rect(
+        painter,
+        rect,
+        (rect.height() * 0.28).min(10.0),
+        &crate::chrome::tint_stops(chrome),
+    );
+    chrome.icon.draw(
+        painter,
+        Rect::from_center_size(rect.center(), Vec2::splat(rect.height() * 0.52)),
+        Color32::WHITE,
+        1.6,
+    );
+}
+
+/// Draws the small square icon button used in the folder modal and returns whether it was clicked.
+fn modal_icon_button(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    icon: Icon,
+    label: &str,
+    danger: bool,
+) -> bool {
+    let id = ui.next_auto_id();
+    let focused = focus.register(id);
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(24.0), Sense::click());
+    if response.clicked() {
+        focus.set_focus(Some(id));
+    }
+    let hovered = response.hovered() || focused;
+    if hovered {
+        ui.painter().rect(
+            rect,
+            Rounding::same(RADIUS_CONTROL),
+            with_alpha(
+                if danger {
+                    theme.palette.danger
+                } else {
+                    theme.palette.text
+                },
+                16,
+            ),
+            Stroke::NONE,
+        );
+    }
+    let color = if danger && hovered {
+        theme.palette.danger
+    } else {
+        theme.palette.text_muted
+    };
+    icon.draw(ui.painter(), rect.shrink(6.0), color, 1.8);
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label));
+    response.clicked()
+}
+
+/// Draws the desktop background menu and the folder context menu of this frame.
+///
+/// The reference menus are one vertical list in a translucent card (`DesktopWindowWorkspace.tsx:4836`
+/// and `:5039`). Only the folder entries are ported so far; the widget, task view, upload and
+/// arrange entries of the background menu stay open work.
+fn desktop_menus(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    folders: &mut FolderSet,
+    fullscreen: bool,
+) -> Option<MenuAction> {
+    if ctx.input(|input| input.key_pressed(Key::Escape)) {
+        folders.close_menu();
+        folders.close_context();
+        return None;
+    }
+    let mut action = None;
+    if let Some(pos) = folders.menu() {
+        let mut picked = None;
+        egui::Area::new(Id::new("socdof-desktop-menu"))
+            .order(egui::Order::Tooltip)
+            .fixed_pos(pos)
+            .show(ctx, |ui| {
+                menu_frame(theme).show(ui, |ui| {
+                    ui.set_width(248.0);
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Widgets,
+                        texts.get("desktop_menu_widgets"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Widgets);
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::StickyNote,
+                        texts.get("desktop_menu_sticky_note"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::StickyNote);
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Grid,
+                        texts.get("desktop_menu_task_view"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::TaskView);
+                    }
+                    menu_separator(ui, theme);
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Folder,
+                        texts.get("desktop_new_folder"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Create);
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Upload,
+                        texts.get("desktop_menu_upload"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Upload(UploadTarget::Desktop));
+                    }
+                    menu_separator(ui, theme);
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Grid,
+                        texts.get("desktop_menu_arrange"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::ArrangeIcons);
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Filter,
+                        texts.get("desktop_menu_snap"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::SnapGrid);
+                    }
+                    menu_separator(ui, theme);
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Package,
+                        texts.get("desktop_menu_appstore"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::OpenApp(AppId::new("app-store")));
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Settings,
+                        texts.get("desktop_menu_settings"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::OpenApp(AppId::new("settings")));
+                    }
+                    menu_separator(ui, theme);
+                    let fullscreen_label = if fullscreen {
+                        texts.get("desktop_exit_fullscreen")
+                    } else {
+                        texts.get("desktop_enter_fullscreen")
+                    };
+                    if menu_entry_hint(
+                        ui,
+                        theme,
+                        focus,
+                        if fullscreen {
+                            Icon::Restore
+                        } else {
+                            Icon::Maximize
+                        },
+                        fullscreen_label,
+                        false,
+                        Some("F11"),
+                    ) {
+                        picked = Some(MenuAction::Fullscreen);
+                    }
+                });
+            });
+        if picked.is_some() {
+            folders.close_menu();
+            action = picked;
+        }
+    }
+    if let Some((folder_id, pos)) = folders.context().map(|(id, pos)| (id.to_owned(), pos)) {
+        let name = folders
+            .get(&folder_id)
+            .map(|folder| folder.name().to_owned())
+            .unwrap_or_default();
+        let mut picked = None;
+        egui::Area::new(Id::new("socdof-folder-menu"))
+            .order(egui::Order::Tooltip)
+            .fixed_pos(pos)
+            .show(ctx, |ui| {
+                menu_frame(theme).show(ui, |ui| {
+                    ui.set_width(220.0);
+                    ui.label(
+                        RichText::new(name)
+                            .family(crate::theme::semibold())
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.separator();
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Folder,
+                        texts.get("desktop_folder_open"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Open(folder_id.clone()));
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Upload,
+                        texts.get("desktop_menu_upload"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Upload(UploadTarget::Folder(folder_id.clone())));
+                    }
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Edit,
+                        texts.get("desktop_folder_rename"),
+                        false,
+                    ) {
+                        picked = Some(MenuAction::Rename(folder_id.clone()));
+                    }
+                    menu_separator(ui, theme);
+                    if menu_entry(
+                        ui,
+                        theme,
+                        focus,
+                        Icon::Trash,
+                        texts.get("desktop_folder_dissolve"),
+                        true,
+                    ) {
+                        picked = Some(MenuAction::Dissolve(folder_id.clone()));
+                    }
+                });
+            });
+        if picked.is_some() {
+            folders.close_context();
+            action = picked;
+        }
+    }
+    action
+}
+
+/// Separator line between two groups of context menu entries.
+fn menu_separator(ui: &mut Ui, theme: &Theme) {
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 9.0), Sense::hover());
+    let y = rect.center().y;
+    ui.painter().line_segment(
+        [
+            Pos2::new(rect.left() + 6.0, y),
+            Pos2::new(rect.right() - 6.0, y),
+        ],
+        Stroke::new(1.0_f32, theme.palette.border),
+    );
+}
+
+/// Frame of the reference context menus: translucent surface card with a hairline border.
+fn menu_frame(theme: &Theme) -> egui::Frame {
+    egui::Frame::none()
+        .fill(theme.palette.surface)
+        .stroke(Stroke::new(1.0_f32, theme.palette.border))
+        .rounding(Rounding::same(RADIUS_CARD))
+        .inner_margin(egui::Margin::same(6.0))
+}
+
+/// One full width entry of a context menu.
+fn menu_entry(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    icon: Icon,
+    label: &str,
+    danger: bool,
+) -> bool {
+    menu_entry_hint(ui, theme, focus, icon, label, danger, None)
+}
+
+/// One context menu entry with an optional key hint on the right, like the reference `F11` badge.
+fn menu_entry_hint(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    icon: Icon,
+    label: &str,
+    danger: bool,
+    hint: Option<&str>,
+) -> bool {
+    let id = ui.next_auto_id();
+    let focused = focus.register(id);
+    let width = ui.available_width().max(120.0);
+    let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 32.0), Sense::click());
+    if response.clicked() {
+        focus.set_focus(Some(id));
+    }
+    let hovered = response.hovered() || focused;
+    if hovered {
+        ui.painter().rect(
+            rect,
+            Rounding::same(RADIUS_CONTROL),
+            with_alpha(
+                if danger {
+                    theme.palette.danger
+                } else {
+                    theme.accent.base
+                },
+                18,
+            ),
+            Stroke::NONE,
+        );
+    }
+    let color = if danger {
+        theme.palette.danger
+    } else {
+        theme.palette.text
+    };
+    icon.draw(
+        ui.painter(),
+        Rect::from_center_size(
+            Pos2::new(rect.left() + 16.0, rect.center().y),
+            Vec2::splat(14.0),
+        ),
+        color,
+        1.8,
+    );
+    ui.painter().text(
+        Pos2::new(rect.left() + 30.0, rect.center().y),
+        Align2::LEFT_CENTER,
+        label,
+        FontId::proportional(FONT_SMALL),
+        color,
+    );
+    if let Some(hint) = hint {
+        let galley = ui.painter().layout_no_wrap(
+            hint.to_owned(),
+            FontId::monospace(10.0),
+            theme.palette.text_muted,
+        );
+        let badge = Rect::from_center_size(
+            Pos2::new(rect.right() - galley.size().x / 2.0 - 10.0, rect.center().y),
+            galley.size() + Vec2::new(10.0, 4.0),
+        );
+        ui.painter().rect(
+            badge,
+            Rounding::same(5.0),
+            theme.palette.surface_muted,
+            Stroke::new(1.0_f32, theme.palette.border),
+        );
+        ui.painter()
+            .galley(badge.center() - galley.size() / 2.0, galley, color);
+    }
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label));
+    response.clicked()
+}
+
+/// Draws the folder modal and returns the app the user launched from it.
+///
+/// Mirrors the reference `DesktopFolderModal`: two tabs (`Apps & Module` and
+/// `Dateien & Speicherorte`) with their counts, the editable folder name as the heading, the app
+/// tiles with a launch and a remove control, the upload card with the chosen storage location, the
+/// file list and the footer that dissolves the folder or closes the modal. The reference opens the
+/// file details in their own modal (`StorageAssetPreviewModal`); the native shell shows the same
+/// values in a pane inside this modal so a second window cannot cover the folder on a phone
+/// viewport.
+fn folder_modal(
+    ctx: &Context,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    folders: &mut FolderSet,
+    storage: &mut DesktopStorage,
+    outcome: &mut DesktopOutcome,
+) -> Option<AppId> {
+    let folder_id = folders.open_id().map(str::to_owned)?;
+    let Some(folder) = folders.get(&folder_id).cloned() else {
+        folders.close();
+        return None;
+    };
+    let screen = ctx.screen_rect();
+    let width = (screen.width() - 32.0).min(560.0);
+    let mut launch = None;
+    let mut close = false;
+    let mut dissolve = false;
+    let mut remove_app = None;
+    let mut commit_rename = false;
+    let mut upload = false;
+    let mut delete_asset: Option<String> = None;
+    let mut download_asset: Option<String> = None;
+    let mut choose_location = false;
+
+    // Dimmed backdrop, like `bg-black/40 backdrop-blur-md` in the reference modal.
+    egui::Area::new(Id::new("socdof-folder-backdrop"))
+        .order(egui::Order::Tooltip)
+        .fixed_pos(screen.min)
+        .show(ctx, |ui| {
+            let (rect, response) = ui.allocate_exact_size(screen.size(), Sense::click());
+            ui.painter().rect(
+                rect,
+                Rounding::ZERO,
+                with_alpha(Color32::BLACK, 96),
+                Stroke::NONE,
+            );
+            if response.clicked() {
+                close = true;
+            }
+        });
+
+    // The body scrolls inside a bounded height, so the modal also fits a phone viewport.
+    // A phone sheet keeps more room for the footer, because its file rows and details stack
+    // higher than on the desktop viewport.
+    let body_height = if width < 460.0 {
+        (screen.height() - 260.0).max(180.0)
+    } else {
+        (screen.height() - 210.0).max(180.0)
+    };
+    let columns = if width < 460.0 { 3 } else { 4 };
+    let rows = folder.apps().len().div_ceil(columns).max(1);
+    // Estimated content height, so the modal is centred on the first painted frame too.
+    let estimated = match folders.tab() {
+        FolderTab::Files => body_height + 185.0,
+        FolderTab::Apps => 150.0 + 86.0 * rows as f32,
+    };
+    let modal_top = ((screen.center().y - estimated / 2.0).max(screen.top() + 12.0))
+        .min(screen.bottom() - 60.0);
+    egui::Area::new(Id::new("socdof-folder-modal"))
+        .order(egui::Order::Tooltip)
+        .fixed_pos(Pos2::new(screen.center().x - width / 2.0, modal_top))
+        .show(ctx, |ui| {
+            menu_frame(theme).show(ui, |ui| {
+                ui.set_width(width - 12.0);
+                ui.horizontal(|ui| {
+                    let (tile, _) = ui.allocate_exact_size(Vec2::splat(44.0), Sense::hover());
+                    ui.painter().rect(
+                        tile,
+                        Rounding::same(14.0),
+                        with_alpha(theme.accent.base, 30),
+                        Stroke::new(1.0_f32, with_alpha(theme.accent.base, 90)),
+                    );
+                    Icon::Folder.draw(ui.painter(), tile.shrink(10.0), theme.accent.base, 2.0);
+                    ui.add_space(8.0);
+                    if folders.rename_target() == Some(folder_id.as_str()) {
+                        let buffer = folders.rename_buffer_mut();
+                        let field = crate::controls::text_field(
+                            ui,
+                            theme,
+                            focus,
+                            buffer,
+                            texts.get("desktop_folder_name"),
+                            "",
+                            None,
+                        );
+                        if field.response.lost_focus()
+                            && ui.input(|input| input.key_pressed(Key::Enter))
+                        {
+                            commit_rename = true;
+                        }
+                        if modal_icon_button(
+                            ui,
+                            theme,
+                            focus,
+                            Icon::Check,
+                            texts.get("desktop_folder_save_name"),
+                            false,
+                        ) {
+                            commit_rename = true;
+                        }
+                        if modal_icon_button(
+                            ui,
+                            theme,
+                            focus,
+                            Icon::Close,
+                            texts.get("desktop_folder_cancel_rename"),
+                            false,
+                        ) {
+                            folders.cancel_rename();
+                        }
+                    } else if folder_name_button(ui, theme, folder.name()) {
+                        folders.begin_rename(&folder_id);
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if modal_icon_button(
+                            ui,
+                            theme,
+                            focus,
+                            Icon::Close,
+                            texts.get("desktop_folder_close"),
+                            false,
+                        ) {
+                            close = true;
+                        }
+                    });
+                });
+
+                ui.add_space(10.0);
+                let file_count = storage.count_in(&folder_id);
+                let tab = folder_tabs(
+                    ui,
+                    theme,
+                    focus,
+                    texts,
+                    folder.apps().len(),
+                    file_count,
+                    folders.tab(),
+                );
+                if let Some(picked) = tab {
+                    folders.set_tab(picked);
+                }
+
+                ui.add_space(10.0);
+                egui::ScrollArea::vertical()
+                    .id_source(("socdof-folder-body", folder_id.as_str()))
+                    .max_height(body_height)
+                    .show(ui, |ui| {
+                        match folders.tab() {
+                            FolderTab::Apps => {
+                                if folder.apps().is_empty() {
+                                    ui.vertical_centered(|ui| {
+                                        ui.add_space(16.0);
+                                        ui.label(
+                                            RichText::new(texts.get("desktop_folder_empty"))
+                                                .size(FONT_SMALL)
+                                                .color(theme.palette.text_muted),
+                                        );
+                                        ui.add_space(2.0);
+                                        ui.label(
+                                            RichText::new(texts.get("desktop_folder_empty_hint"))
+                                                .size(11.0)
+                                                .color(theme.palette.text_muted),
+                                        );
+                                        ui.add_space(16.0);
+                                    });
+                                } else {
+                                    let item_width = ((width - 40.0) / columns as f32).floor();
+                                    let apps = folder.apps().to_vec();
+                                    egui::ScrollArea::vertical()
+                                        .id_source((
+                                            "socdof-folder-apps-scroll",
+                                            folder_id.as_str(),
+                                        ))
+                                        .max_height(300.0)
+                                        .show(ui, |ui| {
+                                            egui::Grid::new((
+                                                "socdof-folder-apps",
+                                                folder_id.as_str(),
+                                            ))
+                                            .num_columns(columns)
+                                            .spacing([6.0, 8.0])
+                                            .show(
+                                                ui,
+                                                |ui| {
+                                                    for (index, app) in apps.iter().enumerate() {
+                                                        let app = *app;
+                                                        let chrome =
+                                                            crate::chrome::app_chrome(app.as_str());
+                                                        let (tile, response) = ui
+                                                            .allocate_exact_size(
+                                                                Vec2::new(item_width - 6.0, 78.0),
+                                                                Sense::click(),
+                                                            );
+                                                        if response.clicked() {
+                                                            launch = Some(app);
+                                                        }
+                                                        let remove_rect = Rect::from_min_size(
+                                                            Pos2::new(
+                                                                tile.right() - 20.0,
+                                                                tile.top(),
+                                                            ),
+                                                            Vec2::splat(20.0),
+                                                        );
+                                                        let remove_id = Id::new((
+                                                            "socdof-folder-remove",
+                                                            folder_id.as_str(),
+                                                            app.as_str(),
+                                                        ));
+                                                        let remove_response = ui.interact(
+                                                            remove_rect,
+                                                            remove_id,
+                                                            Sense::click(),
+                                                        );
+                                                        let hovered = response.hovered()
+                                                            || remove_response.hovered();
+                                                        if hovered {
+                                                            ui.painter().rect(
+                                                                tile,
+                                                                Rounding::same(RADIUS_CARD),
+                                                                with_alpha(theme.palette.text, 10),
+                                                                Stroke::NONE,
+                                                            );
+                                                        }
+                                                        let glyph = Rect::from_center_size(
+                                                            Pos2::new(
+                                                                tile.center().x,
+                                                                tile.top() + 30.0,
+                                                            ),
+                                                            Vec2::splat(48.0),
+                                                        );
+                                                        crate::tokens::gradient_round_rect(
+                                                            ui.painter(),
+                                                            glyph,
+                                                            15.0,
+                                                            &crate::chrome::tint_stops(chrome),
+                                                        );
+                                                        chrome.icon.draw(
+                                                            ui.painter(),
+                                                            Rect::from_center_size(
+                                                                glyph.center(),
+                                                                Vec2::splat(24.0),
+                                                            ),
+                                                            Color32::WHITE,
+                                                            2.0,
+                                                        );
+                                                        let label =
+                                                            texts.get(chrome.title_key).to_owned();
+                                                        let title_galley = ui.painter().layout(
+                                                            label.clone(),
+                                                            FontId::new(
+                                                                11.5,
+                                                                crate::theme::semibold(),
+                                                            ),
+                                                            theme.palette.text,
+                                                            tile.width() - 8.0,
+                                                        );
+                                                        let title_pos = Pos2::new(
+                                                            tile.center().x
+                                                                - title_galley.size().x / 2.0,
+                                                            tile.bottom()
+                                                                - title_galley.size().y
+                                                                - 8.0,
+                                                        );
+                                                        ui.painter().galley(
+                                                            title_pos,
+                                                            title_galley,
+                                                            theme.palette.text,
+                                                        );
+                                                        // Vom Ordner zurück auf den Desktop, wie der
+                                                        // group-hover-Knopf der Vorlage.
+                                                        if hovered {
+                                                            ui.painter().circle_filled(
+                                                                remove_rect.center(),
+                                                                9.0,
+                                                                with_alpha(
+                                                                    theme.palette.surface_muted,
+                                                                    240,
+                                                                ),
+                                                            );
+                                                            Icon::Close.draw(
+                                                                ui.painter(),
+                                                                remove_rect.shrink(6.0),
+                                                                theme.palette.text_muted,
+                                                                1.6,
+                                                            );
+                                                        }
+                                                        if remove_response.clicked() {
+                                                            remove_app = Some(app);
+                                                        }
+                                                        response.widget_info(|| {
+                                                            WidgetInfo::labeled(
+                                                                WidgetType::Button,
+                                                                label.clone(),
+                                                            )
+                                                        });
+                                                        if (index + 1) % columns == 0 {
+                                                            ui.end_row();
+                                                        }
+                                                    }
+                                                },
+                                            );
+                                        });
+                                }
+                            }
+                            FolderTab::Files => {
+                                if folder_upload_card(ui, theme, texts) {
+                                    upload = true;
+                                }
+
+                                ui.add_space(8.0);
+                                ui.horizontal(|ui| {
+                                    ui.label(
+                                        RichText::new(texts.get("folder_files_location"))
+                                            .size(FONT_SMALL)
+                                            .family(crate::theme::semibold())
+                                            .color(theme.palette.text_muted),
+                                    );
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            if crate::components::button(
+                                                ui,
+                                                theme,
+                                                focus,
+                                                texts.get("folder_files_choose"),
+                                                crate::components::ButtonVariant::Secondary,
+                                            )
+                                            .activated
+                                            {
+                                                choose_location = true;
+                                            }
+                                        },
+                                    );
+                                });
+                                let field = crate::controls::text_field(
+                                    ui,
+                                    theme,
+                                    focus,
+                                    storage.location_mut(),
+                                    "",
+                                    texts.get("folder_files_location_hint"),
+                                    None,
+                                );
+                                if field.response.changed() {
+                                    outcome.storage_changed = true;
+                                }
+                                ui.add_space(8.0);
+                                let assets: Vec<StorageAsset> = storage
+                                    .assets_in(Some(&folder_id))
+                                    .into_iter()
+                                    .cloned()
+                                    .collect();
+                                if assets.is_empty() {
+                                    ui.label(
+                                        RichText::new(texts.get("folder_files_empty"))
+                                            .size(FONT_SMALL)
+                                            .color(theme.palette.text_muted),
+                                    );
+                                } else {
+                                    for asset in &assets {
+                                        let action = asset_row(ui, theme, focus, texts, asset);
+                                        if action.details {
+                                            storage.select(asset.id());
+                                        }
+                                        if action.download {
+                                            download_asset = Some(asset.id().to_owned());
+                                        }
+                                        if action.delete {
+                                            delete_asset = Some(asset.id().to_owned());
+                                        }
+                                    }
+                                }
+                                if let Some(asset) = storage.selected().cloned() {
+                                    ui.add_space(8.0);
+                                    let names: Vec<(String, usize)> = folders
+                                        .folders()
+                                        .iter()
+                                        .map(|entry| (entry.name().to_owned(), entry.apps().len()))
+                                        .collect();
+                                    let (action, link) = storage_details(
+                                        ui, theme, focus, texts, storage, &asset, &names,
+                                    );
+                                    if action.close {
+                                        storage.clear_selection();
+                                    }
+                                    if action.delete {
+                                        if storage.remove(asset.id()) {
+                                            outcome.storage_changed = true;
+                                        }
+                                        storage.clear_selection();
+                                    }
+                                    if action.download && save_asset_copy(&asset) {
+                                        outcome.storage_changed = true;
+                                    }
+                                    if let Some(target) = link {
+                                        storage.link(asset.id(), target.as_deref());
+                                        outcome.storage_changed = true;
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                ui.add_space(12.0);
+                ui.separator();
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    let hint = match folders.tab() {
+                        FolderTab::Apps => texts
+                            .get("folder_files_apps_tip")
+                            .replace("{count}", &folder.apps().len().to_string()),
+                        FolderTab::Files => texts
+                            .get("folder_files_footer")
+                            .replace("{count}", &file_count.to_string()),
+                    };
+                    ui.label(
+                        RichText::new(hint)
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if crate::components::button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("desktop_folder_close"),
+                            crate::components::ButtonVariant::Secondary,
+                        )
+                        .activated
+                        {
+                            close = true;
+                        }
+                        if crate::components::button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("desktop_folder_dissolve"),
+                            crate::components::ButtonVariant::Danger,
+                        )
+                        .activated
+                        {
+                            dissolve = true;
+                        }
+                    });
+                });
+            });
+        });
+
+    if commit_rename {
+        folders.commit_rename();
+    }
+    if let Some(app) = remove_app {
+        folders.remove_app(&folder_id, app);
+    }
+    if upload {
+        outcome.upload_assets = Some(UploadTarget::Folder(folder_id.clone()));
+    }
+    if choose_location {
+        #[cfg(feature = "dialogs")]
+        {
+            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                storage.set_location(path.display().to_string());
+                outcome.storage_changed = true;
+            }
+        }
+    }
+    if let Some(id) = delete_asset {
+        if storage.remove(&id) {
+            outcome.storage_changed = true;
+        }
+    }
+    if let Some(id) = download_asset {
+        let target = storage
+            .assets()
+            .iter()
+            .find(|asset| asset.id() == id)
+            .cloned();
+        if let Some(asset) = target {
+            if save_asset_copy(&asset) {
+                outcome.storage_changed = true;
+            }
+        }
+    }
+    if dissolve {
+        // Files of a dissolved folder stay in the storage, filed on the desktop.
+        let orphans: Vec<String> = storage
+            .assets_in(Some(&folder_id))
+            .into_iter()
+            .map(|asset| asset.id().to_owned())
+            .collect();
+        for id in orphans {
+            storage.link(&id, None);
+        }
+        if folders.dissolve(&folder_id) {
+            outcome.folders_changed = true;
+            outcome.storage_changed = true;
+        }
+    }
+    if close {
+        folders.close();
+    }
+    if launch.is_some() {
+        folders.close();
+    }
+    launch
+}
+
+/// Action picked on one row of the folder file list.
+#[derive(Debug, Clone, Copy, Default)]
+struct AssetRowAction {
+    details: bool,
+    download: bool,
+    delete: bool,
+}
+
+/// Folder name in the modal header with the edit affordance of the reference.
+///
+/// Clicking the name starts the inline rename, like the `Edit3` button next to the title.
+fn folder_name_button(ui: &mut Ui, theme: &Theme, name: &str) -> bool {
+    let galley = ui.painter().layout_no_wrap(
+        name.to_owned(),
+        FontId::new(18.0, crate::theme::semibold()),
+        theme.palette.text,
+    );
+    let (rect, response) =
+        ui.allocate_exact_size(Vec2::new(galley.size().x + 26.0, 26.0), Sense::click());
+    if response.hovered() {
+        ui.painter().rect(
+            Rect::from_min_size(
+                Pos2::new(rect.left() - 6.0, rect.top()),
+                Vec2::new(rect.width() + 12.0, rect.height()),
+            ),
+            Rounding::same(8.0),
+            with_alpha(theme.palette.text, 8),
+            Stroke::NONE,
+        );
+    }
+    ui.painter().galley(
+        Pos2::new(rect.left(), rect.center().y - galley.size().y / 2.0),
+        galley,
+        theme.palette.text,
+    );
+    let pencil = Rect::from_center_size(
+        Pos2::new(rect.right() - 8.0, rect.center().y),
+        Vec2::splat(14.0),
+    );
+    Icon::Edit.draw(
+        ui.painter(),
+        pencil,
+        if response.hovered() {
+            theme.accent.base
+        } else {
+            theme.palette.text_muted
+        },
+        1.4,
+    );
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, name));
+    response.clicked()
+}
+
+/// The two equal tabs of the folder modal with their counts, like the reference pill row.
+///
+/// Returns the tab the user picked in this frame.
+fn folder_tabs(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    apps: usize,
+    files: usize,
+    active: FolderTab,
+) -> Option<FolderTab> {
+    let width = ui.available_width();
+    let (track, _) = ui.allocate_exact_size(Vec2::new(width, 34.0), Sense::hover());
+    ui.painter().rect(
+        track,
+        Rounding::same(12.0),
+        with_alpha(theme.palette.surface_muted, 200),
+        Stroke::NONE,
+    );
+    let mut picked = None;
+    let segment = ((width - 6.0) / 2.0).max(10.0);
+    let entries: [(FolderTab, &str, usize, Option<Icon>); 2] = [
+        (FolderTab::Apps, "folder_tab_apps", apps, None),
+        (
+            FolderTab::Files,
+            "folder_tab_files",
+            files,
+            Some(Icon::HardDrive),
+        ),
+    ];
+    for (index, (tab, key, count, icon)) in entries.into_iter().enumerate() {
+        let rect = Rect::from_min_size(
+            Pos2::new(
+                track.left() + 2.0 + index as f32 * (segment + 2.0),
+                track.top() + 2.0,
+            ),
+            Vec2::new(segment, 30.0),
+        );
+        let id = Id::new(("socdof-folder-tab", index));
+        let focused = focus.register(id);
+        let response = ui.interact(rect, id, Sense::click());
+        let is_active = tab == active;
+        let hovered = response.hovered() || focused;
+        if is_active || hovered {
+            ui.painter().rect(
+                rect,
+                Rounding::same(10.0),
+                if is_active {
+                    theme.palette.surface
+                } else {
+                    with_alpha(theme.palette.surface, 120)
+                },
+                if is_active {
+                    Stroke::new(1.0_f32, with_alpha(theme.palette.border, 200))
+                } else {
+                    Stroke::NONE
+                },
+            );
+        }
+        let color = if is_active {
+            theme.accent.base
+        } else {
+            theme.palette.text_muted
+        };
+        let label = texts.get(key);
+        let badge = count.to_string();
+        let label_galley =
+            ui.painter()
+                .layout_no_wrap(label.to_owned(), FontId::proportional(11.5), color);
+        let badge_galley =
+            ui.painter()
+                .layout_no_wrap(badge.clone(), FontId::proportional(10.0), color);
+        let icon_width = if icon.is_some() { 16.0 } else { 0.0 };
+        let group = icon_width + label_galley.size().x + 6.0 + badge_galley.size().x + 10.0;
+        let mut x = rect.center().x - group / 2.0;
+        if let Some(icon) = icon {
+            icon.draw(
+                ui.painter(),
+                Rect::from_center_size(Pos2::new(x + 6.0, rect.center().y), Vec2::splat(13.0)),
+                color,
+                1.5,
+            );
+            x += 16.0;
+        }
+        ui.painter().galley(
+            Pos2::new(x, rect.center().y - label_galley.size().y / 2.0),
+            label_galley.clone(),
+            color,
+        );
+        x += label_galley.size().x + 6.0;
+        let badge_rect = Rect::from_min_size(
+            Pos2::new(x, rect.center().y - 8.0),
+            Vec2::new(badge_galley.size().x + 10.0, 16.0),
+        );
+        let badge_color = if is_active {
+            theme.accent.base
+        } else {
+            theme.palette.text
+        };
+        ui.painter().rect(
+            badge_rect,
+            Rounding::same(8.0),
+            with_alpha(badge_color, if is_active { 34 } else { 22 }),
+            Stroke::NONE,
+        );
+        ui.painter().text(
+            badge_rect.center(),
+            Align2::CENTER_CENTER,
+            badge,
+            FontId::proportional(10.0),
+            badge_color,
+        );
+        response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, label));
+        if response.clicked() {
+            focus.set_focus(Some(id));
+            picked = Some(tab);
+        }
+    }
+    picked
+}
+
+/// Upload card of the file tab: a dashed drop zone that opens the storage location picker.
+///
+/// The card grows with its wrapped text, so the hint stays inside the dashed border on a phone
+/// viewport as well.
+fn folder_upload_card(ui: &mut Ui, theme: &Theme, texts: &UiTexts) -> bool {
+    let inner = (ui.available_width() - 24.0).max(80.0);
+    let title = ui.painter().layout(
+        texts.get("folder_files_upload_title").to_owned(),
+        FontId::new(12.0, crate::theme::semibold()),
+        theme.palette.text,
+        inner,
+    );
+    let hint = ui.painter().layout(
+        texts.get("folder_files_upload_hint").to_owned(),
+        FontId::proportional(11.0),
+        theme.palette.text_muted,
+        inner,
+    );
+    let height = (56.0 + title.size().y + 2.0 + hint.size().y).max(84.0);
+    let (rect, response) =
+        ui.allocate_exact_size(Vec2::new(ui.available_width(), height), Sense::click());
+    let hovered = response.hovered();
+    ui.painter().rect(
+        rect,
+        Rounding::same(RADIUS_CARD),
+        with_alpha(theme.accent.base, if hovered { 18 } else { 8 }),
+        Stroke::new(
+            1.5_f32,
+            with_alpha(theme.accent.base, if hovered { 160 } else { 70 }),
+        ),
+    );
+    Icon::Upload.draw(
+        ui.painter(),
+        Rect::from_center_size(
+            Pos2::new(rect.center().x, rect.top() + 24.0),
+            Vec2::splat(26.0),
+        ),
+        theme.accent.base,
+        1.8,
+    );
+    let title_top = rect.top() + 42.0;
+    ui.painter().galley(
+        Pos2::new(rect.center().x - title.size().x / 2.0, title_top),
+        title.clone(),
+        theme.palette.text,
+    );
+    ui.painter().galley(
+        Pos2::new(
+            rect.center().x - hint.size().x / 2.0,
+            title_top + title.size().y + 2.0,
+        ),
+        hint,
+        theme.palette.text_muted,
+    );
+    response.widget_info(|| {
+        WidgetInfo::labeled(WidgetType::Button, texts.get("folder_files_upload_title"))
+    });
+    response.clicked()
+}
+
+/// One small square action button of a file row.
+struct AssetButton<'a> {
+    rect: Rect,
+    id: Id,
+    icon: Icon,
+    label: &'a str,
+    danger: bool,
+}
+
+/// Small square action button of a file row.
+fn asset_action_button(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    button: AssetButton<'_>,
+) -> bool {
+    let focused = focus.register(button.id);
+    let response = ui.interact(button.rect, button.id, Sense::click());
+    if response.clicked() {
+        focus.set_focus(Some(button.id));
+    }
+    let hovered = response.hovered() || focused;
+    let highlight = if button.danger {
+        theme.palette.danger
+    } else {
+        theme.accent.base
+    };
+    if hovered {
+        ui.painter().rect(
+            button.rect,
+            Rounding::same(7.0),
+            with_alpha(highlight, 24),
+            Stroke::NONE,
+        );
+    }
+    button.icon.draw(
+        ui.painter(),
+        button.rect.shrink(6.0),
+        if hovered {
+            highlight
+        } else {
+            theme.palette.text_muted
+        },
+        1.6,
+    );
+    response.widget_info(|| WidgetInfo::labeled(WidgetType::Button, button.label));
+    response.clicked()
+}
+
+/// One row of the folder file list with the details, download and delete controls.
+fn asset_row(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    asset: &StorageAsset,
+) -> AssetRowAction {
+    let mut action = AssetRowAction::default();
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 44.0), Sense::hover());
+    ui.painter().rect(
+        rect,
+        Rounding::same(RADIUS_CONTROL),
+        with_alpha(theme.palette.surface_muted, 90),
+        Stroke::new(1.0_f32, with_alpha(theme.palette.border, 160)),
+    );
+    let glyph = Rect::from_center_size(
+        Pos2::new(rect.left() + 22.0, rect.center().y),
+        Vec2::splat(28.0),
+    );
+    ui.painter().rect(
+        glyph,
+        Rounding::same(9.0),
+        with_alpha(theme.accent.base, 22),
+        Stroke::NONE,
+    );
+    asset
+        .category()
+        .icon()
+        .draw(ui.painter(), glyph.shrink(7.0), theme.accent.base, 1.6);
+
+    // A long name is shortened with an ellipsis, so it stays on one line next to the row
+    // actions and above the meta line.
+    let name_width = (rect.width() - 160.0).max(60.0);
+    let font = FontId::new(12.0, crate::theme::semibold());
+    let mut label = asset.name().to_owned();
+    let mut galley = ui
+        .painter()
+        .layout_no_wrap(label.clone(), font.clone(), theme.palette.text);
+    while galley.size().x > name_width && label.chars().count() > 4 {
+        label.pop();
+        galley = ui.painter().layout_no_wrap(
+            format!("{}…", label.trim_end()),
+            font.clone(),
+            theme.palette.text,
+        );
+    }
+    ui.painter().galley(
+        Pos2::new(rect.left() + 42.0, rect.top() + 8.0),
+        galley,
+        theme.palette.text,
+    );
+    let meta = format!(
+        "{} · {}",
+        asset.size_label(),
+        socdof_core::date::format_date(asset.created_at())
+    );
+    ui.painter().text(
+        Pos2::new(rect.left() + 42.0, rect.bottom() - 11.0),
+        Align2::LEFT_CENTER,
+        meta,
+        FontId::proportional(10.0),
+        theme.palette.text_muted,
+    );
+
+    let button_top = rect.center().y;
+    // Left to right: details, download, delete, like the reference row.
+    let first_rect = Rect::from_center_size(
+        Pos2::new(rect.right() - 70.0, button_top),
+        Vec2::splat(24.0),
+    );
+    let middle_rect = Rect::from_center_size(
+        Pos2::new(rect.right() - 44.0, button_top),
+        Vec2::splat(24.0),
+    );
+    let last_rect = Rect::from_center_size(
+        Pos2::new(rect.right() - 18.0, button_top),
+        Vec2::splat(24.0),
+    );
+    action.details = asset_action_button(
+        ui,
+        theme,
+        focus,
+        AssetButton {
+            rect: first_rect,
+            id: Id::new(("socdof-asset-details", asset.id())),
+            icon: Icon::Info,
+            label: texts.get("folder_files_details"),
+            danger: false,
+        },
+    );
+    action.download = asset_action_button(
+        ui,
+        theme,
+        focus,
+        AssetButton {
+            rect: middle_rect,
+            id: Id::new(("socdof-asset-download", asset.id())),
+            icon: Icon::Download,
+            label: texts.get("folder_files_download"),
+            danger: false,
+        },
+    );
+    action.delete = asset_action_button(
+        ui,
+        theme,
+        focus,
+        AssetButton {
+            rect: last_rect,
+            id: Id::new(("socdof-asset-delete", asset.id())),
+            icon: Icon::Trash,
+            label: texts.get("folder_files_delete"),
+            danger: true,
+        },
+    );
+
+    action
+}
+
+/// Actions picked in the file details pane.
+#[derive(Debug, Clone, Copy, Default)]
+struct DetailsAction {
+    close: bool,
+    download: bool,
+    delete: bool,
+}
+
+/// Details of one file, following `StorageAssetPreviewModal`.
+///
+/// The reference opens the details in a second modal; the native shell keeps the same content in a
+/// pane of the folder modal so a phone viewport never stacks two dialogs. The fields, the folder
+/// link selector and the download, delete and close actions are the reference ones.
+fn storage_details(
+    ui: &mut Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    storage: &mut DesktopStorage,
+    asset: &StorageAsset,
+    folder_names: &[(String, usize)],
+) -> (DetailsAction, Option<Option<String>>) {
+    let mut action = DetailsAction::default();
+    let mut link = None;
+    let frame = egui::Frame::none()
+        .fill(with_alpha(theme.palette.surface_muted, 120))
+        .stroke(Stroke::new(1.0_f32, theme.palette.border))
+        .rounding(Rounding::same(RADIUS_CARD))
+        .inner_margin(egui::Margin::same(10.0));
+    frame.show(ui, |ui| {
+        ui.horizontal(|ui| {
+            let (glyph, _) = ui.allocate_exact_size(Vec2::splat(32.0), Sense::hover());
+            ui.painter().rect(
+                glyph,
+                Rounding::same(10.0),
+                with_alpha(asset.category().tint(), 30),
+                Stroke::NONE,
+            );
+            asset.category().icon().draw(
+                ui.painter(),
+                glyph.shrink(8.0),
+                asset.category().tint(),
+                1.6,
+            );
+            ui.add_space(6.0);
+            ui.vertical(|ui| {
+                ui.label(
+                    RichText::new(asset.name())
+                        .size(12.0)
+                        .family(crate::theme::semibold())
+                        .color(theme.palette.text),
+                );
+                ui.label(
+                    RichText::new(format!(
+                        "{} • {}",
+                        asset.size_label(),
+                        texts.get(asset.category().title_key()).to_uppercase()
+                    ))
+                    .size(10.0)
+                    .color(theme.palette.text_muted),
+                );
+            });
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if modal_icon_button(
+                    ui,
+                    theme,
+                    focus,
+                    Icon::Close,
+                    texts.get("folder_files_details_close"),
+                    false,
+                ) {
+                    action.close = true;
+                }
+                if modal_icon_button(
+                    ui,
+                    theme,
+                    focus,
+                    Icon::Trash,
+                    texts.get("folder_files_delete"),
+                    true,
+                ) {
+                    action.delete = true;
+                }
+                if modal_icon_button(
+                    ui,
+                    theme,
+                    focus,
+                    Icon::Download,
+                    texts.get("folder_files_download"),
+                    false,
+                ) {
+                    action.download = true;
+                }
+            });
+        });
+        ui.add_space(6.0);
+        // Storage location and date sit side by side, like the two metadata cards of the
+        // reference details modal.
+        let width = ui.available_width();
+        let column = ((width - 8.0) * 0.5).max(120.0);
+        ui.horizontal_top(|ui| {
+            for (title, value, mono) in [
+                (
+                    texts.get("folder_files_details_origin"),
+                    if asset.location().is_empty() {
+                        texts.get("folder_files_location_default").to_owned()
+                    } else {
+                        asset.location().to_owned()
+                    },
+                    true,
+                ),
+                (
+                    texts.get("folder_files_details_added"),
+                    socdof_core::date::format_date(asset.created_at()),
+                    false,
+                ),
+            ] {
+                ui.allocate_ui_with_layout(
+                    Vec2::new(column, 0.0),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        ui.set_width(column);
+                        ui.label(
+                            RichText::new(title)
+                                .size(10.0)
+                                .family(crate::theme::semibold())
+                                .color(theme.palette.text_muted),
+                        );
+                        let mut text = RichText::new(value).size(10.0);
+                        if mono {
+                            text = text.monospace();
+                        }
+                        ui.add(egui::Label::new(text.color(theme.palette.text)).wrap(true));
+                    },
+                );
+            }
+        });
+        ui.add_space(6.0);
+        let link_frame = egui::Frame::none()
+            .fill(with_alpha(theme.accent.base, 16))
+            .stroke(Stroke::new(1.0_f32, with_alpha(theme.accent.base, 70)))
+            .rounding(Rounding::same(RADIUS_CONTROL))
+            .inner_margin(egui::Margin::same(8.0));
+        link_frame.show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal(|ui| {
+                let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
+                Icon::Folder.draw(ui.painter(), icon_rect, theme.accent.base, 1.5);
+                ui.add_space(2.0);
+                ui.label(
+                    RichText::new(texts.get("folder_files_link_title"))
+                        .size(11.0)
+                        .family(crate::theme::semibold())
+                        .color(theme.palette.text),
+                );
+            });
+            ui.label(
+                RichText::new(texts.get("folder_files_link_hint"))
+                    .size(10.0)
+                    .color(theme.palette.text_muted),
+            );
+            let mut option_labels: Vec<String> =
+                vec![texts.get("folder_files_details_none").to_owned()];
+            option_labels.extend(
+                folder_names
+                    .iter()
+                    .map(|(name, apps)| format!("{name} ({apps} Apps)")),
+            );
+            let label_refs: Vec<&str> = option_labels.iter().map(String::as_str).collect();
+            let stored = asset
+                .folder_id()
+                .and_then(|id| folder_names.iter().position(|(name, _)| name == id))
+                .map(|position| position + 1)
+                .unwrap_or(0);
+            let mut selected = stored;
+            let popup = storage.popup_mut();
+            if crate::controls::select(
+                ui,
+                theme,
+                focus,
+                popup,
+                "socdof-asset-folder",
+                &mut selected,
+                &label_refs,
+            ) && selected != stored
+            {
+                link = Some(if selected == 0 {
+                    None
+                } else {
+                    Some(folder_names[selected - 1].0.clone())
+                });
+            }
+        });
+    });
+    (action, link)
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn removing_a_desktop_refiles_its_windows() {
+        let mut task_view = crate::shell::TaskView::new();
+        task_view.add();
+        task_view.select("desktop-2");
+        let mut windows = WindowManager::new();
+        windows.set_current_desktop("desktop-2");
+        let rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0));
+        windows.open(Window::new(AppId::new("products"), "Produkte", rect), 1_000);
+        windows.open(Window::new(AppId::new("calendar"), "Kalender", rect), 1_000);
+        assert_eq!(windows.windows_on("desktop-2").len(), 2);
+
+        assert!(delete_virtual_desktop(
+            &mut task_view,
+            &mut windows,
+            "desktop-2"
+        ));
+        assert_eq!(task_view.desktops().len(), 2);
+        assert_eq!(task_view.active_id(), "desktop-1");
+        assert!(windows
+            .windows_on("desktop-1")
+            .contains(&AppId::new("products")));
+        assert!(windows
+            .windows_on("desktop-1")
+            .contains(&AppId::new("calendar")));
+        assert_eq!(windows.active(), Some(AppId::new("calendar")));
+        // The last desktop stays, so two removals leave the strip with one card.
+        assert!(delete_virtual_desktop(
+            &mut task_view,
+            &mut windows,
+            "desktop-1"
+        ));
+        assert_eq!(task_view.desktops().len(), 1);
+        assert!(!delete_virtual_desktop(
+            &mut task_view,
+            &mut windows,
+            "desktop-3"
+        ));
+    }
+
+    #[test]
+    fn windows_stay_on_their_virtual_desktop() {
+        let mut windows = WindowManager::new();
+        windows.set_current_desktop("desktop-1");
+        let rect = Rect::from_min_size(Pos2::ZERO, Vec2::new(800.0, 600.0));
+        windows.open(Window::new(AppId::new("contacts"), "Kontakte", rect), 1_000);
+        windows.set_current_desktop("desktop-2");
+        windows.open(
+            Window::new(AppId::new("invoices"), "Rechnungen", rect),
+            1_000,
+        );
+        assert_eq!(
+            windows.windows_on("desktop-1"),
+            vec![AppId::new("contacts")]
+        );
+        assert_eq!(
+            windows.windows_on("desktop-2"),
+            vec![AppId::new("invoices")]
+        );
+
+        // Switching desktops focuses the top window of that desktop, or nothing.
+        assert_eq!(windows.focus_on("desktop-1"), Some(AppId::new("contacts")));
+        assert_eq!(windows.active(), Some(AppId::new("contacts")));
+        assert_eq!(windows.focus_on("desktop-3"), None);
+        assert_eq!(windows.active(), None);
+
+        // `all` and a missing filing show a window on every desktop.
+        assert!(windows.move_to_desktop(AppId::new("contacts"), Some("all".to_string())));
+        assert_eq!(
+            windows.windows_on("desktop-3"),
+            vec![AppId::new("contacts")]
+        );
+        assert!(windows.move_to_desktop(AppId::new("invoices"), None));
+        assert!(windows
+            .windows_on("desktop-3")
+            .contains(&AppId::new("invoices")));
+    }
+
     use super::*;
 
     #[test]
@@ -2953,6 +6730,94 @@ mod tests {
         assert_eq!(grid.icons()[0].cell(), (0, 0));
         assert_eq!(grid.icons()[1].cell(), (0, 1));
     }
+    #[test]
+    fn folders_group_apps_and_dissolve_returns_them_to_the_desktop() {
+        let mut folders = FolderSet::new();
+        let work = folders.create("Arbeit", vec![AppId::new("contacts")], (1, 0));
+        assert_eq!(folders.len(), 1);
+        assert!(folders.contains(AppId::new("contacts")));
+        assert!(folders.add_app(&work, AppId::new("invoices")));
+        assert_eq!(folders.get(&work).expect("folder").apps().len(), 2);
+
+        // Adding an app to another folder moves it out of the first one.
+        let private = folders.create("Privat", Vec::new(), (2, 0));
+        assert!(folders.add_app(&private, AppId::new("invoices")));
+        assert_eq!(folders.get(&work).expect("folder").apps().len(), 1);
+
+        // Removing the last app dissolves the folder, like the reference.
+        assert!(folders.remove_app(&private, AppId::new("invoices")));
+        assert!(folders.get(&private).is_none());
+
+        assert!(folders.dissolve(&work));
+        assert!(!folders.contains(AppId::new("contacts")));
+        assert!(folders.is_empty());
+    }
+
+    #[test]
+    fn folder_names_are_trimmed_and_bounded() {
+        let mut folders = FolderSet::new();
+        let id = folders.create("   ", Vec::new(), (0, 0));
+        assert_eq!(folders.get(&id).expect("folder").name(), "Ordner");
+        assert!(!folders.rename(&id, "   "));
+        assert!(folders.rename(&id, "  Steuer  "));
+        assert_eq!(folders.get(&id).expect("folder").name(), "Steuer");
+        let long = "x".repeat(120);
+        assert!(folders.rename(&id, &long));
+        assert_eq!(
+            folders.get(&id).expect("folder").name().chars().count(),
+            FOLDER_NAME_MAX
+        );
+    }
+
+    #[test]
+    fn folder_rename_flow_commits_and_cancels() {
+        let mut folders = FolderSet::new();
+        let id = folders.create("Ordner", Vec::new(), (0, 0));
+        folders.begin_rename(&id);
+        assert_eq!(folders.rename_target(), Some(id.as_str()));
+        folders.rename_buffer_mut().push_str(" neu");
+        assert!(folders.commit_rename());
+        assert_eq!(folders.get(&id).expect("folder").name(), "Ordner neu");
+        assert!(folders.rename_target().is_none());
+
+        folders.begin_rename(&id);
+        folders.rename_buffer_mut().push_str(" verworfen");
+        folders.cancel_rename();
+        assert_eq!(folders.get(&id).expect("folder").name(), "Ordner neu");
+    }
+
+    #[test]
+    fn persisted_folders_skip_unknown_apps_and_keep_their_cell() {
+        let folder = DesktopFolder::from_persisted(
+            "folder-1",
+            "Alt",
+            &["contacts".to_string(), "gone".to_string()],
+            (1, 5),
+        );
+        assert_eq!(folder.apps(), &[AppId::new("contacts")]);
+        assert_eq!(folder.cell(), (1, 5));
+        assert!(known_app("gone").is_none());
+        assert_eq!(known_app("contacts"), Some(AppId::new("contacts")));
+    }
+
+    #[test]
+    fn folder_slots_follow_the_grid_reading_order() {
+        assert_eq!(FolderSet::slot_cell(0), (0, 0));
+        assert_eq!(FolderSet::slot_cell(1), (0, 1));
+        assert_eq!(FolderSet::slot_cell(ICON_ROWS), (1, 0));
+    }
+
+    #[test]
+    fn a_new_folder_skips_the_cells_of_the_folders_still_on_the_desktop() {
+        let mut folders = FolderSet::new();
+        folders.create("Erste", Vec::new(), (0, 1));
+        folders.create("Zweite", Vec::new(), (0, 2));
+        assert_eq!(folders.free_cell(1), (0, 3));
+        folders.dissolve("folder-1");
+        // The free cell of the dissolved folder is reused once nothing occupies it.
+        assert_eq!(folders.free_cell(1), (0, 1));
+    }
+
     use crate::shell::Onboarding;
     use socdof_core::domain::settings::Language;
 
@@ -3488,5 +7353,169 @@ mod tests {
         assert!(rendered_apps.contains(&"invoices"));
         assert!(!windows.is_open(AppId::new("contacts")));
         assert!(windows.is_open(AppId::new("invoices")));
+    }
+
+    #[test]
+    fn asset_categories_follow_the_file_extension() {
+        assert_eq!(AssetCategory::from_name("Beleg.PDF"), AssetCategory::Pdf);
+        assert_eq!(AssetCategory::from_name("foto.jpeg"), AssetCategory::Image);
+        assert_eq!(
+            AssetCategory::from_name("tabelle.xlsx"),
+            AssetCategory::Spreadsheet
+        );
+        assert_eq!(
+            AssetCategory::from_name("notiz.md"),
+            AssetCategory::Document
+        );
+        assert_eq!(
+            AssetCategory::from_name("archiv.zip"),
+            AssetCategory::Archive
+        );
+        assert_eq!(AssetCategory::from_name("ton.mp3"), AssetCategory::Audio);
+        assert_eq!(AssetCategory::from_name("clip.mp4"), AssetCategory::Video);
+        assert_eq!(AssetCategory::from_name("main.ts"), AssetCategory::Code);
+        assert_eq!(AssetCategory::from_name("main.rs"), AssetCategory::Other);
+        assert_eq!(
+            AssetCategory::from_name("ohne-endung"),
+            AssetCategory::Other
+        );
+    }
+
+    #[test]
+    fn asset_category_slugs_round_trip() {
+        for category in [
+            AssetCategory::Document,
+            AssetCategory::Image,
+            AssetCategory::Spreadsheet,
+            AssetCategory::Pdf,
+            AssetCategory::Archive,
+            AssetCategory::Audio,
+            AssetCategory::Video,
+            AssetCategory::Code,
+            AssetCategory::Other,
+        ] {
+            assert_eq!(AssetCategory::from_slug(category.slug()), category);
+        }
+        assert_eq!(AssetCategory::from_slug("unknown"), AssetCategory::Other);
+    }
+
+    #[test]
+    fn file_sizes_use_the_reference_units() {
+        assert_eq!(format_size(0), "0 B");
+        assert_eq!(format_size(512), "512 B");
+        assert_eq!(format_size(2048), "2.0 KB");
+        assert_eq!(format_size(5 * 1024 * 1024), "5.0 MB");
+        assert_eq!(format_size(3 * 1024 * 1024 * 1024), "3.0 GB");
+    }
+
+    #[test]
+    fn storage_keeps_files_per_folder() {
+        let mut storage = DesktopStorage::new();
+        assert_eq!(storage.location(), "");
+        storage.set_location("/home/belege");
+        assert_eq!(storage.location(), "/home/belege");
+        storage.add(StorageAsset::new(
+            "a",
+            "Beleg.pdf",
+            2048,
+            "/home/belege",
+            Some("f1".to_owned()),
+            1_700_000_000_000,
+        ));
+        storage.add(StorageAsset::new(
+            "b",
+            "Foto.png",
+            4096,
+            "/home/belege",
+            None,
+            1_700_000_000_001,
+        ));
+        assert_eq!(storage.assets().len(), 2);
+        assert_eq!(storage.count_in("f1"), 1);
+        assert_eq!(storage.assets_in(Some("f1")).len(), 1);
+        assert_eq!(storage.assets_in(None).len(), 1);
+        let filed = storage
+            .assets()
+            .iter()
+            .find(|asset| asset.id() == "a")
+            .expect("filed asset");
+        assert_eq!(filed.size_label(), "2.0 KB");
+        assert!(storage.link("b", Some("f1")));
+        assert_eq!(storage.count_in("f1"), 2);
+        assert!(!storage.link("missing", Some("f1")));
+        storage.select("a");
+        assert_eq!(
+            storage.selected().map(StorageAsset::name),
+            Some("Beleg.pdf")
+        );
+        storage.clear_selection();
+        assert!(storage.selected().is_none());
+        assert!(storage.remove("a"));
+        assert!(!storage.remove("a"));
+        assert_eq!(storage.assets().len(), 1);
+    }
+
+    #[test]
+    fn storage_restore_reads_persisted_files() {
+        let mut storage = DesktopStorage::new();
+        storage.add(StorageAsset::new("old", "alt.pdf", 10, "/tmp", None, 1));
+        storage.select("old");
+        storage.restore(
+            vec![
+                StorageAsset::from_persisted(
+                    "a",
+                    "Beleg.pdf",
+                    2048,
+                    "pdf",
+                    "/home/belege",
+                    Some("f1".to_owned()),
+                    1_700,
+                ),
+                StorageAsset::from_persisted(
+                    "b",
+                    "Foto.png",
+                    4096,
+                    "image",
+                    "/home/fotos",
+                    None,
+                    1_701,
+                ),
+            ],
+            "/home/belege",
+        );
+        assert_eq!(storage.assets().len(), 2);
+        assert_eq!(storage.location(), "/home/belege");
+        assert!(storage.selected().is_none());
+        assert_eq!(storage.assets()[0].category(), AssetCategory::Pdf);
+        assert_eq!(storage.assets()[1].category(), AssetCategory::Image);
+        assert_eq!(storage.assets()[1].folder_id(), None);
+    }
+
+    #[test]
+    fn arranging_icons_refills_the_left_columns() {
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("pos"), "Kasse", Icon::User),
+            DesktopIcon::new(AppId::new("editor"), "Editor", Icon::User),
+        ]);
+        assert!(grid.place_at(AppId::new("editor"), Pos2::new(600.0, 300.0)));
+        assert_eq!(grid.arrange(), 2);
+        assert_eq!(grid.icons()[0].cell(), (0, 0));
+        assert_eq!(grid.icons()[1].cell(), (0, 1));
+        assert!(grid.icons().iter().all(|icon| icon.pos().is_none()));
+    }
+
+    #[test]
+    fn snapping_moves_free_icons_into_their_cell() {
+        let area = Rect::from_min_size(Pos2::ZERO, Vec2::new(900.0, 760.0));
+        let mut grid = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("pos"), "Kasse", Icon::User),
+            DesktopIcon::new(AppId::new("editor"), "Editor", Icon::User),
+        ]);
+        let cell = IconGrid::cell_rect(area, (0, 2));
+        assert!(grid.place_at(AppId::new("editor"), cell.min + Vec2::new(3.0, 4.0)));
+        assert!(grid.snap_to_grid(area));
+        assert_eq!(grid.icons()[1].cell(), (0, 2));
+        assert!(grid.icons()[1].pos().is_none());
+        assert!(!grid.snap_to_grid(area));
     }
 }

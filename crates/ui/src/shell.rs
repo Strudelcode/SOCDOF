@@ -583,16 +583,82 @@ impl OverflowMenu {
     }
 }
 
-/// Task view overlay listing the open windows.
-#[derive(Debug, Clone, Default)]
+/// One virtual desktop of the task view.
+///
+/// Mirrors the reference `VirtualDesktop` type: a stable id (`desktop-<n>`), the name shown on the
+/// strip card and nothing else that the desktop view needs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VirtualDesktop {
+    id: String,
+    name: String,
+}
+
+impl VirtualDesktop {
+    /// Builds a desktop from an id and its display name.
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+        }
+    }
+
+    /// Stable identifier.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Name on the strip card.
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Short label of the reference "move to" buttons (`Desktop 2` becomes `D2`).
+    pub fn short_name(&self) -> String {
+        self.name.replace("Desktop ", "D")
+    }
+}
+
+/// Task view overlay with the virtual desktops and the window overview.
+///
+/// The reference keeps the desktops in `DesktopWindowWorkspace` and shows them in `TaskViewModal`;
+/// the native shell keeps the same state here, so the strip, its rename editor and the active
+/// desktop survive a frame and are persisted with the account layout.
+#[derive(Debug, Clone)]
 pub struct TaskView {
     open: bool,
+    desktops: Vec<VirtualDesktop>,
+    active: String,
+    editing: Option<String>,
+    rename: String,
+    rename_focus: bool,
+}
+
+impl Default for TaskView {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskView {
-    /// Builds a closed task view.
+    /// Builds a closed task view with the two reference desktops.
     pub fn new() -> Self {
-        Self { open: false }
+        let desktops: Vec<VirtualDesktop> =
+            socdof_core::settings_service::default_virtual_desktops()
+                .into_iter()
+                .map(|desktop| VirtualDesktop::new(desktop.id, desktop.name))
+                .collect();
+        let active = desktops
+            .first()
+            .map(|desktop| desktop.id.clone())
+            .unwrap_or_else(|| "desktop-1".to_string());
+        Self {
+            open: false,
+            desktops,
+            active,
+            editing: None,
+            rename: String::new(),
+            rename_focus: false,
+        }
     }
 
     /// Whether the overview is visible.
@@ -605,14 +671,193 @@ impl TaskView {
         self.open = true;
     }
 
-    /// Hides the overview.
+    /// Hides the overview and stops an inline rename.
     pub fn close(&mut self) {
         self.open = false;
+        self.editing = None;
     }
 
     /// Toggles the overview.
     pub fn toggle(&mut self) {
-        self.open = !self.open;
+        if self.open {
+            self.close();
+        } else {
+            self.open();
+        }
+    }
+
+    /// Desktops in strip order.
+    pub fn desktops(&self) -> &[VirtualDesktop] {
+        &self.desktops
+    }
+
+    /// Id of the active desktop.
+    pub fn active_id(&self) -> &str {
+        &self.active
+    }
+
+    /// Whether a desktop id is the active one.
+    pub fn is_active(&self, id: &str) -> bool {
+        self.active == id
+    }
+
+    /// Whether the desktop id exists.
+    pub fn has_desktop(&self, id: &str) -> bool {
+        self.desktops.iter().any(|desktop| desktop.id == id)
+    }
+
+    /// Makes a desktop active. Returns whether the id existed.
+    pub fn select(&mut self, id: &str) -> bool {
+        if !self.has_desktop(id) {
+            return false;
+        }
+        self.active = id.to_owned();
+        self.editing = None;
+        self.open = false;
+        true
+    }
+
+    /// Adds a desktop named like the reference (`Desktop <count + 1>`) and makes it active.
+    pub fn add(&mut self) -> Option<String> {
+        if self.desktops.len() >= socdof_core::settings_service::DESKTOP_MAX_VIRTUAL_DESKTOPS {
+            return None;
+        }
+        // The reference numbers the new desktop by the current count, not by the highest id.
+        let name = format!("Desktop {}", self.desktops.len() + 1);
+        let id = format!("desktop-{}", self.desktops.len() + 1);
+        let id = if self.has_desktop(&id) {
+            let mut next = self.desktops.len() + 1;
+            loop {
+                let candidate = format!("desktop-{next}");
+                if !self.has_desktop(&candidate) {
+                    break candidate;
+                }
+                next += 1;
+            }
+        } else {
+            id
+        };
+        self.desktops.push(VirtualDesktop::new(id.clone(), name));
+        self.active = id.clone();
+        self.editing = None;
+        self.open = false;
+        Some(id)
+    }
+
+    /// Removes a desktop. Returns the desktop that takes over when the active one is removed.
+    ///
+    /// The reference keeps at least one desktop and never removes the last card.
+    pub fn remove(&mut self, id: &str) -> Option<String> {
+        if self.desktops.len() <= 1 {
+            return None;
+        }
+        let position = self.desktops.iter().position(|desktop| desktop.id == id)?;
+        self.desktops.remove(position);
+        if self.editing.as_deref() == Some(id) {
+            self.editing = None;
+        }
+        let fallback = self.desktops[0].id.clone();
+        if self.active == id {
+            self.active = fallback.clone();
+        }
+        Some(fallback)
+    }
+
+    /// Renames a desktop; blank names are ignored like the reference.
+    pub fn rename(&mut self, id: &str, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() {
+            return false;
+        }
+        let Some(desktop) = self.desktops.iter_mut().find(|desktop| desktop.id == id) else {
+            return false;
+        };
+        desktop.name = name
+            .chars()
+            .take(socdof_core::settings_service::VIRTUAL_DESKTOP_NAME_MAX)
+            .collect();
+        true
+    }
+
+    /// Starts the inline rename of a desktop.
+    pub fn begin_rename(&mut self, id: &str) -> bool {
+        let Some(desktop) = self.desktops.iter().find(|desktop| desktop.id == id) else {
+            return false;
+        };
+        self.rename = desktop.name.clone();
+        self.editing = Some(id.to_owned());
+        self.rename_focus = true;
+        true
+    }
+
+    /// Whether the rename editor still has to take the keyboard focus.
+    pub fn take_rename_focus(&mut self) -> bool {
+        std::mem::take(&mut self.rename_focus)
+    }
+
+    /// Desktop whose name is being edited.
+    pub fn rename_target(&self) -> Option<&str> {
+        self.editing.as_deref()
+    }
+
+    /// Buffer of the inline rename.
+    pub fn rename_buffer_mut(&mut self) -> &mut String {
+        &mut self.rename
+    }
+
+    /// Applies the inline rename.
+    pub fn commit_rename(&mut self) -> bool {
+        let Some(id) = self.editing.clone() else {
+            return false;
+        };
+        let buffer = self.rename.clone();
+        let renamed = self.rename(&id, &buffer);
+        self.editing = None;
+        renamed
+    }
+
+    /// Drops the inline rename.
+    pub fn cancel_rename(&mut self) {
+        self.editing = None;
+    }
+
+    /// Switches to the previous or next desktop, wrapping around like the reference shortcut.
+    pub fn step(&mut self, forward: bool) -> Option<String> {
+        if self.desktops.len() < 2 {
+            return None;
+        }
+        let current = self
+            .desktops
+            .iter()
+            .position(|desktop| desktop.id == self.active)
+            .unwrap_or(0);
+        let next = if forward {
+            (current + 1) % self.desktops.len()
+        } else {
+            (current + self.desktops.len() - 1) % self.desktops.len()
+        };
+        let id = self.desktops[next].id.clone();
+        self.active = id.clone();
+        Some(id)
+    }
+
+    /// Replaces the desktops from a saved layout, keeping a sane active desktop.
+    pub fn restore(&mut self, desktops: impl IntoIterator<Item = (String, String)>, active: &str) {
+        let restored: Vec<VirtualDesktop> = desktops
+            .into_iter()
+            .map(|(id, name)| VirtualDesktop::new(id, name))
+            .collect();
+        if restored.is_empty() {
+            *self = Self::new();
+            return;
+        }
+        self.desktops = restored;
+        self.active = if self.has_desktop(active) {
+            active.to_owned()
+        } else {
+            self.desktops[0].id.clone()
+        };
+        self.editing = None;
     }
 }
 
@@ -639,6 +884,10 @@ pub struct ShellState {
     pub overflow: OverflowMenu,
     /// Clock settings of the company profile (date format, seconds, time zone).
     pub clock: crate::desktop::ClockSettings,
+    /// Desktop folders that group app icons.
+    pub folders: crate::desktop::FolderSet,
+    /// Files filed on the desktop and its folders, plus the upload location.
+    pub storage: crate::desktop::DesktopStorage,
 }
 
 impl ShellState {
@@ -655,6 +904,8 @@ impl ShellState {
             task_view: TaskView::new(),
             overflow: OverflowMenu::new(),
             clock: crate::desktop::ClockSettings::default(),
+            folders: crate::desktop::FolderSet::new(),
+            storage: crate::desktop::DesktopStorage::new(),
         }
     }
 
@@ -670,6 +921,11 @@ impl ShellState {
     /// Dismisses the highest-priority transient overlay without disturbing other shell state.
     /// First-run onboarding is intentionally modal and is not dismissed by Escape.
     pub fn dismiss_top_overlay(&mut self) -> bool {
+        if self.task_view.rename_target().is_some() {
+            // `Escape` in the inline editor only drops the rename, like the reference input.
+            self.task_view.cancel_rename();
+            return true;
+        }
         if self.task_view.is_open() {
             self.task_view.close();
         } else if self.palette.is_open() {
@@ -694,6 +950,7 @@ impl ShellState {
             || self.tray.is_open()
             || self.task_view.is_open()
             || self.overflow.is_open()
+            || self.folders.overlay_open()
     }
 
     /// Opens the start menu and closes the other overlays.
@@ -1665,5 +1922,97 @@ mod start_power_tests {
         assert_eq!(PowerAction::Lock.action(), ShellAction::Lock);
         assert_eq!(PowerAction::SignOut.action(), ShellAction::SignOut);
         assert_eq!(PowerAction::Quit.action(), ShellAction::CloseDesktop);
+    }
+
+    #[test]
+    fn task_view_starts_with_the_reference_desktops() {
+        let task_view = TaskView::new();
+        assert!(!task_view.is_open());
+        assert_eq!(task_view.desktops().len(), 2);
+        assert_eq!(task_view.desktops()[0].id(), "desktop-1");
+        assert_eq!(task_view.desktops()[0].name(), "Desktop 1");
+        assert_eq!(task_view.active_id(), "desktop-1");
+        assert_eq!(task_view.desktops()[1].short_name(), "D2");
+    }
+
+    #[test]
+    fn task_view_adds_removes_and_selects_desktops() {
+        let mut task_view = TaskView::new();
+        let third = task_view.add().expect("third desktop");
+        assert_eq!(third, "desktop-3");
+        assert_eq!(task_view.desktops().len(), 3);
+        assert_eq!(task_view.active_id(), "desktop-3");
+        assert_eq!(task_view.desktops()[2].name(), "Desktop 3");
+
+        // Selecting a card makes it active and closes the overview, like the reference.
+        task_view.open();
+        assert!(task_view.select("desktop-2"));
+        assert_eq!(task_view.active_id(), "desktop-2");
+        assert!(!task_view.is_open());
+        assert!(!task_view.select("desktop-9"));
+
+        // Removing the active desktop falls back to the first card.
+        assert_eq!(task_view.remove("desktop-2").as_deref(), Some("desktop-1"));
+        assert_eq!(task_view.active_id(), "desktop-1");
+        assert_eq!(task_view.desktops().len(), 2);
+        assert_eq!(task_view.remove("desktop-1").as_deref(), Some("desktop-3"));
+        assert_eq!(task_view.active_id(), "desktop-3");
+        assert_eq!(task_view.desktops().len(), 1);
+        // The reference never removes the last desktop.
+        assert_eq!(task_view.remove("desktop-3"), None);
+        assert_eq!(task_view.desktops().len(), 1);
+    }
+
+    #[test]
+    fn task_view_rename_and_step() {
+        let mut task_view = TaskView::new();
+        assert!(task_view.begin_rename("desktop-2"));
+        assert_eq!(task_view.rename_target(), Some("desktop-2"));
+        task_view.rename_buffer_mut().clear();
+        task_view.rename_buffer_mut().push_str("  Privat  ");
+        assert!(task_view.commit_rename());
+        assert_eq!(task_view.desktops()[1].name(), "Privat");
+        assert_eq!(task_view.rename_target(), None);
+
+        // A blank name keeps the old one, like the reference input.
+        assert!(task_view.begin_rename("desktop-2"));
+        task_view.rename_buffer_mut().clear();
+        assert!(!task_view.commit_rename());
+        assert_eq!(task_view.desktops()[1].name(), "Privat");
+        assert!(!task_view.rename("desktop-1", "   "));
+
+        assert_eq!(task_view.step(true).as_deref(), Some("desktop-2"));
+        assert_eq!(task_view.step(true).as_deref(), Some("desktop-1"));
+        assert_eq!(task_view.step(false).as_deref(), Some("desktop-2"));
+    }
+
+    #[test]
+    fn task_view_restore_repairs_the_active_desktop() {
+        let mut task_view = TaskView::new();
+        task_view.restore(
+            vec![
+                ("desktop-1".to_string(), "Büro".to_string()),
+                ("desktop-7".to_string(), "Werkstatt".to_string()),
+            ],
+            "desktop-4",
+        );
+        assert_eq!(task_view.desktops().len(), 2);
+        assert_eq!(task_view.active_id(), "desktop-1");
+        task_view.restore(
+            vec![("desktop-7".to_string(), "Werkstatt".to_string())],
+            "desktop-7",
+        );
+        assert_eq!(task_view.active_id(), "desktop-7");
+        task_view.restore(Vec::new(), "desktop-7");
+        assert_eq!(task_view.desktops().len(), 2);
+        assert_eq!(task_view.active_id(), "desktop-1");
+
+        // `Escape` in the inline editor only drops the rename.
+        let mut shell = ShellState::new();
+        shell.task_view.open();
+        shell.task_view.begin_rename("desktop-2");
+        assert!(shell.dismiss_top_overlay());
+        assert!(shell.task_view.is_open());
+        assert_eq!(shell.task_view.rename_target(), None);
     }
 }
