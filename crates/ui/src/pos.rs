@@ -7,12 +7,17 @@
 //! Validation and arithmetic stay in [`socdof_core::domain::pos`]; the screen only maps snake_case
 //! codes to catalogue keys, so invalid input never reaches the database.
 //!
-//! Views are list, detail and form. Every control registers in the shared [`FocusState`], every
+//! Views are register, list, daily close, detail and form. Every control registers in the shared
+//! [`FocusState`], every
 //! visible string comes from the catalogue and all painting uses the design tokens.
 
 use egui::{Align, Context, Layout, RichText, Vec2};
 use socdof_core::date;
-use socdof_core::domain::pos::{summarize, PaymentMethod, PosOrder, PosOrderLine};
+use socdof_core::domain::contact::Contact;
+use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+use socdof_core::domain::pos::{
+    summarize, z_report, PaymentMethod, PosOrder, PosOrderLine, PosZReport,
+};
 use socdof_core::domain::product::Product;
 use socdof_core::domain::stock::StockMoveKind;
 use socdof_core::money::Money;
@@ -54,9 +59,13 @@ const PAYMENTS: [PaymentMethod; 6] = [
 /// View currently shown by the POS screen.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum PosView {
-    /// Searchable list of all receipts with the daily close.
+    /// Cash register: product tiles, cart, payment and the last receipt.
     #[default]
+    Register,
+    /// Searchable list of all receipts with the daily close.
     List,
+    /// Daily close with payment and VAT groups plus the text export.
+    ZReport,
     /// Detail of the selected receipt.
     Detail,
     /// New receipt form with the positions.
@@ -67,7 +76,9 @@ impl PosView {
     /// Catalogue key of the view title.
     pub fn title_key(self) -> &'static str {
         match self {
+            PosView::Register => "pos_register_title",
             PosView::List => "pos_title",
+            PosView::ZReport => "pos_z_title",
             PosView::Detail => "pos_detail_title",
             PosView::Form => "pos_form_title",
         }
@@ -206,6 +217,7 @@ impl PosDraft {
             note: non_empty(&self.note),
             tax_total_override_cents: None,
             cash_given,
+            discount_bp: 0,
             lines,
             legacy_id: None,
         })
@@ -467,8 +479,28 @@ pub struct PosState {
     pub orders: Vec<PosOrder>,
     /// Receipts of the newest day, used for the daily close.
     pub day: Vec<PosOrder>,
-    /// Products selectable in the form.
+    /// Products selectable in the form and shown as register tiles.
     pub products: Vec<Product>,
+    /// Contacts selectable as the receipt customer.
+    pub contacts: Vec<Contact>,
+    /// Cart of the register, newest line last.
+    pub cart: Vec<PosOrderLine>,
+    /// Barcode or SKU entered at the register.
+    pub barcode: String,
+    /// Catalog search text.
+    pub catalog_query: String,
+    /// Selected catalog category, `0` meaning every category.
+    pub category_choice: usize,
+    /// Receipt-wide discount in percent, as entered.
+    pub discount: String,
+    /// Index into [`PAYMENTS`] of the register payment.
+    pub payment: usize,
+    /// Cash handed over at the register, as entered.
+    pub tender: String,
+    /// Index into the contacts, `0` meaning no customer.
+    pub customer: usize,
+    /// Receipt booked by the last checkout, shown above the register.
+    pub last_receipt: Option<Uuid>,
     /// Selected payment filter; `None` shows every method.
     pub payment_filter: Option<PaymentMethod>,
     /// Index into the filter list, `0` meaning every method.
@@ -505,10 +537,20 @@ impl Default for PosState {
             orders: Vec::new(),
             day: Vec::new(),
             products: Vec::new(),
+            contacts: Vec::new(),
+            cart: Vec::new(),
+            barcode: String::new(),
+            catalog_query: String::new(),
+            category_choice: 0,
+            discount: String::new(),
+            payment: 0,
+            tender: String::new(),
+            customer: 0,
+            last_receipt: None,
             payment_filter: None,
             payment_choice: 0,
             selected: None,
-            view: PosView::List,
+            view: PosView::Register,
             draft: PosDraft::default(),
             payment_popup: PopupState::default(),
             filter_popup: PopupState::default(),
@@ -545,6 +587,7 @@ impl PosState {
             store.search_pos_orders(&self.query)?
         };
         self.products = store.list_products()?;
+        self.contacts = store.list_contacts()?;
         self.day = match all.first() {
             Some(latest) => {
                 let start = day_start(latest.paid_at);
@@ -564,6 +607,380 @@ impl PosState {
         self.loaded_payment = self.payment_filter;
         self.reload = false;
         Ok(())
+    }
+
+    /// Opens the cash register.
+    pub fn open_register(&mut self) {
+        self.view = PosView::Register;
+        self.confirm_cancel = false;
+        self.error = None;
+    }
+
+    /// Opens the receipt list.
+    pub fn open_list(&mut self) {
+        self.view = PosView::List;
+        self.confirm_cancel = false;
+        self.error = None;
+    }
+
+    /// Opens the daily close.
+    pub fn open_z_report(&mut self) {
+        self.view = PosView::ZReport;
+        self.confirm_cancel = false;
+        self.error = None;
+    }
+
+    /// Categories of the catalog in display order; the first entry is "all".
+    pub fn categories(&self) -> Vec<String> {
+        let mut categories = self
+            .products
+            .iter()
+            .filter(|product| product.active && !product.category.trim().is_empty())
+            .map(|product| product.category.clone())
+            .collect::<Vec<_>>();
+        categories.sort();
+        categories.dedup();
+        categories
+    }
+
+    /// Products after the catalog search and category filter.
+    pub fn catalog(&self) -> Vec<&Product> {
+        let categories = self.categories();
+        let selected = self
+            .category_choice
+            .checked_sub(1)
+            .and_then(|index| categories.get(index));
+        let query = self.catalog_query.trim().to_lowercase();
+        self.products
+            .iter()
+            .filter(|product| product.active)
+            .filter(|product| selected.map_or(true, |category| &product.category == category))
+            .filter(|product| {
+                query.is_empty()
+                    || product.name.to_lowercase().contains(&query)
+                    || product.sku.to_lowercase().contains(&query)
+                    || product
+                        .barcode
+                        .as_deref()
+                        .is_some_and(|barcode| barcode.contains(&query))
+            })
+            .collect()
+    }
+
+    /// Adds one product to the cart or raises the quantity of its line.
+    pub fn add_product(&mut self, product_id: Uuid) {
+        let Some(product) = self
+            .products
+            .iter()
+            .find(|product| product.id == product_id)
+        else {
+            return;
+        };
+        if let Some(line) = self
+            .cart
+            .iter_mut()
+            .find(|line| line.product_id == Some(product_id))
+        {
+            line.quantity_milli += 1_000;
+        } else {
+            self.cart.push(PosOrderLine {
+                product_id: Some(product.id),
+                description: product.name.clone(),
+                quantity_milli: 1_000,
+                unit_price: product.price,
+                tax_rate_bp: product.tax_rate_bp,
+            });
+        }
+        self.error = None;
+    }
+
+    /// Finds the entered barcode or SKU and puts it into the cart.
+    pub fn scan_barcode(&mut self) {
+        let code = self.barcode.trim().to_lowercase();
+        if code.is_empty() {
+            return;
+        }
+        let product = self.products.iter().find(|product| {
+            product
+                .barcode
+                .as_deref()
+                .is_some_and(|barcode| barcode.eq_ignore_ascii_case(&code))
+                || product.sku.eq_ignore_ascii_case(&code)
+        });
+        match product {
+            Some(product) => {
+                let id = product.id;
+                self.add_product(id);
+                self.barcode.clear();
+                self.status = Some("pos_scan_added");
+            }
+            None => {
+                self.error = Some("pos_scan_not_found");
+                self.status = None;
+            }
+        }
+    }
+
+    /// Raises or lowers the quantity of one cart line; zero removes it.
+    pub fn step_cart(&mut self, index: usize, delta: i64) {
+        let Some(line) = self.cart.get_mut(index) else {
+            return;
+        };
+        line.quantity_milli = (line.quantity_milli + delta * 1_000).max(0);
+        if line.quantity_milli == 0 {
+            self.cart.remove(index);
+        }
+    }
+
+    /// Removes one cart line.
+    pub fn remove_cart(&mut self, index: usize) {
+        if index < self.cart.len() {
+            self.cart.remove(index);
+        }
+    }
+
+    /// Empties the cart, the discount and the tendered cash.
+    pub fn clear_cart(&mut self) {
+        self.cart.clear();
+        self.discount.clear();
+        self.tender.clear();
+        self.error = None;
+        self.status = None;
+    }
+
+    /// Receipt discount in basis points from the percent field.
+    pub fn discount_bp(&self) -> i64 {
+        if self.discount.trim().is_empty() {
+            0
+        } else {
+            parse_percent_bp(&self.discount).unwrap_or(0)
+        }
+    }
+
+    /// Net, tax and gross of the cart after the discount.
+    pub fn cart_totals(&self) -> (Money, Money, Money) {
+        let discount = self.discount_bp();
+        let net: Money = self.cart.iter().map(|line| line.net_for(discount)).sum();
+        let tax: Money = self.cart.iter().map(|line| line.tax_for(discount)).sum();
+        (net, tax, net + tax)
+    }
+
+    /// Builds the receipt of the cart; `receipt_number` is chosen by the caller.
+    pub fn cart_order(&self, receipt_number: &str, now: i64) -> Result<PosOrder, &'static str> {
+        if self.cart.is_empty() {
+            return Err("pos_error_lines");
+        }
+        let discount_bp = self.discount_bp();
+        if !self.discount.trim().is_empty() && parse_percent_bp(&self.discount).is_none() {
+            return Err("pos_error_discount");
+        }
+        let payment_method = *PAYMENTS.get(self.payment).ok_or("pos_error_payment")?;
+        let cash_given = if self.tender.trim().is_empty() {
+            None
+        } else {
+            let amount = Money::parse(&self.tender).ok_or("pos_error_cash")?;
+            Some(amount)
+        };
+        let contact_id = self
+            .customer
+            .checked_sub(1)
+            .and_then(|index| self.contacts.get(index))
+            .map(|contact| contact.id);
+        Ok(PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: receipt_number.to_string(),
+            contact_id,
+            payment_method,
+            paid_at: now,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            cash_given,
+            discount_bp,
+            lines: self.cart.clone(),
+            legacy_id: None,
+        })
+    }
+
+    /// Books the cart as a paid receipt, deducts stock and creates the invoice when a customer is
+    /// selected. Returns the stored receipt on success.
+    pub fn checkout(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<Option<Uuid>> {
+        let receipt_number = suggest_number(&store.list_pos_orders()?, now);
+        let order = match self.cart_order(&receipt_number, now) {
+            Ok(order) => order,
+            Err(key) => {
+                self.error = Some(key);
+                self.status = None;
+                return Ok(None);
+            }
+        };
+        if let Err(code) = order.validate() {
+            self.error = Some(validation_key(&code));
+            self.status = None;
+            return Ok(None);
+        }
+
+        let invoice = order.contact_id.map(|contact_id| Invoice {
+            id: Uuid::new_v4(),
+            number: order.receipt_number.clone(),
+            contact_id,
+            status: InvoiceStatus::Paid,
+            issued_at: order.paid_at,
+            due_at: order.paid_at,
+            currency_symbol: order.currency_symbol.clone(),
+            note: Some(order.receipt_number.clone()),
+            tax_total_override_cents: None,
+            lines: order
+                .lines
+                .iter()
+                .map(|line| InvoiceLine {
+                    description: line.description.clone(),
+                    quantity_milli: line.quantity_milli,
+                    unit_price: line.unit_price,
+                    tax_rate_bp: line.tax_rate_bp,
+                })
+                .collect(),
+        });
+
+        match store.pos_checkout(&order, invoice.as_ref()) {
+            Ok(()) => {}
+            Err(CoreError::Validation(code)) if code == "stock_insufficient" => {
+                self.error = Some("pos_error_stock");
+                self.status = None;
+                return Ok(None);
+            }
+            Err(_) => {
+                self.error = Some("pos_error_save");
+                self.status = None;
+                return Ok(None);
+            }
+        }
+
+        self.last_receipt = Some(order.id);
+        self.selected = Some(order.id);
+        self.cart.clear();
+        self.discount.clear();
+        self.tender.clear();
+        self.barcode.clear();
+        self.error = None;
+        self.status = Some("pos_checkout_done");
+        self.reload = true;
+        self.refresh(store)?;
+        Ok(Some(order.id))
+    }
+
+    /// Receipt booked by the last checkout, when it still exists.
+    pub fn last_receipt(&self) -> Option<&PosOrder> {
+        self.last_receipt
+            .and_then(|id| self.orders.iter().find(|order| order.id == id))
+    }
+
+    /// Daily close of the newest business day.
+    pub fn z_report(&self) -> PosZReport {
+        z_report(&self.day)
+    }
+
+    /// Writes the Z report of the newest business day as a text file.
+    pub fn export_z_report(
+        &self,
+        path: &std::path::Path,
+        texts: &UiTexts,
+        now: i64,
+    ) -> socdof_core::CoreResult<u64> {
+        let content = self.z_report_text(texts, now);
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(path, content.as_bytes())?;
+        Ok(content.len() as u64)
+    }
+
+    /// Plain-text Z report with the catalogue labels of the screen.
+    pub fn z_report_text(&self, texts: &UiTexts, now: i64) -> String {
+        let report = self.z_report();
+        let day = self
+            .day
+            .first()
+            .map(|order| format_date(order.paid_at))
+            .unwrap_or_else(|| format_date(now));
+        let symbol = self
+            .day
+            .first()
+            .map(|order| order.currency_symbol.clone())
+            .unwrap_or_else(|| "€".to_string());
+        let mut lines = vec![
+            format!("{} {}", texts.get("pos_z_title"), day),
+            String::new(),
+            format!("{}: {}", texts.get("pos_summary_receipts"), report.receipts),
+        ];
+        if let (Some(first), Some(last)) = (report.first_at, report.last_at) {
+            lines.push(format!(
+                "{}: {}   {}: {}",
+                texts.get("pos_z_first"),
+                format_time(first),
+                texts.get("pos_z_last"),
+                format_time(last)
+            ));
+        }
+        lines.push(String::new());
+        for (key, amount) in [
+            ("pos_summary_net", report.summary.net),
+            ("pos_summary_tax", report.summary.tax),
+            ("pos_summary_gross", report.summary.gross),
+        ] {
+            lines.push(format!("{}: {}", texts.get(key), money(&symbol, amount)));
+        }
+        lines.push(format!(
+            "{}: {}",
+            texts.get("pos_z_discounts"),
+            money(
+                &symbol,
+                Money::from_cents(
+                    self.day
+                        .iter()
+                        .map(|order| order.discount_amount().cents())
+                        .sum()
+                )
+            )
+        ));
+        lines.push(String::new());
+        for (key, amount) in [
+            ("pos_summary_cash", report.summary.cash),
+            ("pos_summary_card", report.summary.card),
+            ("pos_summary_nfc", report.summary.nfc),
+            ("pos_summary_bank_transfer", report.summary.bank_transfer),
+            ("pos_summary_invoice", report.summary.invoice),
+            ("pos_summary_other", report.summary.other),
+        ] {
+            lines.push(format!("{}: {}", texts.get(key), money(&symbol, amount)));
+        }
+        lines.push(String::new());
+        lines.push(format!(
+            "{}: {}",
+            texts.get("pos_cash_given"),
+            money(&symbol, report.summary.cash_given)
+        ));
+        lines.push(format!(
+            "{}: {}",
+            texts.get("pos_change"),
+            money(&symbol, report.summary.change)
+        ));
+        lines.push(String::new());
+        lines.push(format!("{}:", texts.get("pos_z_tax_groups")));
+        for group in &report.tax_groups {
+            lines.push(format!(
+                "{} {}%: {} / {}",
+                texts.get("pos_total_net"),
+                group.rate_bp as f64 / 100.0,
+                money(&symbol, group.net),
+                money(&symbol, group.tax)
+            ));
+        }
+        lines.push(String::new());
+        lines.push(format!("{}:", texts.get("pos_z_receipt_list")));
+        lines.extend(report.numbers.iter().map(|number| format!("- {number}")));
+        lines.push(String::new());
+        lines.join("\n")
     }
 
     /// Selected receipt, if it is still part of the loaded list.
@@ -713,6 +1130,7 @@ fn sample_order(
         note,
         tax_total_override_cents: None,
         cash_given,
+        discount_bp: 0,
         lines,
         legacy_id: None,
     }
@@ -733,6 +1151,9 @@ pub fn seed_pos(store: &Store, texts: &UiTexts) -> socdof_core::CoreResult<()> {
     espresso.price = Money::from_cents(250);
     espresso.cost_price = Money::from_cents(100);
     espresso.tax_rate_bp = 700;
+    espresso.category = texts.get("pos_sample_category_drinks").to_string();
+    espresso.barcode = Some("4000001".to_string());
+    espresso.image_emoji = Some("☕".to_string());
     store.insert_product(&espresso)?;
 
     let mut cup = Product::new(texts.get("pos_sample_product_b"), SAMPLE_NOW_MS);
@@ -740,6 +1161,9 @@ pub fn seed_pos(store: &Store, texts: &UiTexts) -> socdof_core::CoreResult<()> {
     cup.price = Money::from_cents(450);
     cup.cost_price = Money::from_cents(200);
     cup.tax_rate_bp = 1900;
+    cup.category = texts.get("pos_sample_category_food").to_string();
+    cup.barcode = Some("4000002".to_string());
+    cup.image_emoji = Some("C".to_string());
     store.insert_product(&cup)?;
 
     for product in [&espresso, &cup] {
@@ -856,6 +1280,7 @@ pub fn pos_window(
 ) {
     if active && !state.confirm_cancel && ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
         match state.view {
+            PosView::Register | PosView::ZReport => state.open_list(),
             PosView::List => state.back = true,
             PosView::Detail => state.view = PosView::List,
             PosView::Form => state.cancel_edit(),
@@ -867,7 +1292,9 @@ pub fn pos_window(
     }
 
     egui::ScrollArea::vertical().show(ui, |ui| match state.view {
+        PosView::Register => register_view(ui, theme, texts, focus, state, store, now),
         PosView::List => list_view(ui, theme, texts, focus, state, now),
+        PosView::ZReport => z_report_view(ui, theme, texts, focus, state, now),
         PosView::Detail => detail_view(ui, theme, texts, focus, state, store),
         PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
     });
@@ -912,6 +1339,711 @@ pub fn pos_window(
 
     if confirm && state.cancel_selected(store, now).is_err() {
         state.error = Some("pos_error_cancel");
+    }
+}
+
+/// Switches between the register, the receipt list and the daily close.
+fn pos_tabs(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+) {
+    ui.horizontal_wrapped(|ui| {
+        for (view, key) in [
+            (PosView::Register, "pos_tab_register"),
+            (PosView::List, "pos_tab_receipts"),
+            (PosView::ZReport, "pos_tab_zreport"),
+        ] {
+            let variant = if state.view == view {
+                ButtonVariant::Primary
+            } else {
+                ButtonVariant::Ghost
+            };
+            if button(ui, theme, focus, texts.get(key), variant).activated {
+                match view {
+                    PosView::Register => state.open_register(),
+                    PosView::List => state.open_list(),
+                    PosView::ZReport => state.open_z_report(),
+                    PosView::Detail | PosView::Form => {}
+                }
+            }
+        }
+    });
+}
+
+fn truncate(text: &str, limit: usize) -> String {
+    if text.chars().count() <= limit {
+        return text.to_string();
+    }
+    let mut shortened = text.chars().take(limit).collect::<String>();
+    shortened.push('…');
+    shortened
+}
+
+/// Catalogue with product tiles, the cart and the payment of the register.
+fn register_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    store: &Store,
+    now: i64,
+) {
+    let subtitle = texts.count("pos_register_count", state.cart.len());
+    screen_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        state,
+        texts.get("pos_register_title"),
+        &subtitle,
+    );
+    ui.add_space(6.0);
+    pos_tabs(ui, theme, texts, focus, state);
+    ui.add_space(8.0);
+    messages(ui, theme, texts, state);
+    ui.add_space(6.0);
+
+    let wide = ui.available_width() >= 760.0;
+
+    let mut selected: Option<Uuid> = None;
+    let mut scanned = false;
+    card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
+        ui.label(RichText::new(texts.get("pos_scan_title")).strong());
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            let field = text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.barcode,
+                texts.get("pos_scan_label"),
+                texts.get("pos_scan_hint"),
+                None,
+            );
+            let enter = field.response.lost_focus()
+                && ui.input(|input| input.key_pressed(egui::Key::Enter));
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("pos_scan_button"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+                || enter
+            {
+                scanned = true;
+            }
+        });
+    });
+
+    ui.add_space(10.0);
+    // The catalogue and the cart sit side by side on a desktop panel and stack on the phone, so
+    // neither the tiles nor the payment controls ever run off the edge.
+    if wide {
+        let catalog_width = (ui.available_width() * 0.56).max(320.0);
+        ui.horizontal_top(|ui| {
+            ui.allocate_ui_with_layout(
+                Vec2::new(catalog_width, 0.0),
+                Layout::top_down(Align::Min),
+                |ui| {
+                    ui.set_min_width(catalog_width);
+                    register_catalog(ui, theme, texts, focus, state, &mut selected);
+                },
+            );
+            ui.add_space(12.0);
+            ui.vertical(|ui| {
+                ui.set_min_width(ui.available_width());
+                register_cart(ui, theme, texts, focus, state, store, now);
+            });
+        });
+    } else {
+        register_catalog(ui, theme, texts, focus, state, &mut selected);
+        ui.add_space(10.0);
+        register_cart(ui, theme, texts, focus, state, store, now);
+    }
+
+    if let Some(id) = selected {
+        state.add_product(id);
+    }
+    if scanned {
+        state.scan_barcode();
+    }
+}
+
+/// Search, category chips and the product tiles of the catalogue.
+fn register_catalog(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    selected: &mut Option<Uuid>,
+) {
+    card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
+        ui.label(RichText::new(texts.get("pos_catalog_title")).strong());
+        ui.add_space(4.0);
+        search_field_reserved(
+            ui,
+            theme,
+            focus,
+            &mut state.catalog_query,
+            texts.get("pos_catalog_search"),
+            0.0,
+        );
+        ui.add_space(4.0);
+        let categories = state.categories();
+        let mut labels: Vec<String> = vec![texts.get("pos_catalog_all").to_string()];
+        labels.extend(categories.iter().cloned());
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        ui.horizontal_wrapped(|ui| {
+            for (index, label) in labels.iter().enumerate() {
+                let variant = if state.category_choice == index {
+                    ButtonVariant::Secondary
+                } else {
+                    ButtonVariant::Ghost
+                };
+                if button(ui, theme, focus, label, variant).activated {
+                    state.category_choice = index;
+                }
+            }
+        });
+        ui.add_space(6.0);
+
+        let products = state.catalog();
+        if products.is_empty() {
+            empty_state(ui, theme, texts.get("pos_catalog_empty"), "");
+            return;
+        }
+        let columns = ((ui.available_width() / 150.0).floor() as usize).clamp(2, 4);
+        let spacing = 8.0;
+        let tile_width =
+            ((ui.available_width() - spacing * (columns - 1) as f32) / columns as f32).max(96.0);
+        egui::Grid::new("pos-catalog-grid")
+            .num_columns(columns)
+            .spacing([spacing, spacing])
+            .show(ui, |ui| {
+                for (index, product) in products.iter().enumerate() {
+                    if index > 0 && index % columns == 0 {
+                        ui.end_row();
+                    }
+                    let emoji = product
+                        .image_emoji
+                        .clone()
+                        .unwrap_or_else(|| "•".to_string());
+                    let label = format!(
+                        "{emoji}  {}\n{}",
+                        truncate(&product.name, 16),
+                        money("€", product.price)
+                    );
+                    let text = RichText::new(label)
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text);
+                    let response = ui.add_sized(
+                        [tile_width, 74.0],
+                        egui::Button::new(text)
+                            .fill(theme.palette.surface_muted)
+                            .stroke(egui::Stroke::new(1.0_f32, theme.palette.border)),
+                    );
+                    focus.register(response.id);
+                    if response.clicked() && product.stock > 0 {
+                        *selected = Some(product.id);
+                    }
+                    response.on_hover_text(format!(
+                        "{} · {} {}",
+                        product.name,
+                        product.stock,
+                        texts.get("pos_stock_unit")
+                    ));
+                }
+            });
+    });
+}
+
+/// Cart lines, discount, payment and checkout.
+fn register_cart(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    store: &Store,
+    now: i64,
+) {
+    let mut step: Option<(usize, i64)> = None;
+    let mut remove: Option<usize> = None;
+    let mut checkout = false;
+    let mut clear = false;
+    card(ui, theme, |ui| {
+        ui.set_min_width(ui.available_width());
+        ui.horizontal_wrapped(|ui| {
+            ui.label(RichText::new(texts.get("pos_cart_title")).strong());
+            ui.label(
+                RichText::new(texts.count("pos_cart_count", state.cart.len()))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            if !state.cart.is_empty()
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("pos_cart_clear"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+            {
+                clear = true;
+            }
+        });
+        ui.add_space(4.0);
+        if state.cart.is_empty() {
+            empty_state(ui, theme, texts.get("pos_cart_empty"), "");
+        }
+        for (index, line) in state.cart.iter().enumerate() {
+            let mut minus = false;
+            let mut plus = false;
+            let mut drop = false;
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                minus = button(ui, theme, focus, "−", ButtonVariant::Ghost).activated;
+                ui.label(format!("{}×", milli_text(line.quantity_milli)));
+                plus = button(ui, theme, focus, "+", ButtonVariant::Ghost).activated;
+                ui.vertical(|ui| {
+                    ui.label(
+                        RichText::new(truncate(&line.description, 24))
+                            .strong()
+                            .size(FONT_SMALL),
+                    );
+                    ui.label(
+                        RichText::new(money("€", line.unit_price))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    drop = button(ui, theme, focus, "×", ButtonVariant::Ghost).activated;
+                    ui.label(RichText::new(money("€", line.gross())).strong());
+                });
+            });
+            if minus {
+                step = Some((index, -1));
+            }
+            if plus {
+                step = Some((index, 1));
+            }
+            if drop {
+                remove = Some(index);
+            }
+            ui.separator();
+        }
+
+        let mut names: Vec<String> = vec![texts.get("pos_no_customer").to_string()];
+        names.extend(state.contacts.iter().map(|contact| {
+            contact
+                .name
+                .clone()
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or_else(|| contact.id.to_string())
+        }));
+        let labels: Vec<&str> = names.iter().map(String::as_str).collect();
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(texts.get("pos_customer"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            select(
+                ui,
+                theme,
+                focus,
+                &mut state.payment_popup,
+                "pos-register-customer",
+                &mut state.customer,
+                &labels,
+            );
+        });
+        ui.add_space(4.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.discount,
+            texts.get("pos_discount"),
+            texts.get("pos_discount_hint"),
+            None,
+        );
+
+        let names: Vec<String> = PAYMENTS
+            .iter()
+            .map(|method| texts.get(payment_key(*method)).to_string())
+            .collect();
+        let labels: Vec<&str> = names.iter().map(String::as_str).collect();
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(texts.get("pos_payment"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+            select(
+                ui,
+                theme,
+                focus,
+                &mut state.filter_popup,
+                "pos-register-payment",
+                &mut state.payment,
+                &labels,
+            );
+        });
+
+        let (net, tax, gross) = state.cart_totals();
+        if PAYMENTS
+            .get(state.payment)
+            .copied()
+            .unwrap_or(PaymentMethod::Cash)
+            == PaymentMethod::Cash
+        {
+            ui.add_space(4.0);
+            text_field(
+                ui,
+                theme,
+                focus,
+                &mut state.tender,
+                texts.get("pos_cash_given"),
+                texts.get("pos_cash_given_hint"),
+                None,
+            );
+            ui.horizontal_wrapped(|ui| {
+                for amount in ["10", "20", "50", "100"] {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        &format!("{amount} €"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        state.tender = amount.to_string();
+                    }
+                }
+            });
+            if let Some(change) = Money::parse(&state.tender)
+                .filter(|given| given.cents() >= gross.cents())
+                .map(|given| given - gross)
+            {
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(texts.get("pos_change"))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.label(
+                        RichText::new(money("€", change))
+                            .strong()
+                            .color(theme.palette.success),
+                    );
+                });
+            }
+        }
+
+        ui.add_space(6.0);
+        for (key, amount) in [
+            ("pos_total_net", net),
+            ("pos_total_tax", tax),
+            ("pos_total_gross", gross),
+        ] {
+            ui.horizontal(|ui| {
+                ui.label(
+                    RichText::new(texts.get(key))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(RichText::new(money("€", amount)).strong());
+                });
+            });
+        }
+        ui.add_space(8.0);
+        let response = ui.add_sized(
+            [ui.available_width(), 36.0],
+            egui::Button::new(
+                RichText::new(texts.get("pos_checkout"))
+                    .strong()
+                    .color(theme.palette.accent_on),
+            )
+            .fill(theme.accent.base)
+            .rounding(egui::Rounding::same(8.0)),
+        );
+        focus.register(response.id);
+        if response.clicked() {
+            checkout = true;
+        }
+    });
+
+    if clear {
+        state.clear_cart();
+        state.status = None;
+    }
+    if let Some((index, delta)) = step {
+        state.step_cart(index, delta);
+    }
+    if let Some(index) = remove {
+        state.remove_cart(index);
+    }
+
+    if let Some(order) = state.last_receipt().cloned() {
+        ui.add_space(10.0);
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.label(
+                RichText::new(texts.get("pos_last_receipt"))
+                    .strong()
+                    .color(theme.palette.success),
+            );
+            ui.label(RichText::new(&order.receipt_number).strong());
+            ui.horizontal_wrapped(|ui| {
+                ui.label(money(&order.currency_symbol, order.total_gross()));
+                if let Some(change) = order.change() {
+                    ui.label(format!(
+                        "{} {}",
+                        texts.get("pos_change"),
+                        money(&order.currency_symbol, change)
+                    ));
+                }
+            });
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("pos_open_receipt"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+                {
+                    state.select(order.id);
+                }
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("pos_new_sale"),
+                    ButtonVariant::Ghost,
+                )
+                .activated
+                {
+                    state.last_receipt = None;
+                }
+            });
+        });
+    }
+
+    if checkout && state.checkout(store, now).is_err() {
+        state.error = Some("pos_error_save");
+    }
+}
+
+/// Daily close of the newest business day with the text export.
+fn z_report_view(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    texts: &UiTexts,
+    focus: &mut FocusState,
+    state: &mut PosState,
+    now: i64,
+) {
+    let report = state.z_report();
+    let day_label = state
+        .day
+        .first()
+        .map(|order| format_date(order.paid_at))
+        .unwrap_or_else(|| format_date(now));
+    let subtitle = format!(
+        "{} · {}",
+        day_label,
+        texts.count("count_receipts", report.receipts)
+    );
+    screen_header(
+        ui,
+        theme,
+        texts,
+        focus,
+        state,
+        texts.get("pos_z_title"),
+        &subtitle,
+    );
+    ui.add_space(6.0);
+    pos_tabs(ui, theme, texts, focus, state);
+    ui.add_space(8.0);
+    messages(ui, theme, texts, state);
+    ui.add_space(6.0);
+
+    if report.receipts == 0 {
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            empty_state(ui, theme, texts.get("pos_z_empty"), "");
+        });
+    } else {
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.horizontal_wrapped(|ui| {
+                ui.label(RichText::new(texts.get("pos_summary_title")).strong());
+                ui.label(
+                    RichText::new(format!(
+                        "{} {}   {} {}",
+                        texts.get("pos_z_first"),
+                        report
+                            .first_at
+                            .map(format_time)
+                            .unwrap_or_else(|| "—".to_string()),
+                        texts.get("pos_z_last"),
+                        report
+                            .last_at
+                            .map(format_time)
+                            .unwrap_or_else(|| "—".to_string())
+                    ))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+                );
+            });
+            ui.add_space(6.0);
+            let entries: [(&str, String); 7] = [
+                ("pos_summary_receipts", report.receipts.to_string()),
+                ("pos_summary_net", money("€", report.summary.net)),
+                ("pos_summary_tax", money("€", report.summary.tax)),
+                ("pos_summary_gross", money("€", report.summary.gross)),
+                ("pos_summary_cash", money("€", report.summary.cash)),
+                ("pos_summary_card", money("€", report.summary.card)),
+                ("pos_summary_nfc", money("€", report.summary.nfc)),
+            ];
+            day_summary(ui, theme, texts, &entries);
+        });
+
+        ui.add_space(10.0);
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.label(RichText::new(texts.get("pos_z_payments")).strong());
+            ui.add_space(4.0);
+            for method in PAYMENTS {
+                let amount = match method {
+                    PaymentMethod::Cash => report.summary.cash,
+                    PaymentMethod::Card => report.summary.card,
+                    PaymentMethod::Nfc => report.summary.nfc,
+                    PaymentMethod::BankTransfer => report.summary.bank_transfer,
+                    PaymentMethod::Invoice => report.summary.invoice,
+                    PaymentMethod::Other => report.summary.other,
+                };
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(texts.get(payment_key(method)))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.text_muted),
+                    );
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(money("€", amount));
+                    });
+                });
+            }
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(texts.get("pos_cash_given"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(money("€", report.summary.cash_given));
+                ui.label(
+                    RichText::new(texts.get("pos_change"))
+                        .size(FONT_SMALL)
+                        .color(theme.palette.text_muted),
+                );
+                ui.label(money("€", report.summary.change));
+            });
+        });
+
+        ui.add_space(10.0);
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.label(RichText::new(texts.get("pos_z_tax_groups")).strong());
+            ui.add_space(4.0);
+            for group in &report.tax_groups {
+                ui.horizontal(|ui| {
+                    ui.label(format!("{:.1} %", group.rate_bp as f64 / 100.0));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(
+                            RichText::new(format!(
+                                "{} / {}",
+                                money("€", group.net),
+                                money("€", group.tax)
+                            ))
+                            .size(FONT_SMALL),
+                        );
+                    });
+                });
+            }
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(texts.get("pos_z_tax_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        });
+
+        ui.add_space(10.0);
+        card(ui, theme, |ui| {
+            ui.set_min_width(ui.available_width());
+            ui.label(RichText::new(texts.get("pos_z_receipt_list")).strong());
+            for number in &report.numbers {
+                ui.label(RichText::new(number).size(FONT_SMALL));
+            }
+        });
+    }
+
+    ui.add_space(10.0);
+    #[cfg(feature = "dialogs")]
+    {
+        let mut export = false;
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("pos_z_export"),
+                ButtonVariant::Primary,
+            )
+            .activated
+            {
+                export = true;
+            }
+            ui.label(
+                RichText::new(texts.get("pos_z_export_hint"))
+                    .size(FONT_SMALL)
+                    .color(theme.palette.text_muted),
+            );
+        });
+        if export {
+            let (year, month, day) = socdof_core::date::civil_from_millis(now);
+            let filename = format!("z-bericht-{year:04}-{month:02}-{day:02}.txt");
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter("Text", &["txt"])
+                .save_file()
+            {
+                match state.export_z_report(&path, texts, now) {
+                    Ok(_) => state.status = Some("pos_z_exported"),
+                    Err(_) => state.error = Some("pos_z_error_export"),
+                }
+            }
+        }
     }
 }
 
@@ -1819,6 +2951,7 @@ mod tests {
     fn the_narrow_panel_keeps_the_whole_receipt_list_inside() {
         let (store, mut state, texts) = seeded();
         assert!(!state.orders.is_empty(), "the seed creates receipts");
+        state.open_list();
         let signature = render_at(&mut state, &store, 432.0);
         let order = &state.orders[0];
         assert!(
@@ -1971,6 +3104,7 @@ mod tests {
     fn renders_the_list_the_detail_and_the_form() {
         assert_eq!(payment_key(PaymentMethod::Nfc), "pos_payment_nfc");
         let (store, mut state, texts) = seeded();
+        state.open_list();
 
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("pos_title")));
@@ -2042,6 +3176,132 @@ mod tests {
         assert!(content.contains("5,00"));
         assert!(content.contains("1,43"));
         assert!(content.contains("Am Tresen"));
+    }
+
+    #[test]
+    fn register_filters_the_catalog_scans_barcodes_and_steps_quantities() {
+        let (_store, mut state, texts) = seeded();
+        assert_eq!(state.catalog().len(), 2);
+
+        state.catalog_query = "pos-a".to_string();
+        assert_eq!(state.catalog().len(), 1);
+        state.catalog_query.clear();
+        state.category_choice = 1;
+        assert!(!state.catalog().is_empty());
+        state.category_choice = 0;
+
+        state.barcode = "POS-B".to_string();
+        state.scan_barcode();
+        assert_eq!(state.cart.len(), 1);
+        assert_eq!(state.cart[0].description, texts.get("pos_sample_product_b"));
+        assert_eq!(state.status, Some("pos_scan_added"));
+
+        state.barcode = "unbekannt".to_string();
+        state.scan_barcode();
+        assert_eq!(state.error, Some("pos_scan_not_found"));
+
+        state.step_cart(0, 1);
+        assert_eq!(state.cart[0].quantity_milli, 2_000);
+        state.step_cart(0, -2);
+        assert!(state.cart.is_empty());
+    }
+
+    #[test]
+    fn checkout_books_receipt_invoice_stock_and_discount() {
+        let (store, mut state, _texts) = seeded();
+        let mut contact = Contact::new(
+            socdof_core::domain::contact::ContactKind::Company,
+            SAMPLE_NOW_MS,
+        );
+        contact.name = Some("Ada Lovelace".to_string());
+        store.insert_contact(&contact).expect("contact");
+        state.reload = true;
+        state.refresh(&store).expect("refresh");
+        state.customer = 1;
+
+        let espresso = state
+            .products
+            .iter()
+            .find(|product| product.sku == "POS-A")
+            .expect("espresso")
+            .id;
+        let stock_before = store.find_product(espresso).unwrap().unwrap().stock;
+        state.add_product(espresso);
+        state.add_product(espresso);
+        state.discount = "10".to_string();
+        state.tender = "10".to_string();
+        let (net, tax, gross) = state.cart_totals();
+        assert_eq!(net, Money::from_cents(450));
+        assert_eq!(tax, Money::from_cents(32));
+        assert_eq!(gross, Money::from_cents(482));
+        assert_eq!(state.discount_bp(), 1_000);
+
+        let id = state
+            .checkout(&store, SAMPLE_NOW_MS)
+            .expect("checkout")
+            .expect("stored");
+        let order = store.find_pos_order(id).expect("find").unwrap();
+        assert_eq!(order.discount_bp, 1_000);
+        assert_eq!(order.contact_id, Some(contact.id));
+        assert_eq!(order.total_gross(), Money::from_cents(482));
+        assert_eq!(order.change(), Some(Money::from_cents(518)));
+        assert_eq!(state.last_receipt, Some(id));
+        assert!(state.cart.is_empty());
+        assert_eq!(
+            store.find_product(espresso).unwrap().unwrap().stock,
+            stock_before - 2
+        );
+        let invoices = store.list_invoices().expect("invoices");
+        assert_eq!(invoices.len(), 1);
+        assert_eq!(invoices[0].contact_id, contact.id);
+        assert_eq!(invoices[0].status, InvoiceStatus::Paid);
+    }
+
+    #[test]
+    fn z_report_lists_groups_and_exports_a_text_file() {
+        let (store, mut state, texts) = seeded();
+        state.open_z_report();
+        let report = state.z_report();
+        assert_eq!(report.receipts, 3);
+        assert_eq!(report.numbers.len(), 3);
+        assert!(!report.tax_groups.is_empty());
+
+        let path = std::env::temp_dir().join(format!("socdof-z-report-{}.txt", Uuid::new_v4()));
+        let bytes = state
+            .export_z_report(&path, &texts, SAMPLE_NOW_MS)
+            .expect("export");
+        let content = std::fs::read_to_string(&path).expect("read");
+        assert_eq!(usize::try_from(bytes).expect("length"), content.len());
+        assert!(content.starts_with(texts.get("pos_z_title")));
+        assert!(content.contains("BON-2026-0001"));
+        assert!(content.contains(texts.get("pos_z_tax_groups")));
+        assert!(content.contains(texts.get("pos_change")));
+        std::fs::remove_file(path).expect("cleanup");
+
+        let signature = render(&mut state, &store);
+        assert!(signature.contains(texts.get("pos_z_title")));
+        assert!(signature.contains(texts.get("pos_z_payments")));
+    }
+
+    #[test]
+    fn the_register_keeps_tiles_and_cart_inside_a_narrow_panel() {
+        let (store, mut state, texts) = seeded();
+        let first = state.products[0].id;
+        state.add_product(first);
+        let signature = render_at(&mut state, &store, 432.0);
+        assert!(
+            signature.contains(&state.products[0].name),
+            "product tile missing on a narrow panel"
+        );
+        assert!(
+            signature.contains(texts.get("pos_checkout")),
+            "checkout missing on a narrow panel"
+        );
+        assert!(
+            painted_right_edge(&signature) <= 432.5,
+            "a primitive is painted outside the 432 point panel ({})",
+            painted_right_edge(&signature)
+        );
     }
 
     #[test]

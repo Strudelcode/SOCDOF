@@ -74,6 +74,10 @@ vCard, iCal, PDF/DOCX-Erzeugung, FatturaPA, Z-Bericht, Mahnwesen.
   drei Zahlarten der Vorlage (Bar mit Rückgeld, Karte, Apple Pay/NFC), Bon-Journal mit Detail und
   **Storno als Gegenbuchung** samt Bestandsrückbuchung, Tages-/Gesamtstatistik aus den gespeicherten
   Belegen, Kassen- und Fußzeilen-Einstellungen. Persistenz in SQLite-Schema v21 — Belege `rust-45`…`rust-47`.
+- **POS/Kasse**: Kassenansicht mit Produktkacheln, Kategorie-Chips, Suche und Barcode-/SKU-Erfassung
+  (Enter), Warenkorb mit Menge und Rabatt, Kundenwahl, Zahlarten mit Schnellbeträgen und Rückgeld,
+  atomarem Checkout (Beleg + Lager + optionale Rechnung) und Z-Bericht mit Zahlarten-/Steuergruppen
+  und `.txt`-Export statt `window.print()` — Schema v24, Belege `rust-50`.
 
 ## 2. Funktional fertig, optisch noch nicht abschließend verglichen
 
@@ -115,7 +119,7 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Kontakte: exakte Dateinamen/MIME/Byte-Ausgabe, weitere Header-Varianten, Fehlerfälle
 - [ ] Flotte: Formular-Sonderfälle, Rechnungsübergabe, CSV-Dateinamen
 - [ ] Restaurant: kompletter Bestell-/Küchenablauf, Bon-Druck
-- [ ] POS: Bon-Druck, Z-Bericht-Darstellung
+- [x] POS: Produktkacheln, Barcode-Schnellerfassung, Warenkorb mit Rabatt, Bezahlabschluss, Z-Bericht mit Text-Export (Bondrucker/Zahlungsterminal gibt es in der Vorlage nicht)
 - [ ] Schnellkasse: Bondruck/E-Mail-Versand, Beweisfotos (kein Bild-Backend), echte TSE-Hardware
 - [ ] Projekte: Filter, Aufgaben-Übergänge, CSV-Formatierung, Rechnungsnummern
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme

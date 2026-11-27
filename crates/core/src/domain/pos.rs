@@ -72,12 +72,22 @@ impl PosOrderLine {
         Money::from_cents(self.unit_price.cents() * self.quantity_milli / 1_000)
     }
 
-    /// Tax amount of this position.
+    /// Net amount after a receipt-wide discount in basis points.
+    pub fn net_for(&self, discount_bp: i64) -> Money {
+        Money::from_cents(self.net().cents() * (10_000 - discount_bp.clamp(0, 10_000)) / 10_000)
+    }
+
+    /// Tax amount of this position after the receipt-wide discount.
+    pub fn tax_for(&self, discount_bp: i64) -> Money {
+        self.net_for(discount_bp).tax(self.tax_rate_bp)
+    }
+
+    /// Tax amount of this position without a discount.
     pub fn tax(&self) -> Money {
         self.net().tax(self.tax_rate_bp)
     }
 
-    /// Gross amount of this position.
+    /// Gross amount of this position without a discount.
     pub fn gross(&self) -> Money {
         self.net() + self.tax()
     }
@@ -106,6 +116,9 @@ pub struct PosOrder {
     /// Cash handed over by the customer, when the order was paid in cash.
     #[serde(default)]
     pub cash_given: Option<Money>,
+    /// Receipt-wide discount in basis points (`500` = 5 %), applied to every net amount.
+    #[serde(default)]
+    pub discount_bp: i64,
     /// Sold positions.
     pub lines: Vec<PosOrderLine>,
     /// Numeric legacy identifier, when the order came from a legacy backup.
@@ -113,16 +126,30 @@ pub struct PosOrder {
 }
 
 impl PosOrder {
-    /// Sum of all net position amounts.
+    /// Sum of all net position amounts after the receipt discount.
     pub fn total_net(&self) -> Money {
-        self.lines.iter().map(PosOrderLine::net).sum()
+        self.lines
+            .iter()
+            .map(|line| line.net_for(self.discount_bp))
+            .sum()
     }
 
-    /// Sum of the tax amounts of all positions.
+    /// Sum of the tax amounts of all positions after the receipt discount.
     pub fn total_tax(&self) -> Money {
         self.tax_total_override_cents
             .map(Money::from_cents)
-            .unwrap_or_else(|| self.lines.iter().map(PosOrderLine::tax).sum())
+            .unwrap_or_else(|| {
+                self.lines
+                    .iter()
+                    .map(|line| line.tax_for(self.discount_bp))
+                    .sum()
+            })
+    }
+
+    /// Amount the receipt discount took off the net sum.
+    pub fn discount_amount(&self) -> Money {
+        let gross_net: Money = self.lines.iter().map(PosOrderLine::net).sum();
+        Money::from_cents(gross_net.cents() - self.total_net().cents())
     }
 
     /// Net plus tax, the amount the customer paid.
@@ -188,6 +215,9 @@ impl PosOrder {
             .is_some_and(|amount| amount < 0)
         {
             return Err("tax_total_override_negative".to_string());
+        }
+        if !(0..=10_000).contains(&self.discount_bp) {
+            return Err("discount_out_of_range".to_string());
         }
         if let Some(cash_given) = self.cash_given {
             if cash_given.cents() < 0 {
@@ -291,6 +321,75 @@ pub fn summarize(orders: &[PosOrder]) -> PosSummary {
     summary
 }
 
+/// One VAT group of a day's receipts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PosTaxGroup {
+    /// Tax rate in basis points.
+    pub rate_bp: i64,
+    /// Net sum of the group after discounts.
+    pub net: Money,
+    /// Tax sum of the group after discounts.
+    pub tax: Money,
+}
+
+/// Daily close (Z report) of one business day.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PosZReport {
+    /// Number of receipts.
+    pub receipts: usize,
+    /// Totals across all payment methods.
+    pub summary: PosSummary,
+    /// Net and tax per VAT rate, sorted by rate.
+    pub tax_groups: Vec<PosTaxGroup>,
+    /// First and last payment time of the day.
+    pub first_at: Option<i64>,
+    /// Last payment time of the day.
+    pub last_at: Option<i64>,
+    /// Receipt numbers in payment order.
+    pub numbers: Vec<String>,
+}
+
+/// Builds the Z report of a day's receipts.
+pub fn z_report(orders: &[PosOrder]) -> PosZReport {
+    let mut ordered = orders.iter().collect::<Vec<_>>();
+    ordered.sort_by_key(|order| (order.paid_at, order.receipt_number.clone()));
+
+    let mut groups: Vec<PosTaxGroup> = Vec::new();
+    for order in &ordered {
+        for line in &order.lines {
+            let net = line.net_for(order.discount_bp);
+            let tax = line.tax_for(order.discount_bp);
+            match groups
+                .iter_mut()
+                .find(|group| group.rate_bp == line.tax_rate_bp)
+            {
+                Some(group) => {
+                    group.net = group.net + net;
+                    group.tax = group.tax + tax;
+                }
+                None => groups.push(PosTaxGroup {
+                    rate_bp: line.tax_rate_bp,
+                    net,
+                    tax,
+                }),
+            }
+        }
+    }
+    groups.sort_by_key(|group| group.rate_bp);
+
+    PosZReport {
+        receipts: ordered.len(),
+        summary: summarize(orders),
+        tax_groups: groups,
+        first_at: ordered.first().map(|order| order.paid_at),
+        last_at: ordered.last().map(|order| order.paid_at),
+        numbers: ordered
+            .iter()
+            .map(|order| order.receipt_number.clone())
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,6 +405,7 @@ mod tests {
             note: None,
             tax_total_override_cents: None,
             cash_given: None,
+            discount_bp: 0,
             legacy_id: None,
             lines: vec![
                 PosOrderLine {
@@ -386,6 +486,42 @@ mod tests {
         let mut order = sample();
         order.lines[0].unit_price = Money::from_cents(-1);
         assert_eq!(order.validate(), Err("line_price_negative".to_string()));
+    }
+
+    #[test]
+    fn applies_receipt_discount_to_net_tax_and_change() {
+        let mut order = sample();
+        order.payment_method = PaymentMethod::Cash;
+        order.discount_bp = 1_000;
+        order.cash_given = Some(Money::from_cents(600));
+        assert_eq!(order.discount_amount(), Money::from_cents(53));
+        assert_eq!(order.total_net(), Money::from_cents(472));
+        assert_eq!(order.total_tax(), Money::from_cents(36));
+        assert_eq!(order.total_gross(), Money::from_cents(508));
+        assert_eq!(order.change(), Some(Money::from_cents(92)));
+        assert_eq!(order.validate(), Ok(()));
+
+        order.discount_bp = 10_001;
+        assert_eq!(order.validate(), Err("discount_out_of_range".to_string()));
+    }
+
+    #[test]
+    fn builds_z_report_with_tax_groups_and_payment_totals() {
+        let cash = sample();
+        let mut card = sample();
+        card.receipt_number = "BON-2026-0002".to_string();
+        card.payment_method = PaymentMethod::Card;
+        card.paid_at = 10;
+        let report = z_report(&[card.clone(), cash.clone()]);
+        assert_eq!(report.receipts, 2);
+        assert_eq!(report.numbers, vec!["BON-2026-0001", "BON-2026-0002"]);
+        assert_eq!(report.first_at, Some(0));
+        assert_eq!(report.last_at, Some(10));
+        assert_eq!(report.summary.gross, Money::from_cents(1_130));
+        assert_eq!(report.tax_groups.len(), 2);
+        assert_eq!(report.tax_groups[0].rate_bp, 700);
+        assert_eq!(report.tax_groups[1].rate_bp, 1900);
+        assert_eq!(report.tax_groups[1].net, Money::from_cents(50));
     }
 
     #[test]

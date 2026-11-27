@@ -1132,6 +1132,7 @@ impl DesktopState {
             note: (!input.note.trim().is_empty()).then(|| input.note.trim().to_string()),
             tax_total_override_cents: None,
             cash_given: input.cash_given_cents.map(Money::from_cents),
+            discount_bp: 0,
             lines: input
                 .lines
                 .iter()
@@ -2401,6 +2402,7 @@ impl DesktopState {
                 } else {
                     None
                 },
+                discount_bp: 0,
                 lines: paid
                     .items
                     .iter()

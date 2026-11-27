@@ -2882,6 +2882,7 @@ mod tests {
             note: None,
             tax_total_override_cents: None,
             cash_given: None,
+            discount_bp: 0,
             lines: vec![PosOrderLine {
                 product_id: None,
                 description: "Coffee".to_string(),

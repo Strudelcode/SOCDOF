@@ -386,6 +386,8 @@ fn purchases_case(state: &mut PurchasesState, view: PurchasesView) {
 
 fn pos_case(state: &mut PosState, view: PosView) {
     match view {
+        PosView::Register => state.open_register(),
+        PosView::ZReport => state.open_z_report(),
         PosView::List => state.view = PosView::List,
         PosView::Detail => {
             if let Some(receipt) = state.orders.first() {
@@ -901,7 +903,13 @@ fn sweep_pos(
     report.cover(AppModule::Pos);
     let mut state = PosState::new();
     state.refresh(store).expect("refresh");
-    for view in [PosView::List, PosView::Detail, PosView::Form] {
+    for view in [
+        PosView::Register,
+        PosView::List,
+        PosView::ZReport,
+        PosView::Detail,
+        PosView::Form,
+    ] {
         pos_case(&mut state, view);
         report.case(
             &format!("pos {view:?}"),

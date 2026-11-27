@@ -225,6 +225,7 @@ fn the_receipt_detail_fits_the_phone_panel() {
         note: None,
         tax_total_override_cents: None,
         cash_given: Some(Money::from_cents(2_000_000)),
+        discount_bp: 0,
         lines: vec![PosOrderLine {
             product_id: None,
             description: "Test article".to_string(),

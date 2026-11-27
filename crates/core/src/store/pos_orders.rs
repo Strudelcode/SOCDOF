@@ -10,7 +10,7 @@ use crate::money::Money;
 use crate::store::products;
 
 const COLUMNS: &str = "id, receipt_number, contact_id, payment_method, paid_at, currency_symbol, \
-                       note, cash_given_cents, legacy_id, tax_total_override_cents";
+                       note, cash_given_cents, discount_bp, legacy_id, tax_total_override_cents";
 
 /// Inserts a receipt with its positions and stock movements atomically.
 ///
@@ -28,14 +28,38 @@ pub fn insert(conn: &Connection, order: &PosOrder, movements: &[StockMove]) -> C
     Ok(())
 }
 
+/// Books a paid receipt with its stock movements and an optional paid invoice atomically.
+pub fn checkout(
+    conn: &Connection,
+    order: &PosOrder,
+    invoice: Option<&crate::domain::invoice::Invoice>,
+) -> CoreResult<()> {
+    order.validate().map_err(CoreError::Validation)?;
+    if let Some(invoice) = invoice {
+        invoice.validate().map_err(CoreError::Validation)?;
+    }
+
+    let transaction = conn.unchecked_transaction()?;
+    insert_rows(&transaction, order)?;
+    for movement in order.stock_moves(order.paid_at) {
+        products::apply_stock(&transaction, &movement)?;
+    }
+    if let Some(invoice) = invoice {
+        crate::store::invoices::insert_rows(&transaction, invoice)?;
+    }
+    transaction.commit()?;
+    Ok(())
+}
+
 /// Writes a receipt and its positions without opening a transaction.
 pub(crate) fn insert_rows(conn: &Connection, order: &PosOrder) -> CoreResult<()> {
     order.validate().map_err(CoreError::Validation)?;
 
     conn.execute(
         "INSERT INTO pos_orders (id, receipt_number, contact_id, payment_method, paid_at,
-            currency_symbol, note, cash_given_cents, legacy_id, created_at, tax_total_override_cents)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            currency_symbol, note, cash_given_cents, discount_bp, legacy_id, created_at,
+            tax_total_override_cents)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             order.id.to_string(),
             order.receipt_number,
@@ -45,6 +69,7 @@ pub(crate) fn insert_rows(conn: &Connection, order: &PosOrder) -> CoreResult<()>
             order.currency_symbol,
             order.note,
             order.cash_given.map(|given| given.cents()),
+            order.discount_bp,
             order.legacy_id,
             order.paid_at,
             order.tax_total_override_cents,
@@ -219,6 +244,7 @@ fn map_row(row: &Row<'_>) -> rusqlite::Result<PosOrder> {
         cash_given: row
             .get::<_, Option<i64>>("cash_given_cents")?
             .map(Money::from_cents),
+        discount_bp: row.get("discount_bp")?,
         lines: Vec::new(),
         legacy_id: row.get("legacy_id")?,
     })

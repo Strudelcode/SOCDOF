@@ -457,6 +457,7 @@ impl RestaurantState {
             note: Some(note),
             tax_total_override_cents: Some(paid.tax_total_cents),
             cash_given: cash.map(Money::from_cents),
+            discount_bp: 0,
             lines: paid
                 .items
                 .iter()

@@ -3028,3 +3028,58 @@ overflows (search field wider than the phone row, long invoice titles in the age
 equivalent; the ICS export covers exchange), the reference's mobile bottom sheets (the Rust form
 stacks on phone widths) and the pixel comparison. Recurrence and ICS import do not exist in the
 reference, so they are not gaps.
+
+## 16.29 POS register parity (2026-11-27)
+
+`POSModule.tsx` is a cash-register screen, not a receipt form: catalogue tiles with category pills
+and search, a barcode field that adds a product on Enter (barcode or SKU, case-insensitive), a cart
+with quantity and a receipt-wide discount, a customer select, the payment methods of
+`PaymentModal.tsx` (cash with quick amounts and change, card, NFC) and a receipt view after
+checkout. The reference has no Z report; the daily close already existed in Rust and is now a real
+view with an export instead of `window.print()`.
+
+**Domain** `crates/core/src/domain/pos.rs`:
+- `PosOrder::discount_bp` (basis points, `serde(default)`, validated to 0..=10,000) applies to the
+  net amount of every position; tax is derived from the discounted net, so totals and change follow
+  the same rounding as before.
+- `PosOrderLine::net_for` / `tax_for`, `PosOrder::discount_amount`.
+- `PosZReport`, `PosTaxGroup` and `z_report(orders)` aggregate a day's receipts: totals, payment
+  methods, cash given/change, tax groups sorted by rate and receipt numbers in payment order.
+
+**Store** `crates/core/src/store/pos_orders.rs`, schema **v24**
+(`ALTER TABLE pos_orders ADD COLUMN discount_bp INTEGER NOT NULL DEFAULT 0`):
+- `checkout(conn, order, invoice)` books the receipt, its stock movements and an optional paid
+  invoice in one transaction; `Store::pos_checkout` exposes it. The existing `insert_pos_order`
+  keeps working for forms and fixtures.
+
+**UI** `crates/ui/src/pos.rs`:
+- new default view **Register** plus **Z-Bericht**; tab row switches Register, Belege and Z-Bericht,
+  Escape returns to the receipt list.
+- register: barcode field with Enter (and a Scan button), catalogue search, category chips, stock
+  tiles with emoji/initial, cart lines with +/−/remove and clear, customer select, discount field,
+  payment select, cash field with 10/20/50/100 € quick amounts and live change, totals and a
+  full-width checkout.
+- checkout builds the receipt from the cart, books it through `Store::pos_checkout` and creates a
+  paid invoice only when a customer is selected (the reference falls back to contact 1; documented
+  deviation). Errors map to catalogue keys (`pos_error_stock`, `pos_error_cash`, …). The booked
+  receipt stays visible as "last receipt" with open/new-sale actions.
+- Z report: header with first/last receipt, totals, payment methods, cash/change, VAT groups, the
+  day's receipt numbers and a `.txt` export through the system dialog (content built from the
+  catalogue, so it follows the UI language).
+
+**Wiring:** three new preview scenes `pos-cart`, `pos-receipt`, `pos-zreport`; the seed gets
+category, barcode and emoji for both sample products; 42 i18n keys in de/en/fr/es plus two plural
+pairs (catalogue 2,748). The phone sweep covers Register and Z-Bericht.
+
+**Verification:** `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, core 440, UI 471,
+visual 2 (goldens regenerated for the new register default), backoffice 4 and the phone sweep at
+360/390/412/432 px in both appearances. The sweep caught no new overflow; the register stacks
+catalogue and cart below 760 px.
+
+**Evidence:** `docs/artifacts/gui-parity/rust-50-pos-register-{light,dark}.png`,
+`rust-50-pos-cart-{light,dark}.png`, `rust-50-pos-checkout-{light,dark}.png`,
+`rust-50-pos-zreport-{light,dark}.png`.
+
+**Still open:** a receipt printer and a real card/NFC terminal (neither exists in the reference; the
+payment methods only record how the customer paid) and the pixel comparison. The reference's
+`window.print()` for receipts has no desktop counterpart; the existing PDF receipt covers handover.

@@ -151,6 +151,7 @@ fn pos_receipt_rolls_back_when_the_stock_is_missing() {
         note: None,
         tax_total_override_cents: None,
         cash_given: None,
+        discount_bp: 0,
         lines: vec![PosOrderLine {
             product_id: Some(product.id),
             description: "Espresso".to_string(),

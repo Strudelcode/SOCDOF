@@ -82,6 +82,9 @@ enum Scene {
     PurchasesError,
     PurchasesDelete,
     Pos,
+    PosCart,
+    PosReceipt,
+    PosZReport,
     QuickBilling,
     QuickBillingReceipts,
     QuickBillingStats,
@@ -180,6 +183,9 @@ impl Scene {
             Scene::CalendarWorkWeek => "calendar-workweek".to_string(),
             Scene::CalendarForm => "calendar-form".to_string(),
             Scene::Pos => "pos".to_string(),
+            Scene::PosCart => "pos-cart".to_string(),
+            Scene::PosReceipt => "pos-receipt".to_string(),
+            Scene::PosZReport => "pos-zreport".to_string(),
             Scene::QuickBilling => "quick-billing".to_string(),
             Scene::QuickBillingReceipts => "quick-billing-receipts".to_string(),
             Scene::QuickBillingStats => "quick-billing-stats".to_string(),
@@ -271,6 +277,9 @@ impl Scene {
             Scene::CalendarWorkWeek => "Calendar · Work week".to_string(),
             Scene::CalendarForm => "Calendar · Appointment form".to_string(),
             Scene::Pos => "POS / cash register".to_string(),
+            Scene::PosCart => "POS / cart and payment".to_string(),
+            Scene::PosReceipt => "POS / booked receipt".to_string(),
+            Scene::PosZReport => "POS / Z report".to_string(),
             Scene::QuickBilling => "Quick billing · Checkout".to_string(),
             Scene::QuickBillingReceipts => "Quick billing · Receipt journal".to_string(),
             Scene::QuickBillingStats => "Quick billing · Daily figures".to_string(),
@@ -825,6 +834,43 @@ impl Scene {
                 state.appointments.start_new();
             }
             Scene::Pos => state.pos_open = true,
+            Scene::PosCart => {
+                state.pos_open = true;
+                state.pos.clear_cart();
+                let _ = state.pos.refresh(&state.store);
+
+                if let Some(first) = state.pos.products.first().map(|product| product.id) {
+                    state.pos.add_product(first);
+                    state.pos.add_product(first);
+                }
+                if let Some(second) = state.pos.products.get(1).map(|product| product.id) {
+                    state.pos.add_product(second);
+                }
+                state.pos.discount = "5".to_string();
+                state.pos.tender = "50".to_string();
+            }
+            Scene::PosReceipt => {
+                state.pos_open = true;
+                state.pos.clear_cart();
+                let _ = state.pos.refresh(&state.store);
+                if let Some(first) = state.pos.products.first().map(|product| product.id) {
+                    state.pos.add_product(first);
+                    state.pos.add_product(first);
+                }
+                if let Some(second) = state.pos.products.get(1).map(|product| product.id) {
+                    state.pos.add_product(second);
+                }
+                state.pos.discount = "5".to_string();
+                state.pos.tender = "100".to_string();
+                let _ = state
+                    .pos
+                    .checkout(&state.store, socdof_ui::pos::SAMPLE_NOW_MS);
+            }
+            Scene::PosZReport => {
+                state.pos_open = true;
+                let _ = state.pos.refresh(&state.store);
+                state.pos.open_z_report();
+            }
             Scene::QuickBilling => {
                 let _ = state.quick_billing.reset_for_open(&state.store);
                 if let Some(id) = state
@@ -1265,6 +1311,9 @@ fn scenes() -> Vec<Scene> {
         Scene::PurchasesError,
         Scene::PurchasesDelete,
         Scene::Pos,
+        Scene::PosCart,
+        Scene::PosReceipt,
+        Scene::PosZReport,
         Scene::QuickBilling,
         Scene::QuickBillingReceipts,
         Scene::QuickBillingStats,

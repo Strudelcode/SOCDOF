@@ -26,6 +26,8 @@ fn input(title: &str, starts_at: i64) -> AppointmentInput {
         location: "Raum 1".to_string(),
         notes: "Vorbereitung".to_string(),
         status: "scheduled".to_string(),
+        category: None,
+        all_day: false,
         starts_at,
         ends_at: starts_at + 60 * 60 * 1000,
     }

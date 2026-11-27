@@ -4308,7 +4308,10 @@ mod tests {
         let output = ctx.run(input, |ctx| gallery(ctx, &mut state));
         let painted = crate::snapshot::signature(&output).join("\n");
         assert!(painted.contains("Kasse"), "POS title missing");
-        assert!(painted.contains("Neuer Bon"), "new button missing");
+        assert!(
+            painted.contains(state.texts.get("pos_scan_title")),
+            "barcode quick entry missing"
+        );
         assert!(state.pos_open);
     }
 
@@ -4329,7 +4332,7 @@ mod tests {
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
         assert!(state.pos_open, "POS screen did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
-        assert_eq!(state.pos.view, crate::pos::PosView::List);
+        assert_eq!(state.pos.view, crate::pos::PosView::Register);
     }
 
     #[test]
@@ -4905,7 +4908,7 @@ mod tests {
             "accounting window content was not drawn"
         );
         assert!(
-            painted.contains("Neuer Bon"),
+            painted.contains(state.texts.get("pos_scan_title")),
             "POS window content was not drawn"
         );
         assert!(

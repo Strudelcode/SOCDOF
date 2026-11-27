@@ -58,7 +58,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 23;
+pub const SCHEMA_VERSION: i64 = 24;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -783,6 +783,11 @@ impl Store {
         if version < 23 {
             self.conn.execute_batch(SCHEMA_V23)?;
             version = 23;
+        }
+
+        if version < 24 {
+            self.conn.execute_batch(SCHEMA_V24)?;
+            version = 24;
         }
 
         self.conn.pragma_update(None, "user_version", version)?;
@@ -1616,6 +1621,15 @@ impl Store {
         pos_orders::insert(&self.conn, order, movements)
     }
 
+    /// Books a paid receipt with stock movements and an optional paid invoice in one transaction.
+    pub fn pos_checkout(
+        &self,
+        order: &PosOrder,
+        invoice: Option<&crate::domain::invoice::Invoice>,
+    ) -> CoreResult<()> {
+        pos_orders::checkout(&self.conn, order, invoice)
+    }
+
     /// Loads one receipt with its positions.
     pub fn find_pos_order(&self, id: uuid::Uuid) -> CoreResult<Option<PosOrder>> {
         pos_orders::find(&self.conn, id)
@@ -2334,6 +2348,11 @@ const SCHEMA_V17: &str = r#"
 ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 "#;
 
+/// Schema v24: receipt-wide discount of POS orders.
+const SCHEMA_V24: &str = r#"
+ALTER TABLE pos_orders ADD COLUMN discount_bp INTEGER NOT NULL DEFAULT 0;
+"#;
+
 /// Schema v23: colour categories and all-day ranges for calendar appointments.
 const SCHEMA_V23: &str = r#"
 ALTER TABLE appointments ADD COLUMN category TEXT NOT NULL DEFAULT 'general';
@@ -2784,6 +2803,7 @@ mod tests {
             note: None,
             tax_total_override_cents: None,
             cash_given: Some(Money::from_cents(1_000)),
+            discount_bp: 0,
             lines: vec![PosOrderLine {
                 product_id: Some(product.id),
                 description: "Espresso".to_string(),
@@ -2810,6 +2830,82 @@ mod tests {
         store.cancel_pos_order(order.id, 20).expect("cancel");
         assert_eq!(store.pos_order_count().expect("count"), 0);
         assert_eq!(store.find_product(product.id).unwrap().unwrap().stock, 5);
+    }
+
+    #[test]
+    fn pos_checkout_books_receipt_invoice_and_stock_with_discount() {
+        let store = Store::open_in_memory().expect("store");
+        let mut product = Product::new("Espresso", 0);
+        product.price = Money::from_cents(250);
+        store.insert_product(&product).expect("product");
+        store
+            .adjust_stock(&StockMove {
+                id: Uuid::new_v4(),
+                product_id: product.id,
+                kind: StockMoveKind::In,
+                quantity: 5,
+                reason: None,
+                created_at: 0,
+            })
+            .expect("stock");
+        let mut contact = Contact::new(ContactKind::Company, 0);
+        contact.name = Some("Laufkunde".to_string());
+        store.insert_contact(&contact).expect("contact");
+
+        let order = PosOrder {
+            id: Uuid::new_v4(),
+            receipt_number: "POS/2026/1000".to_string(),
+            contact_id: Some(contact.id),
+            payment_method: PaymentMethod::Card,
+            paid_at: 10,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            cash_given: None,
+            discount_bp: 1_000,
+            lines: vec![PosOrderLine {
+                product_id: Some(product.id),
+                description: "Espresso".to_string(),
+                quantity_milli: 2_000,
+                unit_price: Money::from_cents(250),
+                tax_rate_bp: 700,
+            }],
+            legacy_id: None,
+        };
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "POS/2026/1000".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Paid,
+            issued_at: 10,
+            due_at: 10,
+            currency_symbol: "€".to_string(),
+            note: Some("Kassenbeleg".to_string()),
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Espresso".to_string(),
+                quantity_milli: 2_000,
+                unit_price: Money::from_cents(250),
+                tax_rate_bp: 700,
+            }],
+        };
+
+        store
+            .pos_checkout(&order, Some(&invoice))
+            .expect("checkout");
+        assert_eq!(store.pos_order_count().expect("count"), 1);
+        assert_eq!(store.find_product(product.id).unwrap().unwrap().stock, 3);
+        let stored = store.find_pos_order(order.id).expect("find").unwrap();
+        assert_eq!(stored.discount_bp, 1_000);
+        assert_eq!(stored.total_gross(), Money::from_cents(482));
+        assert_eq!(
+            store
+                .find_invoice(invoice.id)
+                .expect("invoice")
+                .unwrap()
+                .status,
+            InvoiceStatus::Paid
+        );
     }
 
     #[test]
