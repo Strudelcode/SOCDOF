@@ -2909,3 +2909,66 @@ the tax split 0,64 € / 0,72 €.
 **Still open:** receipt printing and e-mail delivery, the reference's photo evidence (the workspace has
 no image backend), and a real TSE signature — `tse_signature` is a deterministic checksum, not a
 certified signature.
+
+## 16.27 Spreadsheet `table` (2026-11-27)
+
+**Reference:** `SOCDOF - TS/src/components/sales/TableModule.tsx` (579 lines). The reference is a small
+spreadsheet, not a floor plan: an 8 × 20 to 26 × 200 grid, per-cell styles, formulas with A1 ranges and
+five range functions, CSV import/export and two view switches. It keeps its sheet in React state only —
+`TEMPLATE_STORAGE_KEY` is declared but never read — so nothing survives a reload there.
+
+**Change**
+
+- `crates/core/src/domain/spreadsheet.rs`: `Sheet` (raw grid, insert/delete with style shifting,
+  `filled_count`), `CellValue`/`CellStyle`/`CellAlign`, `format_number` mirroring JavaScript's
+  `String(number)`, and a real formula parser (tokens, precedence, unary minus, A1 refs, `FN(A1:B3)`)
+  with the reference's semantics: text reads as 0 inside a formula, a cycle reads as 0, anything
+  invalid is `#FEHLER`, numbers accept a comma decimal mark, results round to ten decimals. CSV is
+  semicolon separated with quoted fields, BOM on export and a cap at the maximum grid on import.
+  10 domain tests.
+- `crates/core/src/store/spreadsheet.rs` + schema **v22** `table_documents` (name, sheet JSON, styles
+  JSON, gridlines, formula bar, timestamps, index on `updated_at`): list, find, save (insert or
+  update in place, keeping `created_at`), rename, delete, count. 4 store tests, including a full
+  lifecycle that saves cells/formulas/styles and reads them back, and a CSV round trip of the stored
+  sheet.
+- `crates/ui/src/table.rs`: ribbon with four tabs — Datei (new, save, clear, CSV export/import via a
+  path field, document list with open/delete, name field, new-sheet field), Start (bold/italic/
+  underline, five font families, the ten standard colours for font and fill plus "none", three
+  alignments, clear selection, insert/delete row and column), Einfügen (the five range functions over
+  the connected block above), Ansicht (grid lines, formula bar). Grid with A–Z headers and row
+  numbers, inline editor for the active cell, formula bar, status bar (active cell, filled cells,
+  hint) and keyboard navigation (arrows, Enter, Tab, Shift+Tab, Escape). 9 UI tests.
+- Wiring: `AppModule::Spreadsheet` (`"table"`, 20 modules), App-Store definition (Trial, inactive at
+  first start like the reference install list), chrome tile (emerald → teal, `Icon::Grid`), desktop
+  icon, native window with restore/minimise/maximise, settings label, role matrix, 71 new i18n keys
+  in de/en/fr/es; `catalogue-keys.json` regenerated (2,678 keys). Preview scene `table`, phone sweep
+  flow with six cases.
+
+**Deviations**
+
+- Persistence is new (SQLite) — the reference has none, and the project rule forbids UI-only state.
+- A range function whose block starts in row 1 is refused with a hint instead of writing a formula
+  that would reference its own cell; the reference has no defined behaviour for that case.
+- Multi-line CSV fields are quoted on export and split into rows on import, exactly like the
+  reference's line-based reader.
+
+**Verification**
+
+- `cargo fmt --all -- --check` clean; `cargo clippy -p socdof-core --all-targets -- -D warnings` and
+  `-p socdof-ui` clean.
+- `cargo test -p socdof-core --lib`: 434 passed (14 new).
+- `cargo test -p socdof-ui --lib`: 464 passed (9 new table tests, settings/sweep indices follow the
+  twentieth module).
+- `cargo test -p socdof-ui --test visual`: 2 passed (App Store expects "/ 20").
+- `cargo test -p socdof-app --test backoffice`: 4 passed.
+- Phone sweep: 1,424 cases at 360/390/412/432 px in both appearances, no overflow. It found and we
+  fixed two real defects: cells collided in egui's id space (debug boxes over the sheet) and two text
+  fields side by side left the phone panel.
+
+**Evidence:** `docs/artifacts/gui-parity/rust-48-spreadsheet-{light,dark}.png`, rendered with
+`socdof-ui-preview table` and inspected: the seeded "Inventur" sheet shows A–H headers, the bold
+filled header row, the evaluated column `=B*C` (14.4 / 9.6 / 7.2 / 7.5), `=SUMME(B2:B5)` = 530 and
+`=SUMME(D2:D5)` = 38.7, the formula bar with `A1 · Artikel` and the status bar with 22 filled cells.
+
+**Still open:** the reference's template storage (unused there), a print/PDF export (the reference has
+none) and the visual pixel comparison — this block targets functional parity only.

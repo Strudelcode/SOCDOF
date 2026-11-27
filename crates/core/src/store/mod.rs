@@ -22,6 +22,7 @@ use crate::domain::quick_billing::{QuickDish, QuickReceipt};
 use crate::domain::restaurant::{MenuItem, TableOrder};
 use crate::domain::session::{LoginOutcome, Session};
 use crate::domain::settings::CompanyProfile;
+use crate::domain::spreadsheet::SpreadsheetDocument;
 use crate::domain::stock::{StockJournalEntry, StockMove};
 use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
 use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
@@ -49,6 +50,7 @@ pub mod restaurant;
 pub mod search;
 pub mod sessions;
 pub mod settings;
+pub mod spreadsheet;
 pub mod stock_journal;
 pub mod support;
 pub mod therapy;
@@ -56,7 +58,7 @@ pub mod users;
 pub mod workspace;
 
 /// Schema version written to `PRAGMA user_version`.
-pub const SCHEMA_VERSION: i64 = 21;
+pub const SCHEMA_VERSION: i64 = 22;
 
 const SCHEMA_V10: &str = r#"
 -- Contact persons of a company ("sub-contacts" in the legacy application). They belong to exactly
@@ -773,6 +775,11 @@ impl Store {
             version = 21;
         }
 
+        if version < 22 {
+            self.conn.execute_batch(SCHEMA_V22)?;
+            version = 22;
+        }
+
         self.conn.pragma_update(None, "user_version", version)?;
 
         // The built-in roles exist in every database, including fresh ones, so permission checks
@@ -1072,6 +1079,36 @@ impl Store {
     }
 
     /// Register name and receipt footer of the quick billing screen.
+    /// All spreadsheet documents, most recently changed first.
+    pub fn list_spreadsheets(&self) -> CoreResult<Vec<SpreadsheetDocument>> {
+        spreadsheet::list_documents(&self.conn)
+    }
+
+    /// Loads one spreadsheet document.
+    pub fn find_spreadsheet(&self, id: uuid::Uuid) -> CoreResult<Option<SpreadsheetDocument>> {
+        spreadsheet::find_document(&self.conn, id)
+    }
+
+    /// Inserts a new spreadsheet document or updates it in place.
+    pub fn save_spreadsheet(&self, document: &SpreadsheetDocument) -> CoreResult<()> {
+        spreadsheet::save_document(&self.conn, document)
+    }
+
+    /// Renames a spreadsheet document.
+    pub fn rename_spreadsheet(&self, id: uuid::Uuid, name: &str, now: i64) -> CoreResult<()> {
+        spreadsheet::rename_document(&self.conn, id, name, now)
+    }
+
+    /// Deletes a spreadsheet document.
+    pub fn delete_spreadsheet(&self, id: uuid::Uuid) -> CoreResult<()> {
+        spreadsheet::delete_document(&self.conn, id)
+    }
+
+    /// Number of stored spreadsheet documents.
+    pub fn spreadsheet_count(&self) -> CoreResult<usize> {
+        spreadsheet::document_count(&self.conn)
+    }
+
     pub fn quick_billing_settings(&self) -> CoreResult<quick_billing::QuickBillingSettings> {
         quick_billing::load_settings(&self.conn)
     }
@@ -2294,6 +2331,21 @@ ALTER TABLE pos_orders ADD COLUMN tax_total_override_cents INTEGER;
 
 /// Schema v19: persist double-entry stock movements and backfill existing movement history.
 /// Schema v21: quick billing register of the TypeScript `IOSBillingModule`.
+const SCHEMA_V22: &str = r#"
+CREATE TABLE IF NOT EXISTS table_documents (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    sheet           TEXT NOT NULL DEFAULT '[]',
+    styles          TEXT NOT NULL DEFAULT '{}',
+    show_gridlines  INTEGER NOT NULL DEFAULT 1,
+    show_formula_bar INTEGER NOT NULL DEFAULT 1,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_table_documents_updated ON table_documents(updated_at);
+"#;
+
 const SCHEMA_V21: &str = r#"
 CREATE TABLE IF NOT EXISTS quick_dishes (
     id            TEXT PRIMARY KEY,

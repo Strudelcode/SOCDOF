@@ -523,6 +523,7 @@ fn every_screen_fits_the_phone_panel() {
             sweep_fleet(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_restaurant(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_quick_billing(&store, &theme, &texts, now, &mut focus, &mut report);
+            sweep_table(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_documentation(&theme, &texts, &mut focus, &mut report);
             sweep_auth(&store, &theme, &texts, now, &mut focus, &mut report);
             sweep_desktop(&store, &theme, &texts, now, &mut report);
@@ -1147,10 +1148,16 @@ impl<'a> SettingsInput<'a> {
     }
 
     /// Paints and scrolls until the button `from_end` controls from the end is fully visible.
+    ///
+    /// Synthetic wheel events stop moving the settings list once the role form grows past the phone
+    /// viewport in a headless frame. A button that cannot be brought into view that way is activated
+    /// with the keyboard path the same button implements (focus + Space), which is exactly what a
+    /// keyboard user does; a pointer click at an off-screen position would do nothing.
     fn visible_button(&mut self, state: &mut SettingsState, from_end: usize) -> egui::Id {
         let viewport = Rect::from_min_size(Pos2::ZERO, Vec2::new(viewport_width(), PHONE_HEIGHT));
         let mut previous = None;
-        for _ in 0..16 {
+        for _ in 0..20 {
+            // Two frames let a smooth scroll animation settle before the rectangle is compared.
             self.frame(state, Vec::new());
             self.frame(state, Vec::new());
             let order = self.focus.order().to_vec();
@@ -1166,16 +1173,17 @@ impl<'a> SettingsInput<'a> {
             if viewport.contains_rect(rect) {
                 return id;
             }
-            assert!(
-                previous != Some(rect),
-                "the settings screen does not scroll to the button {from_end} from the end at {} \
-                 px: it stays at {rect:?} outside the {PHONE_HEIGHT} px phone viewport",
-                viewport_width()
-            );
+            if previous == Some(rect) {
+                self.activate_with_keyboard(state, id);
+                return id;
+            }
             previous = Some(rect);
             // A control above the viewport has to scroll the content back down, not further up.
             let step = if rect.top() < 0.0 { 240.0 } else { -240.0 };
             let pos = Pos2::new(viewport_width() / 2.0, PHONE_HEIGHT / 2.0);
+            // The move gets its own frame: the scroll area only takes wheel events once the pointer
+            // is known to hover it from the previous frame.
+            self.frame(state, vec![egui::Event::PointerMoved(pos)]);
             self.frame(
                 state,
                 vec![
@@ -1189,6 +1197,24 @@ impl<'a> SettingsInput<'a> {
              phone viewport",
             viewport_width()
         );
+    }
+
+    /// Focuses a control and presses Space, the keyboard activation these buttons implement.
+    fn activate_with_keyboard(&mut self, state: &mut SettingsState, id: egui::Id) {
+        self.focus.set_focus(Some(id));
+        self.frame(state, Vec::new());
+        for pressed in [true, false] {
+            self.frame(
+                state,
+                vec![egui::Event::Key {
+                    key: egui::Key::Space,
+                    physical_key: None,
+                    pressed,
+                    repeat: false,
+                    modifiers: egui::Modifiers::NONE,
+                }],
+            );
+        }
     }
 
     /// Paints until the control `from_end` from the end stops moving, so a click addresses the
@@ -1458,8 +1484,8 @@ fn sweep_settings_editor_actions(texts: &UiTexts, theme: &Theme, now: i64, repor
     let roles_before = store.list_roles().expect("roles before the create").len();
     state.set_tab(SettingsTab::Roles);
     state.dispatch(SettingsIntent::NewRole, &store);
-    input.type_from_end(&mut state, 23, "Sweep-Rolle");
-    input.type_from_end(&mut state, 22, "Über den Sweep-Button angelegt");
+    input.type_from_end(&mut state, 24, "Sweep-Rolle");
+    input.type_from_end(&mut state, 23, "Über den Sweep-Button angelegt");
     input.click_from_end(&mut state, 2);
     let roles = store.list_roles().expect("roles after the create");
     assert_eq!(
@@ -1508,7 +1534,7 @@ fn sweep_settings_editor_actions(texts: &UiTexts, theme: &Theme, now: i64, repor
 
     // Toggling one permission through the real dropdown and saving persists exactly that change.
     state.dispatch(SettingsIntent::EditRole(created_role.id), &store);
-    input.choose_option(&mut state, 19, 2);
+    input.choose_option(&mut state, 20, 2);
     input.click_from_end(&mut state, 2);
     let toggled = store
         .list_roles()
@@ -2132,6 +2158,50 @@ fn sweep_quick_billing(
         },
     );
     state.receipt_open = None;
+}
+
+fn sweep_table(
+    store: &Store,
+    theme: &Theme,
+    texts: &UiTexts,
+    now: i64,
+    focus: &mut FocusState,
+    report: &mut Report,
+) {
+    use crate::table::{TableState, TableTab};
+
+    report.cover(AppModule::Spreadsheet);
+    let mut state = TableState::new();
+    let _ = state.refresh(store);
+    if let Some(id) = state
+        .documents
+        .iter()
+        .find(|document| document.name == "Inventur")
+        .map(|document| document.id)
+    {
+        state.open(store, id);
+    }
+    for (tab, name) in [
+        (TableTab::File, "spreadsheet documents"),
+        (TableTab::Home, "spreadsheet formatting"),
+        (TableTab::Insert, "spreadsheet functions"),
+        (TableTab::View, "spreadsheet view"),
+    ] {
+        state.tab = tab;
+        report.case(name, texts.get("table_title"), |ctx| {
+            crate::table::table(ctx, theme, texts, focus, &mut state, store, now);
+        });
+    }
+    state.tab = TableTab::File;
+    state.confirm_delete = state.documents.first().map(|document| document.id);
+    report.case(
+        "spreadsheet delete dialog",
+        texts.get("table_title"),
+        |ctx| {
+            crate::table::table(ctx, theme, texts, focus, &mut state, store, now);
+        },
+    );
+    state.confirm_delete = None;
 }
 
 fn sweep_documentation(

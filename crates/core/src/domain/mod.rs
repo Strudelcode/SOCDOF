@@ -27,6 +27,7 @@ pub mod reorder;
 pub mod restaurant;
 pub mod session;
 pub mod settings;
+pub mod spreadsheet;
 pub mod stock;
 pub mod support;
 pub mod tax_advisor_ledger;

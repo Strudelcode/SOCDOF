@@ -85,6 +85,7 @@ enum Scene {
     QuickBilling,
     QuickBillingReceipts,
     QuickBillingStats,
+    Table,
     Calendar,
     CalendarWeek,
     CalendarForm,
@@ -180,6 +181,7 @@ impl Scene {
             Scene::QuickBilling => "quick-billing".to_string(),
             Scene::QuickBillingReceipts => "quick-billing-receipts".to_string(),
             Scene::QuickBillingStats => "quick-billing-stats".to_string(),
+            Scene::Table => "table".to_string(),
             Scene::Calendar => "calendar".to_string(),
             Scene::Users => "users".to_string(),
             Scene::UserDetail => "users-detail".to_string(),
@@ -269,6 +271,7 @@ impl Scene {
             Scene::QuickBilling => "Quick billing · Checkout".to_string(),
             Scene::QuickBillingReceipts => "Quick billing · Receipt journal".to_string(),
             Scene::QuickBillingStats => "Quick billing · Daily figures".to_string(),
+            Scene::Table => "Spreadsheet · Sheet".to_string(),
             Scene::Calendar => "Calendar".to_string(),
             Scene::Users => "User management".to_string(),
             Scene::UserDetail => "User management · Account".to_string(),
@@ -891,6 +894,20 @@ impl Scene {
                 };
                 state.quick_billing_open = true;
             }
+            Scene::Table => {
+                let _ = state.table.refresh(&state.store);
+                if let Some(id) = state
+                    .table
+                    .documents
+                    .iter()
+                    .find(|document| document.name == "Inventur")
+                    .map(|document| document.id)
+                {
+                    state.table.open(&state.store, id);
+                }
+                state.table.tab = socdof_ui::table::TableTab::Home;
+                state.table_open = true;
+            }
             Scene::Calendar => {
                 state.appointments_open = true;
                 state.appointments.screen = socdof_ui::appointments::AppointmentsDetail::Calendar;
@@ -1236,6 +1253,7 @@ fn scenes() -> Vec<Scene> {
         Scene::QuickBilling,
         Scene::QuickBillingReceipts,
         Scene::QuickBillingStats,
+        Scene::Table,
         Scene::Calendar,
         Scene::CalendarWeek,
         Scene::CalendarForm,

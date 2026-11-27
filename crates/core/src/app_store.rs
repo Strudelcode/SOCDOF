@@ -104,7 +104,7 @@ const fn definition(
 }
 
 /// The catalogue, in the same order as the permission matrix.
-const MODULES: [ModuleDefinition; 19] = [
+const MODULES: [ModuleDefinition; 20] = [
     definition(
         AppModule::Dashboard,
         "settings_module_dashboard",
@@ -238,6 +238,13 @@ const MODULES: [ModuleDefinition; 19] = [
         ModuleLicense::Trial,
         false,
     ),
+    definition(
+        AppModule::Spreadsheet,
+        "settings_module_table",
+        "app_store_desc_table",
+        ModuleLicense::Trial,
+        false,
+    ),
 ];
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -250,13 +257,20 @@ struct Activation {
 
 /// Modules the reference first run leaves deactivated.
 ///
-/// The reference desktop starts with a reduced set: `support`, `reports`, `therapy` and `fleet`
-/// stay in the App Store until the user enables them, every other licensed module starts active.
+/// The reference desktop starts with a reduced set: `support`, `reports`, `therapy`, `fleet`,
+/// `ios_billing` and `table` stay in the App Store until the user enables them, every other
+/// licensed module starts active.
 /// Which of the active modules the desktop grid shows is a separate product decision (the grid
 /// shows twelve Rust module tiles instead of the twelve original TypeScript apps); it is tracked
 /// as an open question in `NEXT_STEPS_AI.md`.
-pub const REFERENCE_STARTUP_DISABLED: [&str; 5] =
-    ["support", "reports", "therapy", "fleet", "ios_billing"];
+pub const REFERENCE_STARTUP_DISABLED: [&str; 6] = [
+    "support",
+    "reports",
+    "therapy",
+    "fleet",
+    "ios_billing",
+    "table",
+];
 
 fn load(store: &Store) -> CoreResult<Activation> {
     match store.get_setting(APP_STORE_SETTINGS_KEY)? {
@@ -390,7 +404,7 @@ pub fn apply_selection(store: &Store, selected: &[String]) -> CoreResult<()> {
 }
 
 /// Catalogue definitions are kept in sync with the permission matrix.
-pub fn catalogue_modules() -> [AppModule; 19] {
+pub fn catalogue_modules() -> [AppModule; 20] {
     ALL_MODULES
 }
 
@@ -449,7 +463,14 @@ mod tests {
             .collect();
         assert_eq!(
             inactive,
-            vec!["reports", "support", "therapy", "fleet", "ios_billing"]
+            vec![
+                "reports",
+                "support",
+                "therapy",
+                "fleet",
+                "ios_billing",
+                "table"
+            ]
         );
         assert_eq!(
             modules.iter().filter(|module| module.active).count(),

@@ -70,8 +70,8 @@ Overview (details, code paths and evidence are in the status file):
 | Therapy | `teilweise` — practice dashboard, appointments tab, batch billing remain |
 | Support & mobile companion | `teilweise` — ticket PDF acceptance, work-item checklist remain |
 | Documentation | `teilweise` — the manual content is still short |
-| **Quick billing / Schnellkasse (`ios_billing`)** | `offen` — whole module missing |
-| **Spreadsheet (`table`)** | `offen` — whole module missing |
+| **Quick billing / Schnellkasse (`ios_billing`)** | `fertig` — Bon-Druck und echte TSE bleiben offen |
+| **Spreadsheet (`table`)** | `fertig` — Vorlagen-Speicher der Vorlage bleibt offen |
 | Feedback (Discord) | `offen` — network feature, deliberately deferred |
 
 Status values: `fertig` = behaviour, persistence and tests verified against `SOCDOF - TS/`;

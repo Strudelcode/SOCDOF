@@ -64,6 +64,7 @@ pub mod snapshot;
 pub mod stock_moves;
 pub mod studio;
 pub mod support;
+pub mod table;
 pub mod textwerk;
 pub mod textwerk_io;
 pub mod theme;

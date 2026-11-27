@@ -121,7 +121,7 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
 - [ ] Rechnungen: Status-Filterchips, Rechnung duplizieren
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
-- [ ] **Tabellenkalkulation `table` fehlt als ganzes Modul** (`TableModule.tsx`)
+- [x] **Tabellenkalkulation `table`** ist portiert (`crates/ui/src/table.rs`, Schema v22, Beleg `rust-48`); offen bleibt nur der in der Vorlage ungenutzte Vorlagen-Speicher
 
 ### Übergreifend
 
@@ -162,12 +162,38 @@ der Filter ist ein Substring der Szenen-ID.
 
 ## 6. Zahlen
 
-- 14 Einstellungs-Sektionen, 19 Launcher-Module (nur die Tabellenkalkulation `table` fehlt)
+- 14 Einstellungs-Sektionen, 20 Launcher-Module (vollständig, `table` ist neu)
 - 2.607 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
 - `cargo test -p socdof-core --lib`: 420 Tests, 0 Fehler
 - `cargo test -p socdof-ui --lib`: 455 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
-- Telefon-Sweep: 1.312 bisherige Fälle + 9 neue Schnellkassen-Fälle je Breite/Theme (1.384 Fälle,
+- Telefon-Sweep: 1.312 bisherige Fälle + 9 Schnellkassen- und 6 Tabellen-Fälle je Breite/Theme (1.424 Fälle,
   360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
 - Belege: `docs/artifacts/gui-parity/rust-01`…`rust-47`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
+
+## Tabellenkalkulation `table` (2026-11-27)
+
+Portiert aus `SOCDOF - TS/src/components/sales/TableModule.tsx`. Die Vorlage ist eine
+Tabellenkalkulation (kein Tischplan); Tisch-Lebenszyklus, Reservierung und Storno leben weiterhin in
+`restaurant` und `ios_billing`.
+
+- **Domäne** `crates/core/src/domain/spreadsheet.rs`: Raster 8–26 Spalten (A–Z) × 20–200 Zeilen,
+  `CellStyle` (fett/kursiv/unterstrichen, Ausrichtung, Schrift-/Füllfarbe, Schriftfamilie), eigener
+  Formelparser für `=`, A1-Referenzen, Bereiche und `SUMME`/`MITTELWERT`/`MAX`/`MIN`/`ANZAHL`,
+  Zyklusschutz (Zyklus liest 0), `#FEHLER` wie die Vorlage, Zahlen mit Komma, CSV mit Semikolon,
+  BOM beim Export, Kürzung auf Maximalgröße beim Import.
+- **Store** `crates/core/src/store/spreadsheet.rs` + Schema **v22** (`table_documents`): Die Vorlage
+  hält Tabellen nur im React-State; Rust speichert Name, Raster, Stile, Gitternetz-/Formelbalken-
+  Schalter und Zeitstempel dauerhaft (Projektregel „keine Mock-Daten“).
+- **UI** `crates/ui/src/table.rs`: Ribbon Datei/Start/Einfügen/Ansicht, Formelbalken, Spaltenköpfe
+  A–Z, Statuszeile (aktive Zelle, gefüllte Zellen, Hinweis), Tastaturnavigation, CSV über Pfadfeld.
+- **Verdrahtung**: `AppModule::Spreadsheet` (`"table"`, 20 Module), App-Store-Eintrag (startet wie in
+  der Vorlage deaktiviert), Chrome-Tile, Desktop-Icon, natives Fenster, Settings-Label, Rollenmatrix,
+  71 neue i18n-Keys in de/en/fr/es (Katalog 2.678).
+- **Bewusste Abweichungen**: Persistenz (die Vorlage hat keine); Bereichsfunktion über einem Block,
+  der in Zeile 1 beginnt, wird mit Hinweis abgelehnt statt eine selbstreferenzierende Formel zu
+  schreiben; mehrzeilige CSV-Felder werden beim Import wie in der Vorlage zeilenweise getrennt.
+- **Verifikation**: `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, Core 434, UI 464,
+  Visual 2, Backoffice 4, Telefon-Sweep 1.424 Fälle grün; Beleg
+  `docs/artifacts/gui-parity/rust-48-spreadsheet-{light,dark}.png`.

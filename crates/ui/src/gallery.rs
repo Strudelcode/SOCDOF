@@ -144,6 +144,7 @@ fn desktop_icons(texts: &UiTexts, active: &[AppModule]) -> IconGrid {
         (AppModule::Fleet, "fleet"),
         (AppModule::Restaurant, "restaurant"),
         (AppModule::QuickBilling, "ios_billing"),
+        (AppModule::Spreadsheet, "table"),
         (AppModule::Invoices, "invoices"),
         (AppModule::Accounting, "accounting"),
         (AppModule::Purchases, "purchases"),
@@ -190,6 +191,7 @@ fn startup_app(module: &str) -> Option<AppId> {
         "fleet" => AppId::new("fleet"),
         "restaurant" => AppId::new("restaurant"),
         "ios_billing" => AppId::new("ios_billing"),
+        "table" => AppId::new("table"),
         "invoices" => AppId::new("invoices"),
         "accounting" => AppId::new("accounting"),
         "purchases" => AppId::new("purchases"),
@@ -221,6 +223,7 @@ const NATIVE_WINDOW_SLUGS: &[&str] = &[
     "fleet",
     "restaurant",
     "ios_billing",
+    "table",
     "purchases",
     "calendar",
     "editor",
@@ -294,6 +297,7 @@ fn restore_native_windows(
             "fleet" => AppId::new("fleet"),
             "restaurant" => AppId::new("restaurant"),
             "ios_billing" => AppId::new("ios_billing"),
+            "table" => AppId::new("table"),
             "purchases" => AppId::new("purchases"),
             "calendar" => AppId::new("calendar"),
             "editor" => AppId::new("editor"),
@@ -500,6 +504,10 @@ pub struct GalleryState {
     pub quick_billing: crate::quick_billing::QuickBillingState,
     /// Whether the quick billing register is open.
     pub quick_billing_open: bool,
+    /// Spreadsheet state.
+    pub table: crate::table::TableState,
+    /// Whether the spreadsheet is open.
+    pub table_open: bool,
     /// Invoices module state.
     pub invoices: InvoicesState,
     /// Whether the invoices screen is shown instead of the gallery.
@@ -623,6 +631,7 @@ impl GalleryState {
             seed_support(&store, &texts)?;
             seed_therapie(&store, &texts)?;
             crate::quick_billing::seed_quick_billing(&store, &texts)?;
+            crate::table::seed_table(&store)?;
         }
 
         // Keep the real desktop's login/startup path lightweight. Each app refreshes from the
@@ -634,6 +643,7 @@ impl GalleryState {
         let mut fleet_state = FleetState::new();
         let mut restaurant_state = crate::restaurant::RestaurantState::new();
         let mut quick_billing_state = crate::quick_billing::QuickBillingState::new();
+        let mut table_state = crate::table::TableState::new();
         let mut invoices_state = InvoicesState::new();
         let mut accounting_state = AccountingState::new();
         let mut purchases_state = PurchasesState::new();
@@ -648,6 +658,7 @@ impl GalleryState {
             fleet_state.refresh(&store)?;
             restaurant_state.refresh(&store)?;
             quick_billing_state.refresh(&store)?;
+            table_state.refresh(&store)?;
             invoices_state.refresh(&store)?;
             accounting_state.refresh(&store, now_millis())?;
             purchases_state.refresh(&store)?;
@@ -754,6 +765,8 @@ impl GalleryState {
             restaurant_open: false,
             quick_billing: quick_billing_state,
             quick_billing_open: false,
+            table: table_state,
+            table_open: false,
             invoices: invoices_state,
             invoices_open: false,
             accounting: accounting_state,
@@ -824,6 +837,7 @@ impl GalleryState {
         self.fleet_open = false;
         self.restaurant_open = false;
         self.quick_billing_open = false;
+        self.table_open = false;
         self.invoices_open = false;
         self.accounting_open = false;
         self.purchases_open = false;
@@ -884,6 +898,10 @@ impl GalleryState {
             "ios_billing" => {
                 self.quick_billing.reset_for_open(&self.store)?;
                 self.quick_billing_open = true;
+            }
+            "table" => {
+                self.table.refresh(&self.store)?;
+                self.table_open = true;
             }
             "invoices" => {
                 self.invoices.refresh(&self.store)?;
@@ -1442,6 +1460,22 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     );
                     let back = state.restaurant.back;
                     state.restaurant.back = false;
+                    back
+                }
+                "table" => {
+                    crate::table::table_window(
+                        ctx,
+                        active,
+                        ui,
+                        theme,
+                        texts,
+                        focus,
+                        &mut state.table,
+                        store,
+                        now,
+                    );
+                    let back = state.table.back;
+                    state.table.back = false;
                     back
                 }
                 "ios_billing" => {
@@ -2097,6 +2131,32 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 state.desktop_windows.minimize(AppId::new("ios_billing"));
             } else {
                 state.desktop_windows.close(AppId::new("ios_billing"), now);
+            }
+            state.desktop_open = true;
+        }
+        state.focus.finish_frame();
+        return;
+    }
+
+    if state.table_open {
+        let closed = app_view(ctx, &theme, &texts, &mut state.focus, "table", |focus| {
+            crate::table::table(
+                ctx,
+                &theme,
+                &texts,
+                focus,
+                &mut state.table,
+                &state.store,
+                now,
+            );
+        });
+        if closed.close || closed.minimize || state.table.back {
+            state.table_open = false;
+            state.table.back = false;
+            if closed.minimize {
+                state.desktop_windows.minimize(AppId::new("table"));
+            } else {
+                state.desktop_windows.close(AppId::new("table"), now);
             }
             state.desktop_open = true;
         }
@@ -3652,7 +3712,7 @@ mod tests {
         state
             .open_desktop_app(AppId::new("app-store"), now_millis())
             .expect("open App Store");
-        assert_eq!(state.app_store.modules.len(), 19);
+        assert_eq!(state.app_store.modules.len(), 20);
     }
 
     #[test]
@@ -4392,7 +4452,7 @@ mod tests {
         let _ = ctx.run(input, |ctx| gallery(ctx, &mut state));
         assert!(state.app_store_open, "App Store did not open");
         assert!(!state.dashboard_open, "dashboard did not close");
-        assert_eq!(state.app_store.modules.len(), 19);
+        assert_eq!(state.app_store.modules.len(), 20);
     }
 
     #[test]
@@ -4603,6 +4663,7 @@ mod tests {
             ("fleet", 7),
             ("restaurant", 8),
             ("ios_billing", 9),
+            ("table", 18),
             ("products", 10),
             ("purchases", 10),
             ("calendar", 11),
@@ -4803,6 +4864,7 @@ mod tests {
             "fleet",
             "restaurant",
             "ios_billing",
+            "table",
             "products",
             "purchases",
             "calendar",
@@ -4865,6 +4927,10 @@ mod tests {
         assert!(
             painted.contains(state.texts.get("quick_billing_title")),
             "quick billing window content was not drawn; painted={painted:?}"
+        );
+        assert!(
+            painted.contains(state.texts.get("table_title")),
+            "spreadsheet window content was not drawn; painted={painted:?}"
         );
         assert!(
             painted.contains(state.texts.get("docs_title")),

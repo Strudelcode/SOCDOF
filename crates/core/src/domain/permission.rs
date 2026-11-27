@@ -49,10 +49,12 @@ pub enum AppModule {
     Restaurant,
     /// Quick billing register with dish tiles, receipts and daily figures.
     QuickBilling,
+    /// Spreadsheet with formulas, cell styles and CSV exchange.
+    Spreadsheet,
 }
 
 /// All modules, in the order they are shown in the permission editor.
-pub const ALL_MODULES: [AppModule; 19] = [
+pub const ALL_MODULES: [AppModule; 20] = [
     AppModule::Dashboard,
     AppModule::Contacts,
     AppModule::Products,
@@ -72,6 +74,7 @@ pub const ALL_MODULES: [AppModule; 19] = [
     AppModule::Fleet,
     AppModule::Restaurant,
     AppModule::QuickBilling,
+    AppModule::Spreadsheet,
 ];
 
 impl AppModule {
@@ -97,6 +100,7 @@ impl AppModule {
             AppModule::Fleet => "fleet",
             AppModule::Restaurant => "restaurant",
             AppModule::QuickBilling => "ios_billing",
+            AppModule::Spreadsheet => "table",
         }
     }
 
