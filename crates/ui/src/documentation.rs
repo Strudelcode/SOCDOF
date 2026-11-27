@@ -57,23 +57,8 @@ pub enum DocReleaseFilter {
     V23,
 }
 
-/// Search and navigation state of the local documentation window.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct DocumentationState {
-    /// Active portal tab.
-    pub tab: DocTab,
-    /// Manual category filter.
-    pub category: DocManualCategory,
-    /// Text used to filter manual sections and their paragraphs.
-    pub query: String,
-    /// Major version filter for release history.
-    pub release_filter: DocReleaseFilter,
-    /// Search text used in the release history tab.
-    pub release_query: String,
-    /// Set by the header's back button; the host leaves the screen afterwards.
-    pub back: bool,
-}
-
+/// Quickstart, module, shortcut and security topics; the screen tests read them from here.
+#[cfg(test)]
 const TOPICS: [(&str, [&str; 3]); 4] = [
     (
         "docs_quickstart_title",
@@ -96,6 +81,23 @@ const TOPICS: [(&str, [&str; 3]); 4] = [
         ["docs_security_1", "docs_security_2", "docs_security_3"],
     ),
 ];
+
+/// Search and navigation state of the local documentation window.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct DocumentationState {
+    /// Active portal tab.
+    pub tab: DocTab,
+    /// Manual category filter.
+    pub category: DocManualCategory,
+    /// Text used to filter manual sections and their paragraphs.
+    pub query: String,
+    /// Major version filter for release history.
+    pub release_filter: DocReleaseFilter,
+    /// Search text used in the release history tab.
+    pub release_query: String,
+    /// Set by the header's back button; the host leaves the screen afterwards.
+    pub back: bool,
+}
 
 struct ManualChapter {
     category: DocManualCategory,
@@ -799,8 +801,12 @@ mod tests {
         let texts = UiTexts::embedded(Language::De).expect("German catalogue");
         assert!(MANUAL_CHAPTERS.len() >= 12);
         assert!(chapter_matches(&texts, &MANUAL_CHAPTERS[0], ""));
-        assert!(filter_releases(DocReleaseFilter::V25, "").iter().all(|r| r.major == 25));
-        assert!(filter_releases(DocReleaseFilter::V23, "").iter().any(|r| r.version == "23.0.0"));
+        assert!(filter_releases(DocReleaseFilter::V25, "")
+            .iter()
+            .all(|r| r.major == 25));
+        assert!(filter_releases(DocReleaseFilter::V23, "")
+            .iter()
+            .any(|r| r.version == "23.0.0"));
         assert!(!filter_releases(DocReleaseFilter::Recent, "FatturaPA").is_empty());
         assert!(filter_releases(DocReleaseFilter::All, "no-such-xyz-release").is_empty());
     }

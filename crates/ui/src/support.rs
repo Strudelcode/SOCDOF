@@ -33,6 +33,11 @@ use crate::tokens::{FONT_SMALL, FONT_TITLE};
 /// Fixed timestamp of the sample tickets, shared with the other module fixtures.
 pub const SAMPLE_NOW_MS: i64 = crate::contacts::SAMPLE_NOW_MS;
 
+/// Standard German VAT rate (19 %) for the draft invoices created from tracked ticket time.
+/// `CompanyProfile` carries no configurable default rate, and the reference support module does
+/// not expose one either.
+const SUPPORT_INVOICE_TAX_RATE_BP: i64 = 1_900;
+
 /// Milliseconds of one hour, used to place the sample tickets relative to [`SAMPLE_NOW_MS`].
 const HOUR_MS: i64 = 60 * 60 * 1000;
 const DAY_MS: i64 = 24 * HOUR_MS;
@@ -517,7 +522,7 @@ impl SupportState {
                 description: format!("{} ({})", ticket.subject, hours_label(total_minutes)),
                 quantity_milli,
                 unit_price: Money::from_cents(DEFAULT_HOURLY_RATE_CENTS),
-                tax_rate_bp: profile.default_tax_rate_bp,
+                tax_rate_bp: SUPPORT_INVOICE_TAX_RATE_BP,
             }],
         };
         store.insert_invoice(&invoice)?;
@@ -705,11 +710,19 @@ pub fn ticket_pdf(
         left,
         y,
         10.0,
-        &format!("{status} · {priority} · {}", format_iso8601(ticket.created_at)),
+        &format!(
+            "{status} · {priority} · {}",
+            format_iso8601(ticket.created_at)
+        ),
     );
     if let Some(name) = customer {
         y -= mm(5.5);
-        page.text(left, y, 10.0, &format!("{}: {name}", texts.get("support_contact")));
+        page.text(
+            left,
+            y,
+            10.0,
+            &format!("{}: {name}", texts.get("support_contact")),
+        );
     }
     if !ticket.description.trim().is_empty() {
         y -= mm(7.0);
@@ -1068,7 +1081,15 @@ fn list_view(
         } else {
             ButtonVariant::Secondary
         };
-        if button(ui, theme, focus, texts.get("support_filter_all"), all_variant).activated {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("support_filter_all"),
+            all_variant,
+        )
+        .activated
+        {
             state.status_filter = None;
             state.only_open = false;
         }
@@ -1650,7 +1671,11 @@ fn render_timesheet_modal(
 ) {
     let mut open = state.timesheet_open;
     let mut export_csv = false;
-    let total_minutes: i64 = state.all_time_entries.iter().map(|entry| entry.minutes).sum();
+    let total_minutes: i64 = state
+        .all_time_entries
+        .iter()
+        .map(|entry| entry.minutes)
+        .sum();
     let entries = state.all_time_entries.clone();
     let tickets = state.tickets.clone();
 
@@ -1908,14 +1933,11 @@ fn render_mobile_modal(
         } else {
             guard.error = None;
             let inbox_handle = state.gateway.clone();
-            match mobile_sync::http::start_with(
-                mobile_sync::Options::default(),
-                move |payload| {
-                    if let Ok(mut inner) = inbox_handle.inner.lock() {
-                        inner.inbox.push(payload.clone());
-                    }
-                },
-            ) {
+            match mobile_sync::http::start_with(mobile_sync::Options::default(), move |payload| {
+                if let Ok(mut inner) = inbox_handle.inner.lock() {
+                    inner.inbox.push(payload.clone());
+                }
+            }) {
                 Ok(running) => guard.running = Some(running),
                 Err(error) => guard.error = Some(error.to_string()),
             }

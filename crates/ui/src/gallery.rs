@@ -1190,7 +1190,10 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                     startup_module = startup_app(&preferences.startup_module);
                     if !wallpaper_changed {
                         if let Ok(pref) = settings_service::user_wallpaper(&state.store, user_id) {
-                            state.shell.wallpaper.apply_preference(&pref, now.max(1) as u64);
+                            state
+                                .shell
+                                .wallpaper
+                                .apply_preference(&pref, now.max(1) as u64);
                         }
                     }
                 }
