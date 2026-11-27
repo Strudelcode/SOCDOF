@@ -65,7 +65,7 @@ Overview (details, code paths and evidence are in the status file):
 | Invoices | `teilweise` — FatturaPA export done; status filter chips and duplicate remain |
 | Products | `teilweise` — link extractor, filter tabs, duplicate remain |
 | Purchases | `teilweise` — product link per position done; duplicate, KPIs, print remain |
-| POS | `fertig` — product tiles, barcode quick add, cart with discount, checkout and Z report with text export; hardware printer/terminal are not part of the reference |
+| POS | `fertig` — product tiles, barcode quick add, cart with discount, checkout and Z report with text export (schema v24, seed, three preview scenes, four languages); deliberately open: no receipt printer or card/NFC terminal (payment methods are only recorded), Z report is a Rust extension, invoice only with a selected customer, no pixel comparison |
 | Calendar | `teilweise` — work week, all-day, categories, invoice entries and ICS export done; Google sync, print and mobile sheets remain |
 | Therapy | `teilweise` — practice dashboard, appointments tab, batch billing remain |
 | Support & mobile companion | `teilweise` — ticket PDF acceptance, work-item checklist remain |

@@ -144,6 +144,10 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 | Nachtlicht | Tint über dem eigenen Fenster | keine OS-Farbtemperatur-API ohne Plattform-Abhängigkeit |
 | Anzeige | nur Erkennung und Layout-Vorschau | sicheres Schreiben von Auflösung/Ausrichtung ist plattformspezifisch |
 | Persistenz | SQLite je Benutzer statt `localStorage` | die native Edition hat eine echte Datenbank; Werte und Defaults entsprechen der Vorlage |
+| POS-Bondruck | kein Bondrucker | in der Vorlage nicht vorhanden; der Beleg liegt als PDF vor |
+| POS-Zahlungsterminal | Karte/NFC werden nur als Zahlart erfasst | kein Terminal- oder Netzwerk-Backend, die Vorlage hat ebenfalls keins |
+| POS-Z-Bericht | Rust-Erweiterung mit `.txt`-Export | die Vorlage hat keinen Z-Bericht; `window.print()` hat kein Desktop-Pendant |
+| POS-Rechnung | Rechnung nur bei gewähltem Kunden | die Vorlage fällt auf Kontakt 1 zurück; Rust legt sonst nur den Beleg an |
 
 ## 5. Selbst prüfen
 
@@ -168,14 +172,45 @@ der Filter ist ein Substring der Szenen-ID.
 ## 6. Zahlen
 
 - 14 Einstellungs-Sektionen, 20 Launcher-Module (vollständig, `table` ist neu)
-- 2.607 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
-- `cargo test -p socdof-core --lib`: 420 Tests, 0 Fehler
-- `cargo test -p socdof-ui --lib`: 455 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
-- Telefon-Sweep: 1.312 bisherige Fälle + 9 Schnellkassen- und 6 Tabellen-Fälle je Breite/Theme (1.424 Fälle,
-  360/390/412/432 px × Light/Dark) ohne Überlauf
+- 2.748 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- `cargo test -p socdof-core --lib`: 440 Tests, 0 Fehler
+- `cargo test -p socdof-ui --lib`: 471 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
+- Telefon-Sweep: 1.448 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-47`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-50`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
+
+## POS/Kasse (2026-11-27)
+
+Portiert aus `SOCDOF - TS/src/components/sales/POSModule.tsx` und `PaymentModal.tsx`. Die Vorlage
+ist eine Kassenansicht (Katalog, Warenkorb, Zahlung), kein Belegformular; Liste, Detail und Formular
+bleiben zusätzlich erhalten.
+
+- **Domäne** `crates/core/src/domain/pos.rs`: `PosOrder::discount_bp` (Basispunkte, validiert
+  0…10.000) rabattiert Netto und Steuer jeder Position; `net_for`/`tax_for`/`discount_amount`;
+  `PosZReport` + `z_report` aggregieren Belege, Zahlarten, Gegeben/Rückgeld und Steuergruppen.
+- **Store** `crates/core/src/store/pos_orders.rs` + Schema **v24**
+  (`pos_orders.discount_bp INTEGER NOT NULL DEFAULT 0`); `Store::pos_checkout` bucht Beleg,
+  Lagerbewegungen und optionale bezahlte Rechnung atomar.
+- **UI** `crates/ui/src/pos.rs`: neue Standardansicht **Kasse** mit Produktkacheln, Kategorie-Chips,
+  Suche, Barcode-/SKU-Feld (Enter), Warenkorb mit +/−/Entfernen und Rabatt, Kundenwahl, sechs
+  Zahlarten mit Schnellbeträgen und Rückgeld, Checkout, letztem Beleg sowie **Z-Bericht** mit
+  Zahlarten-/Steuergruppen und Text-Export über den Systemdialog.
+- **Verdrahtung**: Seed mit Kategorie, Barcode und Emoji für beide Beispielprodukte; Vorschau-Szenen
+  `pos-cart`, `pos-receipt`, `pos-zreport`; 42 i18n-Keys in de/en/fr/es plus zwei Pluralpaare
+  (Katalog **2.748**); der Telefon-Sweep deckt Kasse und Z-Bericht ab.
+- **Bewusste Abweichungen**: kein Bondrucker und kein echtes Karten-/NFC-Terminal (die Zahlarten
+  werden nur erfasst; beides gibt es in der Vorlage nicht); der Z-Bericht ist eine Rust-Erweiterung
+  ohne TS-Pendant und ersetzt `window.print()` durch einen `.txt`-Export; eine Rechnung entsteht nur
+  bei gewähltem Kunden (die Vorlage nutzt Fallback-Kontakt 1); der POS-Screen hat noch keinen
+  Pixel-Vergleich, Maßstab ist die Funktionsparität.
+- **Verifikation**: `cargo fmt --all -- --check`, clippy core+ui `-D warnings`, Core **440**, UI
+  **471**, Visual 2, Backoffice 4, Telefon-Sweep **1.448** Fälle grün.
+- **Belege**: `docs/artifacts/gui-parity/rust-50-pos-register-{light,dark}.png`,
+  `rust-50-pos-cart-{light,dark}.png`, `rust-50-pos-checkout-{light,dark}.png`,
+  `rust-50-pos-zreport-{light,dark}.png`.
+
+**Offen:** Bondrucker, echtes Zahlungsterminal, Pixelvergleich des POS-Screens.
 
 ## Tabellenkalkulation `table` (2026-11-27)
 

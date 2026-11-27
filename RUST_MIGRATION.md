@@ -3081,5 +3081,11 @@ catalogue and cart below 760 px.
 `rust-50-pos-zreport-{light,dark}.png`.
 
 **Still open:** a receipt printer and a real card/NFC terminal (neither exists in the reference; the
-payment methods only record how the customer paid) and the pixel comparison. The reference's
-`window.print()` for receipts has no desktop counterpart; the existing PDF receipt covers handover.
+payment methods only record how the customer paid) and the pixel comparison of the POS screen
+(functional parity is the measure here).
+
+**Deliberate deviations:** the Z report has no TypeScript counterpart — it is a Rust extension and
+replaces `window.print()` with the text export; a paid invoice is created only when a customer is
+selected, while the reference falls back to contact 1 (otherwise Rust books the receipt alone). The
+reference's `window.print()` for receipts has no desktop counterpart either; the existing PDF receipt
+covers handover.
