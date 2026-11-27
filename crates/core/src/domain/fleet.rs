@@ -365,10 +365,11 @@ pub fn csv_file_name(company: &str, now: i64) -> String {
     let safe: String = name
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '-' {
-                ch
-            } else {
+            if ch.is_control() || matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+            {
                 '_'
+            } else {
+                ch
             }
         })
         .collect();
@@ -580,8 +581,20 @@ mod tests {
         assert!(csv.contains("\"Berlin\";\"Potsdam\""));
         assert!(csv.contains("Dienstfahrt"));
         assert!(csv.contains("9.00"));
-        assert!(csv_file_name("Beispiel GmbH", 1_760_000_000_000)
-            .starts_with("Fahrtenbuch_Beispiel_GmbH_"));
+        let timestamp = 1_760_000_000_000;
+        let (year, month, day) = crate::date::civil_from_millis(timestamp);
+        assert_eq!(
+            csv_file_name("Beispiel GmbH", timestamp),
+            format!("Fahrtenbuch_Beispiel GmbH_{year:04}-{month:02}-{day:02}.csv")
+        );
+        assert_eq!(
+            csv_file_name("Müller/West: GmbH", timestamp),
+            format!("Fahrtenbuch_Müller_West_ GmbH_{year:04}-{month:02}-{day:02}.csv")
+        );
+        assert_eq!(
+            csv_file_name("  ", timestamp),
+            format!("Fahrtenbuch_SOCDOF_{year:04}-{month:02}-{day:02}.csv")
+        );
         assert_eq!(FleetTrip::distance(100, 90), 0);
     }
 }

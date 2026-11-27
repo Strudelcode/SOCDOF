@@ -37,7 +37,7 @@ use crate::editor::{editor as editor_screen, seed_documents, EditorState};
 use crate::fleet::{fleet, FleetState};
 use crate::focus::FocusState;
 use crate::form::{CloseDecision, Field, FormState, UnsavedGuard};
-use crate::i18n::UiTexts;
+use crate::i18n::{detect_system_language, load_texts, system_language_sync_enabled, UiTexts};
 use crate::icons::Icon;
 use crate::invoices::{invoices, seed_invoices, InvoicesState};
 use crate::pos::{pos, seed_pos, PosState};
@@ -46,7 +46,7 @@ use crate::projects::{projects, ProjectsState};
 use crate::purchases::{purchases, seed_purchases, PurchasesState};
 use crate::reports::{reports as reports_screen, ReportsState};
 use crate::settings::{seed_settings, settings, SettingsState};
-use crate::shell::{onboarding, ShellState};
+use crate::shell::{onboarding, PaletteQuickAction, ShellState};
 use crate::support::{seed_sample as seed_support, support as support_screen, SupportState};
 use crate::theme::{Appearance, Theme};
 use crate::therapie::{seed_sample as seed_therapie, therapie as therapie_screen, TherapieState};
@@ -56,15 +56,6 @@ use socdof_core::store::Store;
 
 /// How long a toast stays visible in the gallery.
 const TOAST_TTL_MS: i64 = 4_000;
-
-/// Loads the UI catalogue for a language, overlaying external packs from `SOCDOF_UI_PACKS` when the
-/// host points that variable at a folder of `*.json` packs.
-fn load_texts(language: Language) -> CoreResult<UiTexts> {
-    match std::env::var("SOCDOF_UI_PACKS") {
-        Ok(directory) if !directory.trim().is_empty() => UiTexts::with_packs(language, directory),
-        _ => UiTexts::embedded(language),
-    }
-}
 
 /// Month keys in calendar order.
 const MONTH_KEYS: [&str; 12] = [
@@ -565,7 +556,12 @@ impl GalleryState {
         store: Store,
         seed_demo_data: bool,
     ) -> CoreResult<Self> {
-        let texts = load_texts(language)?;
+        let language = if system_language_sync_enabled(&store)? {
+            detect_system_language()
+        } else {
+            language
+        };
+        let texts = load_texts(language, &store)?;
         let form = FormState::new(vec![
             Field::new(texts.get("field_company"), texts.get("field_company_hint"))
                 .required()
@@ -752,7 +748,12 @@ impl GalleryState {
 
     /// Switches the language and relabels the form while keeping its values and errors.
     pub fn set_language(&mut self, language: Language) -> CoreResult<()> {
-        let texts = load_texts(language)?;
+        let language = if system_language_sync_enabled(&self.store)? {
+            detect_system_language()
+        } else {
+            language
+        };
+        let texts = load_texts(language, &self.store)?;
         self.language = language;
         let labels = [
             (texts.get("field_company"), texts.get("field_company_hint")),
@@ -935,6 +936,19 @@ impl GalleryState {
             }
         }
         Ok(())
+    }
+
+    fn apply_palette_quick_action(&mut self, action: PaletteQuickAction, now: i64) {
+        match action {
+            PaletteQuickAction::NewInvoice => self.invoices.start_new(now),
+            PaletteQuickAction::NewContact => self.contacts.start_new(),
+            PaletteQuickAction::NewProduct => self.products.start_new(),
+            PaletteQuickAction::NewStockMove => {
+                self.products.view = crate::products::ProductsView::Journal;
+                self.products.stock_moves.create_open = true;
+            }
+            PaletteQuickAction::NewPurchase => self.purchases.start_new(now),
+        }
     }
 
     /// Reloads the module selection into the dashboard and desktop navigation.
@@ -1702,6 +1716,8 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
         if let Some(app) = outcome.open_app {
             if state.open_desktop_app(app, now).is_err() {
                 state.desktop_open = true;
+            } else if let Some(action) = outcome.quick_action {
+                state.apply_palette_quick_action(action, now);
             }
         }
         state.focus.finish_frame();
@@ -2294,6 +2310,11 @@ pub fn gallery(ctx: &Context, state: &mut GalleryState) {
                 ThemeMode::System => state.appearance,
             };
             state.accent_id = preferences.accent_color;
+        }
+        if state.settings.take_language_pack_changed() {
+            if let Err(error) = state.set_language(state.language) {
+                eprintln!("SOCDOF could not reload the UI language pack: {error}");
+            }
         }
         if closed.close || closed.minimize || state.settings.back {
             state.settings_open = false;
@@ -3506,6 +3527,43 @@ mod tests {
             .open_desktop_app(AppId::new("app-store"), now_millis())
             .expect("open App Store");
         assert_eq!(state.app_store.modules.len(), 18);
+    }
+
+    #[test]
+    fn startup_uses_the_detected_system_language_when_sync_is_enabled() {
+        let store = Store::open_in_memory().expect("store");
+        store
+            .put_setting(
+                crate::i18n::SYSTEM_LANGUAGE_SYNC_SETTING_KEY,
+                &serde_json::Value::Bool(true),
+            )
+            .expect("enable locale sync");
+        let state = GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+            .expect("persistent state");
+        assert_eq!(state.language, detect_system_language());
+    }
+
+    #[test]
+    fn palette_quick_actions_open_their_create_workflows() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = GalleryState::from_store(Language::De, Appearance::Light, "indigo", store)
+            .expect("persistent state");
+
+        state.apply_palette_quick_action(PaletteQuickAction::NewContact, 1_000);
+        assert_eq!(state.contacts.view, crate::contacts::ContactsView::Form);
+
+        state.apply_palette_quick_action(PaletteQuickAction::NewProduct, 1_000);
+        assert_eq!(state.products.view, crate::products::ProductsView::Form);
+
+        state.apply_palette_quick_action(PaletteQuickAction::NewInvoice, 1_000);
+        assert_eq!(state.invoices.view, crate::invoices::InvoicesView::Form);
+
+        state.apply_palette_quick_action(PaletteQuickAction::NewPurchase, 1_000);
+        assert_eq!(state.purchases.view, crate::purchases::PurchasesView::Form);
+
+        state.apply_palette_quick_action(PaletteQuickAction::NewStockMove, 1_000);
+        assert_eq!(state.products.view, crate::products::ProductsView::Journal);
+        assert!(state.products.stock_moves.create_open);
     }
 
     #[test]

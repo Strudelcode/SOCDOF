@@ -138,7 +138,7 @@ pub use settings::{
 };
 pub use shell::{
     command_palette, onboarding, start_menu, tray_flyout, Command, CommandPalette, Onboarding,
-    ShellAction, ShellState, StartMenu, Tray, TrayAction, COMMANDS,
+    PaletteQuickAction, ShellAction, ShellState, StartMenu, Tray, TrayAction, COMMANDS,
 };
 pub use snapshot::{capture, PrimitiveState, SnapshotVariant};
 pub use studio::{studio_drawer, StudioCounts, StudioDraft, StudioState, StudioTab};

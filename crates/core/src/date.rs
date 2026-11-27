@@ -312,6 +312,15 @@ pub fn local_millis(millis: i64, zone: &str) -> i64 {
     millis + timezone_offset_seconds(zone, millis) * 1_000
 }
 
+/// Converts midnight at the start of a local calendar day to a UTC timestamp.
+///
+/// `day` is the number of days since 1970-01-01 in the selected time zone.
+pub fn local_day_start_utc_ms(day: i64, zone: &str) -> Option<i64> {
+    let local_midnight = day.checked_mul(86_400_000)?;
+    let offset = timezone_offset_seconds(zone, local_midnight).checked_mul(1_000)?;
+    local_midnight.checked_sub(offset)
+}
+
 /// Formats `millis` as a twelve hour clock in `zone` (`03:43 PM`, with seconds when asked).
 pub fn format_time(millis: i64, seconds: bool, zone: &str) -> String {
     let local = local_millis(millis, zone);
@@ -421,5 +430,29 @@ mod timezone_tests {
         assert_eq!(format_date_style(millis, "DD.MM.YYYY", "UTC"), "25.08.2026");
         assert_eq!(format_date_style(millis, "YYYY-MM-DD", "UTC"), "2026-08-25");
         assert_eq!(format_date_style(millis, "MM/DD/YYYY", "UTC"), "08/25/2026");
+    }
+
+    #[test]
+    fn converts_local_midnights_across_daylight_saving_changes() {
+        let march_29 = days_from_civil(2026, 3, 29);
+        assert_eq!(
+            local_day_start_utc_ms(march_29, "Europe/Berlin"),
+            Some(utc(2026, 3, 28, 23))
+        );
+        assert_eq!(
+            local_day_start_utc_ms(march_29 + 1, "Europe/Berlin"),
+            Some(utc(2026, 3, 29, 22))
+        );
+
+        let march_8 = days_from_civil(2026, 3, 8);
+        assert_eq!(
+            local_day_start_utc_ms(march_8, "America/New_York"),
+            Some(utc(2026, 3, 8, 5))
+        );
+        assert_eq!(
+            local_day_start_utc_ms(march_8 + 1, "America/New_York"),
+            Some(utc(2026, 3, 9, 4))
+        );
+        assert_eq!(local_day_start_utc_ms(i64::MAX, "UTC"), None);
     }
 }

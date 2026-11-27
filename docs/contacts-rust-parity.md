@@ -14,6 +14,8 @@ This checklist tracks the native Rust port against:
 - Import preview with row removal and one category applied to all selected rows.
 - CSV export with UTF-8 BOM, semicolon delimiter, quoted fields and CRLF records.
 - vCard 3.0 export with UTF-8-safe 75-octet line folding.
+- Date-stamped `kontakte_export_<UTC-date>.csv` / `.vcf` filenames match the TypeScript exports; native save dialogs expose the corresponding file extensions.
+- Exact TypeScript-reference byte fixtures cover the standard CSV and vCard output, including BOM, CRLF, name splitting, address, and multiline notes. Native files do not carry browser MIME metadata; the OS infers file type from the selected extension.
 - Native file pickers and DE/EN/FR/ES labels.
 
 ## Required acceptance checks
@@ -26,7 +28,9 @@ This checklist tracks the native Rust port against:
 - [x] Decode vCard 2.1 quoted-printable values and soft line breaks with UTF-8, ISO-8859-1 and Windows-1252 handling. Scan all EMAIL/TEL properties and choose the first valid non-empty value; regression coverage includes invalid-first/valid-second entries.
 - [x] Legacy `@import.local` and `@kontakt.local` addresses are cleaned on first native Contacts load; valid e-mail addresses are preserved.
 - [x] Export scope supports all contacts or the current filtered view, with a date-stamped filename.
-- [ ] Compare exact filenames, MIME types and output bytes against the TypeScript reference.
+- [x] Company-only vCards use the company as `FN` while keeping the personal `N` fields empty; empty optional values are omitted like the TypeScript export.
+- [x] CSV import strips single-quoted header/cell wrappers like the TypeScript `cleanVal` helper.
+- [ ] Compare exact output bytes for special-character vCard escaping/folding against the TypeScript reference; TypeScript's MIME values are browser-only and do not apply to native files.
 - [ ] Verify cancellation, unreadable files, invalid e-mail values and large imports on Windows, Linux and macOS.
 
 A feature is not marked parity-complete until the acceptance checks and the full Rust workspace CI pass.

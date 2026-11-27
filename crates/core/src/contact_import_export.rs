@@ -194,17 +194,16 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             let value = |index: Option<usize>| {
                 index
                     .and_then(|i| row.get(i))
-                    .map(|s| s.trim().to_string())
+                    .map(|s| clean_csv_cell(s))
                     .unwrap_or_default()
             };
             let value_all = |indices: &[usize]| {
                 indices
                     .iter()
                     .filter_map(|index| row.get(*index))
-                    .map(|item| item.trim())
+                    .map(|item| clean_csv_cell(item))
                     .find(|item| !item.is_empty())
-                    .unwrap_or("")
-                    .to_string()
+                    .unwrap_or_default()
             };
             let first_name = value(first);
             let middle_name = value(middle);
@@ -245,15 +244,14 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             let email_value = emails
                 .iter()
                 .filter_map(|index| row.get(*index))
-                .map(|value| value.trim())
+                .map(|value| clean_csv_cell(value))
                 .find(|value| valid_email(value) && value.contains('@'))
-                .unwrap_or("")
-                .to_string();
+                .unwrap_or_default();
             contact.email = non_empty(&email_value);
             let phone_value = phones
                 .iter()
                 .filter_map(|index| row.get(*index))
-                .map(|value| value.trim())
+                .map(|value| clean_csv_cell(value))
                 .find(|value| {
                     value
                         .chars()
@@ -261,8 +259,8 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
                         .count()
                         >= 3
                 })
-                .unwrap_or("");
-            contact.phone = non_empty(phone_value);
+                .unwrap_or_default();
+            contact.phone = non_empty(&phone_value);
             contact.street = non_empty(&value_all(&street));
             contact.zip = non_empty(&value_all(&zip));
             contact.city = non_empty(&value_all(&city));
@@ -271,7 +269,12 @@ pub fn parse_contacts_csv(input: &str, default_type: ContactType, now: i64) -> V
             contact.notes = non_empty(&value_all(&notes));
             contact.contact_type = kind
                 .map(|i| {
-                    parse_contact_type(row.get(i).map(String::as_str).unwrap_or(""), default_type)
+                    parse_contact_type(
+                        &row.get(i)
+                            .map(|value| clean_csv_cell(value))
+                            .unwrap_or_default(),
+                        default_type,
+                    )
                 })
                 .unwrap_or(default_type);
             Some(contact)
@@ -430,15 +433,7 @@ pub fn export_contacts_csv(contacts: &[Contact], delimiter: char) -> String {
     out.push_str(&headers.join(&delimiter.to_string()));
     for contact in contacts {
         let name = contact.name.as_deref().unwrap_or("");
-        let parts: Vec<&str> = name.trim().split(' ').collect();
-        let (first, last) = if parts.len() > 1 {
-            (
-                parts[..parts.len() - 1].join(" "),
-                parts[parts.len() - 1].to_string(),
-            )
-        } else {
-            (name.to_string(), String::new())
-        };
+        let (first, last) = legacy_name_parts(name);
         let kind = match contact.contact_type {
             ContactType::Guest => "Gästebuch / Privat",
             ContactType::Customer => "Kunde",
@@ -477,46 +472,39 @@ pub fn export_contacts_vcard(contacts: &[Contact]) -> String {
     contacts
         .iter()
         .map(|contact| {
-            let name = contact
-                .name
-                .as_deref()
-                .or(contact.company_name.as_deref())
-                .unwrap_or("Kontakt");
-            let parts: Vec<&str> = name.split_whitespace().collect();
-            let (first, last) = if parts.len() > 1 {
-                (parts[..parts.len() - 1].join(" "), parts[parts.len() - 1])
-            } else {
-                (name.to_string(), "")
-            };
+            let person_name = non_empty_export_value(contact.name.as_deref());
+            let company_name = non_empty_export_value(contact.company_name.as_deref());
+            let name = person_name.or(company_name).unwrap_or("Kontakt");
+            let (first, last) = legacy_name_parts(person_name.unwrap_or(""));
             let mut lines = vec![
                 "BEGIN:VCARD".to_string(),
                 "VERSION:3.0".to_string(),
                 format!("FN:{}", escape_vcard(name)),
-                format!("N:{};{};;;", escape_vcard(last), escape_vcard(&first)),
+                format!("N:{};{};;;", escape_vcard(&last), escape_vcard(&first)),
             ];
-            if let Some(v) = contact.company_name.as_deref() {
+            if let Some(v) = company_name {
                 lines.push(format!("ORG:{}", escape_vcard(v)));
             }
-            if let Some(v) = contact.email.as_deref() {
+            if let Some(v) = non_empty_export_value(contact.email.as_deref()) {
                 lines.push(format!("EMAIL;TYPE=INTERNET:{}", escape_vcard(v)));
             }
-            if let Some(v) = contact.phone.as_deref() {
+            if let Some(v) = non_empty_export_value(contact.phone.as_deref()) {
                 lines.push(format!("TEL;TYPE=CELL,VOICE:{}", escape_vcard(v)));
             }
-            if contact.street.is_some()
-                || contact.city.is_some()
-                || contact.zip.is_some()
-                || contact.country.is_some()
-            {
+            let street = non_empty_export_value(contact.street.as_deref());
+            let city = non_empty_export_value(contact.city.as_deref());
+            let zip = non_empty_export_value(contact.zip.as_deref());
+            let country = non_empty_export_value(contact.country.as_deref());
+            if street.is_some() || city.is_some() || zip.is_some() || country.is_some() {
                 lines.push(format!(
                     "ADR;TYPE=HOME,WORK:;;{};{};;{};{}",
-                    field(contact.street.as_deref()),
-                    field(contact.city.as_deref()),
-                    field(contact.zip.as_deref()),
-                    field(contact.country.as_deref())
+                    field(street),
+                    field(city),
+                    field(zip),
+                    field(country)
                 ));
             }
-            if let Some(v) = contact.notes.as_deref() {
+            if let Some(v) = non_empty_export_value(contact.notes.as_deref()) {
                 lines.push(format!("NOTE:{}", escape_vcard(v)));
             }
             lines.push("END:VCARD".to_string());
@@ -528,6 +516,26 @@ pub fn export_contacts_vcard(contacts: &[Contact]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\r\n\r\n")
+}
+
+fn legacy_name_parts(name: &str) -> (String, String) {
+    let parts: Vec<&str> = name.trim().split(' ').collect();
+    if parts.len() > 1 {
+        (
+            parts[..parts.len() - 1].join(" "),
+            parts[parts.len() - 1].to_string(),
+        )
+    } else {
+        let first = parts.join(" ");
+        (
+            if first.is_empty() {
+                name.to_string()
+            } else {
+                first
+            },
+            String::new(),
+        )
+    }
 }
 
 fn fold_vcard_line(line: &str) -> String {
@@ -569,14 +577,14 @@ fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
             }
             '"' => quoted = !quoted,
             c if c == delimiter && !quoted => {
-                row.push(value.trim().to_string());
+                row.push(clean_csv_cell(&value));
                 value.clear();
             }
             '\r' | '\n' if !quoted => {
                 if ch == '\r' && chars.peek() == Some(&'\n') {
                     chars.next();
                 }
-                row.push(value.trim().to_string());
+                row.push(clean_csv_cell(&value));
                 value.clear();
                 if row.iter().any(|v| !v.is_empty()) {
                     rows.push(std::mem::take(&mut row));
@@ -593,7 +601,7 @@ fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
         return rows;
     }
     if !value.is_empty() || !row.is_empty() {
-        row.push(value.trim().to_string());
+        row.push(clean_csv_cell(&value));
         if row.iter().any(|v| !v.is_empty()) {
             rows.push(row);
         }
@@ -604,9 +612,23 @@ fn parse_csv_rows(input: &str) -> Vec<Vec<String>> {
 fn normalize_header(value: &str) -> String {
     value
         .trim()
-        .trim_matches('"')
+        .trim_matches(|ch| ch == '"' || ch == '\'')
         .to_lowercase()
         .replace(['_', '-'], " ")
+}
+fn clean_csv_cell(value: &str) -> String {
+    let value = value.trim();
+    let value = if value.starts_with('"') || value.starts_with('\'') {
+        &value[1..]
+    } else {
+        value
+    };
+    let value = if value.ends_with('"') || value.ends_with('\'') {
+        &value[..value.len() - 1]
+    } else {
+        value
+    };
+    value.trim().to_string()
 }
 fn parse_contact_type(value: &str, fallback: ContactType) -> ContactType {
     let v = value.to_lowercase();
@@ -638,6 +660,9 @@ fn non_empty(value: &str) -> Option<String> {
 }
 fn opt(value: Option<&str>) -> String {
     value.unwrap_or("").to_string()
+}
+fn non_empty_export_value(value: Option<&str>) -> Option<&str> {
+    value.filter(|value| !value.is_empty())
 }
 fn field(value: Option<&str>) -> String {
     escape_vcard(value.unwrap_or(""))
@@ -780,6 +805,16 @@ mod tests {
         );
         assert_eq!(parsed[0].notes.as_deref(), Some("Line one\r\nLine two"));
     }
+
+    #[test]
+    fn parses_single_quoted_header_and_value_cells_like_the_typescript_importer() {
+        let csv = "'First Name';'Last Name';'E-mail Address'\n'Ada';'Lovelace';'ada@example.org'";
+        let parsed = parse_contacts_csv(csv, ContactType::Guest, 1);
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name.as_deref(), Some("Ada Lovelace"));
+        assert_eq!(parsed[0].email.as_deref(), Some("ada@example.org"));
+    }
+
     #[test]
     fn prioritizes_first_and_last_name_and_mobile_phone_columns() {
         let csv = "First Name;Last Name;E-mail 1 Address;E-mail 2 Address;Mobile Phone;Business Phone;Home Phone\r\nAda;Lovelace;;ada@example.org;+44 123;020 111;020 222";
@@ -812,6 +847,62 @@ mod tests {
         let parsed = parse_contacts_csv(&csv, ContactType::Guest, 2);
         assert_eq!(parsed.len(), 1);
         assert_eq!(parsed[0].email.as_deref(), Some("ada@example.org"));
+    }
+
+    #[test]
+    fn exports_csv_and_vcard_bytes_like_the_typescript_reference() {
+        let mut contact = Contact::new(ContactKind::Person, 1);
+        contact.name = Some(" Ada Lovelace ".to_string());
+        contact.company_name = Some("Analytical Engines".to_string());
+        contact.email = Some("ada@example.org".to_string());
+        contact.phone = Some("+44 20 0000".to_string());
+        contact.street = Some("1 Analytical Lane".to_string());
+        contact.zip = Some("N1 1AA".to_string());
+        contact.city = Some("London".to_string());
+        contact.country = Some("UK".to_string());
+        contact.tax_id = Some("GB123".to_string());
+        contact.notes = Some("line one\nline two".to_string());
+
+        assert_eq!(
+            export_contacts_csv(&[contact.clone()], ';'),
+            concat!(
+                "\u{feff}Vorname;Nachname;Vollständiger Name;Firma;E-Mail-Adresse;",
+                "Telefon / Mobiltelefon;Kontakt-Kategorie / Typ;Strasse;Postleitzahl;",
+                "Stadt;Land;USt-IdNr;Notizen\r\n",
+                "\"Ada\";\"Lovelace\";\" Ada Lovelace \";\"Analytical Engines\";",
+                "\"ada@example.org\";\"+44 20 0000\";\"Kunde\";\"1 Analytical Lane\";",
+                "\"N1 1AA\";\"London\";\"UK\";\"GB123\";\"line one\nline two\""
+            )
+        );
+        assert_eq!(
+            export_contacts_vcard(&[contact]),
+            concat!(
+                "BEGIN:VCARD\r\nVERSION:3.0\r\nFN: Ada Lovelace \r\n",
+                "N:Lovelace;Ada;;;\r\nORG:Analytical Engines\r\n",
+                "EMAIL;TYPE=INTERNET:ada@example.org\r\n",
+                "TEL;TYPE=CELL,VOICE:+44 20 0000\r\n",
+                "ADR;TYPE=HOME,WORK:;;1 Analytical Lane;London;;N1 1AA;UK\r\n",
+                "NOTE:line one\\nline two\r\nEND:VCARD"
+            )
+        );
+    }
+
+    #[test]
+    fn company_only_vcard_uses_company_for_fn_but_keeps_person_name_empty() {
+        let mut contact = Contact::new(ContactKind::Company, 1);
+        contact.company_name = Some("Acme Ltd".to_string());
+        contact.email = Some(String::new());
+        contact.phone = Some(String::new());
+        contact.street = Some(String::new());
+        contact.notes = Some(String::new());
+
+        assert_eq!(
+            export_contacts_vcard(&[contact]),
+            concat!(
+                "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Acme Ltd\r\n",
+                "N:;;;;\r\nORG:Acme Ltd\r\nEND:VCARD"
+            )
+        );
     }
 
     #[test]

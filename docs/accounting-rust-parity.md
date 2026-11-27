@@ -10,7 +10,7 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 - 7% and 19% taxable bases and VAT buckets, with aggregated-cent rounding.
 - Open receivables for sent and overdue invoices, including due date, gross amount and overdue flag.
 - POS Z-report receipt count and cash/card/NFC/other tender totals.
-- Date filtering against each source document's own date field, with All/Today/Month/Quarter/Year and inclusive custom start/end dates mapped to half-open timestamp ranges. Today currently follows the native UTC date helpers; local-timezone parity still needs a side-by-side check.
+- Date filtering against each source document's own date field, with All/Today/Month/Quarter/Year and inclusive custom start/end dates mapped to half-open UTC timestamp ranges. Boundaries use the configured company time zone, including DST-shortened/extended days. The report date uses the configured timezone/date style; the CSV filename retains the legacy UTC date.
 - Native Accounting UI Business Report tab backed by the core aggregate, refreshed whenever the app is reopened.
 - Separate native VAT return, open receivables and POS Z-report tabs now mirror the four distinct legacy report areas; the combined Business Report remains available as an overview. All tab labels are translated in DE/EN/FR/ES.
 - The native BWA tab now includes invoice/POS net revenue, purchase net expenses, operating result and VAT liability, alongside the existing journal-account summary.
@@ -26,11 +26,11 @@ Reference: `SOCDOF - TS/src/components/sales/AccountingModule.tsx`.
 ## Remaining parity checks
 
 - [x] Match the legacy period selector's Today and custom date range options, including invalid/impossible date rejection.
-- [ ] Verify the report date's local-time formatting against `Date.toLocaleString()`; headings, semicolon delimiter, conditional quoting, period token and filename now match the legacy export contract. Compare complete CSV bytes after timezone handling.
+- [ ] Compare report date formatting against `Date.toLocaleString()` across locales; the native export now includes seconds and uses the configured company time zone/date style, while CSV quoting intentionally escapes delimiter/quote/newline characters for valid output. Headings, semicolon delimiter and period token match the legacy contract; compare complete CSV bytes after timezone handling.
 - [ ] Compare invoice/POS/purchase rounding against real imported legacy datasets, including VAT overrides and mixed rates.
 - [x] Match the legacy tax-ledger rule for sent/overdue/paid invoices and skip draft/cancelled invoices; paid invoices use recorded payment date and tender when present.
 - [ ] Verify open-item behavior for all legacy invoice states and any partial-payment representation.
-- [ ] Verify local-timezone boundaries against the legacy browser implementation, then review the UI side by side in DE/EN/FR/ES and both themes.
+- [ ] Compare configured-timezone boundaries with the legacy browser's host-local date behavior, then review the UI side by side in DE/EN/FR/ES and both themes.
 - [x] Add the native 12-sheet monthly tax-advisor Excel export and sequential cash/bank carry-over.
 - [x] Add UI controls to edit and persist the opening cash/bank balances; existing Accounting journal entries are included as manual ledger transactions.
 - [ ] Add dedicated manual tax-ledger rows if required beyond the existing journal form.

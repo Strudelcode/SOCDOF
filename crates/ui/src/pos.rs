@@ -16,6 +16,8 @@ use socdof_core::domain::pos::{summarize, PaymentMethod, PosOrder, PosOrderLine}
 use socdof_core::domain::product::Product;
 use socdof_core::domain::stock::StockMoveKind;
 use socdof_core::money::Money;
+#[cfg(any(feature = "dialogs", test))]
+use socdof_core::pdf::writer::Document;
 use socdof_core::store::Store;
 use socdof_core::CoreError;
 use uuid::Uuid;
@@ -256,6 +258,154 @@ fn format_time(ms: i64) -> String {
 
 fn money(symbol: &str, amount: Money) -> String {
     amount.format_localized(symbol)
+}
+
+#[cfg(any(feature = "dialogs", test))]
+fn receipt_pdf(order: &PosOrder, customer: Option<&str>, texts: &UiTexts) -> Vec<u8> {
+    let mut document = Document::new(&order.receipt_number);
+    {
+        let page = document.page_mut();
+        page.text_bold(42.0, 790.0, 18.0, texts.get("pos_detail_title"));
+        page.text_bold(42.0, 764.0, 12.0, &order.receipt_number);
+        page.text(
+            42.0,
+            746.0,
+            9.0,
+            &format!(
+                "{}: {} {}",
+                texts.get("pos_col_time"),
+                format_date(order.paid_at),
+                format_time(order.paid_at)
+            ),
+        );
+        page.text(
+            42.0,
+            731.0,
+            9.0,
+            &format!(
+                "{}: {}",
+                texts.get("pos_col_payment"),
+                texts.get(payment_key(order.payment_method))
+            ),
+        );
+        if let Some(customer) = customer.filter(|name| !name.trim().is_empty()) {
+            page.text(
+                42.0,
+                716.0,
+                9.0,
+                &format!("{}: {customer}", texts.get("contacts_col_name")),
+            );
+        }
+        page.line(42.0, 700.0, 553.0, 0.6);
+        page.text_bold(42.0, 684.0, 9.0, texts.get("pos_lines_title"));
+    }
+
+    let mut y = 665.0;
+    for line in &order.lines {
+        if y < 72.0 {
+            let page = document.new_page();
+            page.text_bold(42.0, 790.0, 12.0, &order.receipt_number);
+            y = 765.0;
+        }
+        let description_lines = wrap_receipt_description(&line.description, 360.0, 9.0);
+        for description in description_lines {
+            document.page_mut().text(42.0, y, 9.0, &description);
+            y -= 13.0;
+        }
+        document.page_mut().text(
+            54.0,
+            y,
+            8.0,
+            &format!(
+                "{} x {}",
+                milli_text(line.quantity_milli),
+                money(&order.currency_symbol, line.unit_price)
+            ),
+        );
+        document.page_mut().text_right_bold(
+            553.0,
+            y,
+            9.0,
+            &money(&order.currency_symbol, line.gross()),
+        );
+        y -= 18.0;
+    }
+
+    if y < 120.0 {
+        let page = document.new_page();
+        page.text_bold(42.0, 790.0, 12.0, &order.receipt_number);
+        y = 765.0;
+    }
+    let page = document.page_mut();
+    page.line(42.0, y, 553.0, 0.6);
+    y -= 18.0;
+    for (label, amount) in [
+        ("pos_total_net", order.total_net()),
+        ("pos_total_tax", order.total_tax()),
+        ("pos_total_gross", order.total_gross()),
+    ] {
+        page.text(42.0, y, 9.0, texts.get(label));
+        page.text_right_bold(553.0, y, 9.0, &money(&order.currency_symbol, amount));
+        y -= 15.0;
+    }
+    if let Some(given) = order.cash_given {
+        page.text(
+            42.0,
+            y,
+            9.0,
+            &format!(
+                "{}: {}",
+                texts.get("pos_cash_given"),
+                money(&order.currency_symbol, given)
+            ),
+        );
+        y -= 15.0;
+        if let Some(change) = order.change() {
+            page.text(
+                42.0,
+                y,
+                9.0,
+                &format!(
+                    "{}: {}",
+                    texts.get("pos_change"),
+                    money(&order.currency_symbol, change)
+                ),
+            );
+            y -= 15.0;
+        }
+    }
+    if let Some(note) = order.note.as_deref().filter(|note| !note.trim().is_empty()) {
+        page.text(42.0, y, 9.0, &format!("{}: {note}", texts.get("pos_note")));
+    }
+    document.to_bytes()
+}
+
+#[cfg(any(feature = "dialogs", test))]
+fn wrap_receipt_description(description: &str, max_width: f64, size: f64) -> Vec<String> {
+    let mut lines = Vec::new();
+    let mut current = String::new();
+    for word in description.split_whitespace() {
+        let candidate = if current.is_empty() {
+            word.to_string()
+        } else {
+            format!("{current} {word}")
+        };
+        if !current.is_empty() && socdof_core::pdf::writer::text_width(&candidate, size) > max_width
+        {
+            lines.push(std::mem::take(&mut current));
+        }
+        if !current.is_empty() {
+            current.push(' ');
+        }
+        current.push_str(word);
+    }
+    if !current.is_empty() {
+        lines.push(current);
+    }
+    if lines.is_empty() {
+        lines.push(String::new());
+    }
+    lines
 }
 
 fn payment_key(method: PaymentMethod) -> &'static str {
@@ -718,7 +868,7 @@ pub fn pos_window(
 
     egui::ScrollArea::vertical().show(ui, |ui| match state.view {
         PosView::List => list_view(ui, theme, texts, focus, state, now),
-        PosView::Detail => detail_view(ui, theme, texts, focus, state),
+        PosView::Detail => detail_view(ui, theme, texts, focus, state, store),
         PosView::Form => form_view(ui, theme, texts, focus, state, store, now),
     });
 
@@ -1040,6 +1190,7 @@ fn detail_view(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut PosState,
+    _store: &Store,
 ) {
     let Some(order) = state.current().cloned() else {
         state.view = PosView::List;
@@ -1197,7 +1348,21 @@ fn detail_view(
 
     ui.add_space(12.0);
     let mut cancel = false;
+    #[cfg(feature = "dialogs")]
+    let mut print_receipt = false;
     ui.horizontal(|ui| {
+        #[cfg(feature = "dialogs")]
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("pos_print_receipt"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            print_receipt = true;
+        }
         if button(
             ui,
             theme,
@@ -1223,6 +1388,47 @@ fn detail_view(
     });
     if cancel {
         state.confirm_cancel = true;
+    }
+    #[cfg(feature = "dialogs")]
+    if print_receipt {
+        let contact = match order.contact_id {
+            Some(id) => match _store.find_contact(id) {
+                Ok(contact) => contact,
+                Err(_) => {
+                    state.error = Some("pos_error_load");
+                    return;
+                }
+            },
+            None => None,
+        };
+        let customer = contact.as_ref().map(|contact| contact.display_name());
+        let suggested_name = format!(
+            "{}.pdf",
+            order
+                .receipt_number
+                .chars()
+                .map(|ch| {
+                    if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                        ch
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>()
+        );
+        if let Some(path) = rfd::FileDialog::new()
+            .set_file_name(&suggested_name)
+            .add_filter("PDF", &["pdf"])
+            .save_file()
+        {
+            match std::fs::write(path, receipt_pdf(&order, customer.as_deref(), texts)) {
+                Ok(()) => {
+                    state.status = Some("pos_saved");
+                    state.error = None;
+                }
+                Err(_) => state.error = Some("pos_error_save"),
+            }
+        }
     }
 }
 
@@ -1804,6 +2010,38 @@ mod tests {
                 .len(),
             3
         );
+    }
+
+    #[test]
+    fn receipt_pdf_contains_order_lines_totals_cash_and_customer() {
+        let texts = UiTexts::embedded(Language::De).expect("catalogue");
+        let order = sample_order(
+            "BON-2026-0099",
+            PaymentMethod::Cash,
+            SAMPLE_NOW_MS,
+            Some(Money::from_cents(500)),
+            vec![PosOrderLine {
+                product_id: None,
+                description: "Espresso".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(300),
+                tax_rate_bp: 1_900,
+            }],
+            Some("Am Tresen".to_string()),
+        );
+
+        let pdf = receipt_pdf(&order, Some("Ada Lovelace"), &texts);
+        let content = String::from_utf8_lossy(&pdf);
+        assert!(content.starts_with("%PDF-1.4"));
+        assert!(content.contains("BON-2026-0099"));
+        assert!(content.contains("Ada Lovelace"));
+        assert!(content.contains("Espresso"));
+        assert!(content.contains(texts.get("pos_total_gross")));
+        assert!(content.contains("3,57"));
+        assert!(content.contains(texts.get("pos_cash_given")));
+        assert!(content.contains("5,00"));
+        assert!(content.contains("1,43"));
+        assert!(content.contains("Am Tresen"));
     }
 
     #[test]

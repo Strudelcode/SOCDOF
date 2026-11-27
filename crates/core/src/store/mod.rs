@@ -26,7 +26,7 @@ use crate::domain::support::{SupportTicket, TicketStatus, TimeEntry};
 use crate::domain::therapy::{TherapyClient, TherapySession, TherapyTrip};
 use crate::domain::user::User;
 use crate::domain::workspace::{Report, Widget};
-use crate::error::CoreResult;
+use crate::error::{CoreError, CoreResult};
 
 pub mod appointments;
 pub mod billing_items;
@@ -779,6 +779,23 @@ impl Store {
         Ok(self
             .conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))?)
+    }
+
+    /// Allocated SQLite database size in bytes; works for file-backed and in-memory stores.
+    pub fn database_size_bytes(&self) -> CoreResult<u64> {
+        let page_count: i64 = self
+            .conn
+            .query_row("PRAGMA page_count", [], |row| row.get(0))?;
+        let page_size: i64 = self
+            .conn
+            .query_row("PRAGMA page_size", [], |row| row.get(0))?;
+        let page_count = u64::try_from(page_count)
+            .map_err(|_| CoreError::Validation("database_page_count_invalid".to_string()))?;
+        let page_size = u64::try_from(page_size)
+            .map_err(|_| CoreError::Validation("database_page_size_invalid".to_string()))?;
+        page_count
+            .checked_mul(page_size)
+            .ok_or_else(|| CoreError::Validation("database_size_overflow".to_string()))
     }
 
     /// All fleet vehicles, oldest first.
@@ -2392,6 +2409,13 @@ mod tests {
     fn migrates_to_current_schema_version() {
         let store = Store::open_in_memory().expect("store");
         assert_eq!(store.schema_version().expect("version"), SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn reports_allocated_database_size_from_sqlite_pages() {
+        let store = Store::open_in_memory().expect("store");
+        let size = store.database_size_bytes().expect("database size");
+        assert!(size > 0);
         assert_eq!(store.contact_count().expect("count"), 0);
     }
 

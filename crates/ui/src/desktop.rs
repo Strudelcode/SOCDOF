@@ -21,8 +21,8 @@ use crate::focus::{focus_ring, FocusState};
 use crate::i18n::UiTexts;
 use crate::icons::Icon;
 use crate::shell::{
-    command_palette, onboarding, start_menu, tray_flyout, AccountEntry, ShellAction, ShellState,
-    StartMenuChoice,
+    command_palette, onboarding, start_menu, tray_flyout, AccountEntry, PaletteQuickAction,
+    ShellAction, ShellState, StartMenuChoice,
 };
 use crate::theme::Theme;
 use crate::tokens::{
@@ -1810,6 +1810,8 @@ pub struct DesktopOutcome {
     pub toggle_theme: bool,
     /// Application the user launched from an icon, the start menu or the taskbar.
     pub open_app: Option<AppId>,
+    /// Create workflow selected in the command palette.
+    pub quick_action: Option<PaletteQuickAction>,
     /// Open the Studio drawer.
     pub open_studio: bool,
     /// Tab the Studio drawer opens on; `None` keeps the current tab.
@@ -3083,7 +3085,9 @@ fn desktop_impl(
     if shell.onboarding.is_open() {
         onboarding(ctx, theme, texts, focus, &mut shell.onboarding);
     } else if shell.palette.is_open() {
-        if let Some(action) = command_palette(ctx, theme, texts, focus, &mut shell.palette) {
+        if let Some(action) =
+            command_palette(ctx, theme, texts, focus, &mut shell.palette, icons, store)
+        {
             apply_action(action, shell, icons, windows, area, now, &mut outcome);
         }
     } else if shell.start.is_open() {
@@ -3790,6 +3794,13 @@ fn apply_action(
             shell.close_overlays();
             activate_app(icons, windows, app, area, now);
             outcome.open_app = Some(app);
+        }
+        ShellAction::QuickAction(action) => {
+            let app = action.app();
+            shell.close_overlays();
+            activate_app(icons, windows, app, area, now);
+            outcome.open_app = Some(app);
+            outcome.quick_action = Some(action);
         }
         ShellAction::ToggleTheme => {
             shell.close_overlays();

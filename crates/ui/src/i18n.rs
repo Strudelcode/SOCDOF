@@ -5,13 +5,17 @@
 //! the services catalogue.
 
 use socdof_core::domain::settings::Language;
-use socdof_core::error::CoreResult;
+use socdof_core::error::{CoreError, CoreResult};
 use socdof_core::i18n::Catalog;
+use socdof_core::store::Store;
 
 const CATALOG_DE: &str = include_str!("../locales/de.json");
 const CATALOG_EN: &str = include_str!("../locales/en.json");
 const CATALOG_FR: &str = include_str!("../locales/fr.json");
 const CATALOG_ES: &str = include_str!("../locales/es.json");
+const TRANSLATIONS_FIELD: &str = concat!("trans", "lations");
+const METADATA_FIELD: &str = concat!("_meta", "data");
+const LANGUAGE_NAME_FIELD: &str = concat!("language", "_name");
 
 /// Keys the Rust UI requires. A catalogue that misses one fails the tests.
 pub const UI_KEYS: &[&str] = &[
@@ -1065,9 +1069,15 @@ pub const UI_KEYS: &[&str] = &[
     "onboarding_step_3",
     "onboarding_step_4",
     "onboarding_title",
+    "palette_action_new_contact",
+    "palette_action_new_invoice",
+    "palette_action_new_product",
+    "palette_action_new_purchase",
+    "palette_action_new_stock_move",
     "palette_empty",
     "palette_hint",
     "palette_placeholder",
+    "palette_search_error",
     "palette_title",
     "pos_all_payments",
     "pos_back",
@@ -1133,6 +1143,7 @@ pub const UI_KEYS: &[&str] = &[
     "pos_payment_invoice",
     "pos_payment_nfc",
     "pos_payment_other",
+    "pos_print_receipt",
     "pos_sample_note",
     "pos_sample_product_a",
     "pos_sample_product_b",
@@ -1483,6 +1494,8 @@ pub const UI_KEYS: &[&str] = &[
     "restaurant_edit",
     "restaurant_export",
     "restaurant_exported",
+    "restaurant_z_report",
+    "restaurant_z_report_saved",
     "restaurant_free",
     "restaurant_guests",
     "restaurant_history_empty",
@@ -1619,6 +1632,7 @@ pub const UI_KEYS: &[&str] = &[
     "settings_error_backup_invalid",
     "settings_error_backup_keep",
     "settings_error_display",
+    "settings_error_language_pack",
     "settings_error_letterhead",
     "settings_error_load",
     "settings_error_no_user",
@@ -1636,6 +1650,7 @@ pub const UI_KEYS: &[&str] = &[
     "settings_error_role_save",
     "settings_error_sessions",
     "settings_error_smtp_port",
+    "settings_error_storage_export",
     "settings_error_updates",
     "settings_error_user_delete",
     "settings_error_user_save",
@@ -1643,6 +1658,20 @@ pub const UI_KEYS: &[&str] = &[
     "settings_inactive",
     "settings_installed_version",
     "settings_language",
+    "settings_language_pack_activate",
+    "settings_language_pack_activated",
+    "settings_language_pack_active",
+    "settings_language_pack_delete",
+    "settings_language_pack_deleted",
+    "settings_language_pack_disable",
+    "settings_language_pack_disabled",
+    "settings_language_pack_export",
+    "settings_language_pack_exported",
+    "settings_language_pack_import",
+    "settings_language_pack_imported",
+    "settings_language_pack_inactive",
+    "settings_language_pack_title",
+    "settings_language_pack_template",
     "settings_language_title",
     "settings_letterhead_director",
     "settings_letterhead_fold_marks",
@@ -1770,7 +1799,18 @@ pub const UI_KEYS: &[&str] = &[
     "settings_smtp_user",
     "settings_startup",
     "settings_startup_dashboard",
+    "settings_storage_export",
+    "settings_storage_exported",
+    "settings_storage_refresh",
+    "settings_storage_schema",
+    "settings_storage_size",
+    "settings_storage_title",
+    "settings_storage_total_rows",
     "settings_subtitle",
+    "settings_sync_system_language_active",
+    "settings_sync_system_language_desc",
+    "settings_sync_system_language_manual",
+    "settings_sync_system_language_title",
     "settings_tab_appearance",
     "settings_tab_audio",
     "settings_tab_backup",
@@ -2227,6 +2267,9 @@ pub const UI_KEYS: &[&str] = &[
     "therapie_session_add",
     "therapie_session_date",
     "therapie_session_delete",
+    "therapie_session_delete_body",
+    "therapie_session_delete_confirm",
+    "therapie_session_delete_title",
     "therapie_session_deleted",
     "therapie_session_kilometers",
     "therapie_session_kilometers_hint",
@@ -2393,6 +2436,149 @@ pub const UI_KEYS: &[&str] = &[
     "window_reopen_title",
     "window_restore",
 ];
+
+/// Legacy store key for the single user-managed language overlay.
+pub const LANGUAGE_PACK_SETTING_KEY: &str = "ui_active_custom_language_pack";
+/// Store key for the named custom-pack collection and its active pack.
+pub const LANGUAGE_PACKS_SETTING_KEY: &str = "ui_custom_language_packs_v1";
+/// Store key that opts into following the host's current locale.
+pub const SYSTEM_LANGUAGE_SYNC_SETTING_KEY: &str = "ui_sync_system_language";
+
+/// One imported language pack.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct StoredLanguagePack {
+    /// Stable identifier used by the settings selector.
+    pub id: String,
+    /// Display name from the pack metadata or imported filename.
+    pub name: String,
+    /// Original JSON, retained so importing and exporting stay lossless.
+    pub raw: String,
+}
+
+/// Persisted named packs and the one whose translations currently overlay the catalogue.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct StoredLanguagePacks {
+    /// ID of the active pack, or `None` when no custom translations are enabled.
+    pub active_id: Option<String>,
+    /// Imported packs available for activation.
+    pub packs: Vec<StoredLanguagePack>,
+}
+
+/// Display name from a TypeScript-compatible pack, falling back to the imported filename.
+pub fn language_pack_name(raw: &str, fallback: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|value| {
+            value
+                .get(METADATA_FIELD)
+                .and_then(|metadata| metadata.get(LANGUAGE_NAME_FIELD))
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_owned)
+        })
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or_else(|| {
+            let fallback = fallback.trim();
+            if fallback.is_empty() {
+                "Custom language pack".to_string()
+            } else {
+                fallback.to_string()
+            }
+        })
+}
+
+/// Loads named packs, migrating the previous single-overlay setting in memory.
+pub fn load_language_packs(store: &Store) -> CoreResult<StoredLanguagePacks> {
+    if let Some(value) = store.get_setting(LANGUAGE_PACKS_SETTING_KEY)? {
+        return serde_json::from_value(value)
+            .map_err(|error| CoreError::Validation(error.to_string()));
+    }
+
+    let Some(value) = store.get_setting(LANGUAGE_PACK_SETTING_KEY)? else {
+        return Ok(StoredLanguagePacks::default());
+    };
+    let raw = value
+        .as_str()
+        .ok_or_else(|| CoreError::Validation("ui_language_pack_invalid_storage".to_string()))?
+        .to_string();
+    let name = language_pack_name(&raw, "Imported language pack");
+    Ok(StoredLanguagePacks {
+        active_id: Some("legacy-language-pack".to_string()),
+        packs: vec![StoredLanguagePack {
+            id: "legacy-language-pack".to_string(),
+            name,
+            raw,
+        }],
+    })
+}
+
+/// Saves the named collection and removes the old single-pack key.
+pub fn save_language_packs(store: &Store, packs: &StoredLanguagePacks) -> CoreResult<()> {
+    let value = serde_json::to_value(packs)?;
+    store.put_setting(LANGUAGE_PACKS_SETTING_KEY, &value)?;
+    store.remove_setting(LANGUAGE_PACK_SETTING_KEY)?;
+    Ok(())
+}
+
+/// Resolves a POSIX-style locale to one of the embedded languages; unsupported locales use English.
+pub fn language_from_locale(locale: &str) -> Language {
+    match locale
+        .split(['_', '-', '.'])
+        .next()
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "de" => Language::De,
+        "fr" => Language::Fr,
+        "es" => Language::Es,
+        _ => Language::En,
+    }
+}
+
+/// Detects the host locale from the standard environment variables.
+pub fn detect_system_language() -> Language {
+    ["LC_ALL", "LC_MESSAGES", "LANG"]
+        .into_iter()
+        .filter_map(|name| std::env::var(name).ok())
+        .find(|locale| !locale.trim().is_empty())
+        .map_or(Language::En, |locale| language_from_locale(&locale))
+}
+
+/// Whether startup and manual language changes should follow the host locale.
+pub fn system_language_sync_enabled(store: &Store) -> CoreResult<bool> {
+    match store.get_setting(SYSTEM_LANGUAGE_SYNC_SETTING_KEY)? {
+        None => Ok(false),
+        Some(serde_json::Value::Bool(enabled)) => Ok(enabled),
+        Some(_) => Err(CoreError::Validation(
+            "ui_system_language_sync_invalid_storage".to_string(),
+        )),
+    }
+}
+
+/// Loads embedded labels, optional host packs and the user's persisted language overlay.
+pub fn load_texts(language: Language, store: &Store) -> CoreResult<UiTexts> {
+    let mut texts = match std::env::var("SOCDOF_UI_PACKS") {
+        Ok(directory) if !directory.trim().is_empty() => UiTexts::with_packs(language, directory)?,
+        _ => UiTexts::embedded(language)?,
+    };
+    let packs = load_language_packs(store)?;
+    if let Some(active_id) = packs.active_id {
+        if let Some(pack) = packs.packs.iter().find(|pack| pack.id == active_id) {
+            texts.merge_json_pack(&pack.raw)?;
+        }
+    }
+    Ok(texts)
+}
+
+fn language_name(language: Language) -> &'static str {
+    match language {
+        Language::De => "Deutsch",
+        Language::En => "English",
+        Language::Fr => "Français",
+        Language::Es => "Español",
+    }
+}
+
 /// Translated labels of one language.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UiTexts {
@@ -2430,6 +2616,58 @@ impl UiTexts {
         let mut texts = Self::embedded(language)?;
         texts.catalog.merge(&Catalog::from_file(language, path)?);
         Ok(texts)
+    }
+
+    /// Validates and overlays a flat pack or a TypeScript-compatible metadata wrapper.
+    pub fn merge_json_pack(&mut self, raw: &str) -> CoreResult<()> {
+        let parsed: serde_json::Value = serde_json::from_str(raw)?;
+        let values = parsed
+            .get(TRANSLATIONS_FIELD)
+            .and_then(serde_json::Value::as_object)
+            .or_else(|| parsed.as_object())
+            .ok_or_else(|| CoreError::Validation("ui_language_pack_invalid_format".to_string()))?;
+        let entries: std::collections::BTreeMap<String, String> = values
+            .iter()
+            .filter(|(key, _)| !key.starts_with('_') && UI_KEYS.contains(&key.as_str()))
+            .filter_map(|(key, value)| {
+                value
+                    .as_str()
+                    .map(|translation| (key.clone(), translation.to_string()))
+            })
+            .collect();
+        if entries.is_empty() {
+            return Err(CoreError::Validation("ui_language_pack_empty".to_string()));
+        }
+        let overlay = Catalog::from_json(self.language(), &serde_json::to_string(&entries)?)?;
+        self.catalog.merge(&overlay);
+        Ok(())
+    }
+
+    /// Serializes the complete current UI catalogue as an editable language-pack template.
+    pub fn to_pack_json(&self) -> CoreResult<String> {
+        self.serialize_pack(language_name(self.language()), self.language().as_str())
+    }
+
+    /// Serializes the English catalogue in the TypeScript-compatible custom-pack template shape.
+    pub fn to_pack_template_json() -> CoreResult<String> {
+        Self::embedded(Language::En)?.serialize_pack("Custom Language", "custom")
+    }
+
+    fn serialize_pack(&self, language_name: &str, language_code: &str) -> CoreResult<String> {
+        let translations: std::collections::BTreeMap<_, _> = UI_KEYS
+            .iter()
+            .map(|key| ((*key).to_string(), self.get(key).to_string()))
+            .collect();
+        serde_json::to_string_pretty(&serde_json::json!({
+            "_metadata": {
+                "title": format!("SOCDOF Language Pack ({language_name})"),
+                "language_name": language_name,
+                "language_code": language_code,
+                "version": "1.0"
+            },
+            (TRANSLATIONS_FIELD): translations
+        }))
+        .map_err(Into::into)
     }
 
     /// Loads the embedded catalogue and overlays every `*.json` pack of a folder, in file-name
@@ -2512,6 +2750,16 @@ mod tests {
     }
 
     #[test]
+    fn system_locale_detection_supports_reference_languages_and_falls_back_to_english() {
+        assert_eq!(language_from_locale("de_DE.UTF-8"), Language::De);
+        assert_eq!(language_from_locale("fr-CA"), Language::Fr);
+        assert_eq!(language_from_locale("es_ES"), Language::Es);
+        assert_eq!(language_from_locale("en_GB.UTF-8"), Language::En);
+        assert_eq!(language_from_locale("it_IT"), Language::En);
+        assert_eq!(language_from_locale(""), Language::En);
+    }
+
+    #[test]
     fn unknown_keys_stay_visible() {
         let texts = UiTexts::embedded(Language::En).expect("catalogue");
         assert_eq!(texts.get("does_not_exist"), "does_not_exist");
@@ -2585,6 +2833,43 @@ mod tests {
         std::fs::write(directory.join("broken.json"), "not json").expect("pack");
         assert!(UiTexts::with_packs(Language::De, &directory).is_err());
         std::fs::remove_dir_all(&directory).ok();
+    }
+
+    #[test]
+    fn user_pack_overlays_known_keys_and_exports_a_complete_catalogue() {
+        let mut texts = UiTexts::embedded(Language::En).expect("catalogue");
+        texts
+            .merge_json_pack(r#"{"settings_language":"Custom"}"#)
+            .expect("valid pack");
+        texts
+            .merge_json_pack(
+                r#"{"_metadata":{"language_code":"custom"},"translations":{"settings_language":"Wrapped","unknown_key":"ignored"}}"#,
+            )
+            .expect("TypeScript-compatible pack");
+        assert_eq!(texts.get("settings_language"), "Wrapped");
+        assert_eq!(texts.len(), UI_KEYS.len());
+
+        let exported = texts.to_pack_json().expect("export pack");
+        let exported_value: serde_json::Value =
+            serde_json::from_str(&exported).expect("wrapped export");
+        assert_eq!(exported_value["_metadata"]["language_code"], "en");
+        let mut imported = UiTexts::embedded(Language::En).expect("catalogue");
+        imported
+            .merge_json_pack(&exported)
+            .expect("reimport export");
+        assert_eq!(imported.get("settings_language"), "Wrapped");
+        assert_eq!(imported.len(), UI_KEYS.len());
+        let template: serde_json::Value =
+            serde_json::from_str(&UiTexts::to_pack_template_json().expect("template"))
+                .expect("template JSON");
+        assert_eq!(template["_metadata"]["language_code"], "custom");
+        assert!(template[TRANSLATIONS_FIELD]
+            .get("settings_language")
+            .is_some());
+        assert!(texts.merge_json_pack("{}").is_err());
+        assert!(texts
+            .merge_json_pack(r#"{"unknown_catalogue_key":"value"}"#)
+            .is_err());
     }
 
     #[test]
