@@ -14,6 +14,7 @@ use socdof_core::document_layout::DocumentLayout;
 use socdof_core::docx::write_invoice_docx_with_template;
 use socdof_core::domain::contact::Contact;
 use socdof_core::domain::dunning::{self as dunning, DunningLetter, DunningLevel};
+use socdof_core::domain::fattura::{self, FatturaDocument, FatturaOptions};
 use socdof_core::domain::invoice::{Invoice, InvoiceStatus};
 use socdof_core::domain::mail;
 use socdof_core::domain::payment::{self, InvoicePayment, PaymentMethod};
@@ -41,6 +42,8 @@ pub enum InvoiceAction {
     Payment,
     /// PDF print.
     Print,
+    /// Italian e-invoice (FatturaPA) inspector and XML export.
+    Fattura,
 }
 
 /// Editable state of the four dialogs.
@@ -78,6 +81,20 @@ pub struct InvoiceActions {
     pub path: String,
     /// Target path of the Word export.
     pub docx_path: String,
+    /// Index into [`FATTURA_DOCUMENT_TYPES`].
+    pub document_type: usize,
+    /// SdI recipient code (`codice destinatario`).
+    pub recipient_code: String,
+    /// Certified e-mail of the recipient.
+    pub pec: String,
+    /// Whether the two-euro stamp duty applies.
+    pub bollo: bool,
+    /// Tender reference CUP.
+    pub cup: String,
+    /// Tender reference CIG.
+    pub cig: String,
+    /// Target path of the XML export.
+    pub fattura_path: String,
     /// Message shown inside the dialog.
     pub notice: Option<String>,
 }
@@ -101,10 +118,20 @@ impl Default for InvoiceActions {
             trace: String::new(),
             path: String::new(),
             docx_path: String::new(),
+            document_type: 0,
+            recipient_code: String::new(),
+            pec: String::new(),
+            bollo: false,
+            cup: String::new(),
+            cig: String::new(),
+            fattura_path: String::new(),
             notice: None,
         }
     }
 }
+
+/// SdI document types of the inspector, in button order.
+const FATTURA_DOCUMENT_TYPES: [&str; 3] = ["TD01", "TD04", "TD24"];
 
 const CARD_TYPES: [(&str, &str); 4] = [
     ("girocard", "6759 1234 5678 9012"),
@@ -160,6 +187,44 @@ impl InvoiceActions {
         self.docx_path = default_pdf_path(&invoice.number).replace(".pdf", ".docx");
         self.notice = None;
         self.action = Some(InvoiceAction::Print);
+    }
+
+    /// Opens the FatturaPA inspector with the SdI defaults of the invoice.
+    pub fn open_fattura(&mut self, invoice: &Invoice, company: &CompanyProfile) {
+        self.document_type = 0;
+        self.recipient_code.clear();
+        self.pec.clear();
+        self.bollo = false;
+        self.cup.clear();
+        self.cig.clear();
+        self.fattura_path = fattura::file_name(invoice, company);
+        self.notice = None;
+        self.action = Some(InvoiceAction::Fattura);
+    }
+
+    /// SdI options as configured in the inspector.
+    pub fn fattura_options(&self) -> FatturaOptions {
+        FatturaOptions {
+            document_type: FATTURA_DOCUMENT_TYPES
+                [self.document_type.min(FATTURA_DOCUMENT_TYPES.len() - 1)]
+            .to_string(),
+            regime_fiscale: "RF01".to_string(),
+            recipient_code: self.recipient_code.trim().to_string(),
+            pec: self.pec.trim().to_string(),
+            bollo: self.bollo,
+            cup: self.cup.trim().to_string(),
+            cig: self.cig.trim().to_string(),
+        }
+    }
+
+    /// XML and SdI file name the inspector shows and exports.
+    pub fn fattura_document(
+        &self,
+        invoice: &Invoice,
+        company: &CompanyProfile,
+        contact: Option<&Contact>,
+    ) -> FatturaDocument {
+        fattura::generate(invoice, company, contact, None, &self.fattura_options())
     }
 
     /// Applies the presets of a dunning level, like the level tabs of the modal.
@@ -768,6 +833,197 @@ pub fn dialogs(
                     close
                 },
             );
+        }
+        InvoiceAction::Fattura => {
+            let mut export = false;
+            modal(
+                ctx,
+                theme,
+                &mut open,
+                texts.get("invoices_fattura_title"),
+                |ui| {
+                    let document = actions.fattura_document(invoice, company, contact);
+                    let problems = fattura::validate(&document.xml);
+
+                    ui.horizontal_wrapped(|ui| {
+                        for (index, code) in FATTURA_DOCUMENT_TYPES.iter().enumerate() {
+                            let variant = if index == actions.document_type {
+                                ButtonVariant::Primary
+                            } else {
+                                ButtonVariant::Ghost
+                            };
+                            if button(ui, theme, focus, code, variant).activated {
+                                actions.document_type = index;
+                            }
+                        }
+                    });
+                    ui.add_space(6.0);
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.recipient_code,
+                        texts.get("invoices_fattura_recipient"),
+                        "0000000",
+                        None,
+                    );
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.pec,
+                        texts.get("invoices_fattura_pec"),
+                        "sdi@pec.it",
+                        None,
+                    );
+                    ui.add_space(4.0);
+                    let bollo = if actions.bollo {
+                        texts.get("invoices_fattura_bollo_on")
+                    } else {
+                        texts.get("invoices_fattura_bollo_off")
+                    };
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        bollo,
+                        if actions.bollo {
+                            ButtonVariant::Primary
+                        } else {
+                            ButtonVariant::Secondary
+                        },
+                    )
+                    .activated
+                    {
+                        actions.bollo = !actions.bollo;
+                    }
+                    ui.add_space(4.0);
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.cup,
+                        texts.get("invoices_fattura_cup"),
+                        "CUP",
+                        None,
+                    );
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.cig,
+                        texts.get("invoices_fattura_cig"),
+                        "CIG",
+                        None,
+                    );
+
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new(format!(
+                            "{}: {}",
+                            texts.get("invoices_fattura_file"),
+                            document.file_name
+                        ))
+                        .size(FONT_SMALL)
+                        .strong(),
+                    );
+                    if problems.is_empty() {
+                        ui.label(
+                            RichText::new(texts.get("invoices_fattura_valid"))
+                                .size(FONT_SMALL)
+                                .color(theme.palette.success),
+                        );
+                    } else {
+                        ui.label(
+                            RichText::new(format!(
+                                "{}: {}",
+                                texts.get("invoices_fattura_invalid"),
+                                problems.join(" · ")
+                            ))
+                            .size(FONT_SMALL)
+                            .color(theme.palette.danger),
+                        );
+                    }
+
+                    ui.add_space(6.0);
+                    // The XML is long; a collapsed preview keeps the SdI options, the path and the
+                    // save button inside the auto-sized dialog.
+                    egui::CollapsingHeader::new(texts.get("invoices_fattura_preview"))
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            let preview: String = document.xml.chars().take(4_000).collect();
+                            egui::ScrollArea::vertical()
+                                .id_source("socdof-fattura-preview")
+                                .max_height(140.0)
+                                .show(ui, |ui| {
+                                    ui.label(RichText::new(preview).monospace().size(FONT_SMALL));
+                                });
+                        });
+
+                    ui.add_space(6.0);
+                    text_field(
+                        ui,
+                        theme,
+                        focus,
+                        &mut actions.fattura_path,
+                        texts.get("invoices_fattura_path"),
+                        "IT00000000000_00001.xml",
+                        None,
+                    );
+                    if let Some(note) = &actions.notice {
+                        ui.add_space(6.0);
+                        ui.label(RichText::new(note.clone()).size(FONT_SMALL));
+                    }
+                    ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("invoices_fattura_save"),
+                            ButtonVariant::Primary,
+                        )
+                        .activated
+                        {
+                            export = true;
+                        }
+                        if button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("invoices_close"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                        {
+                            close = true;
+                        }
+                    });
+                    close
+                },
+            );
+            if export {
+                let mut path = actions.fattura_path.trim().to_string();
+                if path.is_empty() {
+                    actions.notice = Some(texts.get("invoices_print_error_path").to_string());
+                } else {
+                    if !path.to_ascii_lowercase().ends_with(".xml") {
+                        path.push_str(".xml");
+                    }
+                    actions.fattura_path = path.clone();
+                    let document = actions.fattura_document(invoice, company, contact);
+                    match std::fs::write(Path::new(&path), document.xml.as_bytes()) {
+                        Ok(()) => {
+                            actions.notice =
+                                Some(format!("{} {}", texts.get("invoices_fattura_saved"), path));
+                        }
+                        Err(error) => {
+                            actions.notice =
+                                Some(format!("{}: {error}", texts.get("invoices_fattura_error")));
+                        }
+                    }
+                }
+            }
         }
         InvoiceAction::Print => {
             modal(

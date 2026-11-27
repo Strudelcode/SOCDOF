@@ -14,6 +14,7 @@
 use egui::{Align, Context, Layout, RichText, Vec2};
 use socdof_core::date;
 use socdof_core::domain::contact::{Contact, ContactKind};
+use socdof_core::domain::product::Product;
 use socdof_core::domain::purchase::{
     summarize, PurchaseOrder, PurchaseOrderLine, PurchaseOrderStatus,
 };
@@ -66,6 +67,8 @@ impl PurchasesView {
 /// Editable values of one order position.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PurchaseLineDraft {
+    /// Linked catalogue product, `None` for a free-text position.
+    pub product: Option<Uuid>,
     /// Description shown on the order and the goods receipt.
     pub description: String,
     /// Quantity in whole units or decimals, as entered.
@@ -79,6 +82,7 @@ pub struct PurchaseLineDraft {
 impl Default for PurchaseLineDraft {
     fn default() -> Self {
         Self {
+            product: None,
             description: String::new(),
             quantity: "1".to_string(),
             unit_cost: String::new(),
@@ -91,6 +95,7 @@ impl PurchaseLineDraft {
     /// Fills the draft from a stored position.
     pub fn from_line(line: &PurchaseOrderLine) -> Self {
         Self {
+            product: line.product_id,
             description: line.description.clone(),
             quantity: milli_text(line.quantity_milli),
             unit_cost: line.unit_cost.to_decimal_string(),
@@ -110,7 +115,7 @@ impl PurchaseLineDraft {
         let tax_rate_bp = parse_percent_bp(&self.tax_rate).ok_or("purchases_error_tax")?;
 
         Ok(PurchaseOrderLine {
-            product_id: None,
+            product_id: self.product,
             description: self.description.trim().to_string(),
             quantity_milli,
             unit_cost,
@@ -324,6 +329,8 @@ pub struct PurchasesState {
     pub orders: Vec<PurchaseOrder>,
     /// Suppliers selectable in the form and the filter.
     pub vendors: Vec<Contact>,
+    /// Catalogue products selectable per position.
+    pub products: Vec<Product>,
     /// Selected supplier filter; `None` shows every supplier.
     pub vendor_filter: Option<Uuid>,
     /// Index into the filter list, `0` meaning every supplier.
@@ -336,6 +343,8 @@ pub struct PurchasesState {
     pub draft: PurchaseDraft,
     /// Dropdown state of the vendor select.
     pub vendor_popup: PopupState,
+    /// Dropdown state of the product select of every form position.
+    pub line_popups: Vec<PopupState>,
     /// Dropdown state of the vendor filter.
     pub vendor_filter_popup: PopupState,
     /// Whether the delete confirmation is open.
@@ -357,12 +366,14 @@ impl Default for PurchasesState {
             query: String::new(),
             orders: Vec::new(),
             vendors: Vec::new(),
+            products: Vec::new(),
             vendor_filter: None,
             vendor_choice: 0,
             selected: None,
             view: PurchasesView::List,
             draft: PurchaseDraft::default(),
             vendor_popup: PopupState::default(),
+            line_popups: Vec::new(),
             vendor_filter_popup: PopupState::default(),
             confirm_delete: false,
             error: None,
@@ -396,6 +407,7 @@ impl PurchasesState {
             store.search_purchase_orders(&self.query)?
         };
         self.vendors = store.list_contacts()?;
+        self.products = store.list_products()?;
         self.orders = all
             .into_iter()
             .filter(|order| {
@@ -441,6 +453,7 @@ impl PurchasesState {
             note: String::new(),
             lines: vec![PurchaseLineDraft::default()],
         };
+        self.line_popups = vec![PopupState::default()];
         self.error = None;
         self.status = None;
         self.view = PurchasesView::Form;
@@ -452,9 +465,28 @@ impl PurchasesState {
             return;
         };
         self.draft = PurchaseDraft::from_order(order, &self.vendors);
+        self.line_popups = vec![PopupState::default(); self.draft.lines.len()];
         self.error = None;
         self.status = None;
         self.view = PurchasesView::Form;
+    }
+
+    /// Links a catalogue product to a form position and prefills its values.
+    ///
+    /// The link is what makes the later goods receipt book stock: the domain turns the line into a
+    /// stock movement only when `product_id` is set.
+    pub fn link_product(&mut self, position: usize, product: Option<Uuid>) {
+        let Some(line) = self.draft.lines.get_mut(position) else {
+            return;
+        };
+        line.product = product;
+        if let Some(product) =
+            product.and_then(|id| self.products.iter().find(|item| item.id == id))
+        {
+            line.description = product.name.clone();
+            line.unit_cost = product.cost_price.to_decimal_string();
+            line.tax_rate = format!("{}", product.tax_rate_bp as f64 / 100.0);
+        }
     }
 
     /// Leaves the form without writing.
@@ -1374,6 +1406,12 @@ fn form_view(
                     .color(theme.palette.text_muted),
             );
         }
+        if state.line_popups.len() < state.draft.lines.len() {
+            state
+                .line_popups
+                .resize(state.draft.lines.len(), PopupState::default());
+        }
+        let mut linked: Option<(usize, Option<Uuid>)> = None;
         for (index, line) in state.draft.lines.iter_mut().enumerate() {
             ui.add_space(6.0);
             ui.label(
@@ -1385,6 +1423,33 @@ fn form_view(
                 .size(FONT_SMALL)
                 .color(theme.palette.text_muted),
             );
+            // A linked catalogue product is what turns the later goods receipt into a stock
+            // movement, so the selector sits above the free-text description.
+            let mut choice = line
+                .product
+                .and_then(|id| state.products.iter().position(|item| item.id == id))
+                .map(|position| position + 1)
+                .unwrap_or(0);
+            let mut names: Vec<&str> = vec![texts.get("purchases_line_product_none")];
+            names.extend(state.products.iter().map(|item| item.name.as_str()));
+            let changed = select(
+                ui,
+                theme,
+                focus,
+                &mut state.line_popups[index],
+                &format!("purchase-line-product-{index}"),
+                &mut choice,
+                &names,
+            );
+            if changed {
+                linked = Some((
+                    index,
+                    choice
+                        .checked_sub(1)
+                        .and_then(|position| state.products.get(position))
+                        .map(|item| item.id),
+                ));
+            }
             text_field(
                 ui,
                 theme,
@@ -1483,6 +1548,9 @@ fn form_view(
                 });
             }
         }
+        if let Some((index, product)) = linked {
+            state.link_product(index, product);
+        }
         ui.add_space(8.0);
         if button(
             ui,
@@ -1543,9 +1611,13 @@ fn form_view(
 
     if add_line {
         state.draft.lines.push(PurchaseLineDraft::default());
+        state.line_popups.push(PopupState::default());
     }
     if let Some(index) = remove_line {
         state.draft.lines.remove(index);
+        if index < state.line_popups.len() {
+            state.line_popups.remove(index);
+        }
     }
     if save && state.save(store, now).is_err() {
         state.error = Some("purchases_error_save");
@@ -1696,6 +1768,44 @@ mod tests {
         assert_eq!(
             store.find_purchase_order(order.id).unwrap().unwrap().status,
             PurchaseOrderStatus::Cancelled
+        );
+    }
+
+    #[test]
+    fn links_a_catalogue_product_to_a_position_and_books_its_stock() {
+        let store = Store::open_in_memory().expect("store");
+        vendor(&store, "Nordroast GmbH");
+        let mut product = Product::new("Kaffee", SAMPLE_NOW_MS);
+        product.cost_price = Money::from_cents(450);
+        product.tax_rate_bp = 700;
+        store.insert_product(&product).expect("product");
+
+        let mut state = PurchasesState::new();
+        state.refresh(&store).expect("refresh");
+        state.start_new(SAMPLE_NOW_MS);
+        state.link_product(0, Some(product.id));
+        assert_eq!(state.draft.lines[0].description, "Kaffee");
+        assert_eq!(
+            Money::parse(&state.draft.lines[0].unit_cost),
+            Some(Money::from_cents(450))
+        );
+        assert_eq!(state.draft.lines[0].tax_rate, "7");
+        assert_eq!(state.draft.lines[0].product, Some(product.id));
+
+        state.draft.lines[0].quantity = "3".to_string();
+        state.save(&store, SAMPLE_NOW_MS).expect("save");
+        assert!(state.error.is_none(), "unexpected error {:?}", state.error);
+        let order = state.current().cloned().expect("stored order");
+        assert_eq!(order.lines[0].product_id, Some(product.id));
+
+        state
+            .set_status(&store, PurchaseOrderStatus::Ordered)
+            .expect("order");
+        state.receive(&store, SAMPLE_NOW_MS).expect("receive");
+        assert_eq!(
+            store.find_product(product.id).unwrap().unwrap().stock,
+            3,
+            "a linked position must book the received quantity into the product stock"
         );
     }
 

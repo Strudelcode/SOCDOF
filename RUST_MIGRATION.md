@@ -2783,3 +2783,66 @@ the tab index/label invariant for all fourteen tabs).
 `socdof-ui-preview settings-audio` (scene `settings-audio`) and checked in both appearances: the
 slider rail is visible against both surfaces, the handle sits at zero while muted, the percent pill
 stays readable, and the section fits the 1,180 px settings column without clipping.
+
+## 2026-11-27 — Purchases product link, FatturaPA inspector, report exports
+
+Reference: `SOCDOF - TS/src/components/sales/PurchasesModule.tsx`,
+`SOCDOF - TS/src/components/sales/FatturaPaInspectorModal.tsx`,
+`SOCDOF - TS/src/lib/fatturaPaGenerator.ts`, `SOCDOF - TS/src/components/sales/InvoicesModule.tsx`
+and the report period view of the legacy dashboard.
+
+**Purchases (`crates/ui/src/purchases.rs`)**
+
+- `PurchaseLineDraft.product` carries the stored `PurchaseOrderLine.product_id`; `from_line` keeps it
+  and `to_line` writes it back. Before, every position built in the form stored `product_id: None`,
+  so `PurchaseOrder::stock_moves` produced no movement and the goods receipt left the product stock
+  unchanged — the screen looked complete while the booking path was dead.
+- The form renders a product select above the description (`purchases_line_product_none` is the
+  free-text choice). `PurchasesState::link_product` prefills description, net cost and tax rate from
+  the catalogue product, and the popup state follows added and removed rows.
+- Test `links_a_catalogue_product_to_a_position_and_books_its_stock` covers the link, the prefill,
+  the stored `product_id` and the stock change through the receipt.
+
+**Invoices — FatturaPA/SdI inspector (`crates/ui/src/{invoice_actions,invoices}.rs`)**
+
+- New `InvoiceAction::Fattura` with the SdI document types TD01/TD04/TD24, recipient code
+  (`Codice Destinatario`), PEC, stamp duty (Bollo), CUP and CIG. `open_fattura`, `fattura_options` and
+  `fattura_document` wrap the existing core generator (`domain::fattura::{generate, validate,
+  file_name}`), so the XML is never assembled in the UI.
+- The dialog shows the SdI file name, the schema result (`validate`, green when clean, red with the
+  findings), the XML in a collapsed preview and the target path; saving appends `.xml` when missing
+  and reports the written path. The invoice detail gains the `XML / FatturaPA` action.
+- The preview is a collapsed section on purpose: with an always-open preview the auto-sized dialog
+  pushed the path field and the save button below its frame (seen in the first render, fixed before
+  the evidence was captured).
+
+**Reports — CSV and PDF export (`crates/core/src/store/reports.rs`, `crates/ui/src/reports.rs`)**
+
+- `Report::to_csv` writes `number;contact;status;issued_at;net;tax;gross;minutes`, quotes fields that
+  contain the separator and closes with a `summary` row. `Report::to_pdf` renders an A4 document with
+  title, period, totals, the invoice table and a page break before the footer margin.
+- The screen offers `CSV exportieren` and `PDF exportieren` through the system file dialog and keeps
+  the picker fallback (`reports_error_picker`) for builds without the `dialogs` feature.
+
+**Status protocol and cleanup**
+
+- New `docs/feature-status.md` is the canonical per-module status (status, code paths, gaps, evidence,
+  changelog). `AGENTS.md` §2 now points to it instead of keeping a second, stale matrix, and §6
+  requires every AI to update `docs/feature-status.md`, this file and `docs/rust-parity-status.md`
+  after each work block.
+- The stale `NEXT_STEPS_AI.md` handover (old worktree paths, superseded by the status files) is
+  removed.
+- The status files now name the two missing modules explicitly: `ios_billing` (Schnellkasse,
+  `IOSBillingModule.tsx`, ≈2,400 lines) and `table` (spreadsheet, `TableModule.tsx`).
+
+**i18n:** 22 new keys in de/en/fr/es (`invoices_fattura_*`, `purchases_line_product_none`,
+`reports_export_*`, `reports_error_*`); `catalogue-keys.json` regenerated (2,473 keys).
+
+**Verification:** `cargo fmt -p socdof-ui -p socdof-core`, `cargo clippy --all-targets -- -D warnings`
+for both crates, `cargo test -p socdof-core --lib` (408), the `purchases`, `invoices`, `reports` and
+`i18n` filters of `socdof-ui`, the phone sweep (1,312 cases, 360/390/412/432 px × light/dark), the
+visual goldens (regenerated for the eight `reports` scenes) and the new scene `invoices-fattura`.
+
+**Evidence:** `rust-42-invoices-fattura-{light,dark}.png`, `rust-43-reports-export-{light,dark}.png`,
+`rust-44-purchases-product-{light,dark}.png`, rendered with `socdof-ui-preview invoices-fattura`,
+`... reports` and `... purchases-form` and inspected in both appearances.

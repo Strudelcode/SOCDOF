@@ -72,6 +72,7 @@ enum Scene {
     ProductsForm,
     Invoices,
     InvoicesForm,
+    InvoicesFattura,
     Accounting,
     AccountingVat,
     AccountingCustom,
@@ -168,6 +169,7 @@ impl Scene {
             Scene::AccountingVat => "accounting-vat".to_string(),
             Scene::AccountingCustom => "accounting-custom".to_string(),
             Scene::InvoicesForm => "invoices-form".to_string(),
+            Scene::InvoicesFattura => "invoices-fattura".to_string(),
             Scene::ProductsJournal => "products-journal".to_string(),
             Scene::CalendarWeek => "calendar-week".to_string(),
             Scene::CalendarForm => "calendar-form".to_string(),
@@ -253,6 +255,7 @@ impl Scene {
             Scene::AccountingVat => "Accounting · VAT return".to_string(),
             Scene::AccountingCustom => "Accounting · Custom range".to_string(),
             Scene::InvoicesForm => "Invoices · Form".to_string(),
+            Scene::InvoicesFattura => "Invoices · FatturaPA inspector".to_string(),
             Scene::ProductsJournal => "Products · Movement journal".to_string(),
             Scene::CalendarWeek => "Calendar · Week".to_string(),
             Scene::CalendarForm => "Calendar · Appointment form".to_string(),
@@ -754,6 +757,17 @@ impl Scene {
                 let _ = state.invoices.refresh(&state.store);
                 state.invoices.start_new(socdof_core::now_millis());
             }
+            Scene::InvoicesFattura => {
+                state.invoices_open = true;
+                let _ = state.invoices.refresh(&state.store);
+                if let Some(id) = state.invoices.invoices.first().map(|invoice| invoice.id) {
+                    state.invoices.select(id);
+                }
+                if let Some(invoice) = state.invoices.current().cloned() {
+                    let company = state.store.company_profile().unwrap_or_default();
+                    state.invoices.actions.open_fattura(&invoice, &company);
+                }
+            }
             Scene::ProductsForm => {
                 state.products_open = true;
                 let _ = state.products.refresh(&state.store);
@@ -1116,6 +1130,7 @@ fn scenes() -> Vec<Scene> {
         Scene::ProductsForm,
         Scene::Invoices,
         Scene::InvoicesForm,
+        Scene::InvoicesFattura,
         Scene::Accounting,
         Scene::AccountingVat,
         Scene::AccountingCustom,

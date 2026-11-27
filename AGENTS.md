@@ -35,39 +35,48 @@
      - `cargo test -p socdof-core` / `socdof-ui` / `socdof-app` / `socdof-cli`
      - `cd crates/web && trunk build` (verify WASM compiles cleanly)
 6. **Mandatory Status Protocol for All AIs**
-   - Only mark `[x]` when **both** Rust feature parity with `SOCDOF - TS/` **and** tests/clippy/fmt are verified green.
-   - Use `[~]` whenever core backend exists or partial UI exists, and explicitly write what remains in the Notes column.
-   - Update `RUST_MIGRATION.md` progress log and the table below at the end of every work session.
+   - Only mark `fertig` / `[x]` when **both** Rust feature parity with `SOCDOF - TS/` **and** tests/clippy/fmt are verified green.
+   - Use `teilweise` / `[~]` whenever core backend exists or partial UI exists, and explicitly write what remains in the status file.
+   - At the end of every work block update **all three**:
+     1. [`docs/feature-status.md`](docs/feature-status.md) — the module row (status, code paths, gap, evidence number)
+        and a new row in its changelog table.
+     2. `RUST_MIGRATION.md` — a dated section with reference, change and verification.
+     3. `docs/rust-parity-status.md` — the German overall picture (done / partial / open / deviations / numbers).
+   - Regenerate `crates/ui/locales/catalogue-keys.json` after i18n changes and add a light+dark scene image
+     under `docs/artifacts/gui-parity/` for every completed UI point.
+   - Never mark a module complete from a compile alone: name the command you ran and the result.
 
 ---
 
-## 2. Live Feature Parity Matrix (`crates/` vs `SOCDOF - TS/`)
+## 2. Live Feature Parity Status
 
-Legend: `[x]` Complete & verified | `[~]` Partial / in progress | `[ ]` Missing / not exposed in UI
+The detailed, per-module status is maintained in [`docs/feature-status.md`](docs/feature-status.md).
+That file is the single source of truth: every AI updates its module row, names the remaining gap and
+adds a row to its changelog after each work block. There is deliberately no second matrix here.
 
-| Area / Module | Core (`crates/core`) | Pure Rust UI (`crates/ui`) | Web/Desktop Host (`crates/web` / `gallery.rs`) | Status | Remaining / Notes |
-|---|---|---|---|---|---|
-| **Auth, Setup Wizard & Accounts** | `[x]` | `[x]` | `[~]` | `[~]` | Setup wizard, Argon2id, sessions, lockout, recovery questions, must-change-password, `auth_security` restored; `crates/web` needs first-run/preference/avatar/wallpaper sync parity. |
-| **Desktop Shell & Navigation** | `[x]` | `[x]` | `[~]` | `[~]` | Taskbar, start menu, command palette, tray, virtual desktops, widgets, calculator, wallpapers; `crates/web` needs theme/accent/pref persistence sync and studio/calculator/widgets wiring. |
-| **Settings & Storage Inspector** | `[x]` | `[~]` | `[~]` | `[~]` | 13 settings sections implemented; missing Storage Inspector table breakdown + JSON full export/import parity + factory reset parity. |
-| **App Store & Permissions** | `[x]` | `[x]` | `[~]` | `[~]` | `app_store::apply_selection` + role matrix in core; ensure wizard selection & desktop icon sync persist cleanly across `gallery.rs` & `web`. |
-| **Contacts & CRM** | `[x]` | `[x]` | `[x]` | `[x]` | CRUD, contact persons, countries search, CSV/vCard import & export, email draft. |
-| **Invoices, DIN 5008 & FatturaPA** | `[x]` | `[~]` | `[x]` | `[~]` | DIN 5008 PDF, templates, dunning, payment, `.eml` present; `invoices.rs` needs status filter chips, invoice duplicate/clone, and UI modal for existing `domain::fattura` FatturaPA 1.2 XML. |
-| **Products & Stock Journal** | `[x]` | `[~]` | `[x]` | `[~]` | CRUD, QR labels, smart reorder, double-entry stock journal present; missing `product_link_extractor` (ASIN/shop URL parser), category/low-stock filter tabs, duplicate product, linked history. |
-| **Purchases** | `[x]` | `[~]` | `[x]` | `[~]` | PO CRUD & atomic goods receipt present; `PurchaseLineDraft` needs real `Product` (`product_id`) selector, PO KPIs, duplicate PO, `.eml`/PDF print. |
-| **POS & Daily Close** | `[x]` | `[~]` | `[x]` | `[~]` | 6 payment methods incl. NFC, receipt cancellation, daily close present; needs barcode/SKU scan quick-add, catalog product tiles, customer link & Z-Bon PDF/CSV export. |
-| **Accounting & Tax Advisor Ledger** | `[x]` | `[x]` | `[x]` | `[x]` | Journal, cash book, VAT summary, monthly tax-advisor CSV/workbook. |
-| **Calendar / Appointments** | `[x]` | `[~]` | `[x]` | `[~]` | Month/Week/Day views, conflict check, `.ics` export present; missing Work-week view, all-day/multi-day events, recurrence series & `.ics` import. |
-| **Therapy Practice Suite** | `[x]` | `[~]` | `[x]` | `[~]` | Clients, sessions, single-client invoice link, mileage logbook present; missing Practice Overview Dashboard, Appointments tab, Batch Billing & Sync view, §4 Nr. 14 UStG invoice template wiring. |
-| **Support & Mobile Companion** | `[x]` | `[~]` | `[x]` | `[~]` | Core `mobile_sync` HTTP receiver & JSON parser complete (`crates/core/src/mobile_sync`); `support.rs` missing `MobileCompanionImportModal` UI, ticket `contact_id` selector, work-items checklist, timesheet overview/CSV, ticket print PDF, create invoice from ticket. |
-| **Projects / Fleet / Restaurant** | `[x]` | `[x]` | `[x]` | `[x]` | Core CRUD, domain rules & UI parity audited; continuous edge-case polish in `RUST_MIGRATION.md`. |
-| **Textwerk Editor** | `[x]` | `[x]` | `[x]` | `[x]` | Rich markup editor, Hunspell DE offline spellcheck, `.docx`/`.odt`/HTML export & `.docx` import. |
-| **Documentation & Release History** | `[ ]` | `[~]` | `[x]` | `[~]` | Currently 4 stub topics (165 lines) in `documentation.rs`; expand into tabbed Help Portal (Overview, Searchable Module Manual, Keyboard Shortcuts, Security & Storage, Release History). |
-| **Reports** | `[x]` | `[~]` | `[x]` | `[~]` | 4 period tabs + invoice summary table present; missing CSV & PDF export of period reports + tracked hours breakdown. |
-| **Users & Roles** | `[x]` | `[x]` | `[x]` | `[x]` | Argon2id accounts, custom roles, passwordless toggle, password reset/must-change gate. |
-| **Tauri Compatibility Bridge (`crates/app`)** | `[x]` | `N/A` | `[~]` | `[~]` | Kept green for CI/installers until native `socdof-ui-desktop` & `socdof-web` finish acceptance. |
+Overview (details, code paths and evidence are in the status file):
 
----
+| Area | Status |
+|---|---|
+| Shell, taskbar, windows, virtual desktops | `teilweise` — blur, OS tray and the studio/widget module remain |
+| Auth, setup wizard, users & roles | `fertig` (web host still partial) |
+| Settings | `teilweise` — factory reset, monitor layout, letterhead in every renderer |
+| App Store, contacts, accounting, projects, fleet, restaurant, textwerk, editor, reports, users | `fertig` |
+| Invoices | `teilweise` — FatturaPA export done; status filter chips and duplicate remain |
+| Products | `teilweise` — link extractor, filter tabs, duplicate remain |
+| Purchases | `teilweise` — product link per position done; duplicate, KPIs, print remain |
+| POS | `teilweise` — barcode quick add, product tiles, Z-report print remain |
+| Calendar | `teilweise` — work week, all-day, recurrence, `.ics` import remain |
+| Therapy | `teilweise` — practice dashboard, appointments tab, batch billing remain |
+| Support & mobile companion | `teilweise` — ticket PDF acceptance, work-item checklist remain |
+| Documentation | `teilweise` — the manual content is still short |
+| **Quick billing / Schnellkasse (`ios_billing`)** | `offen` — whole module missing |
+| **Spreadsheet (`table`)** | `offen` — whole module missing |
+| Feedback (Discord) | `offen` — network feature, deliberately deferred |
+
+Status values: `fertig` = behaviour, persistence and tests verified against `SOCDOF - TS/`;
+`teilweise` = real data path works and the named gap is listed; `offen` = not present in Rust;
+`abweichend` = deliberate difference with a reason in `docs/rust-parity-status.md`.
 
 ## 3. Repository Structure Quick Reference
 

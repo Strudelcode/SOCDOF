@@ -59,6 +59,17 @@ Lautstärke**, Sicherheit, Sicherung, Benutzer, Rollen, Updates, Portable, Taste
 SQLite-Schema v18, Backups/Archive, CSV (Kontakte, Flotte, Buchhaltung, Journal, Stock-Moves),
 vCard, iCal, PDF/DOCX-Erzeugung, FatturaPA, Z-Bericht, Mahnwesen.
 
+### Funktionsblöcke vom 2026-11-27 (Fortsetzung)
+
+- **FatturaPA/SdI-Inspektor** (Rechnungen): Dokumenttyp TD01/TD04/TD24, Empfängercode, PEC,
+  Stempelsteuer, CUP/CIG, Schemaprüfung über `domain::fattura::validate`, XML-Vorschau und
+  XML-Export mit SdI-Dateinamen (`IT<USt-IdNr.>_<Progressiv>.xml`) — Beleg `rust-42`.
+- **Berichte-Export**: CSV (`Report::to_csv`, Semikolon, englische Spaltenköpfe) und A4-PDF
+  (`Report::to_pdf`) über den Systemdialog — Beleg `rust-43`.
+- **Einkauf mit Produktbezug**: Jede Bestellposition kann ein Katalogprodukt wählen; Beschreibung,
+  Einkaufspreis und Steuersatz werden vorbelegt, der Wareneingang bucht den Bestand. Vorher blieb
+  `product_id` immer leer, sodass der Wareneingang keinen Bestand verändern konnte — Beleg `rust-44`.
+
 ## 2. Funktional fertig, optisch noch nicht abschließend verglichen
 
 Diese Module laufen, haben Tests und eigene Fenster, sind aber noch nicht Bild-für-Bild gegen die
@@ -89,7 +100,6 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Briefkopf-Werte in allen PDF/DOCX/Druck-Renderern
 - [ ] Benutzer-Avatare, Kontotyp-Anzeige, Wiederherstellungsfragen pro Benutzer
 - [ ] Eigene Sprachpakete / Sprachpaket-Import
-- [ ] Storage-Inspector und Storage-Export
 - [ ] Vollständiger System-Reset (destruktiver Reset aller Daten)
 - [ ] Google-Calendar-/iCal-Verbindungen (nur lokaler iCal-Export vorhanden)
 
@@ -102,7 +112,11 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Restaurant: kompletter Bestell-/Küchenablauf, Bon-Druck
 - [ ] POS: Bon-Druck, Z-Bericht-Darstellung
 - [ ] Projekte: Filter, Aufgaben-Übergänge, CSV-Formatierung, Rechnungsnummern
-- [ ] App Store, Support, Reports, Editor/Textwerk: vollständige Workflow-Abnahme
+- [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
+- [ ] Rechnungen: Status-Filterchips, Rechnung duplizieren
+- [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
+- [ ] **Schnellkasse `ios_billing` fehlt als ganzes Modul** (`IOSBillingModule.tsx`, ≈2.400 Zeilen)
+- [ ] **Tabellenkalkulation `table` fehlt als ganzes Modul** (`TableModule.tsx`)
 
 ### Übergreifend
 
@@ -143,10 +157,11 @@ der Filter ist ein Substring der Szenen-ID.
 
 ## 6. Zahlen
 
-- 14 Einstellungs-Sektionen, 18 Launcher-Module
-- 2.377 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
-- `cargo test -p socdof-core`: 402 Lib-Tests + Integrationstests, 0 Fehler
-- `cargo test -p socdof-ui`: 426 Lib-Tests + Integrationstests, 0 Fehler
+- 14 Einstellungs-Sektionen, 18 Launcher-Module (Schnellkasse und Tabellen fehlen)
+- 2.473 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- `cargo test -p socdof-core`: 408 Lib-Tests + Integrationstests, 0 Fehler
+- `cargo test -p socdof-ui`: 449 Lib-Tests + Integrationstests, 0 Fehler
 - Telefon-Sweep: 1.312 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-41`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-44`
+- Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)

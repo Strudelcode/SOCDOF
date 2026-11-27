@@ -58,6 +58,8 @@ pub struct ReportsState {
     pub report: Option<Report>,
     /// Catalogue key of the load error.
     pub error: Option<&'static str>,
+    /// Catalogue key of the last export message.
+    pub status: Option<&'static str>,
     /// Set when the back button was activated.
     pub back: bool,
     loaded: Option<(usize, i64)>,
@@ -108,6 +110,7 @@ impl ReportsState {
         self.period = 1;
         self.back = false;
         self.error = None;
+        self.status = None;
         self.loaded = None;
         self.refresh(store, now)
     }
@@ -184,7 +187,7 @@ pub fn reports_window(
         state.error = Some("reports_error_load");
     }
 
-    egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state));
+    egui::ScrollArea::vertical().show(ui, |ui| body(ui, theme, texts, focus, state, now));
 }
 
 fn body(
@@ -193,7 +196,10 @@ fn body(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut ReportsState,
+    now: i64,
 ) {
+    #[cfg(not(feature = "dialogs"))]
+    let _ = now;
     let subtitle = format!(
         "{} {} {}",
         texts.get("reports_period_label"),
@@ -236,6 +242,11 @@ fn body(
         state.select_period(index);
     }
 
+    if let Some(key) = state.status {
+        badge(ui, theme, texts.get(key), Tone::Success);
+        ui.add_space(6.0);
+    }
+
     let Some(report) = state.report.clone() else {
         ui.add_space(12.0);
         card(ui, theme, |ui| {
@@ -248,6 +259,71 @@ fn body(
         });
         return;
     };
+
+    let mut export_csv = false;
+    let mut export_pdf = false;
+    ui.horizontal_wrapped(|ui| {
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("reports_export_csv"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            export_csv = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("reports_export_pdf"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            export_pdf = true;
+        }
+    });
+
+    if export_csv || export_pdf {
+        #[cfg(feature = "dialogs")]
+        {
+            let (extension, filter) = if export_csv {
+                ("csv", "CSV")
+            } else {
+                ("pdf", "PDF")
+            };
+            let (year, month, day) = socdof_core::date::civil_from_millis(now);
+            let filename = format!("bericht_{year:04}-{month:02}-{day:02}.{extension}");
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&filename)
+                .add_filter(filter, &[extension])
+                .save_file()
+            {
+                let bytes: Vec<u8> = if export_csv {
+                    report.to_csv().into_bytes()
+                } else {
+                    report.to_pdf(texts.get("reports_title"))
+                };
+                match std::fs::write(path, bytes) {
+                    Ok(()) => {
+                        state.status = Some("reports_exported");
+                        state.error = None;
+                    }
+                    Err(_) => {
+                        state.error = Some("reports_error_save");
+                        state.status = None;
+                    }
+                }
+            }
+        }
+        #[cfg(not(feature = "dialogs"))]
+        {
+            state.error = Some("reports_error_picker");
+        }
+    }
 
     ui.add_space(12.0);
     // Width-aware rows: four fixed columns squeezed the money values into single characters at

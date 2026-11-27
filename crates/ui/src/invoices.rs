@@ -1241,6 +1241,7 @@ fn detail_view(
     let mut mail = false;
     let mut payment = false;
     let mut print = false;
+    let mut fattura = false;
     let mut templates = false;
     // Up to nine actions do not fit one phone line; wrapping keeps every button reachable.
     ui.horizontal_wrapped(|ui| {
@@ -1343,6 +1344,17 @@ fn detail_view(
             ui,
             theme,
             focus,
+            texts.get("invoices_fattura_button"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            fattura = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
             texts.get("invoices_templates_button"),
             ButtonVariant::Ghost,
         )
@@ -1401,6 +1413,10 @@ fn detail_view(
     }
     if print {
         state.actions.open_print(&invoice);
+    }
+    if fattura {
+        let company = store.company_profile().unwrap_or_default();
+        state.actions.open_fattura(&invoice, &company);
     }
 
     if dunning || mail || payment {

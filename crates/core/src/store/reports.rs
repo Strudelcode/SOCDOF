@@ -66,6 +66,137 @@ pub struct Report {
     pub status_totals: [Money; 5],
 }
 
+impl Report {
+    /// CSV of the report table and the period totals.
+    ///
+    /// The columns match the other exports of the suite (`;` separated, English snake_case
+    /// headers), and the money values are decimal strings without a currency symbol, so the file
+    /// opens in every spreadsheet without a locale guess.
+    pub fn to_csv(&self) -> String {
+        let mut text = String::from("number;contact;status;issued_at;net;tax;gross;minutes\n");
+        for row in &self.rows {
+            let (year, month, day) = crate::date::civil_from_millis(row.issued_at);
+            text.push_str(&format!(
+                "{};{};{};{year:04}-{month:02}-{day:02};{};{};{};\n",
+                csv_field(&row.number),
+                csv_field(&row.contact),
+                row.status.as_str(),
+                decimal(row.net.cents()),
+                decimal(row.tax.cents()),
+                decimal(row.gross.cents()),
+            ));
+        }
+        text.push_str(&format!(
+            "summary;;;;{};{};{};{}\n",
+            decimal(self.summary.net.cents()),
+            decimal(self.summary.tax.cents()),
+            decimal(self.summary.gross.cents()),
+            self.summary.minutes,
+        ));
+        text
+    }
+
+    /// A4 PDF with the period totals and the invoice table.
+    pub fn to_pdf(&self, title: &str) -> Vec<u8> {
+        use crate::pdf::writer::Document;
+
+        let mut document = Document::new(title);
+        let mut distance = 25.0_f64;
+        line(&mut document, &mut distance, title, 14.0, true);
+        line(
+            &mut document,
+            &mut distance,
+            &format!(
+                "{} - {}",
+                iso_date(self.from),
+                iso_date(self.to.saturating_sub(1))
+            ),
+            9.0,
+            false,
+        );
+        distance += 2.0;
+        line(
+            &mut document,
+            &mut distance,
+            &format!(
+                "invoices: {}  net: {}  tax: {}  gross: {}  paid: {}  open: {}  hours: {:.2}",
+                self.summary.invoices,
+                decimal(self.summary.net.cents()),
+                decimal(self.summary.tax.cents()),
+                decimal(self.summary.gross.cents()),
+                decimal(self.summary.paid.cents()),
+                decimal(self.summary.open.cents()),
+                self.summary.minutes as f64 / 60.0,
+            ),
+            9.0,
+            false,
+        );
+        distance += 4.0;
+        line(
+            &mut document,
+            &mut distance,
+            "number   contact   status   date   net   tax   gross",
+            8.0,
+            true,
+        );
+        for row in &self.rows {
+            let text = format!(
+                "{}   {}   {}   {}   {}   {}   {}",
+                row.number,
+                row.contact,
+                row.status.as_str(),
+                iso_date(row.issued_at),
+                decimal(row.net.cents()),
+                decimal(row.tax.cents()),
+                decimal(row.gross.cents()),
+            );
+            line(&mut document, &mut distance, &text, 8.0, false);
+        }
+        document.to_bytes()
+    }
+}
+
+/// One text line of the report PDF, with a page break before the footer margin.
+fn line(
+    document: &mut crate::pdf::writer::Document,
+    distance: &mut f64,
+    text: &str,
+    size: f64,
+    bold: bool,
+) {
+    use crate::pdf::writer::mm;
+    if *distance > 275.0 {
+        document.new_page();
+        *distance = 25.0;
+    }
+    let page = document.page_mut();
+    let y = mm(297.0 - *distance);
+    if bold {
+        page.text_bold(mm(20.0), y, size, text);
+    } else {
+        page.text(mm(20.0), y, size, text);
+    }
+    *distance += 6.0;
+}
+
+fn iso_date(millis: i64) -> String {
+    let (year, month, day) = crate::date::civil_from_millis(millis);
+    format!("{year:04}-{month:02}-{day:02}")
+}
+
+fn decimal(cents: i64) -> String {
+    format!("{:.2}", cents as f64 / 100.0)
+}
+
+/// Quotes a CSV field when it contains the separator, a quote or a line break.
+fn csv_field(value: &str) -> String {
+    if value.contains(';') || value.contains('"') || value.contains('\n') {
+        format!("\"{}\"", value.replace('"', "\"\""))
+    } else {
+        value.to_string()
+    }
+}
+
 /// Every invoice state in report order, used for the per-state totals.
 pub const STATUS_ORDER: [InvoiceStatus; 5] = [
     InvoiceStatus::Draft,
@@ -207,6 +338,28 @@ mod tests {
         assert!(report.rows.is_empty());
         assert_eq!(report.summary, ReportSummary::default());
         assert_eq!(report.status_totals, [Money::ZERO; 5]);
+    }
+
+    #[test]
+    fn exports_the_report_as_csv_and_pdf() {
+        let rows = vec![row(InvoiceStatus::Paid, 100_000)];
+        let report = Report {
+            from: NOW,
+            to: NOW + DAY,
+            summary: summarize(&rows, 90),
+            status_totals: status_totals(&rows),
+            rows,
+        };
+
+        let csv = report.to_csv();
+        assert!(csv.starts_with("number;contact;status;issued_at;net;tax;gross;minutes\n"));
+        assert!(csv.contains("RE-1;Muster GmbH;paid;"));
+        assert!(csv.contains("1000.00"));
+        assert!(csv.contains("summary;;;;"));
+        assert!(csv.contains("90"));
+
+        let pdf = report.to_pdf("Report");
+        assert!(pdf.starts_with(b"%PDF"), "the export must be a PDF file");
     }
 
     #[test]
