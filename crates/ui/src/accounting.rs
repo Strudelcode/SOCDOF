@@ -37,7 +37,6 @@ use crate::components::{
     Tone,
 };
 use crate::controls::{select, text_field, PopupState};
-use crate::dashboard::Period as DashboardPeriod;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
 use crate::theme::Theme;
@@ -118,25 +117,74 @@ impl AccountingPeriod {
         }
     }
 
-    /// Half-open timestamp range for the selected period.
+    /// Half-open UTC timestamp range for the selected period in the given time zone.
     pub fn range(self, now: i64, custom_from: &str, custom_to: &str) -> Option<(i64, i64)> {
+        self.range_in_timezone(now, custom_from, custom_to, "UTC")
+    }
+
+    /// Half-open UTC timestamp range for the selected period in the given time zone.
+    pub fn range_in_timezone(
+        self,
+        now: i64,
+        custom_from: &str,
+        custom_to: &str,
+        timezone: &str,
+    ) -> Option<(i64, i64)> {
+        let local_now = date::local_millis(now, timezone);
+        let (year, month, _) = date::civil_from_millis(local_now);
         match self {
             AccountingPeriod::All => Some((i64::MIN, i64::MAX)),
             AccountingPeriod::Today => {
-                let (year, month, day) = date::civil_from_millis(now);
-                let start = date::days_from_civil(year, month, day) * DAY_MS;
-                Some((start, start + DAY_MS))
+                let local_day = local_now.div_euclid(DAY_MS);
+                day_range_in_timezone(local_day, local_day.checked_add(1)?, timezone)
             }
-            AccountingPeriod::Month => Some(DashboardPeriod::Month.range(now)),
-            AccountingPeriod::Quarter => Some(DashboardPeriod::Quarter.range(now)),
-            AccountingPeriod::Year => Some(DashboardPeriod::Year.range(now)),
+            AccountingPeriod::Month => {
+                let start = date::days_from_civil(year, month, 1);
+                let (next_year, next_month) = if month == 12 {
+                    (year.checked_add(1)?, 1)
+                } else {
+                    (year, month + 1)
+                };
+                day_range_in_timezone(
+                    start,
+                    date::days_from_civil(next_year, next_month, 1),
+                    timezone,
+                )
+            }
+            AccountingPeriod::Quarter => {
+                let first_month = (month - 1) / 3 * 3 + 1;
+                let start = date::days_from_civil(year, first_month, 1);
+                let (next_year, next_month) = if first_month == 10 {
+                    (year.checked_add(1)?, 1)
+                } else {
+                    (year, first_month + 3)
+                };
+                day_range_in_timezone(
+                    start,
+                    date::days_from_civil(next_year, next_month, 1),
+                    timezone,
+                )
+            }
+            AccountingPeriod::Year => day_range_in_timezone(
+                date::days_from_civil(year, 1, 1),
+                date::days_from_civil(year.checked_add(1)?, 1, 1),
+                timezone,
+            ),
             AccountingPeriod::Custom => {
-                let from = parse_date_start(custom_from)?;
-                let to = parse_date_start(custom_to)?.checked_add(DAY_MS)?;
-                (from < to).then_some((from, to))
+                let from_day = parse_date_start(custom_from)?.div_euclid(DAY_MS);
+                let to_day = parse_date_start(custom_to)?
+                    .div_euclid(DAY_MS)
+                    .checked_add(1)?;
+                (from_day < to_day).then(|| day_range_in_timezone(from_day, to_day, timezone))?
             }
         }
     }
+}
+
+fn day_range_in_timezone(start_day: i64, end_day: i64, timezone: &str) -> Option<(i64, i64)> {
+    let from = date::local_day_start_utc_ms(start_day, timezone)?;
+    let to = date::local_day_start_utc_ms(end_day, timezone)?;
+    (from < to).then_some((from, to))
 }
 
 fn safe_file_component(value: &str) -> String {
@@ -471,6 +519,10 @@ pub struct AccountingState {
     pub company_name: String,
     /// Company currency used by the cross-module report.
     pub currency_symbol: String,
+    /// Time zone used for accounting date filters and export dates.
+    pub company_timezone: String,
+    /// Date format used by the company clock preferences.
+    pub company_date_format: String,
     /// Selected calendar year used for the monthly tax-advisor ledger.
     pub tax_advisor_year: i32,
     /// Dropdown state of the ledger year selector.
@@ -533,6 +585,8 @@ impl Default for AccountingState {
             business_report: BusinessAccountingReport::default(),
             company_name: String::new(),
             currency_symbol: "€".to_string(),
+            company_timezone: "Europe/Berlin".to_string(),
+            company_date_format: "DD.MM.YYYY".to_string(),
             tax_advisor_year: 0,
             tax_advisor_year_popup: PopupState::default(),
             tax_advisor_owner: String::new(),
@@ -584,7 +638,13 @@ impl AccountingState {
             return Ok(());
         }
 
-        let Some((from, to)) = self.period.range(now, &self.custom_from, &self.custom_to) else {
+        let company = store.company_profile()?;
+        let Some((from, to)) = self.period.range_in_timezone(
+            now,
+            &self.custom_from,
+            &self.custom_to,
+            &company.timezone,
+        ) else {
             self.entries.clear();
             self.business_report = BusinessAccountingReport::default();
             self.error = Some("accounting_error_period");
@@ -606,13 +666,14 @@ impl AccountingState {
 
         self.entries = entries;
 
-        let company = store.company_profile()?;
         self.company_name = company.name.clone();
         self.currency_symbol = if company.currency.trim().is_empty() {
             "€".to_string()
         } else {
             company.currency.clone()
         };
+        self.company_timezone = company.timezone.clone();
+        self.company_date_format = company.date_format.clone();
         self.tax_advisor_owner = if company.bank_account_holder.trim().is_empty() {
             company.name.clone()
         } else {
@@ -1063,7 +1124,15 @@ pub fn accounting_window(
                 texts.get("accounting_title"),
                 &state.company_name,
                 state.period.legacy_token(),
-                &format_date(now),
+                &format!(
+                    "{} {}",
+                    date::format_date_style(
+                        now,
+                        &state.company_date_format,
+                        &state.company_timezone,
+                    ),
+                    date::format_time(now, true, &state.company_timezone),
+                ),
                 &state.currency_symbol,
             )
         } else {
@@ -2997,6 +3066,36 @@ mod tests {
         assert!(AccountingPeriod::Custom
             .range(now, "2026-02-31", "2026-03-01")
             .is_none());
+    }
+
+    #[test]
+    fn accounting_periods_use_company_timezone_and_daylight_saving_boundaries() {
+        let march_29_utc = date::days_from_civil(2026, 3, 29) * DAY_MS;
+        let now = march_29_utc + 12 * 60 * 60 * 1_000;
+        let berlin_today = (
+            date::days_from_civil(2026, 3, 28) * DAY_MS + 23 * 60 * 60 * 1_000,
+            date::days_from_civil(2026, 3, 29) * DAY_MS + 22 * 60 * 60 * 1_000,
+        );
+        assert_eq!(
+            AccountingPeriod::Today.range_in_timezone(now, "", "", "Europe/Berlin"),
+            Some(berlin_today)
+        );
+        assert_eq!(
+            AccountingPeriod::Custom.range_in_timezone(
+                now,
+                "2026-03-29",
+                "2026-03-29",
+                "Europe/Berlin"
+            ),
+            Some(berlin_today)
+        );
+        assert_eq!(
+            AccountingPeriod::Month.range_in_timezone(now, "", "", "Europe/Berlin"),
+            Some((
+                date::days_from_civil(2026, 2, 28) * DAY_MS + 23 * 60 * 60 * 1_000,
+                date::days_from_civil(2026, 3, 31) * DAY_MS + 22 * 60 * 60 * 1_000,
+            ))
+        );
     }
 
     #[test]

@@ -10,6 +10,7 @@ use egui::{
     Align2, Context, FontId, Id, Key, Pos2, Rect, RichText, Sense, Stroke, Ui, Vec2, WidgetInfo,
     WidgetType,
 };
+use socdof_core::store::Store;
 
 use crate::components::{button, search_field, ButtonVariant};
 use crate::desktop::{AppId, IconGrid, TASKBAR_HEIGHT};
@@ -33,11 +34,50 @@ const ONBOARDING_STEP_KEYS: [&str; ONBOARDING_STEPS] = [
     "onboarding_step_4",
 ];
 
+/// Quick action offered by the command palette.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaletteQuickAction {
+    /// Opens a new outgoing invoice form.
+    NewInvoice,
+    /// Opens a new contact form.
+    NewContact,
+    /// Opens a new product form.
+    NewProduct,
+    /// Opens the stock journal's create-movement dialog.
+    NewStockMove,
+    /// Opens a new purchase order form.
+    NewPurchase,
+}
+
+impl PaletteQuickAction {
+    /// App that owns the action and its permission.
+    pub fn app(self) -> AppId {
+        match self {
+            Self::NewInvoice => AppId::new("invoices"),
+            Self::NewContact => AppId::new("contacts"),
+            Self::NewProduct | Self::NewStockMove => AppId::new("products"),
+            Self::NewPurchase => AppId::new("purchases"),
+        }
+    }
+
+    fn label_key(self) -> &'static str {
+        match self {
+            Self::NewInvoice => "palette_action_new_invoice",
+            Self::NewContact => "palette_action_new_contact",
+            Self::NewProduct => "palette_action_new_product",
+            Self::NewStockMove => "palette_action_new_stock_move",
+            Self::NewPurchase => "palette_action_new_purchase",
+        }
+    }
+}
+
 /// Action a shell command performs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShellAction {
     /// Opens an app window.
     OpenApp(AppId),
+    /// Runs a create workflow in the target app.
+    QuickAction(PaletteQuickAction),
     /// Switches between light and dark appearance.
     ToggleTheme,
     /// Selects the next bundled wallpaper.
@@ -328,6 +368,7 @@ pub struct CommandPalette {
     open: bool,
     query: String,
     selected: usize,
+    search_error: bool,
 }
 
 impl CommandPalette {
@@ -346,6 +387,7 @@ impl CommandPalette {
         self.open = true;
         self.query.clear();
         self.selected = 0;
+        self.search_error = false;
     }
 
     /// Closes the palette.
@@ -362,6 +404,7 @@ impl CommandPalette {
     pub fn set_query(&mut self, query: impl Into<String>) {
         self.query = query.into();
         self.selected = 0;
+        self.search_error = false;
     }
 
     /// Index of the selected command.
@@ -404,6 +447,151 @@ impl CommandPalette {
             .get(self.selected.min(results.len().saturating_sub(1)))
             .map(|index| COMMANDS[*index].action)
     }
+}
+
+#[derive(Debug, Clone)]
+struct PaletteItem {
+    label: String,
+    detail: String,
+    action: ShellAction,
+    icon: Icon,
+}
+
+fn palette_command_results(
+    state: &CommandPalette,
+    texts: &UiTexts,
+    icons: &IconGrid,
+) -> Vec<PaletteItem> {
+    state
+        .results(texts)
+        .into_iter()
+        .filter_map(|index| {
+            let command = COMMANDS[index];
+            if let ShellAction::OpenApp(app) = command.action {
+                icons.label_of(app)?;
+            }
+            Some(PaletteItem {
+                label: texts.get(command.label_key).to_string(),
+                detail: String::new(),
+                action: command.action,
+                icon: command_icon(command.action),
+            })
+        })
+        .collect()
+}
+
+fn palette_quick_action_results(
+    query: &str,
+    texts: &UiTexts,
+    icons: &IconGrid,
+) -> Vec<PaletteItem> {
+    [
+        PaletteQuickAction::NewInvoice,
+        PaletteQuickAction::NewContact,
+        PaletteQuickAction::NewProduct,
+        PaletteQuickAction::NewStockMove,
+        PaletteQuickAction::NewPurchase,
+    ]
+    .into_iter()
+    .filter(|action| icons.label_of(action.app()).is_some())
+    .filter_map(|action| {
+        let label = texts.get(action.label_key());
+        fuzzy_score(query, label)?;
+        Some(PaletteItem {
+            label: label.to_string(),
+            detail: String::new(),
+            action: ShellAction::QuickAction(action),
+            icon: Icon::Plus,
+        })
+    })
+    .collect()
+}
+
+fn palette_record_results(
+    store: &Store,
+    icons: &IconGrid,
+    query: &str,
+) -> socdof_core::CoreResult<Vec<PaletteItem>> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let contacts_app = AppId::new("contacts");
+    let products_app = AppId::new("products");
+    let invoices_app = AppId::new("invoices");
+    let can_search_contacts = icons.label_of(contacts_app).is_some();
+    let can_search_products = icons.label_of(products_app).is_some();
+    let can_search_invoices = icons.label_of(invoices_app).is_some();
+    let contacts = if can_search_contacts {
+        store.search_contacts(query)?
+    } else {
+        Vec::new()
+    };
+    let contact_ids: Vec<_> = contacts.iter().map(|contact| contact.id).collect();
+    let mut results = Vec::new();
+    for contact in contacts.into_iter().take(3) {
+        let detail = contact
+            .company_name
+            .as_deref()
+            .or(contact.email.as_deref())
+            .or(contact.city.as_deref())
+            .unwrap_or_default();
+        results.push(PaletteItem {
+            label: contact.display_name(),
+            detail: detail.to_string(),
+            action: ShellAction::OpenApp(AppId::new("contacts")),
+            icon: Icon::Users,
+        });
+    }
+
+    if can_search_products {
+        for product in store.search_products(query)?.into_iter().take(3) {
+            results.push(PaletteItem {
+                label: product.name,
+                detail: if product.sku.trim().is_empty() {
+                    String::new()
+                } else {
+                    format!("SKU: {}", product.sku)
+                },
+                action: ShellAction::OpenApp(products_app),
+                icon: Icon::Package,
+            });
+        }
+    }
+
+    if can_search_invoices {
+        let mut invoices = store.search_invoices(query)?;
+        if !contact_ids.is_empty() {
+            for invoice in store.list_invoices()? {
+                if contact_ids.contains(&invoice.contact_id)
+                    && !invoices.iter().any(|match_| match_.id == invoice.id)
+                {
+                    invoices.push(invoice);
+                }
+            }
+        }
+        for invoice in invoices.into_iter().take(3) {
+            let contact_name = store
+                .find_contact(invoice.contact_id)?
+                .map(|contact| contact.display_name())
+                .unwrap_or_default();
+            let amount = invoice.total_gross().to_decimal_string();
+            let detail = if contact_name.is_empty() {
+                amount
+            } else {
+                format!("{contact_name} · {amount}")
+            };
+            results.push(PaletteItem {
+                label: invoice.number,
+                detail,
+                action: ShellAction::OpenApp(invoices_app),
+                icon: Icon::Receipt,
+            });
+        }
+    }
+
+    Ok(results)
 }
 
 /// Scores a label against a query: prefix beats substring, substring beats subsequence.
@@ -1326,6 +1514,8 @@ pub fn command_palette(
     texts: &UiTexts,
     focus: &mut FocusState,
     state: &mut CommandPalette,
+    icons: &IconGrid,
+    store: &Store,
 ) -> Option<ShellAction> {
     if !state.is_open() {
         return None;
@@ -1375,53 +1565,91 @@ pub fn command_palette(
                     texts.get("palette_placeholder"),
                 );
                 ui.add_space(4.0);
-                let results = state.results(texts);
-                if results.is_empty() {
+                let query = state.query().trim().to_lowercase();
+                let mut items = palette_command_results(state, texts, icons);
+                items.extend(palette_quick_action_results(&query, texts, icons));
+                for icon in icons.icons() {
+                    if items.iter().any(|item| {
+                        matches!(item.action, ShellAction::OpenApp(app) if app == icon.app())
+                    }) || fuzzy_score(&query, icon.label()).is_none()
+                    {
+                        continue;
+                    }
+                    items.push(PaletteItem {
+                        label: icon.label().to_string(),
+                        detail: String::new(),
+                        action: ShellAction::OpenApp(icon.app()),
+                        icon: icon.icon(),
+                    });
+                }
+                match palette_record_results(store, icons, &query) {
+                    Ok(records) => {
+                        state.search_error = false;
+                        items.extend(records);
+                    }
+                    Err(_) => state.search_error = true,
+                }
+                if state.search_error {
                     ui.label(
-                        RichText::new(texts.get("palette_empty"))
+                        RichText::new(texts.get("palette_search_error"))
                             .size(FONT_SMALL)
-                            .color(theme.palette.text_muted),
+                            .color(theme.palette.danger),
                     );
-                    return;
                 }
-                let (down, up) = ui.input(|input| {
-                    (
-                        input.key_pressed(Key::ArrowDown),
-                        input.key_pressed(Key::ArrowUp),
-                    )
-                });
-                let mut navigated = false;
-                if down {
-                    state.move_selection(1, results.len());
-                    navigated = true;
-                }
-                if up {
-                    state.move_selection(-1, results.len());
-                    navigated = true;
-                }
-                let selected = state.selected().min(results.len() - 1);
-                state.select(selected);
-                for (position, index) in results.iter().enumerate() {
-                    let command = COMMANDS[*index];
-                    let row_id = Id::new(("socdof-palette-item", command.label_key));
-                    if navigated && position == selected {
-                        focus.set_focus(Some(row_id));
-                    }
-                    if shell_row(
-                        ui,
-                        theme,
-                        focus,
-                        row_id,
-                        Some(command_icon(command.action)),
-                        texts.get(command.label_key),
-                        position == selected,
-                    ) {
-                        chosen = Some(command.action);
-                    }
-                }
-                if ui.input(|input| input.key_pressed(Key::Enter)) && chosen.is_none() {
-                    chosen = state.selected_action(texts);
-                }
+                egui::ScrollArea::vertical()
+                    .max_height((ctx.screen_rect().height() - 190.0).max(120.0))
+                    .show(ui, |ui| {
+                        if items.is_empty() {
+                            ui.label(
+                                RichText::new(texts.get("palette_empty"))
+                                    .size(FONT_SMALL)
+                                    .color(theme.palette.text_muted),
+                            );
+                            return;
+                        }
+                        let (down, up) = ui.input(|input| {
+                            (
+                                input.key_pressed(Key::ArrowDown),
+                                input.key_pressed(Key::ArrowUp),
+                            )
+                        });
+                        let mut navigated = false;
+                        if down {
+                            state.move_selection(1, items.len());
+                            navigated = true;
+                        }
+                        if up {
+                            state.move_selection(-1, items.len());
+                            navigated = true;
+                        }
+                        let selected = state.selected().min(items.len() - 1);
+                        state.select(selected);
+                        for (position, item) in items.iter().enumerate() {
+                            let row_id = Id::new(("socdof-palette-item", position, &item.label));
+                            if navigated && position == selected {
+                                focus.set_focus(Some(row_id));
+                            }
+                            let label = if item.detail.is_empty() {
+                                item.label.clone()
+                            } else {
+                                format!("{} · {}", item.label, item.detail)
+                            };
+                            if shell_row(
+                                ui,
+                                theme,
+                                focus,
+                                row_id,
+                                Some(item.icon),
+                                &label,
+                                position == selected,
+                            ) {
+                                chosen = Some(item.action);
+                            }
+                        }
+                        if ui.input(|input| input.key_pressed(Key::Enter)) && chosen.is_none() {
+                            chosen = items.get(selected).map(|item| item.action);
+                        }
+                    });
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
                     ui.label(
@@ -1452,6 +1680,7 @@ fn command_icon(action: ShellAction) -> Icon {
     match action {
         ShellAction::OpenStudio | ShellAction::OpenLayout => Icon::Settings,
         ShellAction::OpenApp(_) => Icon::Folder,
+        ShellAction::QuickAction(_) => Icon::Plus,
         ShellAction::ToggleTheme => Icon::Sun,
         ShellAction::NextWallpaper => Icon::Refresh,
         ShellAction::ShowOnboarding => Icon::Info,
@@ -1627,7 +1856,11 @@ pub fn wallpaper_label(wallpaper: Wallpaper) -> &'static str {
 mod tests {
     use super::*;
     use egui::{Pos2, RawInput};
+    use socdof_core::domain::contact::{Contact, ContactKind};
+    use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+    use socdof_core::domain::product::Product;
     use socdof_core::domain::settings::Language;
+    use socdof_core::money::Money;
 
     use crate::desktop::DesktopIcon;
     use crate::theme::Appearance;
@@ -1730,6 +1963,99 @@ mod tests {
     }
 
     #[test]
+    fn palette_hides_app_commands_without_a_visible_app_icon() {
+        let texts = UiTexts::embedded(Language::En).expect("catalogue");
+        let mut palette = CommandPalette::new();
+        palette.open();
+        palette.set_query("contacts");
+        let no_apps = IconGrid::new(Vec::new());
+        assert!(palette_command_results(&palette, &texts, &no_apps).is_empty());
+
+        palette.set_query("switch");
+        assert!(palette_command_results(&palette, &texts, &no_apps)
+            .iter()
+            .any(|item| item.action == ShellAction::ToggleTheme));
+    }
+
+    #[test]
+    fn palette_quick_actions_match_queries_and_respect_app_visibility() {
+        let texts = UiTexts::embedded(Language::En).expect("catalogue");
+        let icons = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("contacts"), "Contacts", Icon::Users),
+            DesktopIcon::new(AppId::new("products"), "Products", Icon::Package),
+            DesktopIcon::new(AppId::new("invoices"), "Invoices", Icon::Receipt),
+        ]);
+        let stock_results = palette_quick_action_results("stock", &texts, &icons);
+        assert_eq!(stock_results.len(), 1);
+        assert_eq!(
+            stock_results[0].action,
+            ShellAction::QuickAction(PaletteQuickAction::NewStockMove)
+        );
+        assert!(!palette_quick_action_results("purchase", &texts, &icons)
+            .iter()
+            .any(
+                |result| result.action == ShellAction::QuickAction(PaletteQuickAction::NewPurchase)
+            ));
+    }
+
+    #[test]
+    fn palette_search_returns_matching_contacts_products_and_customer_invoices() {
+        let store = Store::open_in_memory().expect("store");
+        let mut contact = Contact::new(ContactKind::Company, 1_000);
+        contact.name = Some("Acme".to_string());
+        contact.company_name = Some("Acme Industries".to_string());
+        store.insert_contact(&contact).expect("insert contact");
+
+        let mut product = Product::new("Acme Widget", 1_000);
+        product.sku = "ACME-42".to_string();
+        store.insert_product(&product).expect("insert product");
+
+        let invoice = Invoice {
+            id: uuid::Uuid::new_v4(),
+            number: "INV-2026-001".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: 1_000,
+            due_at: 2_000,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Consulting".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(10_000),
+                tax_rate_bp: 1_900,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("insert invoice");
+
+        let icons = IconGrid::new(vec![
+            DesktopIcon::new(AppId::new("contacts"), "Contacts", Icon::Users),
+            DesktopIcon::new(AppId::new("products"), "Products", Icon::Package),
+            DesktopIcon::new(AppId::new("invoices"), "Invoices", Icon::Receipt),
+        ]);
+        let results = palette_record_results(&store, &icons, "acme").expect("search records");
+        assert!(results.iter().any(|result| result.label == "Acme"
+            && result.action == ShellAction::OpenApp(AppId::new("contacts"))));
+        assert!(results.iter().any(|result| result.label == "Acme Widget"
+            && result.action == ShellAction::OpenApp(AppId::new("products"))));
+        assert!(results.iter().any(|result| result.label == "INV-2026-001"
+            && result.action == ShellAction::OpenApp(AppId::new("invoices"))));
+    }
+
+    #[test]
+    fn palette_does_not_search_records_for_hidden_apps() {
+        let store = Store::open_in_memory().expect("store");
+        let mut contact = Contact::new(ContactKind::Company, 1_000);
+        contact.name = Some("Acme".to_string());
+        store.insert_contact(&contact).expect("insert contact");
+
+        let results = palette_record_results(&store, &IconGrid::new(Vec::new()), "acme")
+            .expect("search with no visible apps");
+        assert!(results.is_empty());
+    }
+
+    #[test]
     fn tray_and_onboarding_state_machines() {
         let mut tray = Tray::new();
         assert!(!tray.is_open());
@@ -1813,12 +2139,13 @@ mod tests {
 
         let mut focus = FocusState::default();
         let mut palette = CommandPalette::new();
+        let store = Store::open_in_memory().expect("store");
         palette.open();
         let mut render = || {
             ctx.run(input(), |ctx| {
                 focus.begin_frame(ctx);
                 theme.apply(ctx);
-                command_palette(ctx, &theme, &texts, &mut focus, &mut palette);
+                command_palette(ctx, &theme, &texts, &mut focus, &mut palette, &grid, &store);
                 focus.finish_frame();
             })
         };

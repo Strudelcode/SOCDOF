@@ -34,6 +34,11 @@ Sie ergänzt die Detaildokumente:
 | Command Palette, Toasts, gebündelte Source-Sans-3-Schriften, F11 / `Ctrl+K` / `Ctrl+L` / `Escape` | `docs/parity` (Command Palette light/dark ≥98 %) |
 | Fensterverwaltung mit gespeicherter Geometrie je Benutzer, 18 Launcher-Einträge als eigene Fenster | Tests in `crates/ui/src/desktop.rs` |
 
+- Command Palette: App-Suche und Treffer für Kontakte, Produkte und Rechnungen sind auf Apps
+  beschränkt, die im aktuellen Desktop sichtbar sind; Ergebnislisten scrollen auf kleinen Fenstern.
+  Die fünf TypeScript-Schnellaktionen öffnen jetzt die passenden Formulare bzw. das neue
+  Lagerbuchungsfenster; Aktionen werden ebenfalls nach sichtbaren Apps gefiltert.
+
 ### Einstellungen (14 Sektionen)
 
 Anzeige, Allgemein, Zahlungen & Bankverbindung, Briefkopf, Sprache, Personalisierung, **Sound &
@@ -45,6 +50,11 @@ Lautstärke**, Sicherheit, Sicherung, Benutzer, Rollen, Updates, Portable, Taste
   ein Fenster-Tint (keine OS-Farbtemperatur, siehe Abweichungen).
 - Briefkopf: Logo, Betreff, Register-/Geschäftsführungsangaben, vier Fußzeilen-Spalten, Hintergrund,
   DIN-5008-Falzmarken — gespeichert, aber noch nicht in alle PDF/DOCX-Renderer verdrahtet (offen).
+- Sprachpakete: TypeScript-kompatibler JSON-Import/Export, mehrere gespeicherte Pakete mit Auswahl
+  und Löschen, ein persistentes aktives Overlay, Migration des alten Einzelpakets und native
+  Dateidialoge.
+- Systemsprache: optionale, persistente Synchronisierung aus `LC_ALL`/`LC_MESSAGES`/`LANG`;
+  manuelle Sprachwahl deaktiviert sie, unbekannte Locales fallen auf Englisch zurück.
 
 ### Anmeldung und Konten
 
@@ -87,21 +97,37 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Monitor-Layout bearbeiten, Auflösung/Ausrichtung/Primärmonitor setzen (nur Erkennung + Anzeige)
 - [ ] Nachtlicht als echte OS-Farbtemperatur
 - [ ] Briefkopf-Werte in allen PDF/DOCX/Druck-Renderern
-- [ ] Benutzer-Avatare, Kontotyp-Anzeige, Wiederherstellungsfragen pro Benutzer
-- [ ] Eigene Sprachpakete / Sprachpaket-Import
-- [ ] Storage-Inspector und Storage-Export
+- [x] Kontotyp Privat/Geschäftlich ist je Benutzer auswählbar und wird persistent gespeichert;
+      Wiederherstellungsantworten werden gehasht und dem richtigen Benutzerkonto zugeordnet
+- [ ] Benutzer-Avatare
+- [x] Eigene Sprachpakete importieren, exportieren, aktivieren und deaktivieren
+- [x] Nativer SQLite-Speicherinspektor mit Datenbankgröße, Schema-Version und ausgewählten
+      Tabellen-Zählständen
+- [x] TypeScript-kompatibler JSON-Datenexport mit nativer Dateiauswahl
+- [ ] Vollständiger Storage-Inspector (Assets, Benutzerprofile, Bereinigungsaktionen)
 - [ ] Vollständiger System-Reset (destruktiver Reset aller Daten)
 - [ ] Google-Calendar-/iCal-Verbindungen (nur lokaler iCal-Export vorhanden)
 
 ### Module
 
-- [ ] Therapie: exakte Alt-Datums-/Default-Semantik, Löschbestätigung, Rechnungsdruck-Details
-- [ ] Buchhaltung: exakte CSV/Excel-Bytes, Teilzahlungs-Sonderfälle, Zeitzonengrenzen
-- [ ] Kontakte: exakte Dateinamen/MIME/Byte-Ausgabe, weitere Header-Varianten, Fehlerfälle
-- [ ] Flotte: Formular-Sonderfälle, Rechnungsübergabe, CSV-Dateinamen
-- [ ] Restaurant: kompletter Bestell-/Küchenablauf, Bon-Druck
-- [ ] POS: Bon-Druck, Z-Bericht-Darstellung
-- [ ] Projekte: Filter, Aufgaben-Übergänge, CSV-Formatierung, Rechnungsnummern
+- [x] Therapie: neues Sitzungsdatum (ISO-UTC), Startzeit 10:00 und 60-Minuten-Dauer entsprechen
+      den TypeScript-Defaults; leere Pflichtdaten werden abgewiesen
+- [x] Therapie: verknüpfte Rechnungen lassen sich aus dem Klientendetail über den gemeinsamen
+      PDF-/DOCX-Druckdialog öffnen
+- [ ] Therapie: eigener Therapie-Rechnungsvorlagen-Manager und dessen HTML-/Word-Ausgabe
+- [ ] Buchhaltung: exakte CSV/Excel-Bytes, Teilzahlungs-Sonderfälle, Abgleich der konfigurierten Zeitzone mit der Browser-Lokalzeit
+- [ ] Kontakte: Byte-Ausgabe für Randfälle, weitere Header-Varianten, Fehlerfälle
+- [x] Flotte: CSV-Dateinamen erhalten Firmenname und Leerzeichen wie TypeScript; plattform-illegale
+      Zeichen werden im nativen Dateinamen sicher ersetzt
+- [ ] Flotte: Formular-Sonderfälle und Rechnungsübergabe
+- [ ] Restaurant: vollständige Abnahme des Bestell-/Küchenablaufs
+- [x] Restaurant: Tages-Z-Bericht mit Belegzahl, Bar-/Kartensummen, Steuer und Bruttoumsatz
+      einschließlich PDF-Ausgabe
+- [x] POS: historischer Bon kann mit Positionen, Steuer, Zahlung, Wechselgeld und Kunde als PDF
+      ausgegeben werden
+- [x] Projekte: Such-/Status-/Kategorie-Filter, Aufgaben-Übergänge und Rechnungserstellung mit
+      Jahresnummern für abrechenbare, erfasste Stunden
+- [x] Portfolio-CSV ist eine native Erweiterung; die TypeScript-ProjectsModule bietet keinen CSV-Export
 - [ ] App Store, Support, Reports, Editor/Textwerk: vollständige Workflow-Abnahme
 
 ### Übergreifend
@@ -144,9 +170,9 @@ der Filter ist ein Substring der Szenen-ID.
 ## 6. Zahlen
 
 - 14 Einstellungs-Sektionen, 18 Launcher-Module
-- 2.377 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
-- `cargo test -p socdof-core`: 402 Lib-Tests + Integrationstests, 0 Fehler
-- `cargo test -p socdof-ui`: 426 Lib-Tests + Integrationstests, 0 Fehler
+- 2.413 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- `cargo test -p socdof-core`: 406 Lib-Tests + Integrationstests, 0 Fehler
+- `cargo test -p socdof-ui`: 442 Lib-Tests + Integrationstests, 0 Fehler
 - Telefon-Sweep: 1.312 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
 - Belege: `docs/artifacts/gui-parity/rust-01`…`rust-41`

@@ -35,7 +35,14 @@ use crate::components::{
 use crate::controls::{select, switch, text_field, PopupState};
 use crate::display::{detect_connected_monitors, DisplayMonitor};
 use crate::focus::FocusState;
-use crate::i18n::UiTexts;
+#[cfg(any(feature = "dialogs", test))]
+use crate::i18n::language_pack_name;
+#[cfg(feature = "dialogs")]
+use crate::i18n::load_texts;
+use crate::i18n::{
+    detect_system_language, load_language_packs, save_language_packs, system_language_sync_enabled,
+    StoredLanguagePack, UiTexts, SYSTEM_LANGUAGE_SYNC_SETTING_KEY,
+};
 use crate::icons::Icon;
 use crate::theme::Theme;
 use crate::tokens::{preset_ids, with_alpha, AccentPreset, FONT_BODY, FONT_SMALL};
@@ -602,6 +609,9 @@ pub struct SettingsState {
     backups: Vec<BackupFile>,
     backup_loaded_folder: String,
     backup_last: Option<BackupInfo>,
+    storage_size_bytes: u64,
+    storage_schema_version: i64,
+    storage_counts: Vec<(&'static str, i64)>,
     restore_archive: String,
     restore_target: String,
     restore_metadata: Option<BackupMetadata>,
@@ -614,6 +624,11 @@ pub struct SettingsState {
     user_role_popup: PopupState,
     user_account_type_popup: PopupState,
     update_channel_popup: PopupState,
+    language_packs: Vec<StoredLanguagePack>,
+    active_language_pack_id: Option<String>,
+    language_pack_active: bool,
+    language_pack_changed: bool,
+    sync_system_language: bool,
     role_level_popups: Vec<PopupState>,
     error: Option<&'static str>,
     status: Option<&'static str>,
@@ -652,6 +667,9 @@ impl Default for SettingsState {
             backups: Vec::new(),
             backup_loaded_folder: String::new(),
             backup_last: None,
+            storage_size_bytes: 0,
+            storage_schema_version: 0,
+            storage_counts: Vec::new(),
             restore_archive: String::new(),
             restore_target: String::new(),
             restore_metadata: None,
@@ -664,6 +682,11 @@ impl Default for SettingsState {
             user_role_popup: PopupState::default(),
             user_account_type_popup: PopupState::default(),
             update_channel_popup: PopupState::default(),
+            language_packs: Vec::new(),
+            active_language_pack_id: None,
+            language_pack_active: false,
+            language_pack_changed: false,
+            sync_system_language: false,
             role_level_popups: vec![PopupState::default(); ALL_MODULES.len()],
             error: None,
             status: None,
@@ -739,6 +762,11 @@ impl SettingsState {
         self.saved_preferences.take()
     }
 
+    /// Signals the host to reload labels after a language pack was installed or disabled.
+    pub fn take_language_pack_changed(&mut self) -> bool {
+        std::mem::take(&mut self.language_pack_changed)
+    }
+
     /// Switches tab and clears the transient editor.
     pub fn set_tab(&mut self, tab: SettingsTab) {
         self.tab = tab;
@@ -797,6 +825,12 @@ impl SettingsState {
             None => Preferences::default(),
         };
         self.appearance = AppearanceDraft::from_preferences(&preferences);
+        self.sync_system_language = system_language_sync_enabled(store)?;
+        if self.sync_system_language {
+            self.appearance.language = language_index(detect_system_language());
+        }
+        self.refresh_language_pack_state(store)?;
+        self.refresh_storage_metrics(store)?;
         self.display = store
             .get_setting("native_display_settings_v1")?
             .and_then(|value| serde_json::from_value(value).ok())
@@ -819,6 +853,194 @@ impl SettingsState {
         self.backup_loaded_folder.clear();
         self.loaded = true;
         Ok(())
+    }
+
+    fn refresh_language_pack_state(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        let packs = load_language_packs(store)?;
+        self.active_language_pack_id = packs.active_id.clone();
+        self.language_pack_active = packs.active_id.is_some();
+        self.language_packs = packs.packs;
+        Ok(())
+    }
+
+    fn refresh_storage_metrics(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        self.storage_size_bytes = store.database_size_bytes()?;
+        self.storage_schema_version = store.schema_version()?;
+        self.storage_counts = vec![
+            ("contacts_title", store.contact_count()?),
+            ("products_title", store.product_count()?),
+            ("invoices_title", store.invoice_count()?),
+            ("users_title", store.user_count()?),
+            ("docs_title", store.document_count()?),
+            ("stock_journal_title", store.stock_journal_count()?),
+            ("accounting_title", store.journal_entry_count()?),
+            ("purchases_title", store.purchase_order_count()?),
+            ("pos_title", store.pos_order_count()?),
+        ];
+        Ok(())
+    }
+
+    #[cfg(any(feature = "dialogs", test))]
+    fn install_language_pack(
+        &mut self,
+        store: &Store,
+        language: Language,
+        fallback_name: &str,
+        raw: &str,
+    ) -> bool {
+        if raw.len() > 1_048_576 {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        }
+        let valid = UiTexts::embedded(language)
+            .and_then(|mut texts| texts.merge_json_pack(raw))
+            .is_ok();
+        if !valid {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        }
+        let Ok(mut packs) = load_language_packs(store) else {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        };
+        let name = language_pack_name(raw, fallback_name);
+        let id = Uuid::new_v4().to_string();
+        packs.packs.insert(
+            0,
+            StoredLanguagePack {
+                id: id.clone(),
+                name,
+                raw: raw.to_string(),
+            },
+        );
+        packs.active_id = Some(id.clone());
+        match save_language_packs(store, &packs) {
+            Ok(()) => {
+                self.language_packs = packs.packs;
+                self.active_language_pack_id = Some(id);
+                self.language_pack_active = true;
+                self.language_pack_changed = true;
+                self.error = None;
+                self.status = Some("settings_language_pack_imported");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_language_pack");
+                self.status = None;
+                false
+            }
+        }
+    }
+
+    fn activate_language_pack(&mut self, store: &Store, id: &str) -> bool {
+        let Ok(mut packs) = load_language_packs(store) else {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        };
+        if !packs.packs.iter().any(|pack| pack.id == id) {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        }
+        packs.active_id = Some(id.to_string());
+        match save_language_packs(store, &packs) {
+            Ok(()) => {
+                self.language_packs = packs.packs;
+                self.active_language_pack_id = packs.active_id;
+                self.language_pack_active = true;
+                self.language_pack_changed = true;
+                self.error = None;
+                self.status = Some("settings_language_pack_activated");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_language_pack");
+                self.status = None;
+                false
+            }
+        }
+    }
+
+    fn delete_language_pack(&mut self, store: &Store, id: &str) -> bool {
+        let Ok(mut packs) = load_language_packs(store) else {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        };
+        let old_len = packs.packs.len();
+        packs.packs.retain(|pack| pack.id != id);
+        if packs.packs.len() == old_len {
+            return false;
+        }
+        if packs.active_id.as_deref() == Some(id) {
+            packs.active_id = None;
+        }
+        match save_language_packs(store, &packs) {
+            Ok(()) => {
+                self.language_packs = packs.packs;
+                self.active_language_pack_id = packs.active_id;
+                self.language_pack_active = self.active_language_pack_id.is_some();
+                self.language_pack_changed = true;
+                self.error = None;
+                self.status = Some("settings_language_pack_deleted");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_language_pack");
+                self.status = None;
+                false
+            }
+        }
+    }
+
+    fn disable_language_pack(&mut self, store: &Store) -> bool {
+        let Ok(mut packs) = load_language_packs(store) else {
+            self.error = Some("settings_error_language_pack");
+            self.status = None;
+            return false;
+        };
+        packs.active_id = None;
+        match save_language_packs(store, &packs) {
+            Ok(()) => {
+                self.language_pack_active = false;
+                self.active_language_pack_id = None;
+                self.language_packs = packs.packs;
+                self.language_pack_changed = true;
+                self.error = None;
+                self.status = Some("settings_language_pack_disabled");
+                true
+            }
+            Err(_) => {
+                self.error = Some("settings_error_language_pack");
+                self.status = None;
+                false
+            }
+        }
+    }
+
+    fn save_system_language_sync(&mut self, store: &Store, enabled: bool) -> bool {
+        let value = serde_json::Value::Bool(enabled);
+        if store
+            .put_setting(SYSTEM_LANGUAGE_SYNC_SETTING_KEY, &value)
+            .is_err()
+        {
+            self.error = Some("settings_error_preferences");
+            self.status = None;
+            return false;
+        }
+        self.sync_system_language = enabled;
+        self.error = None;
+        if enabled {
+            self.appearance.language = language_index(detect_system_language());
+            self.save_appearance(store)
+        } else {
+            self.status = Some("settings_saved");
+            true
+        }
     }
 
     fn reload(&mut self) {
@@ -2782,6 +3004,46 @@ fn language_tab(
             return;
         }
         ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("settings_sync_system_language_title")).strong());
+        let system_language = detect_system_language();
+        let system_language_label = texts.get(match system_language {
+            Language::De => "language_de",
+            Language::En => "language_en",
+            Language::Fr => "language_fr",
+            Language::Es => "language_es",
+        });
+        ui.label(
+            RichText::new(
+                texts
+                    .get("settings_sync_system_language_desc")
+                    .replace("{lang}", system_language_label),
+            )
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+        let mut sync = state.sync_system_language;
+        if switch(
+            ui,
+            theme,
+            focus,
+            &mut sync,
+            texts.get("settings_sync_system_language_title"),
+        )
+        .activated
+        {
+            state.save_system_language_sync(store, sync);
+        }
+        ui.label(
+            RichText::new(if state.sync_system_language {
+                texts.get("settings_sync_system_language_active")
+            } else {
+                texts.get("settings_sync_system_language_manual")
+            })
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+        ui.separator();
+        ui.add_space(8.0);
         let languages = [
             texts.get("language_de"),
             texts.get("language_en"),
@@ -2803,6 +3065,173 @@ fn language_tab(
             &languages,
         );
         ui.add_space(8.0);
+        ui.separator();
+        ui.add_space(8.0);
+        ui.label(RichText::new(texts.get("settings_language_pack_title")).strong());
+        ui.add_space(4.0);
+        ui.label(
+            RichText::new(if let Some(active_id) = &state.active_language_pack_id {
+                let active_name = state
+                    .language_packs
+                    .iter()
+                    .find(|pack| &pack.id == active_id)
+                    .map(|pack| pack.name.as_str())
+                    .unwrap_or_default();
+                format!(
+                    "{}: {active_name}",
+                    texts.get("settings_language_pack_active")
+                )
+            } else {
+                texts.get("settings_language_pack_inactive").to_string()
+            })
+            .size(FONT_SMALL)
+            .color(theme.palette.text_muted),
+        );
+        if !state.language_packs.is_empty() {
+            ui.add_space(6.0);
+            let mut action = None;
+            for pack in &state.language_packs {
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new(&pack.name).strong());
+                    if state.active_language_pack_id.as_deref() != Some(pack.id.as_str())
+                        && button(
+                            ui,
+                            theme,
+                            focus,
+                            texts.get("settings_language_pack_activate"),
+                            ButtonVariant::Ghost,
+                        )
+                        .activated
+                    {
+                        action = Some((true, pack.id.clone()));
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("settings_language_pack_delete"),
+                        ButtonVariant::Ghost,
+                    )
+                    .activated
+                    {
+                        action = Some((false, pack.id.clone()));
+                    }
+                });
+            }
+            if let Some((activate, id)) = action {
+                if activate {
+                    state.activate_language_pack(store, &id);
+                } else {
+                    state.delete_language_pack(store, &id);
+                }
+            }
+        }
+        ui.add_space(8.0);
+        ui.horizontal_wrapped(|ui| {
+            #[cfg(feature = "dialogs")]
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_language_pack_import"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .pick_file()
+                {
+                    let size_ok =
+                        std::fs::metadata(&path).is_ok_and(|metadata| metadata.len() <= 1_048_576);
+                    if size_ok {
+                        let name = path
+                            .file_stem()
+                            .map(|stem| stem.to_string_lossy().to_string())
+                            .unwrap_or_default();
+                        match std::fs::read_to_string(path) {
+                            Ok(raw) => {
+                                state.install_language_pack(
+                                    store,
+                                    language_at(state.appearance.language),
+                                    &name,
+                                    &raw,
+                                );
+                            }
+                            Err(_) => state.error = Some("settings_error_language_pack"),
+                        }
+                    } else {
+                        state.error = Some("settings_error_language_pack");
+                    }
+                }
+            }
+
+            #[cfg(feature = "dialogs")]
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_language_pack_template"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .set_file_name("socdof-language-template.json")
+                    .save_file()
+                {
+                    match UiTexts::to_pack_template_json() {
+                        Ok(raw) => match std::fs::write(path, raw) {
+                            Ok(()) => state.status = Some("settings_language_pack_exported"),
+                            Err(_) => state.error = Some("settings_error_language_pack"),
+                        },
+                        Err(_) => state.error = Some("settings_error_language_pack"),
+                    }
+                }
+            }
+
+            #[cfg(feature = "dialogs")]
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_language_pack_export"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                let language = language_at(state.appearance.language);
+                let file_name = format!("socdof-{}-language.json", language.as_str());
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .set_file_name(&file_name)
+                    .save_file()
+                {
+                    match load_texts(language, store).and_then(|texts| texts.to_pack_json()) {
+                        Ok(raw) => match std::fs::write(path, raw) {
+                            Ok(()) => state.status = Some("settings_language_pack_exported"),
+                            Err(_) => state.error = Some("settings_error_language_pack"),
+                        },
+                        Err(_) => state.error = Some("settings_error_language_pack"),
+                    }
+                }
+            }
+
+            if state.language_pack_active
+                && button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("settings_language_pack_disable"),
+                    ButtonVariant::Secondary,
+                )
+                .activated
+            {
+                state.disable_language_pack(store);
+            }
+        });
+        ui.add_space(8.0);
         if button(
             ui,
             theme,
@@ -2812,7 +3241,7 @@ fn language_tab(
         )
         .activated
         {
-            save = true;
+            save = !state.sync_system_language || state.save_system_language_sync(store, false);
         }
     });
     if save {
@@ -3509,6 +3938,85 @@ fn backup_tab(
     let mut save = false;
     let mut create = false;
     let mut verify = None;
+    let mut refresh_storage = false;
+    card(ui, theme, |ui| {
+        ui.label(RichText::new(texts.get("settings_storage_title")).strong());
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            ui.label(format!(
+                "{}: {}",
+                texts.get("settings_storage_size"),
+                format_bytes(state.storage_size_bytes)
+            ));
+            ui.label(format!(
+                "{}: {}",
+                texts.get("settings_storage_schema"),
+                state.storage_schema_version
+            ));
+            ui.label(format!(
+                "{}: {}",
+                texts.get("settings_storage_total_rows"),
+                state
+                    .storage_counts
+                    .iter()
+                    .fold(0_i64, |total, (_, rows)| total.saturating_add(*rows))
+            ));
+        });
+        ui.add_space(4.0);
+        egui::Grid::new("socdof-settings-storage-inspector")
+            .num_columns(2)
+            .spacing(Vec2::new(14.0, 5.0))
+            .show(ui, |ui| {
+                for (key, rows) in &state.storage_counts {
+                    ui.label(texts.get(key));
+                    ui.label(rows.to_string());
+                    ui.end_row();
+                }
+            });
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_storage_refresh"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                refresh_storage = true;
+            }
+            #[cfg(feature = "dialogs")]
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("settings_storage_export"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("JSON", &["json"])
+                    .set_file_name("socdof-export.json")
+                    .save_file()
+                {
+                    match socdof_core::legacy::export(store, &path) {
+                        Ok(_) => {
+                            state.status = Some("settings_storage_exported");
+                            state.error = None;
+                        }
+                        Err(_) => state.error = Some("settings_error_storage_export"),
+                    }
+                }
+            }
+        });
+    });
+    if refresh_storage && state.refresh_storage_metrics(store).is_err() {
+        state.error = Some("settings_error_load");
+    }
+
+    ui.add_space(12.0);
     card(ui, theme, |ui| {
         ui.label(RichText::new(texts.get("settings_backup_title")).strong());
         ui.add_space(6.0);
@@ -5944,6 +6452,147 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn imports_selects_disables_and_deletes_multiple_language_packs() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = SettingsState::new();
+        let first = r#"{"settings_language":"First pack"}"#;
+        let second = r#"{"settings_language":"Second pack"}"#;
+
+        assert!(state.install_language_pack(&store, Language::En, "First", first));
+        assert!(state.take_language_pack_changed());
+        let first_id = state
+            .active_language_pack_id
+            .clone()
+            .expect("first pack active");
+        assert!(state.install_language_pack(&store, Language::En, "Second", second));
+        let second_id = state
+            .active_language_pack_id
+            .clone()
+            .expect("second pack active");
+        assert_eq!(state.language_packs.len(), 2);
+        assert_eq!(
+            crate::i18n::load_texts(Language::En, &store)
+                .expect("load second pack")
+                .get("settings_language"),
+            "Second pack"
+        );
+        assert!(state.activate_language_pack(&store, &first_id));
+        assert_eq!(
+            crate::i18n::load_texts(Language::De, &store)
+                .expect("load selected pack in another language")
+                .get("settings_language"),
+            "First pack"
+        );
+
+        assert!(!state.install_language_pack(
+            &store,
+            Language::En,
+            "Invalid",
+            r#"{"not_a_ui_key":"Unexpected"}"#
+        ));
+        assert_eq!(state.error, Some("settings_error_language_pack"));
+        assert!(state.disable_language_pack(&store));
+        assert!(state.take_language_pack_changed());
+        assert_eq!(
+            crate::i18n::load_texts(Language::En, &store)
+                .expect("load embedded catalogue")
+                .get("settings_language"),
+            "Language"
+        );
+        assert_eq!(state.language_packs.len(), 2);
+        assert!(state.delete_language_pack(&store, &second_id));
+        assert!(state.delete_language_pack(&store, &first_id));
+        assert!(state.language_packs.is_empty());
+    }
+
+    #[test]
+    fn legacy_single_language_pack_migrates_when_a_new_pack_is_imported() {
+        let store = Store::open_in_memory().expect("store");
+        let legacy = serde_json::Value::String(r#"{"settings_language":"Legacy"}"#.into());
+        store
+            .put_setting(crate::i18n::LANGUAGE_PACK_SETTING_KEY, &legacy)
+            .expect("save legacy pack");
+
+        let mut state = SettingsState::new();
+        assert_eq!(state.language_packs.len(), 0);
+        assert!(state.install_language_pack(
+            &store,
+            Language::En,
+            "New",
+            r#"{"settings_language":"New"}"#
+        ));
+        assert_eq!(state.language_packs.len(), 2);
+        assert_eq!(
+            crate::i18n::load_texts(Language::En, &store)
+                .expect("load new active pack")
+                .get("settings_language"),
+            "New"
+        );
+        assert!(store
+            .get_setting(crate::i18n::LANGUAGE_PACK_SETTING_KEY)
+            .expect("legacy setting")
+            .is_none());
+    }
+
+    #[test]
+    fn storage_inspector_refreshes_database_size_schema_and_table_counts() {
+        let store = Store::open_in_memory().expect("store");
+        let mut state = SettingsState::new();
+        state
+            .refresh_storage_metrics(&store)
+            .expect("initial storage metrics");
+        assert!(state.storage_size_bytes > 0);
+        assert_eq!(
+            state.storage_schema_version,
+            store.schema_version().expect("schema version")
+        );
+        assert_eq!(
+            state
+                .storage_counts
+                .iter()
+                .find(|(key, _)| *key == "contacts_title")
+                .map(|(_, rows)| *rows),
+            Some(0)
+        );
+
+        let mut contact = socdof_core::domain::contact::Contact::new(
+            socdof_core::domain::contact::ContactKind::Company,
+            1,
+        );
+        contact.company_name = Some("Storage test".to_string());
+        store.insert_contact(&contact).expect("insert contact");
+        state
+            .refresh_storage_metrics(&store)
+            .expect("refreshed storage metrics");
+        assert_eq!(
+            state
+                .storage_counts
+                .iter()
+                .find(|(key, _)| *key == "contacts_title")
+                .map(|(_, rows)| *rows),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn system_language_sync_setting_persists_and_tracks_the_detected_locale() {
+        let (store, mut state, _texts) = seeded();
+        assert!(state.save_system_language_sync(&store, true));
+        assert_eq!(
+            state.appearance.language,
+            language_index(detect_system_language())
+        );
+        assert_eq!(
+            store
+                .get_setting(SYSTEM_LANGUAGE_SYNC_SETTING_KEY)
+                .expect("read sync setting"),
+            Some(serde_json::Value::Bool(true))
+        );
+        assert!(state.save_system_language_sync(&store, false));
+        assert!(!state.sync_system_language);
     }
 
     #[test]

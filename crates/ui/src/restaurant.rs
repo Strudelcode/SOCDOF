@@ -67,6 +67,8 @@ pub struct RestaurantState {
     pub hospitality_guests: String,
     /// Most recently created receipt number.
     pub last_receipt: Option<String>,
+    /// Whether the current-day Z-report is open.
+    pub z_report_open: bool,
     /// Most recent user-facing error.
     pub error: Option<String>,
     /// Most recent success/status message key.
@@ -101,10 +103,48 @@ impl Default for RestaurantState {
             hospitality_occasion: String::new(),
             hospitality_guests: String::new(),
             last_receipt: None,
+            z_report_open: false,
             error: None,
             status: None,
             back: false,
         }
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+struct DailyRestaurantReport {
+    receipts: usize,
+    cash_cents: i64,
+    card_cents: i64,
+    tax_cents: i64,
+    gross_cents: i64,
+}
+
+fn daily_restaurant_report(orders: &[TableOrder], now: i64) -> DailyRestaurantReport {
+    let today = socdof_core::date::civil_from_millis(now);
+    let paid: Vec<_> = orders
+        .iter()
+        .filter(|order| {
+            order.status == "paid"
+                && order
+                    .paid_at
+                    .is_some_and(|paid_at| socdof_core::date::civil_from_millis(paid_at) == today)
+        })
+        .collect();
+    DailyRestaurantReport {
+        receipts: paid.len(),
+        cash_cents: paid
+            .iter()
+            .filter(|order| order.payment_method.as_deref() == Some("cash"))
+            .map(|order| order.total_cents)
+            .sum(),
+        card_cents: paid
+            .iter()
+            .filter(|order| matches!(order.payment_method.as_deref(), Some("card" | "nfc")))
+            .map(|order| order.total_cents)
+            .sum(),
+        tax_cents: paid.iter().map(|order| order.tax_total_cents).sum(),
+        gross_cents: paid.iter().map(|order| order.total_cents).sum(),
     }
 }
 
@@ -550,30 +590,24 @@ pub fn restaurant_window(
                 Err(error) => state.error = Some(error.to_string()),
             }
         }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("restaurant_z_report"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            state.z_report_open = true;
+        }
         let open = state.orders.iter().filter(|o| o.status != "paid").count();
         let kitchen = state
             .orders
             .iter()
             .filter(|o| o.status == "ordered" || o.status == "preparing")
             .count();
-        let today_key = socdof_core::date::civil_from_millis(now);
-        let today_paid: Vec<&TableOrder> = state
-            .orders
-            .iter()
-            .filter(|o| {
-                o.status == "paid"
-                    && o.paid_at
-                        .is_some_and(|at| socdof_core::date::civil_from_millis(at) == today_key)
-            })
-            .collect();
-        let revenue: i64 = today_paid.iter().map(|o| o.total_cents).sum();
-        let cash_sales: i64 = today_paid
-            .iter()
-            .filter(|o| o.payment_method.as_deref() == Some("cash"))
-            .map(|o| o.total_cents)
-            .sum();
-        let card_sales = revenue - cash_sales;
-        let tax_total: i64 = today_paid.iter().map(|o| o.tax_total_cents).sum();
+        let daily_report = daily_restaurant_report(&state.orders, now);
         let kpis: Vec<(String, String)> = vec![
             (
                 texts.get("restaurant_kpi_open").to_string(),
@@ -585,7 +619,7 @@ pub fn restaurant_window(
             ),
             (
                 texts.get("restaurant_kpi_revenue").to_string(),
-                money(revenue, &currency),
+                money(daily_report.gross_cents, &currency),
             ),
             (
                 texts.get("restaurant_kpi_menu").to_string(),
@@ -593,19 +627,19 @@ pub fn restaurant_window(
             ),
             (
                 texts.get("restaurant_kpi_today_orders").to_string(),
-                today_paid.len().to_string(),
+                daily_report.receipts.to_string(),
             ),
             (
                 texts.get("restaurant_kpi_cash").to_string(),
-                money(cash_sales, &currency),
+                money(daily_report.cash_cents, &currency),
             ),
             (
                 texts.get("restaurant_kpi_card").to_string(),
-                money(card_sales, &currency),
+                money(daily_report.card_cents, &currency),
             ),
             (
                 texts.get("restaurant_kpi_tax").to_string(),
-                money(tax_total, &currency),
+                money(daily_report.tax_cents, &currency),
             ),
         ];
         crate::components::kpi_cards(ui, theme, &kpis);
@@ -1229,6 +1263,106 @@ pub fn restaurant_window(
                 }
             }
         }
+
+        let mut show_z_report = state.z_report_open;
+        #[cfg(feature = "dialogs")]
+        let mut print_z_report = false;
+        egui::Window::new(texts.get("restaurant_z_report"))
+            .open(&mut show_z_report)
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                for (label, value) in [
+                    (
+                        "restaurant_kpi_today_orders",
+                        daily_report.receipts.to_string(),
+                    ),
+                    (
+                        "restaurant_kpi_cash",
+                        money(daily_report.cash_cents, &currency),
+                    ),
+                    (
+                        "restaurant_kpi_card",
+                        money(daily_report.card_cents, &currency),
+                    ),
+                    (
+                        "restaurant_kpi_tax",
+                        money(daily_report.tax_cents, &currency),
+                    ),
+                    (
+                        "restaurant_kpi_revenue",
+                        money(daily_report.gross_cents, &currency),
+                    ),
+                ] {
+                    ui.horizontal(|ui| {
+                        ui.label(texts.get(label));
+                        ui.label(value);
+                    });
+                }
+                #[cfg(feature = "dialogs")]
+                if button(
+                    ui,
+                    theme,
+                    focus,
+                    texts.get("pos_print_receipt"),
+                    ButtonVariant::Primary,
+                )
+                .activated
+                {
+                    print_z_report = true;
+                }
+            });
+        state.z_report_open = show_z_report;
+        #[cfg(feature = "dialogs")]
+        if print_z_report {
+            let date = socdof_core::date::format_iso8601(now)
+                .get(..10)
+                .unwrap_or("today")
+                .to_string();
+            let body = [
+                format!(
+                    "{}: {}",
+                    texts.get("restaurant_kpi_today_orders"),
+                    daily_report.receipts
+                ),
+                format!(
+                    "{}: {}",
+                    texts.get("restaurant_kpi_cash"),
+                    money(daily_report.cash_cents, &currency)
+                ),
+                format!(
+                    "{}: {}",
+                    texts.get("restaurant_kpi_card"),
+                    money(daily_report.card_cents, &currency)
+                ),
+                format!(
+                    "{}: {}",
+                    texts.get("restaurant_kpi_tax"),
+                    money(daily_report.tax_cents, &currency)
+                ),
+                format!(
+                    "{}: {}",
+                    texts.get("restaurant_kpi_revenue"),
+                    money(daily_report.gross_cents, &currency)
+                ),
+            ]
+            .join("\n");
+            let file_name = format!("Restaurant_Z_Report_{date}.pdf");
+            if let Some(path) = rfd::FileDialog::new()
+                .set_file_name(&file_name)
+                .add_filter("PDF", &["pdf"])
+                .save_file()
+            {
+                match crate::textwerk_io::write_pdf(&path, texts.get("restaurant_z_report"), &body)
+                {
+                    Ok(()) => {
+                        state.status = Some("restaurant_z_report_saved".into());
+                        state.error = None;
+                    }
+                    Err(error) => state.error = Some(error.to_string()),
+                }
+            }
+        }
     });
 }
 
@@ -1284,6 +1418,49 @@ fn export_csv(store: &Store) -> socdof_core::CoreResult<Option<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn daily_z_report_counts_paid_orders_and_groups_only_cash_and_card_tenders() {
+        let now = 1_800_000_000_000;
+        let mut cash = TableOrder::new("T-1", now);
+        cash.status = "paid".into();
+        cash.paid_at = Some(now);
+        cash.payment_method = Some("cash".into());
+        cash.total_cents = 1_000;
+        cash.tax_total_cents = 190;
+
+        let mut nfc = TableOrder::new("T-2", now);
+        nfc.status = "paid".into();
+        nfc.paid_at = Some(now);
+        nfc.payment_method = Some("nfc".into());
+        nfc.total_cents = 2_000;
+        nfc.tax_total_cents = 380;
+
+        let mut transfer = TableOrder::new("T-3", now);
+        transfer.status = "paid".into();
+        transfer.paid_at = Some(now);
+        transfer.payment_method = Some("transfer".into());
+        transfer.total_cents = 3_000;
+
+        let mut yesterday = TableOrder::new("T-4", now);
+        yesterday.status = "paid".into();
+        yesterday.paid_at = Some(now - 86_400_000);
+        yesterday.payment_method = Some("cash".into());
+        yesterday.total_cents = 4_000;
+
+        let report = daily_restaurant_report(&[cash, nfc, transfer, yesterday], now);
+        assert_eq!(
+            report,
+            DailyRestaurantReport {
+                receipts: 3,
+                cash_cents: 1_000,
+                card_cents: 2_000,
+                tax_cents: 570,
+                gross_cents: 6_000,
+            }
+        );
+    }
+
     #[test]
     fn restaurant_menu_orders_and_checkout_persist_atomically() {
         let store = Store::open_in_memory().expect("store");

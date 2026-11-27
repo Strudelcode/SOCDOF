@@ -440,11 +440,24 @@ mod tests {
             "Buchhaltung",
             "Example; GmbH",
             "current_month",
-            "13.11.2026",
+            "13.11.2026 01:02:03 PM",
             "€",
         );
-        assert!(csv.starts_with("Buchhaltung;\"Example; GmbH\"\nPeriod;current_month"));
-        assert!(csv.contains("Net (€)"));
-        assert!(csv.contains("Total Revenue;100.00"));
+        assert_eq!(
+            csv,
+            concat!(
+                "Buchhaltung;\"Example; GmbH\"\n",
+                "Period;current_month\n",
+                "Date;13.11.2026 01:02:03 PM\n",
+                "\n",
+                "Item;Net (€);VAT (€);Gross (€)\n",
+                "Invoice Revenues;0.00;0.00;0.00\n",
+                "POS Cash Register Revenues;0.00;0.00;0.00\n",
+                "Total Revenue;100.00;0.00;119.00\n",
+                "Cost of Goods & Purchases;0.00;0.00;0.00\n",
+                "Operating Gross Profit;0.00;-;-\n",
+                "VAT Liability (VAT - Input Tax);-;-;0.00",
+            )
+        );
     }
 }

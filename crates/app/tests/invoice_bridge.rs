@@ -571,6 +571,7 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
     third_input.number = "2026-0003".to_string();
     let third = state.save_invoice(&third_input).expect("third invoice");
     let mut profile = state.company_profile().expect("profile");
+    profile.name = "Musterfirma".to_string();
     profile.card_payment_enabled = true;
     profile.card_terminal_name = "ZVT Pro".to_string();
     state.save_company_profile(&profile).expect("save profile");
@@ -602,7 +603,9 @@ fn dunning_mail_and_payment_close_the_webview_gap() {
     assert_eq!(preview_sample.invoice.number, "RE-2026-0042");
     assert_eq!(preview_sample.invoice.total_cents, 11_900_000);
     assert!(preview_sample.html.contains("Vorschau Test"));
-    assert!(preview_sample.html.contains("Musterfirma Industrie & Handel GmbH"));
+    assert!(preview_sample
+        .html
+        .contains("Musterfirma Industrie &amp; Handel GmbH"));
     let preview_real = state
         .template_preview(&book.templates[0], Some(invoice.id))
         .expect("real preview");

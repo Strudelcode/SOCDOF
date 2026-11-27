@@ -1006,11 +1006,14 @@ mod tests {
 
     #[test]
     fn sample_preview_and_payment_context_match_typescript() {
-        let mut company = CompanyProfile::default();
-        company.bank_name = "Sparkasse".to_string();
-        company.iban = "DE12345".to_string();
-        company.card_payment_enabled = true;
-        company.card_terminal_name = "SumUp Pro".to_string();
+        let company = CompanyProfile {
+            name: "Musterfirma".to_string(),
+            bank_name: "Sparkasse".to_string(),
+            iban: "DE12345".to_string(),
+            card_payment_enabled: true,
+            card_terminal_name: "SumUp Pro".to_string(),
+            ..CompanyProfile::default()
+        };
         let (invoice, contact) = sample_preview_invoice(&company, 14, 1_760_000_000_000);
         assert_eq!(invoice.number, "RE-2026-0042");
         assert_eq!(invoice.total_net().cents(), 10_000_000);

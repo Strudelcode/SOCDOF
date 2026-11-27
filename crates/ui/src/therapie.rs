@@ -10,9 +10,12 @@
 //! sessions. Linking puts every still open session of the client on one invoice by number.
 
 use egui::{Context, RichText};
+use socdof_core::document_layout;
+use socdof_core::domain::invoice::Invoice;
 use socdof_core::domain::therapy::{
     self, TherapyClient, TherapySession, TherapySummary, TherapyTrip,
 };
+use socdof_core::invoice_template;
 use socdof_core::money::Money;
 use socdof_core::store::Store;
 use uuid::Uuid;
@@ -23,6 +26,7 @@ use crate::components::{
 use crate::controls::text_field;
 use crate::focus::FocusState;
 use crate::i18n::UiTexts;
+use crate::invoice_actions::{self, DialogData, InvoiceActions};
 use crate::reports::{format_date, CURRENCY};
 use crate::theme::Theme;
 use crate::tokens::{FONT_SMALL, FONT_TITLE};
@@ -113,6 +117,12 @@ pub struct TherapieState {
     pub draft: ClientDraft,
     /// Sessions of the selected client, newest first.
     pub sessions: Vec<TherapySession>,
+    /// Existing invoices attached to this client's sessions.
+    pub linked_invoices: Vec<Invoice>,
+    /// Invoice currently shown in the shared print dialog.
+    pub print_invoice_id: Option<Uuid>,
+    /// State of the shared invoice print dialog.
+    pub invoice_actions: InvoiceActions,
     /// Persisted practice mileage trips, newest first.
     pub trips: Vec<TherapyTrip>,
     /// Search query for the mileage logbook.
@@ -147,10 +157,13 @@ pub struct TherapieState {
     pub session_notes: String,
     /// Existing open session being edited, if any.
     pub editing_session: Option<Uuid>,
+    session_defaults_initialized: bool,
     /// Invoice number typed to bill the open sessions.
     pub invoice_number: String,
     /// Whether the delete confirmation is open.
     pub confirm_delete: bool,
+    /// Unbilled session awaiting explicit deletion confirmation.
+    pub session_to_delete: Option<Uuid>,
     /// Trip awaiting explicit deletion confirmation.
     pub trip_to_delete: Option<Uuid>,
     /// Catalogue key of the validation or storage error.
@@ -200,7 +213,32 @@ impl TherapieState {
             Some(id) => store.therapy_sessions_for_client(id)?,
             None => Vec::new(),
         };
+        self.linked_invoices = store
+            .list_invoices()?
+            .into_iter()
+            .filter(|invoice| {
+                self.sessions
+                    .iter()
+                    .any(|session| session.invoice_id == Some(invoice.id))
+            })
+            .collect();
+        self.linked_invoices
+            .sort_by_key(|invoice| (invoice.issued_at, invoice.number.clone()));
         Ok(())
+    }
+
+    /// Opens the shared print dialog only for an invoice linked to this client's sessions.
+    fn open_linked_invoice_print(&mut self, invoice_id: Uuid) {
+        let Some(invoice) = self
+            .linked_invoices
+            .iter()
+            .find(|invoice| invoice.id == invoice_id)
+        else {
+            self.error = Some("therapie_error_invoice");
+            return;
+        };
+        self.invoice_actions.open_print(invoice);
+        self.print_invoice_id = Some(invoice_id);
     }
 
     /// Selected client, if it is still part of the loaded list.
@@ -453,13 +491,30 @@ impl TherapieState {
             .to_string();
         self.session_notes = session.notes.clone();
         self.editing_session = Some(id);
+        self.session_defaults_initialized = true;
         self.error = None;
         self.status = None;
+    }
+
+    fn prepare_new_session(&mut self, now: i64) {
+        if self.session_defaults_initialized || self.editing_session.is_some() {
+            return;
+        }
+        let timestamp = socdof_core::date::format_iso8601(now);
+        let date = timestamp
+            .split_once('T')
+            .map_or(timestamp.as_str(), |(date, _)| date);
+        self.session_date = date.to_string();
+        self.session_time = "10:00".to_string();
+        self.session_minutes = "60".to_string();
+        self.session_kilometers = "0".to_string();
+        self.session_defaults_initialized = true;
     }
 
     /// Leaves the session editor without writing.
     pub fn cancel_session_edit(&mut self) {
         self.editing_session = None;
+        self.session_defaults_initialized = false;
         self.session_date.clear();
         self.session_time.clear();
         self.session_minutes.clear();
@@ -473,6 +528,18 @@ impl TherapieState {
         let Some(client_id) = self.selected else {
             return Ok(());
         };
+        if let Some(id) = self.editing_session {
+            let Some(session) = self.sessions.iter().find(|session| session.id == id) else {
+                self.error = Some("therapie_error_session");
+                self.status = None;
+                return Ok(());
+            };
+            if session.is_billed() || session.client_id != client_id {
+                self.error = Some("therapie_error_session_billed");
+                self.status = None;
+                return Ok(());
+            }
+        }
         let minutes = match self.session_minutes.trim().parse::<i64>() {
             Ok(minutes) if minutes > 0 => minutes,
             _ => {
@@ -490,46 +557,28 @@ impl TherapieState {
             }
         };
 
-        let started_at =
-            if self.session_date.trim().is_empty() && self.session_time.trim().is_empty() {
-                if self.editing_session.is_some() {
-                    self.sessions
-                        .iter()
-                        .find(|session| Some(session.id) == self.editing_session)
-                        .map(|session| session.started_at)
-                        .unwrap_or(now)
-                } else {
-                    now
-                }
-            } else {
-                let now_iso = socdof_core::date::format_iso8601(now);
-                let (now_date, now_time) = now_iso
-                    .split_once('T')
-                    .unwrap_or((&now_iso, "00:00:00.000Z"));
-                let date = if self.session_date.trim().is_empty() {
-                    now_date
-                } else {
-                    self.session_date.trim()
-                };
-                let time = if self.session_time.trim().is_empty() {
-                    &now_time[..5]
-                } else {
-                    self.session_time.trim()
-                };
-                if time.len() != 5 || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':') {
-                    self.error = Some("therapie_error_date");
-                    self.status = None;
-                    return Ok(());
-                }
-                match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
-                    Some(value) => value,
-                    None => {
-                        self.error = Some("therapie_error_date");
-                        self.status = None;
-                        return Ok(());
-                    }
-                }
-            };
+        let date = self.session_date.trim();
+        let time = if self.session_time.trim().is_empty() {
+            "00:00"
+        } else {
+            self.session_time.trim()
+        };
+        if date.is_empty()
+            || time.len() != 5
+            || !time.as_bytes().get(2).is_some_and(|byte| *byte == b':')
+        {
+            self.error = Some("therapie_error_date");
+            self.status = None;
+            return Ok(());
+        }
+        let started_at = match socdof_core::date::parse_iso8601(&format!("{date}T{time}:00Z")) {
+            Some(value) => value,
+            None => {
+                self.error = Some("therapie_error_date");
+                self.status = None;
+                return Ok(());
+            }
+        };
 
         let mut session = if let Some(id) = self.editing_session {
             let Some(existing) = self
@@ -569,6 +618,7 @@ impl TherapieState {
             self.status = Some("therapie_session_saved");
         }
         self.editing_session = None;
+        self.session_defaults_initialized = false;
         self.session_date.clear();
         self.session_time.clear();
         self.session_minutes.clear();
@@ -581,9 +631,41 @@ impl TherapieState {
 
     /// Removes one session.
     pub fn delete_session(&mut self, store: &Store, id: Uuid) -> socdof_core::CoreResult<()> {
+        let Some(session) = self.sessions.iter().find(|session| session.id == id) else {
+            return Ok(());
+        };
+        if session.is_billed() {
+            self.error = Some("therapie_error_session_billed");
+            return Ok(());
+        }
         store.delete_therapy_session(id)?;
         self.status = Some("therapie_session_deleted");
+        self.error = None;
         self.load_sessions(store)?;
+        Ok(())
+    }
+
+    /// Opens the delete confirmation for an existing unbilled session.
+    pub fn request_session_delete(&mut self, id: Uuid) {
+        if self
+            .sessions
+            .iter()
+            .any(|session| session.id == id && !session.is_billed())
+        {
+            self.session_to_delete = Some(id);
+        }
+    }
+
+    /// Closes the pending session delete confirmation without changing the stored session.
+    pub fn cancel_session_delete(&mut self) {
+        self.session_to_delete = None;
+    }
+
+    /// Deletes the pending session after the caller confirmed the modal.
+    pub fn confirm_session_delete(&mut self, store: &Store) -> socdof_core::CoreResult<()> {
+        if let Some(id) = self.session_to_delete.take() {
+            self.delete_session(store, id)?;
+        }
         Ok(())
     }
 
@@ -628,10 +710,15 @@ impl TherapieState {
         self.error = None;
         self.status = None;
         self.confirm_delete = false;
+        self.session_to_delete = None;
+        self.trip_to_delete = None;
         self.cancel_session_edit();
         self.view = TherapieView::List;
         self.selected = None;
         self.sessions.clear();
+        self.linked_invoices.clear();
+        self.print_invoice_id = None;
+        self.invoice_actions.action = None;
         self.reload = true;
         self.refresh(store)
     }
@@ -1089,6 +1176,8 @@ pub fn therapie_window(
         TherapieView::Mileage => mileage_view(ui, theme, texts, focus, state, store),
     });
 
+    linked_invoice_print_dialog(ctx, theme, texts, focus, state, store, now);
+
     let mut open = state.confirm_delete;
     let mut confirm = false;
     {
@@ -1135,6 +1224,133 @@ pub fn therapie_window(
 
     if confirm && state.delete_selected(store).is_err() {
         state.error = Some("therapie_error_delete");
+    }
+
+    fn linked_invoice_print_dialog(
+        ctx: &Context,
+        theme: &Theme,
+        texts: &UiTexts,
+        focus: &mut FocusState,
+        state: &mut TherapieState,
+        store: &Store,
+        now: i64,
+    ) {
+        let Some(invoice_id) = state.print_invoice_id else {
+            return;
+        };
+        let Some(invoice) = state
+            .linked_invoices
+            .iter()
+            .find(|invoice| invoice.id == invoice_id)
+            .cloned()
+        else {
+            state.print_invoice_id = None;
+            state.invoice_actions.action = None;
+            state.error = Some("therapie_error_invoice");
+            return;
+        };
+
+        let company = match store.company_profile() {
+            Ok(company) => company,
+            Err(_) => {
+                state.error = Some("therapie_error_load");
+                return;
+            }
+        };
+        let contact = match store.find_contact(invoice.contact_id) {
+            Ok(contact) => contact,
+            Err(_) => {
+                state.error = Some("therapie_error_load");
+                return;
+            }
+        };
+        let template = match invoice_template::active(store) {
+            Ok(template) => template,
+            Err(_) => {
+                state.error = Some("therapie_error_load");
+                return;
+            }
+        };
+        let layout = match document_layout::load(store) {
+            Ok(layout) => layout,
+            Err(_) => {
+                state.error = Some("therapie_error_load");
+                return;
+            }
+        };
+        let customer = contact
+            .as_ref()
+            .map_or_else(String::new, |contact| contact.display_name());
+        let _ = invoice_actions::dialogs(
+            ctx,
+            theme,
+            texts,
+            focus,
+            &mut state.invoice_actions,
+            &DialogData {
+                invoice: &invoice,
+                customer: &customer,
+                contact: contact.as_ref(),
+                company: &company,
+                store,
+                now,
+                template: &template,
+                layout: &layout,
+            },
+        );
+        if state.invoice_actions.action.is_none() {
+            state.print_invoice_id = None;
+        }
+    }
+
+    let mut session_dialog_open = state.session_to_delete.is_some();
+    let mut confirm_session_delete = false;
+    {
+        let focus = &mut *focus;
+        modal(
+            ctx,
+            theme,
+            &mut session_dialog_open,
+            texts.get("therapie_session_delete_title"),
+            |ui| {
+                ui.label(texts.get("therapie_session_delete_body"));
+                ui.add_space(12.0);
+                let mut close = false;
+                ui.horizontal(|ui| {
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("therapie_session_delete_confirm"),
+                        ButtonVariant::Danger,
+                    )
+                    .activated
+                    {
+                        confirm_session_delete = true;
+                        close = true;
+                    }
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("therapie_delete_cancel"),
+                        ButtonVariant::Secondary,
+                    )
+                    .activated
+                    {
+                        close = true;
+                    }
+                });
+                close
+            },
+        );
+    }
+    if confirm_session_delete {
+        if state.confirm_session_delete(store).is_err() {
+            state.error = Some("therapie_error_session");
+        }
+    } else if !session_dialog_open {
+        state.cancel_session_delete();
     }
 
     let mut trip_dialog_open = state.trip_to_delete.is_some();
@@ -1384,6 +1600,7 @@ fn detail_view(
         state.view = TherapieView::List;
         return;
     };
+    state.prepare_new_session(now);
     let summary = state.summary();
     let sessions = state.sessions.clone();
 
@@ -1622,9 +1839,42 @@ fn detail_view(
                 state.start_edit_session(id);
             }
             if let Some(id) = remove {
-                if state.delete_session(store, id).is_err() {
-                    state.error = Some("therapie_error_session");
-                }
+                state.request_session_delete(id);
+            }
+        }
+
+        if !state.linked_invoices.is_empty() {
+            ui.add_space(8.0);
+            ui.separator();
+            ui.label(
+                RichText::new(texts.get("invoices_print_title"))
+                    .size(FONT_SMALL)
+                    .strong(),
+            );
+            let mut print_invoice = None;
+            for invoice in &state.linked_invoices {
+                ui.horizontal(|ui| {
+                    ui.label(format!(
+                        "{} · {} · {}",
+                        invoice.number,
+                        format_date(invoice.issued_at),
+                        money(invoice.total_gross())
+                    ));
+                    if button(
+                        ui,
+                        theme,
+                        focus,
+                        texts.get("invoices_print_button"),
+                        ButtonVariant::Secondary,
+                    )
+                    .activated
+                    {
+                        print_invoice = Some(invoice.id);
+                    }
+                });
+            }
+            if let Some(invoice_id) = print_invoice {
+                state.open_linked_invoice_print(invoice_id);
             }
         }
 
@@ -2000,6 +2250,7 @@ mod tests {
         let client = state.current().expect("client").clone();
         assert_eq!(client.hourly_rate, Money::from_cents(9_000));
 
+        state.prepare_new_session(SAMPLE_NOW_MS);
         state.session_minutes = "45".to_string();
         state.session_kilometers = "10,5".to_string();
         state.session_notes = "Erstgespräch".to_string();
@@ -2012,6 +2263,20 @@ mod tests {
         assert_eq!(summary.minutes, 45);
         assert_eq!(summary.billed, Money::ZERO);
         assert!(summary.open.cents() > 0);
+    }
+
+    #[test]
+    fn new_session_defaults_match_the_typescript_date_time_and_duration() {
+        let (_, mut state, _texts) = seeded();
+        state.prepare_new_session(SAMPLE_NOW_MS);
+        let timestamp = socdof_core::date::format_iso8601(SAMPLE_NOW_MS);
+        let date = timestamp
+            .split_once('T')
+            .map_or(timestamp.as_str(), |(date, _)| date);
+        assert_eq!(state.session_date, date);
+        assert_eq!(state.session_time, "10:00");
+        assert_eq!(state.session_minutes, "60");
+        assert_eq!(state.session_kilometers, "0");
     }
 
     #[test]
@@ -2149,6 +2414,54 @@ mod tests {
     }
 
     #[test]
+    fn linked_invoice_is_available_from_therapy_for_pdf_and_word_printing() {
+        use socdof_core::domain::contact::{Contact, ContactKind};
+        use socdof_core::domain::invoice::{Invoice, InvoiceLine, InvoiceStatus};
+
+        let (store, mut state, _texts) = seeded();
+        let client_id = state.clients[0].id;
+        state.select(&store, client_id).expect("select client");
+
+        let mut contact = Contact::new(ContactKind::Person, SAMPLE_NOW_MS);
+        contact.first_name = Some("Therapy".to_string());
+        contact.last_name = Some("Client".to_string());
+        store.insert_contact(&contact).expect("insert contact");
+
+        let invoice = Invoice {
+            id: Uuid::new_v4(),
+            number: "THERAPY-2026-001".to_string(),
+            contact_id: contact.id,
+            status: InvoiceStatus::Sent,
+            issued_at: SAMPLE_NOW_MS,
+            due_at: SAMPLE_NOW_MS + 14 * DAY_MS,
+            currency_symbol: "€".to_string(),
+            note: None,
+            tax_total_override_cents: None,
+            lines: vec![InvoiceLine {
+                description: "Therapiesitzung".to_string(),
+                quantity_milli: 1_000,
+                unit_price: Money::from_cents(8_000),
+                tax_rate_bp: 0,
+            }],
+        };
+        store.insert_invoice(&invoice).expect("insert invoice");
+        store
+            .link_therapy_sessions(client_id, invoice.id, SAMPLE_NOW_MS)
+            .expect("link sessions");
+
+        state.load_sessions(&store).expect("reload sessions");
+        assert_eq!(state.linked_invoices, vec![invoice.clone()]);
+        state.open_linked_invoice_print(invoice.id);
+        assert_eq!(state.print_invoice_id, Some(invoice.id));
+        assert_eq!(
+            state.invoice_actions.action,
+            Some(crate::invoice_actions::InvoiceAction::Print)
+        );
+        assert!(state.invoice_actions.path.ends_with(".pdf"));
+        assert!(state.invoice_actions.docx_path.ends_with(".docx"));
+    }
+
+    #[test]
     fn deletes_a_client_with_its_sessions() {
         let (store, mut state, _texts) = seeded();
         let id = state.clients[0].id;
@@ -2158,6 +2471,73 @@ mod tests {
         state.delete_selected(&store).expect("delete");
         assert_eq!(state.view, TherapieView::List);
         assert_eq!(store.therapy_session_count(id).expect("count"), 0);
+    }
+
+    #[test]
+    fn requires_confirmation_before_deleting_an_unbilled_session() {
+        let (store, mut state, texts) = seeded();
+        let client_id = state.clients[0].id;
+        state.select(&store, client_id).expect("select client");
+        let session_id = state
+            .sessions
+            .iter()
+            .find(|session| !session.is_billed())
+            .expect("open session")
+            .id;
+        let original_count = store.therapy_session_count(client_id).expect("count");
+
+        state.request_session_delete(session_id);
+        assert_eq!(state.session_to_delete, Some(session_id));
+        assert_eq!(
+            store.therapy_session_count(client_id).expect("count"),
+            original_count
+        );
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("therapie_session_delete_title")));
+
+        state.cancel_session_delete();
+        assert_eq!(state.session_to_delete, None);
+        assert_eq!(
+            store.therapy_session_count(client_id).expect("count"),
+            original_count
+        );
+        state.request_session_delete(session_id);
+        state
+            .confirm_session_delete(&store)
+            .expect("confirm delete");
+        assert_eq!(state.session_to_delete, None);
+        assert_eq!(
+            store.therapy_session_count(client_id).expect("count"),
+            original_count - 1
+        );
+    }
+
+    #[test]
+    fn refuses_to_request_or_delete_a_billed_session() {
+        let (store, mut state, _texts) = seeded();
+        let client_id = state.clients[0].id;
+        state.select(&store, client_id).expect("select client");
+        let session_id = state
+            .sessions
+            .iter()
+            .find(|session| !session.is_billed())
+            .expect("open session")
+            .id;
+        store
+            .link_therapy_sessions(client_id, Uuid::new_v4(), SAMPLE_NOW_MS)
+            .expect("link session");
+        state.select(&store, client_id).expect("reload client");
+
+        state.request_session_delete(session_id);
+        assert_eq!(state.session_to_delete, None);
+        state
+            .delete_session(&store, session_id)
+            .expect("billed deletion is rejected");
+        assert_eq!(state.error, Some("therapie_error_session_billed"));
+        assert!(state
+            .sessions
+            .iter()
+            .any(|session| session.id == session_id && session.is_billed()));
     }
 
     #[test]
