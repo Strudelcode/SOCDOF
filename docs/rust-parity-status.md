@@ -158,7 +158,8 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 | Produkt-SKU beim Link-Import | deterministisch aus der URL | die Vorlage würfelt (`Math.random`); Rust will reproduzierbare Importe und stabile Tests |
 | Produktfilter `inaktiv`/`ausgeschlossen` | nicht als Chip vorhanden | die Vorlage wertet die Zustände aus, setzt aber nirgends eine Schaltfläche dafür |
 | Ersteinrichtungs-Karte | Karte füllt die Fensterhöhe, Fußzeile bleibt sichtbar | die Vorlage lässt die Karte mit dem Inhalt wachsen und scrollt die Seite; Rust hält „Zurück/Weiter“ ohne Scrollen erreichbar |
-| Ersteinrichtungs-Pixel | 88,7 % der Kartenpixel ≤ 24/255 Abweichung | Rest ist Schrift-Rasterung (Chromium vs. egui) und 2–4 px vertikaler Versatz, keine Layout-Differenz |
+| Ersteinrichtungs-Pixel | Sprachkarte hell 91,8 %, dunkel 92,9 % der Pixel ≤ 24/255 (Mittel 10,4 bzw. 11,0) | Rest ist Schrift-Rasterung (Chromium vs. egui) und der Seitenverlauf; Geometrie sitzt auf ±1 px |
+| Wizard-Kartenhöhe | Rust zeichnet 610 px fest, die Vorlage wächst mit dem Inhalt (Begrüßung 312 px) | `card_sized` hält Kopf und Fußzeile an ihrem Platz; Umbau auf inhaltsgesteuerte Höhe ist offen (siehe Abschnitt oben) |
 
 ## 5. Selbst prüfen
 
@@ -188,7 +189,7 @@ der Filter ist ein Substring der Szenen-ID.
 - `cargo test -p socdof-ui --lib`: 476 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
 - Telefon-Sweep: 1.464 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-28)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-53`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-54`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
 
 ## Produkte: Filterchips, Duplizieren und Link-Import (2026-11-28)
@@ -370,3 +371,34 @@ Vorlage: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (Setup-Wizard, `setupThe
 - Belege: `docs/artifacts/gui-parity/rust-53-setup-language-{light,dark}.png`,
   `rust-53-setup-language-compare.png` (TS links, Rust rechts),
   `rust-53-setup-account-{light,dark}.png`.
+
+## Beide Editionen parallel gehostet, Sprachkarte im Pixelraster (2026-11-28)
+
+Vorlage: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (Sprachkarte) und die laufende
+Referenz-Anwendung selbst (Geometrie über das DOM ausgelesen, nicht geschätzt).
+
+- **Ein Port, beide Editionen**: `scripts/preview-both-editions.sh` baut die Rust-Edition
+  (`trunk build --release`, `/`) und die TS-Referenz (`vite build`, `/ts/`) in einen Baum und liefert
+  sie über `scripts/preview_server.py` aus (`no-store`, damit ein Neubau beim Reload sichtbar ist).
+  Ein generiertes `api/languages` hält die Sprachpakete der Referenz am Leben – ohne diesen Endpunkt
+  fällt sie auf ihre hartkodierten Katalogtexte zurück und der Vergleich misst den falschen Text.
+- **Geometrie der Sprachkarte** (`crates/ui/src/auth_screens.rs`, `crates/ui/src/auth_kit.rs`):
+  Zeilenabstand von egui abgeschaltet (`item_spacing.y = 0`), Untertitel als fester 44-px-Block,
+  Listenband auf den festen 155-px-Kopf der Vorlage gesetzt, 10 px zwischen den Zeilen
+  (`space-y-2.5`), Fußzeile 48 px mit 16 px Abstand (`mt-4 h-12`), 4 px Abstand zur Scrollleiste
+  (`pr-1`). Zeilen liegen bei y = 277/355/433/511 (Vorlage 278/356/434/512), Karte 448×610 identisch.
+- **Akzentwäsche**: Chips und gewählte Zeile nutzen hell das indigo-50 der Vorlage (`#eef2ff`, in
+  beiden Bildern identisch gemessen) und dunkel eine `indigo-500`-Überlagerung (10 % Chip, 15 % Zeile)
+  statt einer einzigen 10-%-Wäsche in beiden Erscheinungen.
+- **Text**: `setup_wizard_welcome_body` folgt in de/en/fr/es wieder `auth.wizardWelcome`.
+- **Verifikation**: `cargo fmt --all -- --check`, `cargo clippy -p socdof-ui --all-targets --
+  -D warnings`, `cargo test -p socdof-ui --lib` (**476**), `trunk build --release` grün. Funktionsprobe
+  in den gehosteten Builds: Deutsch wählen und Weiter führt in beiden Editionen auf Schritt 2.
+- **Pixelabgleich** (1280×800, gleiche Kartenbox 416,95–864,705, ohne Skalierung): hell **10,4/255**
+  mittlere Abweichung, **91,8 %** der Pixel ≤ 24/255, **64,9 %** identisch; dunkel **11,0/255**,
+  **92,9 %** ≤ 24/255 (vorher 16,4/255 / 88,7 %). Rest ist Schrift-Rasterung und der Seitenverlauf.
+- **Offen (gemessen)**: die Wizard-Karte ist weiterhin `card_sized` mit festen 610 px, während die
+  Vorlage mit dem Inhalt wächst (Schritt „Willkommen“: 507×312 ab y = 277). Nächster optischer Block.
+- Belege: `docs/artifacts/gui-parity/rust-54-language-{light,dark}.png`,
+  `rust-54-language-compare-{light,dark}.png` (TS links, Rust rechts),
+  `rust-54-setup-welcome-light.png`.

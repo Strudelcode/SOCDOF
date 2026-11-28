@@ -2223,7 +2223,7 @@
   "setup_wallpaper_invalid": "Nur 8-Bit-PNG-Bilder werden unterstützt.",
   "setup_wizard_finish_body": "Prüfe deine Auswahl. Nach dem Abschluss wird dein persönlicher SOCDOF-Desktop eingerichtet.",
   "setup_wizard_finish_title": "Dein Arbeitsbereich ist bereit",
-  "setup_wizard_welcome_body": "Wir richten deinen Arbeitsbereich ein. Du kannst Sprache, Konto, Darstellung und die benötigten Apps auswählen.",
+  "setup_wizard_welcome_body": "Willkommen! Diese kurze Einrichtung erstellt dein Konto und bereitet deinen Arbeitsbereich vor. Alles kannst du später ändern.",
   "setup_wizard_welcome_title": "Willkommen bei SOCDOF",
   "setup_workspace_panel_subtitle": "Freiwillige Einstellungen – jetzt überspringen und später jederzeit ändern.",
   "setup_workspace_panel_title": "Gestalte deinen Arbeitsbereich",

@@ -3200,3 +3200,42 @@ Reference: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (setup wizard, `setupT
   2-4 px vertical offset of the rows, not a layout difference.
 - Evidence: `docs/artifacts/gui-parity/rust-53-setup-language-{light,dark}.png`,
   `rust-53-setup-language-compare.png`, `rust-53-setup-account-{light,dark}.png`.
+
+## 16.33 Both editions hosted side by side and language card aligned to the pixel grid (2026-11-28)
+
+Reference: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (language card markup: `h-[610px]`,
+`p-6 sm:p-7`, `shrink-0 mb-3.5`, `mt-1 h-11`, `space-y-2.5`, `pr-1`, `mt-4 h-12`) and the live
+reference build itself, measured through the browser DOM.
+
+- **One port, both editions** (`scripts/preview-both-editions.sh`, `scripts/preview_server.py`): trunk
+  builds into `target/rust-dist` and is copied to `target/preview-tree`, vite builds the reference to
+  `preview-tree/ts`, a generated `api/languages` payload keeps the reference's language packs alive
+  (without it the reference falls back to hardcoded catalogue strings and the comparison measures the
+  wrong copy). `/` serves the Rust edition, `/ts/` the reference; every response is `no-store` so a
+  rebuild shows up on reload.
+- **Language card geometry** (`crates/ui/src/auth_screens.rs`, `crates/ui/src/auth_kit.rs`): the card
+  no longer lets egui's row spacing drift the layout. `item_spacing.y` is zeroed inside the card, the
+  subtitle is a fixed 44 px block (`muted_block`, `mt-1 leading-relaxed h-11`), the list band starts at
+  the reference's fixed 155 px header offset, rows are separated by exactly 10 px (`space-y-2.5`) and
+  the footer is a 48 px button with a 16 px gap (`mt-4 h-12`); the list keeps 4 px off the scroll rail
+  (`pr-1`). Result: rows at y = 277/355/433/511 against the reference's 278/356/434/512, card box
+  identical at 448×610 (416,95).
+- **Accent wash** (`auth_kit::accent_wash`): chips and the selected row use the reference's indigo-50
+  surface in light mode (`#eef2ff`, measured identical in both) and a plain `indigo-500` overlay in
+  dark mode (10 % chip, 15 % selected row) instead of a single 10 % wash in both appearances.
+- **Copy**: `setup_wizard_welcome_body` now matches the reference's `auth.wizardWelcome` in all four
+  languages (the Rust text described the steps instead of welcoming the user). Catalogue 2.783 keys.
+- **Verification**: `cargo fmt --all -- --check`, `cargo clippy -p socdof-ui --all-targets --
+  -D warnings`, `cargo test -p socdof-ui --lib` (**476** passed) and `trunk build --release` are green.
+  Functional smoke test in the hosted builds: selecting Deutsch and pressing Continue reaches step 2
+  with German copy in both editions.
+- **Pixel comparison** (1280×800, same fixed card box 416,95–864,705, no rescaling): light mean
+  absolute difference **10.4/255**, **91.8 %** of pixels within 24/255, **64.9 %** identical; dark
+  **11.0/255**, **92.9 %** within 24/255 (previous block: 16.4/255, 88.7 %). What remains is glyph
+  rasterisation (Chromium vs. egui) and the page gradient, not layout.
+- **Open, measured**: the setup wizard card is still `card_sized` at a fixed 610 px, while the
+  reference lets its card grow with the content (welcome step: 507×312 at y = 277). That is the next
+  visual block; the language card is unaffected.
+- Evidence: `docs/artifacts/gui-parity/rust-54-language-{light,dark}.png`,
+  `rust-54-language-compare-{light,dark}.png` (TS left, Rust right),
+  `rust-54-setup-welcome-light.png`.

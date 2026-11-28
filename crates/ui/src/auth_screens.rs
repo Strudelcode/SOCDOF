@@ -975,6 +975,9 @@ fn language_step(
         kit::language_card_padding(ui),
         height,
         |ui| {
+            // The legacy card stacks its blocks with explicit Tailwind margins; egui would add its
+            // own row spacing on top of every `add_space`, which drifted the rows apart.
+            ui.spacing_mut().item_spacing.y = 0.0;
             ui.horizontal(|ui| {
                 kit::icon_tile(ui, Icon::Languages, 48.0, theme.accent.base);
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -991,17 +994,26 @@ fn language_step(
                     .color(theme.palette.text),
             );
             ui.add_space(4.0);
-            kit::muted(ui, theme, texts.get("setup_language_subtitle"));
-            ui.add_space(12.0);
-            // Disjoint bands, as in the wizard card: the list scrolls above, the button keeps its
-            // own strip, so the last row can never overlap the button.
-            let full = ui.available_rect_before_wrap();
-            let footer_top = (full.bottom() - 44.0).max(full.top());
+            // `mt-1 leading-relaxed h-11`: the subtitle keeps a fixed 44 px block, so a one-line
+            // and a two-line subtitle both leave the list at the same height.
+            kit::muted_block(ui, theme, texts.get("setup_language_subtitle"), 44.0);
+            // Disjoint bands taken from the card geometry, like the legacy flex column: the header
+            // is one `shrink-0` block (48 + 14 + 30 + 4 + 44 + 14 = 155 px), the list fills the
+            // middle and the button keeps its own strip, so a row can never reach the button.
+            const LANGUAGE_HEADER: f32 = 155.0;
+            let content = ui.max_rect();
+            let list_top = content.top() + LANGUAGE_HEADER;
+            let footer_top = (content.bottom() - 48.0).max(list_top);
+            // `pr-1`: the scroll rail keeps 4 px off the rows, `mt-4` above the button.
             let list_rect = Rect::from_min_max(
-                full.min,
-                Pos2::new(full.right(), (footer_top - 6.0).max(full.top())),
+                Pos2::new(content.left(), list_top),
+                Pos2::new(
+                    (content.right() - 4.0).max(content.left()),
+                    (footer_top - 16.0).max(list_top),
+                ),
             );
-            let footer_rect = Rect::from_min_max(Pos2::new(full.left(), footer_top), full.max);
+            let footer_rect =
+                Rect::from_min_max(Pos2::new(content.left(), footer_top), content.max);
             ui.allocate_ui_at_rect(list_rect, |ui| {
                 // The comment above describes a scrolling list; without the scroll area the rows
                 // below the band were cut off in a short window and the wheel moved nothing.
@@ -1022,7 +1034,10 @@ fn language_step(
                             ) {
                                 state.language_choice = Some(language);
                             }
-                            ui.add_space(10.0);
+                            // `space-y-2.5` between rows only, never after the last one.
+                            if language != LANGUAGES[LANGUAGES.len() - 1].0 {
+                                ui.add_space(10.0);
+                            }
                         }
                     });
             });

@@ -2223,7 +2223,7 @@
   "setup_wallpaper_invalid": "Seuls les PNG 8 bits sont pris en charge.",
   "setup_wizard_finish_body": "Vérifiez vos choix. La fin de la configuration préparera votre bureau SOCDOF.",
   "setup_wizard_finish_title": "Votre espace de travail est prêt",
-  "setup_wizard_welcome_body": "Configurons votre espace de travail. Choisissez la langue, le compte, l’apparence et les applications nécessaires.",
+  "setup_wizard_welcome_body": "Bienvenue ! Cette courte configuration crée votre compte et prépare votre espace de travail. Vous pourrez tout modifier plus tard.",
   "setup_wizard_welcome_title": "Bienvenue dans SOCDOF",
   "setup_workspace_panel_subtitle": "Réglages facultatifs — ignorez-les ou modifiez-les plus tard dans les Paramètres.",
   "setup_workspace_panel_title": "Personnalisez votre espace de travail",

@@ -16,7 +16,7 @@ use egui::{
 
 use crate::focus::{focus_ring, focus_ring_round, FocusState};
 use crate::icons::Icon;
-use crate::theme::{semibold, Theme};
+use crate::theme::{semibold, Appearance, Theme};
 use crate::tokens::{adjust, shadow_layers, with_alpha, ShadowStrength};
 
 /// Width of the compact first-run language card (`max-w-md`).
@@ -257,6 +257,18 @@ pub fn card<R>(
     })
 }
 
+/// Accent wash of chips and selected rows (`bg-indigo-50`).
+///
+/// The reference uses the indigo-50 surface in light mode, which is lighter and bluer than an
+/// accent overlay over white; in dark mode it is `bg-indigo-500/10` and a plain overlay.
+fn accent_wash(theme: &Theme, dark_alpha: f32) -> Color32 {
+    if theme.appearance == Appearance::Light {
+        Color32::from_rgb(0xee, 0xf2, 0xff)
+    } else {
+        over_card(theme, theme.accent.base, dark_alpha)
+    }
+}
+
 /// Draws the step chip (`rounded-full`, accent tint and border).
 pub fn chip(ui: &mut Ui, theme: &Theme, label: &str) {
     let galley = ui.painter().layout_no_wrap(
@@ -268,7 +280,7 @@ pub fn chip(ui: &mut Ui, theme: &Theme, label: &str) {
     ui.painter().rect(
         rect,
         Rounding::same(13.0),
-        over_card(theme, theme.accent.base, 0.10),
+        accent_wash(theme, 0.10),
         Stroke::new(1.0_f32, over_card(theme, theme.accent.base, 0.24)),
     );
     ui.painter().galley(
@@ -295,6 +307,25 @@ pub fn muted(ui: &mut Ui, theme: &Theme, text: &str) {
             .size(14.0)
             .color(theme.palette.text_muted),
     );
+}
+
+/// Draws secondary body text inside a fixed-height block (`mt-1 leading-relaxed h-11`).
+///
+/// The legacy language card reserves the space of two lines, so the list below starts at the same
+/// height for every language, whether its subtitle wraps or not.
+pub fn muted_block(ui: &mut Ui, theme: &Theme, text: &str, height: f32) {
+    // `allocate_ui_with_layout` advances by the content rect, not by the requested size, so the
+    // remaining space of the block is reserved explicitly here.
+    let before = ui.min_rect().bottom();
+    ui.label(
+        RichText::new(text)
+            .size(14.0)
+            .color(theme.palette.text_muted),
+    );
+    let used = (ui.min_rect().bottom() - before).max(0.0);
+    if used < height {
+        ui.add_space(height - used);
+    }
 }
 
 /// Draws a small hint (`text-xs`).
@@ -858,7 +889,8 @@ pub fn language_row(
         hairline(theme)
     };
     let fill = if selected {
-        over_card(theme, theme.accent.base, 0.10)
+        // `bg-indigo-50/80` light, `dark:bg-indigo-500/15`.
+        accent_wash(theme, 0.15)
     } else if hovered {
         inset_fill(theme)
     } else {
