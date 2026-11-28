@@ -63,7 +63,7 @@ Overview (details, code paths and evidence are in the status file):
 | Settings | `teilweise` — factory reset, monitor layout, letterhead in every renderer |
 | App Store, contacts, accounting, projects, fleet, restaurant, textwerk, editor, reports, users | `fertig` |
 | Invoices | `fertig` — CRUD, status, dunning, mail, payment, PDF/DOCX, templates, FatturaPA inspector, status filter chips with counts and duplicate as a new draft |
-| Products | `teilweise` — link extractor, filter tabs, duplicate remain |
+| Products | `fertig` — CRUD, labels, reorder assistant, double-entry journal, category/low-stock chips with counts, duplicate as a copy, link extractor for marketplaces and shops (name, SKU, ASIN, category, shop, description) |
 | Purchases | `teilweise` — product link per position done; duplicate, KPIs, print remain |
 | POS | `fertig` — product tiles, barcode quick add, cart with discount, checkout and Z report with text export (schema v24, seed, three preview scenes, four languages); deliberately open: no receipt printer or card/NFC terminal (payment methods are only recorded), Z report is a Rust extension, invoice only with a selected customer, no pixel comparison |
 | Calendar | `teilweise` — work week, all-day, categories, invoice entries and ICS export done; Google sync, print and mobile sheets remain |

@@ -70,6 +70,7 @@ enum Scene {
     Products,
     ProductsJournal,
     ProductsForm,
+    ProductsLink,
     Invoices,
     InvoicesForm,
     InvoicesFattura,
@@ -202,6 +203,7 @@ impl Scene {
             Scene::Therapie => "therapy".to_string(),
             Scene::TherapieList => "therapy-list".to_string(),
             Scene::ProductsForm => "products-form".to_string(),
+            Scene::ProductsLink => "products-link".to_string(),
             Scene::AuthLogin => "auth-login".to_string(),
             Scene::AuthLoginOther => "auth-login-other".to_string(),
             Scene::AuthLoginLocked => "auth-login-locked".to_string(),
@@ -261,6 +263,7 @@ impl Scene {
             Scene::Products => "Products & stock".to_string(),
             Scene::Invoices => "Invoices".to_string(),
             Scene::ProductsForm => "Products · Form".to_string(),
+            Scene::ProductsLink => "Products · Link import".to_string(),
             Scene::Accounting => "Accounting".to_string(),
             Scene::Purchases => "Purchases".to_string(),
             Scene::PurchasesDetail => "Purchases · Order".to_string(),
@@ -797,6 +800,14 @@ impl Scene {
                 let _ = state.products.refresh(&state.store);
                 state.products.start_new();
             }
+            Scene::ProductsLink => {
+                state.products_open = true;
+                let _ = state.products.refresh(&state.store);
+                state.products.start_new();
+                state.products.link_input =
+                    "https://www.amazon.de/Kaffee-Vollautomat-Edelstahl/dp/B08N5WRWNW".to_string();
+                state.products.import_link(&state.texts);
+            }
             Scene::TherapieList => {
                 let _ = state.therapie.reset_for_open(&state.store);
                 state.therapie.view = socdof_ui::therapie::TherapieView::List;
@@ -1299,6 +1310,7 @@ fn scenes() -> Vec<Scene> {
         Scene::Products,
         Scene::ProductsJournal,
         Scene::ProductsForm,
+        Scene::ProductsLink,
         Scene::Invoices,
         Scene::InvoicesForm,
         Scene::InvoicesFattura,

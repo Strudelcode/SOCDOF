@@ -731,6 +731,11 @@ fn sweep_products(
             },
         );
     }
+    state.set_filter(crate::products::ProductsFilter::LowStock);
+    report.case("products filter", texts.get("products_title"), |ctx| {
+        crate::products::products(ctx, theme, texts, focus, &mut state, store, now);
+    });
+    state.set_filter(crate::products::ProductsFilter::All);
     state.select(state.products[0].id);
     state.confirm_delete = true;
     report.case(

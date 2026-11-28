@@ -58,6 +58,18 @@ impl ProductsView {
     }
 }
 
+/// Filter chip of the product list.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum ProductsFilter {
+    /// Every loaded product.
+    #[default]
+    All,
+    /// Products of one stored category; the empty string groups the uncategorised ones.
+    Category(String),
+    /// Products at or below their reorder level.
+    LowStock,
+}
+
 /// Editable values of one product. Stock is deliberately not part of the draft.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProductDraft {
@@ -91,6 +103,8 @@ pub struct ProductDraft {
     pub web_link: String,
     /// Shop the link points to.
     pub source_domain: String,
+    /// Free-form description.
+    pub description: String,
 }
 
 impl Default for ProductDraft {
@@ -111,6 +125,7 @@ impl Default for ProductDraft {
             asin: String::new(),
             web_link: String::new(),
             source_domain: String::new(),
+            description: String::new(),
         }
     }
 }
@@ -134,6 +149,7 @@ impl ProductDraft {
             asin: product.asin.clone().unwrap_or_default(),
             web_link: product.web_link.clone().unwrap_or_default(),
             source_domain: product.source_domain.clone().unwrap_or_default(),
+            description: product.description.clone().unwrap_or_default(),
         }
     }
 
@@ -169,6 +185,7 @@ impl ProductDraft {
         product.asin = optional(&self.asin);
         product.web_link = optional(&self.web_link);
         product.source_domain = optional(&self.source_domain);
+        product.description = optional(&self.description);
         product.updated_at = now;
 
         Ok(product)
@@ -202,6 +219,12 @@ fn optional(input: &str) -> Option<String> {
 pub struct ProductsState {
     /// Search text; empty lists every product.
     pub query: String,
+    /// Category or stock filter of the list.
+    pub filter: ProductsFilter,
+    /// Link entered for the import in the form.
+    pub link_input: String,
+    /// Catalogue key of the result of the last link import.
+    pub link_note: Option<&'static str>,
     /// Products matching the last loaded query.
     pub products: Vec<Product>,
     /// Selected product, shown by the detail view.
@@ -248,6 +271,9 @@ impl Default for ProductsState {
     fn default() -> Self {
         Self {
             query: String::new(),
+            filter: ProductsFilter::All,
+            link_input: String::new(),
+            link_note: None,
             products: Vec::new(),
             selected: None,
             view: ProductsView::List,
@@ -295,6 +321,42 @@ impl ProductsState {
         Ok(())
     }
 
+    /// Sets the filter chip of the list.
+    pub fn set_filter(&mut self, filter: ProductsFilter) {
+        self.filter = filter;
+    }
+
+    /// Categories of the loaded products in first-seen order, including the empty one.
+    pub fn categories(&self) -> Vec<String> {
+        let mut categories: Vec<String> = Vec::new();
+        for product in &self.products {
+            if !categories.contains(&product.category) {
+                categories.push(product.category.clone());
+            }
+        }
+        categories
+    }
+
+    /// Number of loaded products at or below their reorder level.
+    pub fn low_stock_count(&self) -> usize {
+        self.products
+            .iter()
+            .filter(|product| product.needs_reorder())
+            .count()
+    }
+
+    /// Loaded products passing the filter chip.
+    pub fn visible_products(&self) -> Vec<&Product> {
+        self.products
+            .iter()
+            .filter(|product| match &self.filter {
+                ProductsFilter::All => true,
+                ProductsFilter::Category(category) => &product.category == category,
+                ProductsFilter::LowStock => product.needs_reorder(),
+            })
+            .collect()
+    }
+
     /// Selected product, if it is still part of the loaded list.
     pub fn current(&self) -> Option<&Product> {
         self.selected
@@ -331,6 +393,8 @@ impl ProductsState {
     pub fn start_new(&mut self) {
         self.selected = None;
         self.draft = ProductDraft::default();
+        self.link_input.clear();
+        self.link_note = None;
         self.error = None;
         self.status = None;
         self.view = ProductsView::Form;
@@ -341,10 +405,100 @@ impl ProductsState {
         let Some(product) = self.current() else {
             return;
         };
+        // The reference prefills the import field with the stored link of the article.
+        let link = product.web_link.clone().unwrap_or_default();
         self.draft = ProductDraft::from_product(product);
+        self.link_input = link;
+        self.link_note = None;
         self.error = None;
         self.status = None;
         self.view = ProductsView::Form;
+    }
+
+    /// Stores the selected product again as a copy with a `-COPY` SKU and empty stock.
+    ///
+    /// Matches `handleDuplicateProduct` of the reference: the copy keeps category, prices, unit and
+    /// catalogue links, gets a fresh id and the given name suffix (localised by the caller) and
+    /// starts with no stock, so it cannot inherit the stock level of the original.
+    pub fn duplicate_selected(
+        &mut self,
+        store: &Store,
+        name_suffix: &str,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        let Some(product) = self.current().cloned() else {
+            return Ok(());
+        };
+        let mut copy = product.clone();
+        copy.id = Uuid::new_v4();
+        copy.name = format!("{}{name_suffix}", product.name);
+        copy.sku = format!("{}-COPY", product.sku);
+        copy.stock = 0;
+        copy.legacy_id = None;
+        copy.created_at = now;
+        copy.updated_at = now;
+
+        if let Err(code) = copy.validate() {
+            self.error = Some(product_validation_key(&code));
+            self.status = None;
+            return Ok(());
+        }
+        store.insert_product(&copy)?;
+
+        self.selected = Some(copy.id);
+        self.view = ProductsView::Detail;
+        self.error = None;
+        self.status = Some("products_duplicated");
+        self.reload = true;
+        self.refresh(store)?;
+        Ok(())
+    }
+
+    /// Fills the form from the link in [`ProductsState::link_input`].
+    ///
+    /// The extractor lives in the core; the screen only maps its result to catalogue labels, so an
+    /// unrecognised link keeps every field and reports `products_link_invalid` instead.
+    pub fn import_link(&mut self, texts: &UiTexts) {
+        let Some(extracted) = socdof_core::product_link::extract_product_from_url(&self.link_input)
+        else {
+            self.link_note = Some("products_link_invalid");
+            return;
+        };
+
+        let host = extracted.source_domain.clone();
+        let fallback = match extracted.store {
+            socdof_core::product_link::LinkStore::Amazon => extracted
+                .asin
+                .as_ref()
+                .map(|asin| format!("{} ({asin})", texts.get("products_link_amazon_item"))),
+            socdof_core::product_link::LinkStore::Ebay => extracted
+                .item_number
+                .as_ref()
+                .map(|number| format!("{} (#{number})", texts.get("products_link_ebay_item"))),
+            _ => None,
+        };
+        self.draft.name = extracted
+            .name
+            .or(fallback)
+            .unwrap_or_else(|| format!("{} {host}", texts.get("products_link_generic_name")));
+        // The reference only keeps a SKU that is already in use; an empty or auto-generated one is
+        // replaced by the marketplace SKU.
+        if self.draft.sku.trim().is_empty() || self.draft.sku.starts_with("PRD-") {
+            if let Some(sku) = extracted.sku {
+                self.draft.sku = sku;
+            }
+        }
+        self.draft.category = texts.get(link_category_key(extracted.store)).to_string();
+        self.draft.web_link = self.link_input.trim().to_string();
+        self.draft.source_domain = host.clone();
+        if let Some(asin) = extracted.asin {
+            self.draft.asin = asin;
+        }
+        if self.draft.description.trim().is_empty() {
+            self.draft.description = format!("{} {host}", texts.get("products_link_imported_from"));
+        }
+        self.link_note = Some("products_link_applied");
+        self.error = None;
     }
 
     /// Leaves the form without writing.
@@ -456,6 +610,47 @@ impl ProductsState {
         }
         Ok(())
     }
+}
+
+/// Catalogue key of the default category of a marketplace.
+fn link_category_key(store: socdof_core::product_link::LinkStore) -> &'static str {
+    use socdof_core::product_link::LinkStore;
+    match store {
+        LinkStore::Amazon => "products_link_category_amazon",
+        LinkStore::Otto => "products_link_category_department",
+        LinkStore::MediaMarkt | LinkStore::Saturn => "products_link_category_electronics",
+        LinkStore::Digitec | LinkStore::Galaxus => "products_link_category_tech",
+        LinkStore::Geizhals | LinkStore::Idealo => "products_link_category_comparison",
+        LinkStore::Ebay => "products_link_category_marketplace",
+        LinkStore::Shop => "products_link_category_shop",
+    }
+}
+
+/// Label of a category chip; the uncategorised group reads as the localised general category.
+fn category_label(texts: &UiTexts, category: &str) -> String {
+    if category.trim().is_empty() {
+        texts.get("products_category_general").to_string()
+    } else {
+        category.to_string()
+    }
+}
+
+/// Draws one filter chip with its count; the active chip uses the filled variant.
+fn filter_chip(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    label: &str,
+    count: usize,
+    selected: bool,
+) -> bool {
+    let text = format!("{label} ({count})");
+    let variant = if selected {
+        ButtonVariant::Secondary
+    } else {
+        ButtonVariant::Ghost
+    };
+    button(ui, theme, focus, text.as_str(), variant).activated
 }
 
 fn product_validation_key(code: &str) -> &'static str {
@@ -1177,6 +1372,46 @@ fn list_view(
     messages(ui, theme, texts, state);
     ui.add_space(6.0);
 
+    // Category chips and the low stock chip mirror the filter bar of the reference catalogue.
+    ui.horizontal_wrapped(|ui| {
+        let all = state.products.len();
+        let selected = state.filter == ProductsFilter::All;
+        if filter_chip(
+            ui,
+            theme,
+            focus,
+            texts.get("products_filter_all"),
+            all,
+            selected,
+        ) {
+            state.set_filter(ProductsFilter::All);
+        }
+        for category in state.categories() {
+            let label = category_label(texts, &category);
+            let count = state
+                .products
+                .iter()
+                .filter(|product| product.category == category)
+                .count();
+            let selected = state.filter == ProductsFilter::Category(category.clone());
+            if filter_chip(ui, theme, focus, &label, count, selected) {
+                state.set_filter(ProductsFilter::Category(category));
+            }
+        }
+        let low_stock = state.low_stock_count();
+        if filter_chip(
+            ui,
+            theme,
+            focus,
+            texts.get("products_filter_low_stock"),
+            low_stock,
+            state.filter == ProductsFilter::LowStock,
+        ) {
+            state.set_filter(ProductsFilter::LowStock);
+        }
+    });
+    ui.add_space(4.0);
+
     let mut create = false;
     let mut open_journal = false;
     ui.horizontal_wrapped(|ui| {
@@ -1220,17 +1455,20 @@ fn list_view(
         return;
     }
 
+    let visible = state.visible_products();
     ui.add_space(12.0);
-    if state.products.is_empty() {
+    if visible.is_empty() {
+        let filtering = state.filter != ProductsFilter::All;
         let searching = !state.query.trim().is_empty();
         card(ui, theme, |ui| {
-            if searching {
-                empty_state(
-                    ui,
-                    theme,
-                    texts.get("products_no_results"),
-                    texts.get("products_no_results_hint"),
-                );
+            if searching || filtering {
+                // Search or chip without matches: the hint names the way out of the filter.
+                let hint = if filtering {
+                    "products_filter_hint"
+                } else {
+                    "products_no_results_hint"
+                };
+                empty_state(ui, theme, texts.get("products_no_results"), texts.get(hint));
             } else {
                 empty_state(
                     ui,
@@ -1248,7 +1486,7 @@ fn list_view(
         // Five columns with an unwrapping name button do not fit the phone panel: below the
         // stacking width each product keeps its name on the first line and the figures below it.
         if ui.available_width() < crate::components::FORM_STACK_WIDTH {
-            for product in &state.products {
+            for product in &visible {
                 if button(ui, theme, focus, &product.name, ButtonVariant::Ghost).activated {
                     chosen = Some(product.id);
                 }
@@ -1291,7 +1529,7 @@ fn list_view(
                     );
                 }
                 ui.end_row();
-                for product in &state.products {
+                for product in &visible {
                     if button(ui, theme, focus, &product.name, ButtonVariant::Ghost).activated {
                         chosen = Some(product.id);
                     }
@@ -1384,6 +1622,10 @@ fn detail_view(
                 "products_source_domain",
                 product.source_domain.clone().unwrap_or_default(),
             ),
+            (
+                "products_description",
+                product.description.clone().unwrap_or_default(),
+            ),
         ] {
             ui.horizontal(|ui| {
                 ui.label(
@@ -1440,6 +1682,7 @@ fn detail_view(
 
     ui.add_space(12.0);
     let mut edit = false;
+    let mut duplicate = false;
     let mut delete = false;
     let mut label = false;
     let mut reorder = false;
@@ -1455,6 +1698,17 @@ fn detail_view(
         .activated
         {
             edit = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
+            texts.get("products_duplicate"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            duplicate = true;
         }
         if button(
             ui,
@@ -1515,6 +1769,13 @@ fn detail_view(
     if edit {
         state.start_edit();
     }
+    if duplicate
+        && state
+            .duplicate_selected(store, texts.get("products_copy_name_suffix"), now)
+            .is_err()
+    {
+        state.error = Some("products_error_save");
+    }
     if delete {
         state.confirm_delete = true;
     }
@@ -1549,7 +1810,42 @@ fn form_view(
 
     let mut save = false;
     let mut cancel = false;
+    let mut import_link = false;
     card(ui, theme, |ui| {
+        // Optional link import: the reference fills title, category, ASIN and shop from a pasted
+        // marketplace or shop URL.
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.link_input,
+            texts.get("products_link_label"),
+            texts.get("products_link_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        ui.horizontal_wrapped(|ui| {
+            if button(
+                ui,
+                theme,
+                focus,
+                texts.get("products_link_button"),
+                ButtonVariant::Secondary,
+            )
+            .activated
+            {
+                import_link = true;
+            }
+            if let Some(key) = state.link_note {
+                let tone = if key == "products_link_invalid" {
+                    Tone::Danger
+                } else {
+                    Tone::Success
+                };
+                badge(ui, theme, texts.get(key), tone);
+            }
+        });
+        ui.add_space(10.0);
         text_field(
             ui,
             theme,
@@ -1577,6 +1873,16 @@ fn form_view(
             &mut state.draft.category,
             texts.get("products_category"),
             texts.get("products_category_hint"),
+            None,
+        );
+        ui.add_space(6.0);
+        text_field(
+            ui,
+            theme,
+            focus,
+            &mut state.draft.description,
+            texts.get("products_description"),
+            texts.get("products_description_hint"),
             None,
         );
         ui.add_space(6.0);
@@ -1729,6 +2035,9 @@ fn form_view(
         });
     });
 
+    if import_link {
+        state.import_link(texts);
+    }
     if save && state.save(store, now).is_err() {
         state.error = Some("products_error_save");
     }
@@ -1967,6 +2276,131 @@ mod tests {
         assert_eq!(plan.lines.len(), plan.stats().low_stock_count);
         let painted = render(&mut state, &store);
         assert!(painted.contains(texts.get("products_reorder_title")));
+    }
+
+    #[test]
+    fn filters_the_catalogue_by_category_and_low_stock() {
+        let (store, mut state, texts) = seeded();
+        let category = texts.get("products_sample_category").to_string();
+        assert_eq!(state.categories(), vec![category.clone()]);
+        assert_eq!(state.low_stock_count(), 1);
+        assert_eq!(state.visible_products().len(), 2);
+
+        state.set_filter(ProductsFilter::LowStock);
+        let visible = state.visible_products();
+        assert_eq!(visible.len(), 1);
+        assert!(visible[0].needs_reorder());
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(&format!("{} (1)", texts.get("products_filter_low_stock"))));
+
+        state.set_filter(ProductsFilter::Category("Fehlend".to_string()));
+        assert!(state.visible_products().is_empty());
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("products_filter_hint")));
+
+        state.set_filter(ProductsFilter::All);
+        assert_eq!(state.visible_products().len(), 2);
+
+        // A product without a category groups under the localised general category.
+        let mut extra = Product::new("Ohne Kategorie", SAMPLE_NOW_MS);
+        extra.sku = "C-1".to_string();
+        store.insert_product(&extra).expect("extra");
+        let mut fresh = ProductsState::new();
+        fresh.refresh(&store).expect("refresh");
+        assert!(fresh.categories().contains(&String::new()));
+        fresh.set_filter(ProductsFilter::Category(String::new()));
+        assert_eq!(fresh.visible_products().len(), 1);
+        assert_eq!(
+            category_label(&texts, ""),
+            texts.get("products_category_general")
+        );
+    }
+
+    #[test]
+    fn duplicates_a_product_as_a_copy_with_empty_stock() {
+        let (store, mut state, texts) = seeded();
+        let original = state
+            .products
+            .iter()
+            .find(|product| !product.needs_reorder())
+            .cloned()
+            .expect("stocked product");
+        state.select(original.id);
+
+        state
+            .duplicate_selected(
+                &store,
+                texts.get("products_copy_name_suffix"),
+                SAMPLE_NOW_MS,
+            )
+            .expect("duplicate");
+
+        assert!(state.error.is_none());
+        assert_eq!(state.status, Some("products_duplicated"));
+        assert_eq!(state.view, ProductsView::Detail);
+        let copy = state.current().cloned().expect("copy");
+        assert_ne!(copy.id, original.id);
+        assert_eq!(
+            copy.name,
+            format!(
+                "{}{}",
+                original.name,
+                texts.get("products_copy_name_suffix")
+            )
+        );
+        assert_eq!(copy.sku, format!("{}-COPY", original.sku));
+        assert_eq!(copy.stock, 0);
+        assert_eq!(copy.category, original.category);
+        assert_eq!(copy.price, original.price);
+        assert_eq!(copy.cost_price, original.cost_price);
+        assert_eq!(store.product_count().expect("count"), 3);
+    }
+
+    #[test]
+    fn imports_product_data_from_a_link() {
+        let (_store, mut state, texts) = seeded();
+        state.start_new();
+        state.link_input =
+            "https://www.amazon.de/Kaffee-Vollautomat-Edelstahl/dp/B08N5WRWNW".to_string();
+        state.import_link(&texts);
+
+        assert_eq!(state.link_note, Some("products_link_applied"));
+        assert_eq!(state.draft.name, "Kaffee Vollautomat Edelstahl");
+        assert_eq!(state.draft.sku, "AMZ-B08N5WRWNW");
+        assert_eq!(state.draft.asin, "B08N5WRWNW");
+        assert_eq!(state.draft.source_domain, "Amazon (DE)");
+        assert_eq!(state.draft.web_link, state.link_input);
+        assert_eq!(
+            state.draft.category,
+            texts.get("products_link_category_amazon")
+        );
+        assert_eq!(
+            state.draft.description,
+            format!("{} Amazon (DE)", texts.get("products_link_imported_from"))
+        );
+
+        // A SKU that is already in use survives the import; an auto-generated one does not.
+        state.draft.sku = "EIGEN-1".to_string();
+        state.import_link(&texts);
+        assert_eq!(state.draft.sku, "EIGEN-1");
+
+        // Shop links fall back to the localised generic name.
+        state.link_input = "https://example.com/artikel-1".to_string();
+        state.import_link(&texts);
+        assert_eq!(state.draft.name, "Artikel 1");
+        assert_eq!(state.draft.source_domain, "example.com");
+        assert_eq!(
+            state.draft.category,
+            texts.get("products_link_category_shop")
+        );
+
+        // An unrecognised link keeps every field and reports the failure.
+        state.link_input = "kein link".to_string();
+        let name = state.draft.name.clone();
+        state.import_link(&texts);
+        assert_eq!(state.link_note, Some("products_link_invalid"));
+        assert_eq!(state.draft.name, name);
+        assert_eq!(state.draft.source_domain, "example.com");
     }
 
     #[test]

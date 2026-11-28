@@ -26,6 +26,7 @@ pub mod logging;
 pub mod mobile_sync;
 pub mod money;
 pub mod pdf;
+pub mod product_link;
 pub mod rich_html;
 pub mod security;
 pub mod security_questions;

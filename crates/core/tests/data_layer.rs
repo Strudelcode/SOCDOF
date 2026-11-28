@@ -658,6 +658,14 @@ fn full_text_search_finds_contacts_products_and_invoices() {
     assert_eq!(store.search_contacts("Tech").expect("contacts").len(), 1);
     assert_eq!(store.search_products("Kaffee").expect("products").len(), 1);
     assert_eq!(store.search_products("Bohnen").expect("products").len(), 1);
+
+    // ASIN and shop domain are searchable like in the reference catalogue.
+    let mut product = store.list_products().expect("products")[0].clone();
+    product.asin = Some("B08N5WRWNW".to_string());
+    product.source_domain = Some("Amazon (DE)".to_string());
+    store.update_product(&product).expect("update");
+    assert_eq!(store.search_products("b08n5wrwnw").expect("asin").len(), 1);
+    assert_eq!(store.search_products("Amazon").expect("shop").len(), 1);
     assert_eq!(store.search_invoices("2026").expect("invoices").len(), 1);
     assert_eq!(
         store.search_invoices("Beratung").expect("invoices").len(),

@@ -125,6 +125,8 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
 - [x] Rechnungen: Status-Filterchips mit Zählern und Rechnung duplizieren (Detailansicht; die Vorlage
       setzt das Symbol in jede Listenzeile) — `crates/ui/src/invoices.rs`, Beleg `rust-51`
+- [x] Produkte: Kategorie-/Knapp-Filterchips mit Zählern, Produkt duplizieren und Link-Extraktor
+      (Core `crates/core/src/product_link.rs`, UI `crates/ui/src/products.rs`), Beleg `rust-52`
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
 - [x] **Kalender & Termine** sind portiert (`crates/ui/src/appointments.rs`, Schema v23, Beleg `rust-49`); offen bleiben Google-Sync, Browser-Druck und die mobilen Sheets
 - [x] **Tabellenkalkulation `table`** ist portiert (`crates/ui/src/table.rs`, Schema v22, Beleg `rust-48`); offen bleibt nur der in der Vorlage ungenutzte Vorlagen-Speicher
@@ -149,6 +151,9 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 | POS-Zahlungsterminal | Karte/NFC werden nur als Zahlart erfasst | kein Terminal- oder Netzwerk-Backend, die Vorlage hat ebenfalls keins |
 | POS-Z-Bericht | Rust-Erweiterung mit `.txt`-Export | die Vorlage hat keinen Z-Bericht; `window.print()` hat kein Desktop-Pendant |
 | POS-Rechnung | Rechnung nur bei gewähltem Kunden | die Vorlage fällt auf Kontakt 1 zurück; Rust legt sonst nur den Beleg an |
+| Produktbild | kein Bild-Upload, nur Emoji-Vorschau | die native Edition hat kein Bild-Backend; die Vorlage speichert `image_url` als Base64 |
+| Produkt-SKU beim Link-Import | deterministisch aus der URL | die Vorlage würfelt (`Math.random`); Rust will reproduzierbare Importe und stabile Tests |
+| Produktfilter `inaktiv`/`ausgeschlossen` | nicht als Chip vorhanden | die Vorlage wertet die Zustände aus, setzt aber nirgends eine Schaltfläche dafür |
 
 ## 5. Selbst prüfen
 
@@ -173,13 +178,44 @@ der Filter ist ein Substring der Szenen-ID.
 ## 6. Zahlen
 
 - 14 Einstellungs-Sektionen, 20 Launcher-Module (vollständig, `table` ist neu)
-- 2.757 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
-- `cargo test -p socdof-core --lib`: 440 Tests, 0 Fehler
-- `cargo test -p socdof-ui --lib`: 473 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
-- Telefon-Sweep: 1.456 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
+- 2.782 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- `cargo test -p socdof-core --lib`: 446 Tests, 0 Fehler
+- `cargo test -p socdof-ui --lib`: 476 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
+- Telefon-Sweep: 1.464 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-28)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-51`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-52`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
+
+## Produkte: Filterchips, Duplizieren und Link-Import (2026-11-28)
+
+Portiert aus `SOCDOF - TS/src/components/sales/ProductsModule.tsx` und
+`SOCDOF - TS/src/lib/productLinkExtractor.ts`.
+
+- **UI** `crates/ui/src/products.rs`: Kategorie-Chips aus den geladenen Produkten (erste Sichtung,
+  leere Kategorie als lokalisierte Gruppe „Allgemein“) plus Chip „Knappe Bestände“ mit Zähler;
+  Suche und Chip kombinieren, ein leerer Filter zeigt `products_filter_hint`.
+- **Duplizieren**: `ProductsState::duplicate_selected` legt eine Kopie mit neuer Id, Suffix
+  `products_copy_name_suffix` im Namen, `<SKU>-COPY`, Bestand 0 und den übrigen Feldern des
+  Originals an; Knopf in der Detailansicht, Bestätigung `products_duplicated`.
+- **Link-Extraktor** `crates/core/src/product_link.rs`: `extract_amazon_asin` (blanke ASIN, `/dp/`,
+  `/gp/product/`, `/gp/aw/d/`, `/d/`, `/exec/obidos/ASIN/`, `?asin=`) und
+  `extract_product_from_url` für Amazon (auch regionale Domains), OTTO, MediaMarkt, Saturn, Digitec,
+  Galaxus, Geizhals, Idealo, eBay (Artikelnummer) und beliebige Shops; Namen kommen aus dem
+  URL-Slug (Prozent-Dekodierung, `-`/`_` als Leerzeichen), SKUs sind deterministisch aus der URL.
+- **Formular**: Feld `products_link_label` + Knopf `products_link_button` füllen Name, SKU (nur wenn
+  leer oder `PRD-`), Kategorie (lokalisiert je Marktplatz), ASIN, Web-Link, Shop und — bei leerer
+  Beschreibung — „Importiert von …“; das neue Feld `products_description` macht die Notiz sichtbar
+  und speicherbar. Unbekannte Eingaben lassen alles unverändert und melden `products_link_invalid`.
+- **Suche**: `crates/core/src/store/products.rs` findet jetzt auch ASIN und Shop-Domain.
+- **Verdrahtung**: 25 i18n-Keys in de/en/fr/es (Katalog **2.782**), Vorschau-Szene `products-link`,
+  Sweep-Fall `products filter`; Belege `rust-52-products-{light,dark}.png` und
+  `rust-52-products-link-{light,dark}.png`.
+- **Verifikation**: `cargo fmt -p socdof-core -p socdof-ui -- --check`, clippy core+ui
+  `-D warnings`, Core **446**, UI **476** (drei neue Tests: Filter, Duplizieren, Link-Import),
+  Visual 2, Backoffice 4, Telefon-Sweep **1.464** Fälle grün.
+- **Bewusste Unterschiede**: kein Produktbild (kein Bild-Backend, Emoji-Vorschau); SKU-Nummern des
+  Imports deterministisch statt zufällig; die Filter `inaktiv`/`ausgeschlossen` der Vorlage haben
+  dort keine Schaltfläche und sind deshalb nicht als Chip portiert.
 
 ## Rechnungen: Filterchips und Duplizieren (2026-11-28)
 

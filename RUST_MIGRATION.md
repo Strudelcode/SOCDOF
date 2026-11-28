@@ -3123,3 +3123,50 @@ both appearances, no overflow.
 **Difference to the reference:** the reference knows three statuses, Rust five, so the chip row lists
 five statuses plus "all". The row-level duplicate icon of the reference is the detail-view button
 here; the created draft is identical (new number, today, 14 days, status draft).
+
+## 16.31 Product filters, duplication and link import (2026-11-28)
+
+`ProductsModule.tsx` filters the catalogue through category pills and a low-stock pill with counters,
+duplicates a product as a copy with empty stock and imports article data from a marketplace or shop
+URL through `productLinkExtractor.ts`. All three are now in the Rust module; the search also covers
+the ASIN and the shop domain like the reference.
+
+**Core** `crates/core/src/product_link.rs`:
+- `extract_amazon_asin` reads a bare ASIN, the `/dp/`, `/gp/product/`, `/gp/aw/d/`, `/d/` and
+  `/exec/obidos/ASIN/` paths and the `?asin=` query.
+- `extract_product_from_url` classifies Amazon (any regional domain, label `Amazon (DE)`), OTTO,
+  MediaMarkt, Saturn, Digitec, Galaxus, Geizhals, Idealo, eBay (item number) and every other shop,
+  derives the title from the URL slug (percent-decoded, `-`/`_` as spaces, trailing extension
+  stripped) and builds a deterministic marketplace SKU from an FNV hash of the URL.
+- No network access: everything comes from the URL. Fallback names and default categories stay out
+  of the core (no visible strings in core code); the UI maps `LinkStore` to catalogue keys.
+
+**Store** `crates/core/src/store/products.rs`: the `LIKE` fallback of `search_products` includes
+`asin` and `source_domain`, so ASIN and shop searches work although the FTS body does not index them.
+
+**UI** `crates/ui/src/products.rs`:
+- `ProductsFilter` (`All`, `Category(String)`, `LowStock`) with `set_filter`, `categories`,
+  `low_stock_count` and `visible_products`; the list renders one chip per category plus the low-stock
+  chip, each with its count, and a filter-aware empty state (`products_filter_hint`).
+- `duplicate_selected` copies the product with a new id, the localised copy suffix in the name,
+  `<SKU>-COPY`, stock 0 and cleared legacy id; the detail action row gains `products_duplicate`.
+- `import_link` fills name, SKU (only when empty or `PRD-`), category, ASIN, web link, shop and the
+  description fallback from the extractor; the form gains the link field, the import button and a
+  description field (`products_description`) so the imported note is visible and editable.
+
+**Wiring:** 25 i18n keys in de/en/fr/es (catalogue 2,782), new preview scene `products-link`,
+one new phone sweep case (`products filter`).
+
+**Verification:** `cargo fmt -p socdof-core -p socdof-ui -- --check`, clippy core+ui `-D warnings`,
+core 446 (`product_link` unit tests plus the extended full-text test), UI 476 (filter, duplicate and
+link-import tests), visual 2 (products is a semantic scene, so no golden changed), backoffice 4 and
+the phone sweep with 1,464 cases at 360/390/412/432 px in both appearances, no overflow.
+
+**Evidence:** `docs/artifacts/gui-parity/rust-52-products-{light,dark}.png`,
+`rust-52-products-link-{light,dark}.png`.
+
+**Deliberate differences:** the reference stores an `image_url` (URL or Base64 upload); the native
+catalogue has no image backend and keeps the emoji preview. The reference generates random SKU
+numbers for imported articles; Rust derives them from the URL so the same link always yields the
+same SKU. The reference's `inaktiv` and `ausgeschlossen` filter states have no UI trigger there, so
+they are not chips in Rust either.

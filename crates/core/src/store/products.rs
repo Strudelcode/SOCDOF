@@ -135,9 +135,12 @@ pub fn list(conn: &Connection) -> CoreResult<Vec<Product>> {
 pub fn search(conn: &Connection, query: &str) -> CoreResult<Vec<Product>> {
     let term = format!("%{}%", query.trim().to_lowercase());
     let sql = format!(
+        // The reference searches name, SKU, ASIN, shop domain and description; ASIN and shop are
+        // not part of the full-text index, so the LIKE fallback carries them.
         "SELECT {COLUMNS} FROM products
          WHERE lower(coalesce(name, '') || ' ' || coalesce(sku, '') || ' ' ||
              coalesce(barcode, '') || ' ' || coalesce(category, '') || ' ' ||
+             coalesce(asin, '') || ' ' || coalesce(source_domain, '') || ' ' ||
              coalesce(description, '')) LIKE ?1
          ORDER BY lower(name)"
     );
