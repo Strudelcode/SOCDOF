@@ -59,7 +59,7 @@ Overview (details, code paths and evidence are in the status file):
 | Area | Status |
 |---|---|
 | Shell, taskbar, windows, virtual desktops | `teilweise` — blur, OS tray and the studio/widget module remain |
-| Auth, setup wizard, users & roles | `fertig` (web host still partial) |
+| Auth, setup wizard, users & roles | `fertig` — the web host follows the browser theme on `System` (`rust-53`) |
 | Settings | `teilweise` — factory reset, monitor layout, letterhead in every renderer |
 | App Store, contacts, accounting, projects, fleet, restaurant, textwerk, editor, reports, users | `fertig` |
 | Invoices | `fertig` — CRUD, status, dunning, mail, payment, PDF/DOCX, templates, FatturaPA inspector, status filter chips with counts and duplicate as a new draft |

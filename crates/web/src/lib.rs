@@ -68,6 +68,19 @@ use wasm_bindgen::JsCast;
 /// Accent of the first start; the appearance settings change it later.
 const DEFAULT_ACCENT: &str = "indigo";
 
+/// Whether the browser prefers a dark colour scheme (`prefers-color-scheme`).
+fn prefers_dark() -> bool {
+    web_sys::window()
+        .and_then(|window| {
+            window
+                .match_media("(prefers-color-scheme: dark)")
+                .ok()
+                .flatten()
+        })
+        .map(|query| query.matches())
+        .unwrap_or(false)
+}
+
 /// The browser application: one store, one session and the desktop with every module.
 struct WebApp {
     /// SQLite store of this browser tab.
@@ -76,6 +89,12 @@ struct WebApp {
     texts: UiTexts,
     /// Light or dark appearance.
     appearance: Appearance,
+    /// Chosen theme mode; `System` follows the browser preference.
+    theme_mode: ThemeMode,
+    /// Whether the browser currently prefers a dark colour scheme.
+    system_dark: bool,
+    /// Last read of the browser preference, in milliseconds.
+    last_theme_check: i64,
     /// Accent preset id.
     accent_id: String,
     /// Keyboard focus of the current screen.
@@ -158,13 +177,16 @@ impl WebApp {
         // the desktop so the first screen is the same as in the desktop build.
         shell.onboarding = Onboarding::restore(true);
         let icons = desktop_icons(&texts, &active);
+        let system_dark = prefers_dark();
         Self {
             store,
             texts,
-            // The reference desktop opens in the dark theme. eframe's browser default visuals are
-            // light, so the host starts dark and lets a stored preference replace it once the
-            // snapshot has been read.
-            appearance: Appearance::Dark,
+            // The reference opens on `ThemeMode::System`, so the first start follows the colour
+            // scheme of the browser instead of forcing the dark theme of the desktop build.
+            theme_mode: ThemeMode::System,
+            system_dark,
+            appearance: Appearance::resolve(ThemeMode::System, system_dark),
+            last_theme_check: 0,
             accent_id: DEFAULT_ACCENT.to_string(),
             focus: FocusState::default(),
             auth,
@@ -291,11 +313,7 @@ impl WebApp {
         if wizard_completed {
             let preferences = Preferences {
                 language: self.texts.language(),
-                theme_mode: wizard_theme.unwrap_or(if self.appearance.is_dark() {
-                    ThemeMode::Dark
-                } else {
-                    ThemeMode::Light
-                }),
+                theme_mode: wizard_theme.unwrap_or(self.theme_mode),
                 accent_color: self.accent_id.clone(),
                 ..Preferences::default()
             };
@@ -319,11 +337,7 @@ impl WebApp {
             }
             if let Ok(preferences) = settings_service::preferences(&self.store, user_id) {
                 self.set_language(preferences.language);
-                self.appearance = match preferences.theme_mode {
-                    ThemeMode::Dark => Appearance::Dark,
-                    ThemeMode::Light => Appearance::Light,
-                    ThemeMode::System => self.appearance,
-                };
+                self.set_theme_mode(preferences.theme_mode);
                 self.accent_id = preferences.accent_color;
                 if !preferences.startup_module.is_empty() {
                     startup_module = Some(preferences.startup_module);
@@ -373,6 +387,12 @@ impl WebApp {
     }
 
     /// Whether a session is signed in and therefore the desktop is shown.
+    /// Applies a theme mode and remembers it, so a later switch to `System` can follow the browser.
+    fn set_theme_mode(&mut self, mode: ThemeMode) {
+        self.theme_mode = mode;
+        self.appearance = Appearance::resolve(mode, self.system_dark);
+    }
+
     fn signed_in(&self) -> bool {
         self.auth.view == AuthView::Unlocked && self.auth.user.is_some()
     }
@@ -693,11 +713,7 @@ impl WebApp {
                 );
                 if let Some(preferences) = self.settings.take_saved_preferences() {
                     self.set_language(preferences.language);
-                    self.appearance = match preferences.theme_mode {
-                        ThemeMode::Dark => Appearance::Dark,
-                        ThemeMode::Light => Appearance::Light,
-                        ThemeMode::System => self.appearance,
-                    };
+                    self.set_theme_mode(preferences.theme_mode);
                     self.accent_id = preferences.accent_color;
                 }
                 if self.settings.take_language_pack_changed() {
@@ -979,18 +995,16 @@ impl WebApp {
             self.auth.begin_switch(&username);
         }
         if outcome.toggle_theme {
-            self.appearance = if self.appearance.is_dark() {
-                Appearance::Light
+            let mode = if self.appearance.is_dark() {
+                ThemeMode::Light
             } else {
-                Appearance::Dark
+                ThemeMode::Dark
             };
+            // The taskbar toggle picks a concrete mode; "System" stays the wizard choice.
+            self.set_theme_mode(mode);
             if let Some(user_id) = self.auth.user.as_ref().map(|user| user.id) {
                 if let Ok(mut preferences) = settings_service::preferences(&self.store, user_id) {
-                    preferences.theme_mode = if self.appearance.is_dark() {
-                        ThemeMode::Dark
-                    } else {
-                        ThemeMode::Light
-                    };
+                    preferences.theme_mode = mode;
                     let _ = settings_service::save_preferences(&self.store, user_id, &preferences);
                 }
             }
@@ -1069,6 +1083,20 @@ impl eframe::App for WebApp {
         // Keeps the backing store on the CSS box, so painting and pointer positions stay on one
         // grid after the panel or the browser window changed size.
         sync_canvas_size();
+        // `ThemeMode::System` follows the browser preference, exactly like the reference does while
+        // the setup wizard sits on "System". Reading it once a second keeps a live OS switch cheap.
+        if self.theme_mode == ThemeMode::System {
+            let now = now_millis();
+            if now - self.last_theme_check >= 1000 {
+                self.last_theme_check = now;
+                let system_dark = prefers_dark();
+                if system_dark != self.system_dark {
+                    self.system_dark = system_dark;
+                    self.appearance = Appearance::resolve(ThemeMode::System, system_dark);
+                    ctx.request_repaint();
+                }
+            }
+        }
         self.focus.begin_frame(ctx);
         // The browser reads the stored database asynchronously, therefore the first frames are a hint.
         if !self.loaded && !self.load_snapshot() {
@@ -1116,11 +1144,7 @@ impl eframe::App for WebApp {
             }
             let wizard_theme = self.auth.theme_mode_choice;
             if let Some(mode) = wizard_theme {
-                self.appearance = match mode {
-                    ThemeMode::Light => Appearance::Light,
-                    ThemeMode::Dark => Appearance::Dark,
-                    ThemeMode::System => self.appearance,
-                };
+                self.set_theme_mode(mode);
             }
             if let Some(accent) = self.auth.accent_choice.take() {
                 self.accent_id = accent;

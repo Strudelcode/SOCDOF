@@ -2185,6 +2185,7 @@ pub const UI_KEYS: &[&str] = &[
     "setup_language_subtitle",
     "setup_language_title",
     "setup_next",
+    "setup_offline_notice",
     "setup_other_user",
     "setup_password_tips",
     "setup_password_warning",

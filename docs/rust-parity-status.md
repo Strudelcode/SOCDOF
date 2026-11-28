@@ -127,6 +127,9 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
       setzt das Symbol in jede Listenzeile) — `crates/ui/src/invoices.rs`, Beleg `rust-51`
 - [x] Produkte: Kategorie-/Knapp-Filterchips mit Zählern, Produkt duplizieren und Link-Extraktor
       (Core `crates/core/src/product_link.rs`, UI `crates/ui/src/products.rs`), Beleg `rust-52`
+- [x] Ersteinrichtung: System-Theme im Web-Host (`prefers_dark`, `set_theme_mode`, Start im
+      System-Theme), Pflichtfeld-Hinweis in jedem Schritt, Offline-Hinweis auf dem Kontoschritt,
+      Bezeichner wie in der Vorlage (UI `crates/ui/src/auth_screens.rs`), Beleg `rust-53`
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
 - [x] **Kalender & Termine** sind portiert (`crates/ui/src/appointments.rs`, Schema v23, Beleg `rust-49`); offen bleiben Google-Sync, Browser-Druck und die mobilen Sheets
 - [x] **Tabellenkalkulation `table`** ist portiert (`crates/ui/src/table.rs`, Schema v22, Beleg `rust-48`); offen bleibt nur der in der Vorlage ungenutzte Vorlagen-Speicher
@@ -154,6 +157,8 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 | Produktbild | kein Bild-Upload, nur Emoji-Vorschau | die native Edition hat kein Bild-Backend; die Vorlage speichert `image_url` als Base64 |
 | Produkt-SKU beim Link-Import | deterministisch aus der URL | die Vorlage würfelt (`Math.random`); Rust will reproduzierbare Importe und stabile Tests |
 | Produktfilter `inaktiv`/`ausgeschlossen` | nicht als Chip vorhanden | die Vorlage wertet die Zustände aus, setzt aber nirgends eine Schaltfläche dafür |
+| Ersteinrichtungs-Karte | Karte füllt die Fensterhöhe, Fußzeile bleibt sichtbar | die Vorlage lässt die Karte mit dem Inhalt wachsen und scrollt die Seite; Rust hält „Zurück/Weiter“ ohne Scrollen erreichbar |
+| Ersteinrichtungs-Pixel | 88,7 % der Kartenpixel ≤ 24/255 Abweichung | Rest ist Schrift-Rasterung (Chromium vs. egui) und 2–4 px vertikaler Versatz, keine Layout-Differenz |
 
 ## 5. Selbst prüfen
 
@@ -183,7 +188,7 @@ der Filter ist ein Substring der Szenen-ID.
 - `cargo test -p socdof-ui --lib`: 476 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
 - Telefon-Sweep: 1.464 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
 - `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-28)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-52`
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-53`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
 
 ## Produkte: Filterchips, Duplizieren und Link-Import (2026-11-28)
@@ -334,3 +339,34 @@ Google-Konto und ohne Netzwerk läuft.
   `rust-49-calendar-workweek-{light,dark}.png`, `rust-49-calendar-form-{light,dark}.png`.
 
 **Offen:** Google-Sync, Drucken, mobile Sheets; Pixelvergleich (dieser Block prüft Funktion).
+
+## Ersteinrichtung: System-Theme und Abgleich mit der Vorlage (2026-11-28)
+
+Vorlage: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (Setup-Wizard, `setupTheme`,
+`auth.offlineNotice`) und `LanguageSelectionModal` (Sprachkarte).
+
+- **System-Theme im Web-Host** (`crates/web/src/lib.rs`): `ThemeMode::System` wird über
+  `window.matchMedia("(prefers-color-scheme: dark)")` aufgelöst (`prefers_dark`). Der Host startet mit
+  `ThemeMode::System` statt fest dunkel, liest die Browser-Vorliebe im Sekundentakt neu
+  (`last_theme_check`, nur bei aktivem `System`) und zeichnet bei einem Wechsel sofort neu.
+  `set_theme_mode` ist die einzige Stelle, die gespeicherte Einstellung, Wizard-Wahl und
+  Taskbar-Umschalter auf `Appearance` abbildet; die Wizard-Wahl wird als Benutzervorliebe gespeichert.
+  `web-sys` bekommt dafür das Feature `MediaQueryList`.
+- **Wizard** (`crates/ui/src/auth_screens.rs`): `* Pflichtfelder` steht wie in der Vorlage in jedem
+  Schritt (vorher nur auf dem Kontoschritt), und der Kontoschritt zeigt die gelbe
+  `setup_offline_notice`-Karte über der Sicherheitsfrage.
+- **Texte** (`crates/ui/locales/{de,en,fr,es}.json`): „Passwort bestätigen“, „Sicherheitsfrage zur
+  Wiederherstellung (optional)“, „Recovery answer“, der Standard-Avatar-Hinweis und der Untertitel der
+  Sprachkarte („… for the SOCDOF Desktop Suite …“) folgen wieder der Vorlage; neuer Key
+  `setup_offline_notice`, Katalog **2.783** Keys.
+- **Verifikation**: `cargo fmt --all`, `cargo clippy -p socdof-ui --all-targets -- -D warnings`,
+  `cargo test -p socdof-ui --lib` (**476**), `cd crates/web && trunk build --release` grün. Im Browser
+  (1280×800) rendert der Rust-Host bei heller Browser-Vorliebe hell und bei dunkler dunkel; die
+  Wizard-Schritte zeigen Hinweis und Offline-Karte in beiden Erscheinungen.
+- **Pixelabgleich der Sprachkarte** (TS-Screenshot 1792×1812, Rust 1280×800, beide auf die Kartenbox
+  beschnitten und auf 446×608 normalisiert): identische Kartenbox 446×608, mittlere absolute
+  Abweichung **16,4/255**, **88,7 %** der Pixel innerhalb 24/255. Der Rest ist Schrift-Rasterung
+  (Chromium vs. egui) und ein 2–4 px vertikaler Versatz der Zeilen.
+- Belege: `docs/artifacts/gui-parity/rust-53-setup-language-{light,dark}.png`,
+  `rust-53-setup-language-compare.png` (TS links, Rust rechts),
+  `rust-53-setup-account-{light,dark}.png`.

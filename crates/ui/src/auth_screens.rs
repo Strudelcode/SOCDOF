@@ -750,11 +750,9 @@ pub fn setup(
             // the required-fields notice on the right is reserved, so the two never overlap.
             // Only the account step marks mandatory fields with an asterisk, so only that step
             // carries the legend; the other steps have no required field to explain.
-            let notice = if state.setup_step == 2 {
-                texts.get("setup_required_notice")
-            } else {
-                ""
-            };
+            // The reference marks the required fields on every wizard step, not only on the
+            // account step that carries the asterisks.
+            let notice = texts.get("setup_required_notice");
             // The step chip above names the current step; the line under the title keeps the
             // constant `auth.accountSetup · auth.stepAccount` pairing of the legacy wizard.
             let step = format!(
@@ -1206,6 +1204,11 @@ fn account_step(
 
     ui.add_space(12.0);
     warning(ui, theme, texts.get("setup_password_warning"));
+
+    // `auth.offlineNotice`: the reference explains the missing server right above the security
+    // question, because that is where the recovery decision is taken.
+    ui.add_space(12.0);
+    warning(ui, theme, texts.get("setup_offline_notice"));
 
     // `auth.securityQuestionsTitle` + one select + answer of the legacy setup form.
     ui.add_space(12.0);

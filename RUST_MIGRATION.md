@@ -3170,3 +3170,33 @@ catalogue has no image backend and keeps the emoji preview. The reference genera
 numbers for imported articles; Rust derives them from the URL so the same link always yields the
 same SKU. The reference's `inaktiv` and `ausgeschlossen` filter states have no UI trigger there, so
 they are not chips in Rust either.
+
+## 16.32 First-run theme following and onboarding alignment (2026-11-28)
+
+Reference: `SOCDOF - TS/src/components/auth/AuthGate.tsx` (setup wizard, `setupTheme`,
+`auth.offlineNotice`) and the language card of the first start.
+
+- **Web host** `crates/web/src/lib.rs`: `ThemeMode::System` is now resolved against the browser
+  through `prefers_dark()` (`window.matchMedia("(prefers-color-scheme: dark)")`). The host starts in
+  `ThemeMode::System` instead of forcing the dark theme, re-reads the preference once a second while
+  `System` is active (`last_theme_check`) and repaints on a change. `set_theme_mode` is the single
+  mapping from a stored, wizard or taskbar choice onto `Appearance`, and the wizard choice is saved as
+  the user preference. `web-sys` gains the `MediaQueryList` feature in `Cargo.toml`.
+- **Wizard** `crates/ui/src/auth_screens.rs`: `* Required fields` is drawn on every step again (the
+  reference shows it independent of the step), and the account step renders the reference's amber
+  `auth.offlineNotice` card above the security question (`setup_offline_notice`).
+- **Copy** `crates/ui/locales/{de,en,fr,es}.json`: labels follow the reference again - "Confirm
+  password", "Security question for password recovery (optional)", "Recovery answer", the default
+  avatar note and the language-card subtitle ("... for the SOCDOF Desktop Suite ..."). New key
+  `setup_offline_notice`; catalogue **2.783** keys.
+- **Verification**: `cargo fmt --all`, `cargo clippy -p socdof-ui --all-targets -- -D warnings`,
+  `cargo test -p socdof-ui --lib` (**476** passed) and `cd crates/web && trunk build --release` are
+  green. The Rust host was checked in a browser at 1280x800: a light browser preference renders the
+  first start light, a dark one renders it dark, and the wizard steps show the notice and the offline
+  card in both appearances.
+- **Pixel comparison** (language card; TS screenshot 1792x1812, Rust 1280x800, both cropped to the card
+  box and normalised to 446x608): identical card box 446x608, mean absolute difference **16.4/255**,
+  **88.7 %** of pixels within 24/255. The remainder is font rasterisation (Chromium vs. egui) plus a
+  2-4 px vertical offset of the rows, not a layout difference.
+- Evidence: `docs/artifacts/gui-parity/rust-53-setup-language-{light,dark}.png`,
+  `rust-53-setup-language-compare.png`, `rust-53-setup-account-{light,dark}.png`.
