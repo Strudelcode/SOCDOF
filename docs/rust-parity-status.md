@@ -123,7 +123,8 @@ mit ≥98 % Pixel-Übereinstimmung und ≥0,90 SSIM vor (`docs/parity`); die üb
 - [ ] Schnellkasse: Bondruck/E-Mail-Versand, Beweisfotos (kein Bild-Backend), echte TSE-Hardware
 - [ ] Projekte: Filter, Aufgaben-Übergänge, CSV-Formatierung, Rechnungsnummern
 - [ ] App Store, Support, Editor/Textwerk: vollständige Workflow-Abnahme
-- [ ] Rechnungen: Status-Filterchips, Rechnung duplizieren
+- [x] Rechnungen: Status-Filterchips mit Zählern und Rechnung duplizieren (Detailansicht; die Vorlage
+      setzt das Symbol in jede Listenzeile) — `crates/ui/src/invoices.rs`, Beleg `rust-51`
 - [ ] Einkauf: Bestellung duplizieren, Bestell-KPIs, PDF/E-Mail-Druck
 - [x] **Kalender & Termine** sind portiert (`crates/ui/src/appointments.rs`, Schema v23, Beleg `rust-49`); offen bleiben Google-Sync, Browser-Druck und die mobilen Sheets
 - [x] **Tabellenkalkulation `table`** ist portiert (`crates/ui/src/table.rs`, Schema v22, Beleg `rust-48`); offen bleibt nur der in der Vorlage ungenutzte Vorlagen-Speicher
@@ -172,13 +173,37 @@ der Filter ist ein Substring der Szenen-ID.
 ## 6. Zahlen
 
 - 14 Einstellungs-Sektionen, 20 Launcher-Module (vollständig, `table` ist neu)
-- 2.748 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
+- 2.757 i18n-Keys je Sprache (de/en/fr/es), `catalogue-keys.json` generiert
 - `cargo test -p socdof-core --lib`: 440 Tests, 0 Fehler
-- `cargo test -p socdof-ui --lib`: 471 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
-- Telefon-Sweep: 1.448 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
-- `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-27)
-- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-50`
+- `cargo test -p socdof-ui --lib`: 473 Tests, 0 Fehler; `cargo test -p socdof-ui --test visual`: 2/2
+- Telefon-Sweep: 1.456 Fälle (360/390/412/432 px × Light/Dark) ohne Überlauf
+- `cargo fmt --check` und `cargo clippy --all-targets -D warnings` sauber (2026-11-28)
+- Belege: `docs/artifacts/gui-parity/rust-01`…`rust-51`
 - Verbindliche Modulübersicht für alle KIs: [`feature-status.md`](feature-status.md)
+
+## Rechnungen: Filterchips und Duplizieren (2026-11-28)
+
+Portiert aus `SOCDOF - TS/src/components/sales/InvoicesModule.tsx` (Filter-Tabs und
+`handleDuplicateInvoice`).
+
+- **UI** `crates/ui/src/invoices.rs`: sechs Status-Chips mit Zählern über der Liste (`Alle`,
+  `Entwurf`, `Offen`, `Bezahlt`, `Überfällig`, `Storniert` als `invoices_filter_*`); der Filter
+  wirkt auf die geladene Liste, die Suche bleibt kombinierbar. Ein Filter ohne Treffer zeigt den
+  Hinweis `invoices_filter_hint` statt des leeren Katalogs.
+- **Duplizieren**: `InvoicesState::duplicate` kopiert Kunde, Notiz und Positionen und setzt neue Id,
+  nächste freie Nummer aus dem gesamten Journal, heutiges Datum, 14 Tage Frist und den Status
+  `Entwurf`; `duplicate_selected` ist der Knopf der Detailansicht und meldet `invoices_duplicated`.
+  Speicher- und Validierungsfehler gehen über die vorhandenen `invoices_error_*`-Schlüssel.
+- **Verdrahtung**: 9 i18n-Keys in de/en/fr/es (Katalog **2.757**), neuer Sweep-Fall `invoices filter`
+  (leerer Filter auf Telefonbreite), Belege `rust-51-invoices-{light,dark}.png` (Vorschau-Szene
+  `invoices`, deutsche Liste mit Chips).
+- **Verifikation**: `cargo fmt -p socdof-ui -- --check`, clippy ui `-D warnings`, Core 440, UI
+  **473** (zwei neue Tests: `filters_the_list_by_status_through_the_chips`,
+  `duplicates_an_invoice_as_a_fresh_draft`), Visual 2 (Goldens neu erzeugt), Backoffice 4,
+  Telefon-Sweep **1.456** Fälle grün.
+- **Unterschied zur Vorlage**: die Vorlage hat drei Status und ein Duplizieren-Symbol je Zeile;
+  Rust kennt fünf Status (Chips) und bietet die Aktion in der Detailansicht an — dieselbe
+  Datenbankwirkung, ein Klick mehr.
 
 ## POS/Kasse (2026-11-27)
 

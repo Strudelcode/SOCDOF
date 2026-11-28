@@ -763,6 +763,11 @@ fn sweep_invoices(
             },
         );
     }
+    state.filter_status(Some(socdof_core::domain::invoice::InvoiceStatus::Overdue));
+    report.case("invoices filter", texts.get("invoices_title"), |ctx| {
+        crate::invoices::invoices(ctx, theme, texts, focus, &mut state, store, now);
+    });
+    state.filter_status(None);
     state.select(state.invoices[0].id);
     state.confirm_delete = true;
     report.case(

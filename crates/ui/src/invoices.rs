@@ -40,6 +40,15 @@ const DAY_MS: i64 = 24 * 60 * 60 * 1_000;
 /// Payment term of a new invoice.
 const DUE_DAYS: i64 = 14;
 
+/// Lifecycle states offered as list filter chips, in lifecycle order.
+const FILTER_STATUSES: [InvoiceStatus; 5] = [
+    InvoiceStatus::Draft,
+    InvoiceStatus::Sent,
+    InvoiceStatus::Paid,
+    InvoiceStatus::Overdue,
+    InvoiceStatus::Cancelled,
+];
+
 /// View currently shown by the invoices screen.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum InvoicesView {
@@ -287,6 +296,35 @@ fn status_tone(status: InvoiceStatus) -> Tone {
     }
 }
 
+fn status_filter_key(status: InvoiceStatus) -> &'static str {
+    match status {
+        InvoiceStatus::Draft => "invoices_filter_draft",
+        InvoiceStatus::Sent => "invoices_filter_sent",
+        InvoiceStatus::Paid => "invoices_filter_paid",
+        InvoiceStatus::Overdue => "invoices_filter_overdue",
+        InvoiceStatus::Cancelled => "invoices_filter_cancelled",
+    }
+}
+
+/// Draws one status chip with its count; the active chip uses the filled variant.
+fn status_chip(
+    ui: &mut egui::Ui,
+    theme: &Theme,
+    focus: &mut FocusState,
+    texts: &UiTexts,
+    key: &str,
+    count: usize,
+    selected: bool,
+) -> bool {
+    let label = format!("{} ({count})", texts.get(key));
+    let variant = if selected {
+        ButtonVariant::Secondary
+    } else {
+        ButtonVariant::Ghost
+    };
+    button(ui, theme, focus, label.as_str(), variant).activated
+}
+
 fn suggest_number(invoices: &[Invoice], now: i64) -> String {
     let (year, _, _) = date::civil_from_millis(now);
     let prefix = format!("{year}-");
@@ -316,6 +354,8 @@ fn draft_totals(draft: &InvoiceDraft) -> (Money, Money, Money) {
 pub struct InvoicesState {
     /// Search text; empty lists every invoice.
     pub query: String,
+    /// Status filter of the list; `None` shows every status.
+    pub status_filter: Option<InvoiceStatus>,
     /// Invoices matching the last loaded query.
     pub invoices: Vec<Invoice>,
     /// Customers selectable in the form.
@@ -350,6 +390,7 @@ impl Default for InvoicesState {
     fn default() -> Self {
         Self {
             query: String::new(),
+            status_filter: None,
             invoices: Vec::new(),
             contacts: Vec::new(),
             contact_labels: std::collections::HashMap::new(),
@@ -413,6 +454,30 @@ impl InvoicesState {
     pub fn select(&mut self, id: Uuid) {
         self.selected = Some(id);
         self.view = InvoicesView::Detail;
+    }
+
+    /// Sets the status chip of the list.
+    pub fn filter_status(&mut self, status: Option<InvoiceStatus>) {
+        self.status_filter = status;
+    }
+
+    /// Number of loaded invoices in the given status, printed on its chip.
+    pub fn status_count(&self, status: InvoiceStatus) -> usize {
+        self.invoices
+            .iter()
+            .filter(|invoice| invoice.status == status)
+            .count()
+    }
+
+    /// Loaded invoices passing the status filter, in store order.
+    pub fn visible_invoices(&self) -> Vec<&Invoice> {
+        self.invoices
+            .iter()
+            .filter(|invoice| {
+                self.status_filter
+                    .map_or(true, |status| invoice.status == status)
+            })
+            .collect()
     }
 
     /// Opens an empty form with the next number and the first customer.
@@ -498,6 +563,46 @@ impl InvoicesState {
         self.confirm_delete = false;
         self.error = None;
         self.status = Some("invoices_deleted");
+        self.reload = true;
+        self.refresh(store)?;
+        Ok(())
+    }
+
+    /// Stores the selected invoice again as a fresh draft with the next free number.
+    pub fn duplicate_selected(&mut self, store: &Store, now: i64) -> socdof_core::CoreResult<()> {
+        let Some(invoice) = self.current().cloned() else {
+            return Ok(());
+        };
+        self.duplicate(&invoice, store, now)
+    }
+
+    /// Copies an invoice into a new draft: same customer, note and positions, but a new id, the
+    /// next free number, fresh dates and the draft status.
+    pub fn duplicate(
+        &mut self,
+        invoice: &Invoice,
+        store: &Store,
+        now: i64,
+    ) -> socdof_core::CoreResult<()> {
+        let mut copy = invoice.clone();
+        copy.id = Uuid::new_v4();
+        // The reference takes the number from the whole journal, not from the filtered list.
+        copy.number = suggest_number(&store.list_invoices()?, now);
+        copy.issued_at = now;
+        copy.due_at = now + DUE_DAYS * DAY_MS;
+        copy.status = InvoiceStatus::Draft;
+
+        if let Err(code) = copy.validate() {
+            self.error = Some(validation_key(&code));
+            self.status = None;
+            return Ok(());
+        }
+        store.insert_invoice(&copy)?;
+
+        self.selected = Some(copy.id);
+        self.view = InvoicesView::Detail;
+        self.error = None;
+        self.status = Some("invoices_duplicated");
         self.reload = true;
         self.refresh(store)?;
         Ok(())
@@ -872,6 +977,37 @@ fn list_view(
     messages(ui, theme, texts, state);
     ui.add_space(6.0);
 
+    // Status chips with their counts, as in the filter tabs of the reference list.
+    ui.horizontal_wrapped(|ui| {
+        let all = state.invoices.len();
+        if status_chip(
+            ui,
+            theme,
+            focus,
+            texts,
+            "invoices_filter_all",
+            all,
+            state.status_filter.is_none(),
+        ) {
+            state.filter_status(None);
+        }
+        for status in FILTER_STATUSES {
+            let count = state.status_count(status);
+            if status_chip(
+                ui,
+                theme,
+                focus,
+                texts,
+                status_filter_key(status),
+                count,
+                state.status_filter == Some(status),
+            ) {
+                state.filter_status(Some(status));
+            }
+        }
+    });
+    ui.add_space(4.0);
+
     let mut create = false;
     let mut templates = false;
     // "Vorlagen" and "Neue Rechnung" kept 310 px next to the search field; on phones below the
@@ -952,17 +1088,20 @@ fn list_view(
         return;
     }
 
+    let visible = state.visible_invoices();
     ui.add_space(12.0);
-    if state.invoices.is_empty() {
+    if visible.is_empty() {
+        let filtering = state.status_filter.is_some();
         let searching = !state.query.trim().is_empty();
         card(ui, theme, |ui| {
-            if searching {
-                empty_state(
-                    ui,
-                    theme,
-                    texts.get("invoices_no_results"),
-                    texts.get("invoices_no_results_hint"),
-                );
+            if searching || filtering {
+                // Search or chip without matches: the hint names the way out of the filter.
+                let hint = if filtering {
+                    "invoices_filter_hint"
+                } else {
+                    "invoices_no_results_hint"
+                };
+                empty_state(ui, theme, texts.get("invoices_no_results"), texts.get(hint));
             } else {
                 empty_state(
                     ui,
@@ -1019,10 +1158,10 @@ fn list_view(
             .show_rows(
                 ui,
                 if stacked { 62.0 } else { TABLE_ROW_HEIGHT },
-                state.invoices.len(),
+                visible.len(),
                 |ui, range| {
                     ui.spacing_mut().item_spacing.x = gap;
-                    for invoice in &state.invoices[range] {
+                    for invoice in &visible[range] {
                         let customer = state
                             .contact_labels
                             .get(&invoice.contact_id)
@@ -1236,6 +1375,7 @@ fn detail_view(
     ui.add_space(12.0);
     let mut mark = None;
     let mut edit = false;
+    let mut duplicate = false;
     let mut delete = false;
     let mut dunning = false;
     let mut mail = false;
@@ -1377,6 +1517,17 @@ fn detail_view(
             ui,
             theme,
             focus,
+            texts.get("invoices_duplicate"),
+            ButtonVariant::Secondary,
+        )
+        .activated
+        {
+            duplicate = true;
+        }
+        if button(
+            ui,
+            theme,
+            focus,
             texts.get("invoices_delete"),
             ButtonVariant::Ghost,
         )
@@ -1404,6 +1555,9 @@ fn detail_view(
     }
     if edit {
         state.start_edit();
+    }
+    if duplicate && state.duplicate_selected(store, now).is_err() {
+        state.error = Some("invoices_error_save");
     }
     if delete {
         state.confirm_delete = true;
@@ -1892,5 +2046,68 @@ mod tests {
         assert_eq!(parse_percent_bp("19,00"), Some(1_900));
         assert_eq!(parse_percent_bp("19.001"), None);
         assert_eq!(parse_percent_bp("101"), None);
+    }
+
+    #[test]
+    fn filters_the_list_by_status_through_the_chips() {
+        let (store, mut state, texts) = seeded();
+        assert_eq!(state.status_count(InvoiceStatus::Sent), 1);
+        assert_eq!(state.status_count(InvoiceStatus::Draft), 1);
+        assert_eq!(state.status_count(InvoiceStatus::Paid), 1);
+        assert_eq!(state.status_count(InvoiceStatus::Overdue), 0);
+        assert_eq!(state.visible_invoices().len(), 3);
+
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(&format!("{} (3)", texts.get("invoices_filter_all"))));
+        assert!(painted.contains(&format!("{} (1)", texts.get("invoices_filter_paid"))));
+
+        state.filter_status(Some(InvoiceStatus::Paid));
+        let visible = state.visible_invoices();
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].status, InvoiceStatus::Paid);
+
+        state.filter_status(Some(InvoiceStatus::Overdue));
+        assert!(state.visible_invoices().is_empty());
+        let painted = render(&mut state, &store);
+        assert!(painted.contains(texts.get("invoices_filter_hint")));
+
+        state.filter_status(None);
+        assert_eq!(state.visible_invoices().len(), 3);
+    }
+
+    #[test]
+    fn duplicates_an_invoice_as_a_fresh_draft() {
+        let (store, mut state, _texts) = seeded();
+        let original = state
+            .invoices
+            .iter()
+            .find(|invoice| invoice.status == InvoiceStatus::Sent)
+            .cloned()
+            .expect("sent invoice");
+
+        state
+            .duplicate(&original, &store, SAMPLE_NOW_MS)
+            .expect("duplicate");
+
+        assert!(state.error.is_none());
+        assert_eq!(state.status, Some("invoices_duplicated"));
+        assert_eq!(state.view, InvoicesView::Detail);
+        let copy = state.current().cloned().expect("selected copy");
+        assert_ne!(copy.id, original.id);
+        assert_eq!(copy.number, "2026-0004");
+        assert_eq!(copy.status, InvoiceStatus::Draft);
+        assert_eq!(copy.contact_id, original.contact_id);
+        assert_eq!(copy.note, original.note);
+        assert_eq!(copy.lines, original.lines);
+        assert_eq!(copy.issued_at, SAMPLE_NOW_MS);
+        assert_eq!(copy.due_at, SAMPLE_NOW_MS + DUE_DAYS * DAY_MS);
+        assert_eq!(store.invoice_count().expect("count"), 4);
+
+        // The next duplicate takes the following free number from the whole journal.
+        state
+            .duplicate(&copy, &store, SAMPLE_NOW_MS + 1)
+            .expect("second duplicate");
+        assert_eq!(state.current().expect("copy").number, "2026-0005");
+        assert_eq!(store.invoice_count().expect("count"), 5);
     }
 }

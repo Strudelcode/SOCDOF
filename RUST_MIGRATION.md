@@ -3089,3 +3089,37 @@ replaces `window.print()` with the text export; a paid invoice is created only w
 selected, while the reference falls back to contact 1 (otherwise Rust books the receipt alone). The
 reference's `window.print()` for receipts has no desktop counterpart either; the existing PDF receipt
 covers handover.
+
+## 16.30 Invoice list filters and duplicate (2026-11-28)
+
+`InvoicesModule.tsx` filters the journal through four status tabs (`invoice.filter_all`,
+`filter_draft`, `filter_posted`, `filter_paid`) and offers `handleDuplicateInvoice` next to every
+row. Both behaviours are now in the Rust screen; the duplicate button sits in the detail view
+because the virtualised list has no per-row action column (same database effect, one extra click).
+
+**UI** `crates/ui/src/invoices.rs`:
+- `InvoicesState::status_filter`, `filter_status`, `status_count` and `visible_invoices`; the list
+  renders six chips (`invoices_filter_*`) with their counts above the search row. Search and chip
+  combine, and an empty chip selection shows `invoices_filter_hint` instead of the catalogue empty
+  state.
+- `InvoicesState::duplicate` copies customer, note, positions and the tax override, then assigns a
+  new id, the next free number of the whole journal (`suggest_number` over `Store::list_invoices`),
+  the current date, a 14-day due date and `InvoiceStatus::Draft`. Validation runs before the insert,
+  so a broken copy never reaches SQLite. `duplicate_selected` is the detail-view button.
+- The detail action row gains `invoices_duplicate`; the success badge `invoices_duplicated` confirms
+  the new draft.
+
+**Wiring:** 9 i18n keys in de/en/fr/es (`invoices_filter_all`, `_cancelled`, `_draft`, `_hint`,
+`_overdue`, `_paid`, `_sent`, `invoices_duplicate`, `invoices_duplicated`; catalogue 2,757) and one
+new phone sweep case (`invoices filter`, empty filter on phone widths).
+
+**Verification:** `cargo fmt -p socdof-ui -- --check`, clippy ui `-D warnings`, core 440, UI 473
+(`filters_the_list_by_status_through_the_chips`, `duplicates_an_invoice_as_a_fresh_draft`), visual 2
+with regenerated goldens, backoffice 4 and the phone sweep with 1,456 cases at 360/390/412/432 px in
+both appearances, no overflow.
+
+**Evidence:** `docs/artifacts/gui-parity/rust-51-invoices-{light,dark}.png`.
+
+**Difference to the reference:** the reference knows three statuses, Rust five, so the chip row lists
+five statuses plus "all". The row-level duplicate icon of the reference is the detail-view button
+here; the created draft is identical (new number, today, 14 days, status draft).
